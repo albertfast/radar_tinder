@@ -43,6 +43,8 @@ import { RadarAnimation } from '../components/RadarAnimation';
 import RadarMap from '../components/RadarMap';
 import { RadarLocation } from '../types';
 import { BlurView } from 'expo-blur';
+import { useSettingsStore } from '../store/settingsStore';
+import { formatDistance, formatSpeed } from '../utils/format';
 
 const { width, height } = Dimensions.get('window');
 
@@ -102,6 +104,7 @@ const OptimizedMarker = React.memo(({ coordinate, type, speedLimit }: any) => {
 
 const RadarScreen = ({ navigation, route }: any) => {
   const { user } = useAuthStore();
+  const { unitSystem } = useSettingsStore();
   const setRadarLocations = useRadarStore((state) => state.setRadarLocations);
   const mapRef = useRef<MapView>(null);
 
@@ -248,7 +251,13 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   const handleTextChange = (text: string) => {
       setDestination(text);
+      setDestination(text);
       if (autocompleteTimer.current) clearTimeout(autocompleteTimer.current);
+      
+      if (text.length === 0) {
+          setSuggestions([]);
+          return;
+      }
       
       autocompleteTimer.current = setTimeout(async () => {
           if (text.length > 2) {
@@ -383,8 +392,8 @@ const RadarScreen = ({ navigation, route }: any) => {
                       <View style={styles.basicContainer}>
                           {/* HUD Speedometer */}
                           <View style={styles.hudCircle}>
-                              <Text style={styles.speedText}>{Math.round(currentSpeed)}</Text>
-                              <Text style={styles.unitText}>MPH</Text>
+                              <Text style={styles.speedText}>{formatSpeed(currentSpeed, unitSystem).split(' ')[0]}</Text>
+                              <Text style={styles.unitText}>{formatSpeed(currentSpeed, unitSystem).split(' ')[1]}</Text>
                               <View style={[styles.ring, { borderColor: '#4ECDC4' }]} />
                               <View style={[styles.ring, { width: 230, height: 230, borderColor: 'rgba(78,205,196,0.3)', borderWidth: 1 }]} />
                           </View>
@@ -403,7 +412,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                           <Text style={styles.alertText}>
                                               {r.type === 'police' ? 'Police Spotted' : 'Speed Camera'}
                                           </Text>
-                                          <Text style={styles.alertDist}>{r.distance?.toFixed(1)} mi</Text>
+                                          <Text style={styles.alertDist}>{formatDistance(r.distance, unitSystem)}</Text>
                                       </View>
                                   ))
                               ) : (
@@ -442,6 +451,26 @@ const RadarScreen = ({ navigation, route }: any) => {
                                        >
                                            <Text style={{color: 'black', fontWeight: 'bold'}}>GO</Text>
                                        </TouchableOpacity>
+
+                                       {/* Clear/Exit Button */}
+                                       {(destination.length > 0 || isDriving) && (
+                                            <TouchableOpacity 
+                                                style={[styles.iconBtn, { backgroundColor: '#FF5252', padding: 12 }]} 
+                                                onPress={() => {
+                                                    setDestination('');
+                                                    setSuggestions([]);
+                                                    setRouteCoords([]);
+                                                    setIsDriving(false);
+                                                    setActiveTab('Basic');
+                                                    // Also clear focused radars
+                                                    setNearbyRadars([]); 
+                                                    // Trigger refetch of nearby
+                                                    RadarService.getNearbyRadars(currentLocation.latitude, currentLocation.longitude, 10).then(setNearbyRadars);
+                                                }}
+                                            >
+                                                <MaterialCommunityIcons name="close" size={24} color="white" />
+                                            </TouchableOpacity>
+                                       )}
 
                                        <TouchableOpacity 
                                             style={[styles.iconBtn, { backgroundColor: 'rgba(0,0,0,0.8)', padding: 12 }]} 
@@ -486,7 +515,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                           <Text style={{color:'white', fontSize: 20, marginBottom: 20}}>Trip Stats</Text>
                           <View style={{flexDirection: 'row', gap: 10}}>
                               <View style={[styles.statBox, {backgroundColor: '#1E293B'}]}>
-                                  <Text style={{color:'#4ECDC4', fontSize: 18, fontWeight: 'bold'}}>{totalDistance.toFixed(1)} Km</Text>
+                                  <Text style={{color:'#4ECDC4', fontSize: 18, fontWeight: 'bold'}}>{formatDistance(totalDistance, unitSystem)}</Text>
                                   <Text style={{color:'#aaa', fontSize: 12}}>Distance</Text>
                               </View>
                               <View style={[styles.statBox, {backgroundColor: '#1E293B'}]}>
@@ -690,7 +719,7 @@ const styles = StyleSheet.create({
 
   statBox: { flex: 1, padding: 20, borderRadius: 20, alignItems: 'center' },
 
-  fab: { position: 'absolute', right: 20, bottom: 30, backgroundColor: '#FF5252', width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 10 },
+  fab: { position: 'absolute', left: 20, bottom: 85, backgroundColor: '#FF5252', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 10, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity:0.3, shadowRadius:4 },
   reportSheet: { backgroundColor: '#1E293B', padding: 30, borderTopLeftRadius: 30, borderTopRightRadius: 30 },
   sheetTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
   reportIconBig: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center' },
