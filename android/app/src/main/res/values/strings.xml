@@ -1,0 +1,4 @@
+<resources>
+  <string name="app_name">Radar Detector</string>
+  <string name="expo_runtime_version">exposdk:51.0.0</string>
+</resources>

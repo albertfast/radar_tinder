@@ -1,0 +1,100 @@
+{
+  "expo": {
+    "name": "Radar Detector",
+    "slug": "radar-detector",
+    "scheme": "radartinder",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.radardetector.app",
+      "buildNumber": "1",
+      "config": {
+        "googleMapsApiKey": "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to location to detect nearby radars and provide accurate alerts.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs background location access to provide continuous radar detection even when the app is not active.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ],
+        "NSCameraUsageDescription": "This app needs camera access for the AR Radar view.",
+        "NSMicrophoneUsageDescription": "This app needs microphone access for AI car diagnosis voice input."
+      }
+    },
+    "android": {
+      "package": "com.radardetector.app",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "NOTIFICATIONS",
+        "WAKE_LOCK",
+        "RECEIVE_BOOT_COMPLETED",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "ACCESS_NETWORK_STATE",
+        "INTERNET",
+        "SYSTEM_ALERT_WINDOW",
+        "CAMERA",
+        "RECORD_AUDIO"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
+        }
+      }
+    },
+    "web": {
+      "name": "Radar Detector",
+      "shortName": "Radar",
+      "lang": "en",
+      "scope": "./",
+      "themeColor": "#FF6B35"
+    },
+    "plugins": [
+      "expo-location",
+      "expo-notifications",
+      "expo-task-manager",
+
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "darkModeBackgroundColor": "#000000",
+          "image": "./assets/splash.png",
+          "imageWidth": 200,
+          "resizeMode": "contain"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "radar-detector-app"
+      }
+    },
+    "owner": "radardetector",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "enabled": true,
+      "fallbackToCacheTimeout": 0
+    }
+  }
+}

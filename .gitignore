@@ -1,0 +1,47 @@
+node_modules/
+.expo/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.DS_Store
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+*.rej
+
+# Python / AI Models
+modelx/.venv
+modelx/__pycache__/
+*.pyc
+.pytest_cache/
+*.pth
+*.pt
+!modelx/models/*.pth
+
+# OS
+.idea/
+.vscode/
+
+# Android
+android/app/build/
+android/.gradle/
+android/app/src/main/assets/
+android/app/build
+android/build
+build/
+
+# iOS
+ios/Pods/
+ios/build/
+ios/*.xcworkspace
+ios/*.xcodeproj/project.xcworkspace
+ios/*.xcodeproj/xcuserdata
