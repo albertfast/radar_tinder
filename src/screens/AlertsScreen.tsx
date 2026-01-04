@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { Text, Surface, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
+const allowLayoutAnimations = Platform.OS !== 'android';
 
 const AlertCard3D = ({ alert, index }: any) => {
   const offset = useSharedValue(50);
@@ -132,9 +133,9 @@ const AlertsScreen = ({ navigation }: any) => {
         <Text style={[styles.sectionTitle, { marginTop: 30 }]}>Alert History</Text>
         
         {historyAlerts.map((alert, index) => (
-          <Animated.View 
-            key={alert.id} 
-            entering={FadeInUp.delay(300 + (index * 100))}
+          <Animated.View
+            key={alert.id}
+            entering={allowLayoutAnimations ? FadeInUp.delay(300 + (index * 100)) : undefined}
           >
             <Surface style={styles.historyCard} elevation={1}>
               <View style={styles.historyIcon}>

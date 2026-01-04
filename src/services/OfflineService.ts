@@ -4,6 +4,7 @@ import { DatabaseService } from './DatabaseService';
 export class OfflineService {
   private static isOnline: boolean = true;
   private static syncQueue: Array<{ type: string; data: any }> = [];
+  private static isCachingRadarLocations = false;
 
   static async init(): Promise<void> {
     try {
@@ -96,12 +97,16 @@ export class OfflineService {
 
   static async cacheRadarLocations(locations: RadarLocation[]): Promise<void> {
     try {
+      if (this.isCachingRadarLocations) return;
+      this.isCachingRadarLocations = true;
       const cacheKey = 'radar_locations';
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
       
       await this.cacheData(cacheKey, locations, expiresAt);
     } catch (error) {
       console.error('Error caching radar locations:', error);
+    } finally {
+      this.isCachingRadarLocations = false;
     }
   }
 

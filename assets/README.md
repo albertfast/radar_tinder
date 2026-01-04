@@ -1,6 +1,6 @@
 # App Assets
 
-This directory contains all the visual assets for the Radar Detector app.
+This directory contains all the visual assets for the Radar Tinder app.
 
 ## Required Assets
 

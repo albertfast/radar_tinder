@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { 
   View, 
   StyleSheet, 
   Alert, 
   KeyboardAvoidingView, 
+  Keyboard,
   Platform, 
   TouchableOpacity, 
   Dimensions,
@@ -26,16 +27,18 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
 import { SupabaseService } from '../services/SupabaseService';
 import { BlurView } from 'expo-blur';
+import { logError, logInfo } from '../utils/logger';
 
 const { width, height } = Dimensions.get('window');
-const NUM_STARS = 40;
+const NUM_STARS = 22;
+const allowLayoutAnimations = Platform.OS !== 'android';
 
 // --- Warp Speed / Starfield Animation ---
 // Simulates "fast moving objects" passing behind the matte components
-const Star = ({ index }: { index: number }) => {
-  const randomX = Math.random() * width;
-  const randomDelay = Math.random() * 2000;
-  const size = Math.random() * 3 + 1;
+const Star = React.memo(() => {
+  const randomX = useMemo(() => Math.random() * width, []);
+  const randomDelay = useMemo(() => Math.random() * 2000, []);
+  const size = useMemo(() => Math.random() * 3 + 1, []);
   
   const translateY = useSharedValue(-100);
   const opacity = useSharedValue(0);
@@ -44,7 +47,7 @@ const Star = ({ index }: { index: number }) => {
     translateY.value = withDelay(
         randomDelay,
         withRepeat(
-            withTiming(height + 100, { duration: 800 + Math.random() * 1000, easing: Easing.linear }),
+            withTiming(height + 120, { duration: 1600 + Math.random() * 1400, easing: Easing.linear }),
             -1,
             false // Don't reverse, just loop from top
         )
@@ -53,9 +56,9 @@ const Star = ({ index }: { index: number }) => {
         randomDelay,
         withRepeat(
             withSequence(
-                withTiming(0.8, { duration: 200 }),
-                withTiming(0.2, { duration: 600 }),
-                withTiming(0, { duration: 200 })
+                withTiming(0.6, { duration: 300 }),
+                withTiming(0.25, { duration: 800 }),
+                withTiming(0, { duration: 300 })
             ),
             -1,
             false
@@ -72,32 +75,32 @@ const Star = ({ index }: { index: number }) => {
 
   return (
     <Animated.View
-        style={[
-            styles.star,
-            {
-                left: randomX,
-                width: size,
-                height: size * 15, // Streaked look
-            },
-            animatedStyle
-        ]}
+      style={[
+        styles.star,
+        {
+          left: randomX,
+          width: size,
+          height: size * 10, // Streaked look
+        },
+        animatedStyle
+      ]}
     />
   );
-};
+});
 
-const WarpSpeedBackground = () => {
+const WarpSpeedBackground = React.memo(() => {
     return (
-        <View style={StyleSheet.absoluteFill}>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
              <LinearGradient
                 colors={['#0F172A', '#020617']}
                 style={StyleSheet.absoluteFill}
             />
             {Array.from({ length: NUM_STARS }).map((_, i) => (
-                <Star key={i} index={i} />
+                <Star key={i} />
             ))}
         </View>
     );
-};
+});
 
 
 const LoginScreen = ({ navigation }: any) => {
@@ -106,6 +109,22 @@ const LoginScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(false);
   const signIn = useAuthStore((state) => state.signIn);
   const signUp = useAuthStore((state) => state.signUp);
+  const passwordInputRef = useRef<NativeTextInput>(null);
+
+  useEffect(() => {
+    logInfo('Login screen mounted');
+    const showSub = Keyboard.addListener('keyboardDidShow', (event) => {
+      logInfo('Keyboard shown', { height: event.endCoordinates?.height });
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      logInfo('Keyboard hidden');
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+      logInfo('Login screen unmounted');
+    };
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -114,6 +133,7 @@ const LoginScreen = ({ navigation }: any) => {
     }
 
     setLoading(true);
+    logInfo('Login attempt', { adminShortcut: email === 'albertfast' });
     try {
       if (email === 'albertfast' && password === 'cba321') {
         const adminEmail = 'albertfast@admin.com';
@@ -141,11 +161,14 @@ const LoginScreen = ({ navigation }: any) => {
                 level: 100
             });
         }
+        logInfo('Login success (admin)');
       } else {
         const { error } = await signIn(email, password);
         if (error) throw error;
+        logInfo('Login success');
       }
     } catch (error: any) {
+      logError('Login failed', { message: error?.message });
       Alert.alert('Login Failed', error.message || 'Check your credentials.');
     } finally {
       setLoading(false);
@@ -156,19 +179,30 @@ const LoginScreen = ({ navigation }: any) => {
     Alert.alert('Coming Soon', 'Google Login is currently being configured.');
   };
 
+  const handleEmailFocus = () => logInfo('Email input focus');
+  const handleEmailBlur = () => logInfo('Email input blur');
+  const handlePasswordFocus = () => logInfo('Password input focus');
+  const handlePasswordBlur = () => logInfo('Password input blur');
+
+  const keyboardProps = Platform.OS === 'ios' ? { behavior: 'padding' as const } : {};
+  const KeyboardContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
+
   return (
     <View style={styles.container}>
       <WarpSpeedBackground />
 
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <KeyboardContainer
+        {...keyboardProps}
         style={styles.keyboardView}
       >
-        <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.content}>
+        <Animated.View
+          entering={allowLayoutAnimations ? FadeInDown.delay(100).springify() : undefined}
+          style={styles.content}
+        >
           
           {/* Logo / Header */}
           <View style={styles.header}>
-             <Animated.View entering={FadeInUp.delay(300).springify()}>
+             <Animated.View entering={allowLayoutAnimations ? FadeInUp.delay(300).springify() : undefined}>
                 <View style={styles.logoContainer}>
                     <MaterialCommunityIcons name="radar" size={48} color="#FF6B6B" />
                 </View>
@@ -189,6 +223,13 @@ const LoginScreen = ({ navigation }: any) => {
                     onChangeText={setEmail}
                     autoCapitalize="none"
                     keyboardType="email-address"
+                    autoCorrect={false}
+                    autoComplete="email"
+                    blurOnSubmit={false}
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordInputRef.current?.focus()}
+                    onFocus={handleEmailFocus}
+                    onBlur={handleEmailBlur}
                 />
             </View>
 
@@ -201,6 +242,13 @@ const LoginScreen = ({ navigation }: any) => {
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry
+                    autoCorrect={false}
+                    autoComplete="password"
+                    returnKeyType="done"
+                    ref={passwordInputRef}
+                    onSubmitEditing={handleLogin}
+                    onFocus={handlePasswordFocus}
+                    onBlur={handlePasswordBlur}
                 />
             </View>
 
@@ -253,7 +301,7 @@ const LoginScreen = ({ navigation }: any) => {
           </View>
 
         </Animated.View>
-      </KeyboardAvoidingView>
+      </KeyboardContainer>
     </View>
   );
 };

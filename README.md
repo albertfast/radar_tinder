@@ -1,4 +1,4 @@
-# Radar Detector App
+# Radar Tinder App
 
 A professional radar detection mobile application built with Expo React Native and TypeScript.
 

@@ -577,7 +577,9 @@ const RadarScreen = ({ navigation, route }: any) => {
               <MaterialCommunityIcons name="menu" size={28} color="#F8FAFC" />
           </TouchableOpacity>
           
-          <Text style={styles.appName}>RADAR<Text style={{color: '#FF5252'}}>T</Text></Text>
+          <Text style={styles.appName}>
+            RADAR <Text style={{ color: '#FF5252' }}>TINDER</Text>
+          </Text>
           
           <View style={styles.headerRight}>
               <TouchableOpacity onPress={() => navigation.navigate('Alerts')} style={styles.iconBtn}>

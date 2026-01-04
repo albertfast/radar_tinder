@@ -11,6 +11,7 @@ import { BlurView } from 'expo-blur';
 
 const Drawer = createDrawerNavigator();
 const { width } = Dimensions.get('window');
+const allowLayoutAnimations = Platform.OS !== 'android';
 
 const CustomDrawerContent = (props: any) => {
   const { user, logout } = useAuthStore();
@@ -45,7 +46,7 @@ const CustomDrawerContent = (props: any) => {
                 style={styles.profileHeader}
                 onPress={() => props.navigation.navigate('Profile')}
              >
-                <Animated.View entering={FadeInDown.delay(200)}>
+                <Animated.View entering={allowLayoutAnimations ? FadeInDown.delay(200) : undefined}>
                      <View style={styles.avatarContainer}>
                          {user?.profileImage ? (
                              <Avatar.Image source={{ uri: user.profileImage }} size={70} />
@@ -76,7 +77,7 @@ const CustomDrawerContent = (props: any) => {
 
              {/* Vehicle Card Mini */}
              {user?.carDetails && (
-                 <Animated.View entering={FadeInLeft.delay(300)} style={styles.vehicleCard}>
+                 <Animated.View entering={allowLayoutAnimations ? FadeInLeft.delay(300) : undefined} style={styles.vehicleCard}>
                      <MaterialCommunityIcons name="car-sports" size={28} color="#FF5252" />
                      <View style={{marginLeft: 12}}>
                          <Text style={styles.vehicleName}>{user.carDetails.brand} {user.carDetails.model}</Text>
@@ -90,7 +91,7 @@ const CustomDrawerContent = (props: any) => {
             <View style={styles.menuSection}>
                 <Text style={styles.sectionHeader}>NAVIGATION</Text>
                 {menuItems.map((item, index) => (
-                    <Animated.View key={item.label} entering={FadeInLeft.delay(400 + (index * 50))}>
+                    <Animated.View key={item.label} entering={allowLayoutAnimations ? FadeInLeft.delay(400 + (index * 50)) : undefined}>
                         <TouchableOpacity 
                             style={styles.menuItem} 
                             onPress={() => props.navigation.navigate(item.screen)}

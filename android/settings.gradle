@@ -44,7 +44,7 @@ if (getRNMinorVersion() >= 75) {
   }
 }
 
-rootProject.name = 'Radar Detector'
+rootProject.name = 'Radar Tinder'
 
 dependencyResolutionManagement {
   versionCatalogs {

@@ -17,6 +17,7 @@
     "@react-navigation/native-stack": "^6.9.26",
     "@supabase/supabase-js": "^2.89.0",
     "@tanstack/react-query": "^5.28.9",
+    "eas-cli": "^16.28.0",
     "expo": "~51.0.39",
     "expo-asset": "~10.0.0",
     "expo-av": "~14.0.5",

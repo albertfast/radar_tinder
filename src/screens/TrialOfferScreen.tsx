@@ -24,6 +24,7 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
+const allowLayoutAnimations = Platform.OS !== 'android';
 
 const FEATURES = [
   {
@@ -154,9 +155,9 @@ const TrialOfferScreen = ({ navigation }: any) => {
 
   const renderItem = ({ item }: any) => (
     <View style={styles.slide}>
-      <Animated.View 
+      <Animated.View
         style={[styles.iconContainer, { shadowColor: item.color }]}
-        entering={FadeInDown.springify()}
+        entering={allowLayoutAnimations ? FadeInDown.springify() : undefined}
       >
         <MaterialCommunityIcons name={item.icon} size={80} color={item.color} />
       </Animated.View>
@@ -172,7 +173,7 @@ const TrialOfferScreen = ({ navigation }: any) => {
       <SafeAreaView style={styles.content}>
         
         {/* Header */}
-        <Animated.View entering={FadeInDown.delay(200)} style={styles.header}>
+        <Animated.View entering={allowLayoutAnimations ? FadeInDown.delay(200) : undefined} style={styles.header}>
             <View style={styles.brandContainer}>
                 <MaterialCommunityIcons name="radar" size={24} color="#FF5252" />
                 <Text style={styles.appName}>RADAR TINDER</Text>
@@ -215,7 +216,10 @@ const TrialOfferScreen = ({ navigation }: any) => {
         </View>
 
         {/* Action Card */}
-        <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.footer}>
+        <Animated.View
+          entering={allowLayoutAnimations ? FadeInDown.delay(400).springify() : undefined}
+          style={styles.footer}
+        >
             <LinearGradient
                 colors={['rgba(30,30,30,0.9)', 'rgba(10,10,10,0.95)']}
                 style={styles.offerCard}

@@ -1,21 +1,39 @@
-import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { View, StyleSheet, Dimensions, Platform, UIManager } from 'react-native';
 import LottieView from 'lottie-react-native';
+import Radar3DView from './Radar3DView';
+import { logInfo } from '../utils/logger';
 
 const { width } = Dimensions.get('window');
 const SIZE = width * 0.8;
 
 export const RadarAnimation = () => {
+  const canUseRadar3D = useMemo(() => {
+    if (Platform.OS !== 'android') return false;
+    return !!UIManager.getViewManagerConfig?.('Radar3DView');
+  }, []);
+
+  useEffect(() => {
+    if (canUseRadar3D) {
+      logInfo('Radar3DView active');
+    }
+  }, [canUseRadar3D]);
+
   return (
     <View style={styles.container}>
-      <LottieView
-        source={{ uri: 'https://assets9.lottiefiles.com/packages/lf20_6p8vun.json' }} // Radar scanning animation
-        autoPlay
-        loop
-        style={styles.lottie}
-      />
-      {/* Overlay a subtle glow or center dot if needed */}
-      <View style={styles.centerDot} />
+      {canUseRadar3D ? (
+        <Radar3DView style={styles.glView} />
+      ) : (
+        <>
+          <LottieView
+            source={{ uri: 'https://assets9.lottiefiles.com/packages/lf20_6p8vun.json' }}
+            autoPlay
+            loop
+            style={styles.lottie}
+          />
+          <View style={styles.centerDot} />
+        </>
+      )}
     </View>
   );
 };
@@ -30,6 +48,11 @@ const styles = StyleSheet.create({
   lottie: {
     width: SIZE,
     height: SIZE,
+  },
+  glView: {
+    width: SIZE,
+    height: SIZE,
+    backgroundColor: 'transparent',
   },
   centerDot: {
     position: 'absolute',

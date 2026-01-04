@@ -11,7 +11,7 @@ module.exports = (() => {
   };
   config.resolver = {
     ...resolver,
-    assetExts: [...resolver.assetExts.filter((ext) => ext !== 'svg'), 'onnx'],
+    assetExts: [...resolver.assetExts.filter((ext) => ext !== 'svg'), 'onnx', 'data'],
     sourceExts: [...resolver.sourceExts, 'svg'],
     blockList: [
       // Exclude the huge modelx python environment and .git folder

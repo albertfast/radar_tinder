@@ -1,6 +1,6 @@
 # App Store Submission Preparation
 
-This guide will help you prepare the Radar Detector app for submission to the Apple App Store and Google Play Store.
+This guide will help you prepare the Radar Tinder app for submission to the Apple App Store and Google Play Store.
 
 ## Prerequisites
 
@@ -26,14 +26,14 @@ This guide will help you prepare the Radar Detector app for submission to the Ap
 ### Apple App Store
 
 #### App Information
-- **App Name**: Radar Detector
+- **App Name**: Radar Tinder
 - **Subtitle**: Real-time radar detection alerts
 - **Category**: Navigation or Utilities
 - **Age Rating**: 4+ (Contains no objectionable material)
 
 #### Description
 ```
-Radar Detector is your ultimate companion for safe driving. Get real-time alerts about nearby radar locations, speed cameras, and traffic enforcement devices.
+Radar Tinder is your ultimate companion for safe driving. Get real-time alerts about nearby radar locations, speed cameras, and traffic enforcement devices.
 
 KEY FEATURES:
 • Real-time radar detection with GPS tracking
@@ -54,7 +54,7 @@ Free: Basic detection with 5km range
 Premium: Extended 10km range and advanced features
 Pro: Unlimited range with all premium features
 
-Download Radar Detector today and drive with confidence!
+Download Radar Tinder today and drive with confidence!
 
 Note: This app is intended for informational purposes. Users must comply with local laws regarding radar detection devices.
 ```
@@ -67,7 +67,7 @@ radar detector, speed camera, traffic camera, police radar, driving safety, navi
 ### Google Play Store
 
 #### App Details
-- **Title**: Radar Detector
+- **Title**: Radar Tinder
 - **Short Description**: Real-time radar detection and alerts
 - **Full Description**: (Same as App Store description)
 - **Category**: Maps & Navigation or Tools

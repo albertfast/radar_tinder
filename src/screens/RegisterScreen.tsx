@@ -16,6 +16,7 @@ import { useAuthStore } from '../store/authStore';
 import { BlurView } from 'expo-blur';
 
 const { width } = Dimensions.get('window');
+const allowLayoutAnimations = Platform.OS !== 'android';
 
 const RegisterScreen = ({ navigation }: any) => {
   const { signUp, isLoading } = useAuthStore();
@@ -56,6 +57,9 @@ const RegisterScreen = ({ navigation }: any) => {
 
   const isWorking = isLoading || loadingLocal;
 
+  const keyboardProps = Platform.OS === 'ios' ? { behavior: 'padding' as const } : {};
+  const KeyboardContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -68,14 +72,17 @@ const RegisterScreen = ({ navigation }: any) => {
       {/* Decorative gradient orb */}
       <View style={styles.orb} />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <KeyboardContainer
+        {...keyboardProps}
         style={styles.keyboardView}
       >
-        <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.content}>
+        <Animated.View
+          entering={allowLayoutAnimations ? FadeInDown.delay(200).springify() : undefined}
+          style={styles.content}
+        >
           
           <View style={styles.header}>
-            <Animated.View entering={FadeInUp.delay(400).springify()}>
+            <Animated.View entering={allowLayoutAnimations ? FadeInUp.delay(400).springify() : undefined}>
                 <MaterialCommunityIcons name="shield-account" size={60} color="#6C63FF" />
             </Animated.View>
             <Text style={styles.title}>Create Account</Text>
@@ -164,7 +171,7 @@ const RegisterScreen = ({ navigation }: any) => {
           </View>
 
         </Animated.View>
-      </KeyboardAvoidingView>
+      </KeyboardContainer>
     </View>
   );
 };

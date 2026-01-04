@@ -1,9 +1,10 @@
 {
   "expo": {
-    "name": "Radar Detector",
-    "slug": "radar-detector",
+    "name": "Radar Tinder",
     "scheme": "radartinder",
-    "version": "1.0.0",
+    "slug": "radar-tinder",
+    "version": "1.0.1",
+    "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": [
@@ -11,7 +12,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.radardetector.app",
+      "bundleIdentifier": "com.radartinder.app",
       "buildNumber": "1",
       "config": {
         "googleMapsApiKey": "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
@@ -28,8 +29,12 @@
       }
     },
     "android": {
-      "package": "com.radardetector.app",
+      "package": "com.radartinder.app",
       "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B0F1A"
+      },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -43,7 +48,9 @@
         "INTERNET",
         "SYSTEM_ALERT_WINDOW",
         "CAMERA",
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "config": {
         "googleMaps": {
@@ -52,17 +59,17 @@
       }
     },
     "web": {
-      "name": "Radar Detector",
-      "shortName": "Radar",
+      "name": "Radar Tinder",
+      "shortName": "Radar Tinder",
       "lang": "en",
       "scope": "./",
-      "themeColor": "#FF6B35"
+      "themeColor": "#FF6B35",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-location",
       "expo-notifications",
       "expo-task-manager",
-
       "expo-secure-store",
       [
         "expo-build-properties",
@@ -85,13 +92,11 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "radar-detector-app"
+        "projectId": "62bbc6f8-257a-48e8-adb8-0b80558e3e92"
       }
     },
-    "owner": "radardetector",
-    "runtimeVersion": {
-      "policy": "sdkVersion"
-    },
+    "owner": "albertfast",
+    "runtimeVersion": "1.0.1",
     "updates": {
       "enabled": true,
       "fallbackToCacheTimeout": 0

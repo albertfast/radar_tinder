@@ -32,14 +32,24 @@ export class AIService {
     try {
       const asset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx'));
       await asset.downloadAsync();
-      
-      // Copy to a known location if needed, but asset.localUri should work
-      // On Android, we might need to copy to cache directory to ensure access
+
       const modelPath = `${FileSystem.cacheDirectory}digital_ocr_net.onnx`;
       await FileSystem.copyAsync({
         from: asset.localUri || asset.uri,
         to: modelPath
       });
+
+      try {
+        const dataAsset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx.data'));
+        await dataAsset.downloadAsync();
+        const dataPath = `${FileSystem.cacheDirectory}digital_ocr_net.onnx.data`;
+        await FileSystem.copyAsync({
+          from: dataAsset.localUri || dataAsset.uri,
+          to: dataPath
+        });
+      } catch (dataError) {
+        // Model may be self-contained without external data.
+      }
 
       session = await InferenceSession.create(modelPath);
       return session;
@@ -56,16 +66,16 @@ export class AIService {
     try {
       const loadedSession = await this.loadModel();
       
-      // 1. Preprocess Image (Placeholder for real pixel extraction)
-      // In a real app, we would:
-      // 1. Resize image to 32x32 using expo-image-manipulator
-      // 2. Get pixel data (e.g. via expo-gl or base64 decoding)
-      // 3. Normalize to [-1, 1]
-      
-      // For this demo, we'll create a random tensor to verify the pipeline works
-      // Input shape: [1, 1, 32, 32]
-      const inputData = new Float32Array(1 * 1 * 32 * 32).map(() => Math.random());
-      const inputTensor = new Tensor('float32', inputData, [1, 1, 32, 32]);
+      // 1. Resize image to model input size (32x32)
+      const manipResult = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [{ resize: { width: 32, height: 32 } }],
+        { format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+
+      // 2. Convert base64 image data to Float32 tensor
+      const tensorData = this.imageToFloat32Array(manipResult.base64!, 32, 32);
+      const inputTensor = new Tensor('float32', tensorData, [1, 1, 32, 32]);
       
       // 2. Run Inference
       const feeds: Record<string, Tensor> = {};
@@ -76,7 +86,7 @@ export class AIService {
       const outputTensor = outputMap[loadedSession.outputNames[0]];
       const outputData = outputTensor.data as Float32Array;
       
-      // 3. Postprocess (Argmax)
+      // 3. Postprocess (Argmax + Softmax confidence)
       let maxVal = -Infinity;
       let maxIdx = 0;
       for (let i = 0; i < outputData.length; i++) {
@@ -86,7 +96,13 @@ export class AIService {
         }
       }
       
-      const confidence = 0.95; // Placeholder
+      const expValues = new Float32Array(outputData.length);
+      let sumExp = 0;
+      for (let i = 0; i < outputData.length; i++) {
+        expValues[i] = Math.exp(outputData[i]);
+        sumExp += expValues[i];
+      }
+      const confidence = Math.max(0.01, expValues[maxIdx] / sumExp);
       
       // 4. Map Result
       const char = (ocrClasses as any)[maxIdx.toString()] || "?";
@@ -203,7 +219,6 @@ export class AIService {
    * Helper: Convert Base64 JPEG to Float32Array (Grayscale)
    */
   private static imageToFloat32Array(base64: string, width: number, height: number): Float32Array {
-    const raw = atob(base64);
     const data = new Float32Array(1 * 1 * width * height);
     
     // Simple JPEG header skipping (approximation for dev) or using a decode library would be better.

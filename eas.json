@@ -1,18 +1,48 @@
 {
   "cli": {
-    "version": ">= 3.0.0"
+    "version": ">= 3.0.0",
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://igtbffnatbbtdghvcvhx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_J1ZS9yMg5bHN4uHAdmW9hA__CP0euj8",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://igtbffnatbbtdghvcvhx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_J1ZS9yMg5bHN4uHAdmW9hA__CP0euj8",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
+      }
     },
     "production": {
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://igtbffnatbbtdghvcvhx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_J1ZS9yMg5bHN4uHAdmW9hA__CP0euj8",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
+      }
+    },
+    "production-apk": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://igtbffnatbbtdghvcvhx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_J1ZS9yMg5bHN4uHAdmW9hA__CP0euj8",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
       }
     }
   },

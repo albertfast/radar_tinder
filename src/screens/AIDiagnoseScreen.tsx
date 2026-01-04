@@ -3,16 +3,13 @@ import { View, StyleSheet, Image, TouchableOpacity, ScrollView, Alert } from 're
 import { Text, Surface, ActivityIndicator, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Audio } from 'expo-av';
-import * as Speech from 'expo-speech';
-import { AIService } from '../services/AIService';
 
 const AIDiagnoseScreen = ({ navigation }: any) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [diagnosis, setDiagnosis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [loadingStep, setLoadingStep] = useState<string>(''); // 'uploading' | 'scanning' | 'analyzing'
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [recording, setRecording] = useState<import('expo-av').Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceDescription, setVoiceDescription] = useState<string | null>(null);
 
@@ -26,6 +23,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
 
   const startRecording = async () => {
     try {
+      const { Audio } = await import('expo-av');
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status === 'granted') {
         await Audio.setAudioModeAsync({
@@ -40,6 +38,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       }
     } catch (err) {
       console.error('Failed to start recording', err);
+      Alert.alert('Error', 'Audio module unavailable. Rebuild the dev client to enable voice recording.');
     }
   };
 
@@ -55,12 +54,17 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     setVoiceDescription("Simulated transcription: 'My engine is making a clicking sound when I accelerate.'");
   };
 
-  const speakDiagnosis = (text: string) => {
-    Speech.speak(text, {
-      language: 'en',
-      pitch: 1.0,
-      rate: 0.9,
-    });
+  const speakDiagnosis = async (text: string) => {
+    try {
+      const Speech = await import('expo-speech');
+      Speech.speak(text, {
+        language: 'en',
+        pitch: 1.0,
+        rate: 0.9,
+      });
+    } catch (error) {
+      console.warn('Speech module unavailable:', error);
+    }
   };
 
   const pickImage = async () => {
@@ -120,8 +124,9 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       
       await new Promise(r => setTimeout(r, 1500));
 
-      // Call AI Service to analyze the image
-      const result = await AIService.analyzeCarImage(selectedImage);
+      // Lazy-load AI service to avoid native module crashes at app startup.
+      const { AIService } = await import('../services/AIService');
+      const result = await AIService.analyzeDashboardLight(selectedImage);
       
       const diagnosisText = `Based on the image analysis:
       
@@ -137,7 +142,10 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
       speakDiagnosis(`I've analyzed your car issue. It looks like ${result.issue} with ${result.confidence} percent confidence.`);
     } catch (error) {
       console.error('Analysis error:', error);
-      Alert.alert('Error', 'Failed to analyze image on-device. Please try again.');
+      Alert.alert(
+        'Error',
+        'Failed to analyze image on-device. If this is your first run, rebuild the dev client so the AI module is included.'
+      );
     } finally {
       setIsAnalyzing(false);
       setLoadingStep('');
