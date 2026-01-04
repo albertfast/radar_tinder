@@ -9,7 +9,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { Buffer } from 'buffer';
 import { InferenceSession, Tensor } from 'onnxruntime-react-native';
 import ocrClasses from '../../assets/models/digital_ocr_classes.json';
-import dashboardClasses from '../../assets/models/dashboard_classes.json';
+import dashboardMetadata from '../../assets/models/dashboard_classes.json';
 import diagnosticKb from '../../assets/models/diagnostic_kb.json';
 
 export interface DiagnosisResult {
@@ -20,14 +20,15 @@ export interface DiagnosisResult {
   details?: any;
 }
 
-let session: InferenceSession | null = null;
+let ocrSession: InferenceSession | null = null;
+let dashboardSession: InferenceSession | null = null;
 
 export class AIService {
   /**
    * Load the ONNX model from assets
    */
-  private static async loadModel() {
-    if (session) return session;
+  private static async loadOcrModel() {
+    if (ocrSession) return ocrSession;
     
     try {
       const asset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx'));
@@ -51,11 +52,44 @@ export class AIService {
         // Model may be self-contained without external data.
       }
 
-      session = await InferenceSession.create(modelPath);
-      return session;
+      ocrSession = await InferenceSession.create(modelPath);
+      return ocrSession;
     } catch (error) {
-      console.error('Error loading AI model:', error);
-      throw new Error('Failed to load AI model');
+      console.error('Error loading OCR model:', error);
+      throw new Error('Failed to load OCR model');
+    }
+  }
+
+  private static async loadDashboardModel() {
+    if (dashboardSession) return dashboardSession;
+
+    try {
+      const asset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx'));
+      await asset.downloadAsync();
+
+      const modelPath = `${FileSystem.cacheDirectory}dashboard_net.onnx`;
+      await FileSystem.copyAsync({
+        from: asset.localUri || asset.uri,
+        to: modelPath
+      });
+
+      try {
+        const dataAsset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx.data'));
+        await dataAsset.downloadAsync();
+        const dataPath = `${FileSystem.cacheDirectory}dashboard_net.onnx.data`;
+        await FileSystem.copyAsync({
+          from: dataAsset.localUri || dataAsset.uri,
+          to: dataPath
+        });
+      } catch (dataError) {
+        // Model may be self-contained without external data.
+      }
+
+      dashboardSession = await InferenceSession.create(modelPath);
+      return dashboardSession;
+    } catch (error) {
+      console.error('Error loading dashboard model:', error);
+      throw new Error('Failed to load dashboard model');
     }
   }
 
@@ -64,7 +98,7 @@ export class AIService {
    */
   static async analyzeCarImage(imageUri: string): Promise<DiagnosisResult> {
     try {
-      const loadedSession = await this.loadModel();
+      const loadedSession = await this.loadOcrModel();
       
       // 1. Resize image to model input size (32x32)
       const manipResult = await ImageManipulator.manipulateAsync(
@@ -74,7 +108,7 @@ export class AIService {
       );
 
       // 2. Convert base64 image data to Float32 tensor
-      const tensorData = this.imageToFloat32Array(manipResult.base64!, 32, 32);
+      const tensorData = this.imageToFloat32Array(manipResult.base64!, 32, 32, true);
       const inputTensor = new Tensor('float32', tensorData, [1, 1, 32, 32]);
       
       // 2. Run Inference
@@ -137,19 +171,43 @@ export class AIService {
    */
   static async analyzeDashboardLight(imageUri: string): Promise<DiagnosisResult> {
     try {
-      const loadedSession = await this.loadModel();
+      const loadedSession = await this.loadDashboardModel();
       
-      // 1. Resize image to model input size (32x32)
+      const meta = dashboardMetadata as any;
+      const inputSize = Array.isArray(meta.input_size) && meta.input_size.length === 2
+        ? meta.input_size
+        : [224, 224];
+      const mean = Array.isArray(meta.mean) && meta.mean.length === 3
+        ? meta.mean
+        : [0.485, 0.456, 0.406];
+      const std = Array.isArray(meta.std) && meta.std.length === 3
+        ? meta.std
+        : [0.229, 0.224, 0.225];
+
+      const classes = Array.isArray(meta.classes)
+        ? meta.classes
+        : Object.keys(meta)
+            .filter((key) => /^\d+$/.test(key))
+            .sort((a, b) => Number(a) - Number(b))
+            .map((key) => meta[key]);
+
+      // 1. Resize image to model input size (default 224x224)
       const manipResult = await ImageManipulator.manipulateAsync(
         imageUri,
-        [{ resize: { width: 32, height: 32 } }],
+        [{ resize: { width: inputSize[0], height: inputSize[1] } }],
         { format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
 
       // 2. Convert base64 image data to Float32 tensor
-      // Model expects: [1, 1, 32, 32] (Batch, Channel, Height, Width) - Grayscale
-      const tensorData = this.imageToFloat32Array(manipResult.base64!, 32, 32);
-      const inputTensor = new Tensor('float32', tensorData, [1, 1, 32, 32]);
+      // Model expects: [1, 3, H, W] (Batch, Channel, Height, Width) - RGB
+      const tensorData = this.imageToFloat32ArrayRGB(
+        manipResult.base64!,
+        inputSize[0],
+        inputSize[1],
+        mean,
+        std
+      );
+      const inputTensor = new Tensor('float32', tensorData, [1, 3, inputSize[1], inputSize[0]]);
       
       // 3. Run inference
       const feeds: Record<string, Tensor> = {};
@@ -179,14 +237,13 @@ export class AIService {
       }
       
       const confidence = Math.max(0.01, expValues[maxIdx] / sumExp);
-      const confidencePercentage = (confidence * 100).toFixed(1);
       
-      // Map to character/symbol
-      const detectedChar = (dashboardClasses as any)[maxIdx.toString()] || "?";
+      // Map to class label
+      const detectedClass = classes[maxIdx] || `class_${maxIdx}`;
       
       // Get diagnostic information
-      const diagInfo = (diagnosticKb as any)[detectedChar] || {
-        name: `Unknown Symbol (${detectedChar})`,
+      const diagInfo = (diagnosticKb as any)[detectedClass] || {
+        name: `Unknown Symbol (${detectedClass})`,
         severity: "Low",
         action: "Symbol not recognized in database."
       };
@@ -196,11 +253,11 @@ export class AIService {
         confidence: confidence,
         recommendations: [
           diagInfo.action,
-          `Detected Class: ${detectedChar}`
+          `Detected Class: ${detectedClass}`
         ],
         category: diagInfo.severity,
         details: { 
-          model_output: detectedChar,
+          model_output: detectedClass,
           raw_confidence: confidence.toFixed(2)
         }
       };
@@ -218,7 +275,12 @@ export class AIService {
   /**
    * Helper: Convert Base64 JPEG to Float32Array (Grayscale)
    */
-  private static imageToFloat32Array(base64: string, width: number, height: number): Float32Array {
+  private static imageToFloat32Array(
+    base64: string,
+    width: number,
+    height: number,
+    normalize: boolean
+  ): Float32Array {
     const data = new Float32Array(1 * 1 * width * height);
     
     // Simple JPEG header skipping (approximation for dev) or using a decode library would be better.
@@ -243,7 +305,10 @@ export class AIService {
       
       // Normalize to [0, 1] or [-1, 1] depending on model training. 
       // Assuming standard [0, 1] for CNNs
-      const gray = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+      let gray = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+      if (normalize) {
+        gray = (gray - 0.5) / 0.5;
+      }
       
       // Model input [1, 1, 32, 32] -> data[ch][y][x]
       // Since ch=1, checking logic.
@@ -257,13 +322,54 @@ export class AIService {
   }
 
   /**
+   * Helper: Convert Base64 JPEG to Float32Array (RGB, CHW)
+   */
+  private static imageToFloat32ArrayRGB(
+    base64: string,
+    width: number,
+    height: number,
+    mean: number[],
+    std: number[]
+  ): Float32Array {
+    const data = new Float32Array(1 * 3 * width * height);
+    const jpeg = require('jpeg-js');
+    const jpegData = Buffer.from(base64, 'base64');
+    const decoded = jpeg.decode(jpegData, { useTArray: true });
+    const channelSize = width * height;
+    const meanVals = mean.length === 3 ? mean : [0.5, 0.5, 0.5];
+    const stdVals = std.length === 3 ? std : [0.5, 0.5, 0.5];
+
+    let pixelIndex = 0;
+    for (let i = 0; i < decoded.data.length; i += 4) {
+      let r = decoded.data[i] / 255.0;
+      let g = decoded.data[i + 1] / 255.0;
+      let b = decoded.data[i + 2] / 255.0;
+
+      r = (r - meanVals[0]) / stdVals[0];
+      g = (g - meanVals[1]) / stdVals[1];
+      b = (b - meanVals[2]) / stdVals[2];
+
+      if (pixelIndex < channelSize) {
+        data[pixelIndex] = r;
+        data[pixelIndex + channelSize] = g;
+        data[pixelIndex + channelSize * 2] = b;
+      }
+      pixelIndex++;
+    }
+
+    return data;
+  }
+
+  /**
    * Get model information
    */
   static async getModelInfo(): Promise<any> {
     return {
       type: "On-Device (ONNX Runtime)",
-      model: "Digital OCR",
-      status: session ? "Loaded" : "Not Loaded"
+      models: {
+        ocr: ocrSession ? "Loaded" : "Not Loaded",
+        dashboard: dashboardSession ? "Loaded" : "Not Loaded"
+      }
     };
   }
 }
