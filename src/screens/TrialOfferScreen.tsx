@@ -227,8 +227,8 @@ const TrialOfferScreen = ({ navigation }: any) => {
                 <View style={styles.planBadge}>
                     <Text style={styles.planBadgeText}>PREMIUM ACCESS</Text>
                 </View>
-                <Text style={styles.trialText}>7-Day Free Trial</Text>
-                <Text style={styles.priceText}>Then $19.99/year</Text>
+                <Text style={styles.trialText}>3-Day Free Trial</Text>
+                <Text style={styles.priceText}>Then $3.99/week or $19.99/year</Text>
                 
                 <TouchableOpacity 
                     style={styles.ctaButton}
@@ -240,7 +240,7 @@ const TrialOfferScreen = ({ navigation }: any) => {
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                     >
-                        <Text style={styles.ctaText}>START FREE TRIAL</Text>
+                        <Text style={styles.ctaText}>START 3-DAY FREE TRIAL</Text>
                     </LinearGradient>
                 </TouchableOpacity>
                 

@@ -185,6 +185,148 @@ export class AIService {
     }
   }
 
+  private static async detectWarningLightCrops(
+    baseUri: string,
+    originalWidth: number,
+    originalHeight: number
+  ): Promise<ImageManipulator.ActionCrop['crop'][]> {
+    if (!originalWidth || !originalHeight) return [];
+
+    const maxDim = 320;
+    let detectWidth = maxDim;
+    let detectHeight = maxDim;
+    if (originalWidth >= originalHeight) {
+      detectWidth = maxDim;
+      detectHeight = Math.max(64, Math.round((originalHeight / originalWidth) * maxDim));
+    } else {
+      detectHeight = maxDim;
+      detectWidth = Math.max(64, Math.round((originalWidth / originalHeight) * maxDim));
+    }
+
+    const resized = await ImageManipulator.manipulateAsync(
+      baseUri,
+      [{ resize: { width: detectWidth, height: detectHeight } }],
+      { format: ImageManipulator.SaveFormat.JPEG, base64: true }
+    );
+
+    if (!resized.base64) return [];
+
+    const jpeg = require('jpeg-js');
+    const jpegData = Buffer.from(resized.base64, 'base64');
+    const decoded = jpeg.decode(jpegData, { useTArray: true });
+    const width = decoded.width;
+    const height = decoded.height;
+    const pixelCount = width * height;
+    const brightness = new Uint8Array(pixelCount);
+    let sum = 0;
+    let sumSq = 0;
+    let maxVal = 0;
+
+    for (let i = 0, p = 0; i < decoded.data.length; i += 4, p += 1) {
+      const r = decoded.data[i];
+      const g = decoded.data[i + 1];
+      const b = decoded.data[i + 2];
+      const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      brightness[p] = lum;
+      sum += lum;
+      sumSq += lum * lum;
+      if (lum > maxVal) maxVal = lum;
+    }
+
+    const mean = sum / pixelCount;
+    const variance = sumSq / pixelCount - mean * mean;
+    const std = Math.sqrt(Math.max(variance, 1));
+    let threshold = Math.max(140, Math.min(235, mean + std * 1.2));
+    if (maxVal < threshold) {
+      threshold = Math.max(110, Math.round(maxVal * 0.85));
+    }
+
+    const visited = new Uint8Array(pixelCount);
+    const components: Array<{ minX: number; minY: number; maxX: number; maxY: number; area: number }> = [];
+    const minArea = Math.max(30, Math.floor(pixelCount * 0.0006));
+    const maxArea = Math.floor(pixelCount * 0.25);
+
+    for (let idx = 0; idx < pixelCount; idx += 1) {
+      if (visited[idx] || brightness[idx] < threshold) continue;
+
+      let minX = width;
+      let minY = height;
+      let maxX = 0;
+      let maxY = 0;
+      let area = 0;
+      const stack = [idx];
+      visited[idx] = 1;
+
+      while (stack.length) {
+        const current = stack.pop() as number;
+        const x = current % width;
+        const y = Math.floor(current / width);
+        area += 1;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+
+        for (let ny = y - 1; ny <= y + 1; ny += 1) {
+          if (ny < 0 || ny >= height) continue;
+          for (let nx = x - 1; nx <= x + 1; nx += 1) {
+            if (nx < 0 || nx >= width) continue;
+            if (nx === x && ny === y) continue;
+            const next = ny * width + nx;
+            if (visited[next] || brightness[next] < threshold) continue;
+            visited[next] = 1;
+            stack.push(next);
+          }
+        }
+      }
+
+      const boxWidth = maxX - minX + 1;
+      const boxHeight = maxY - minY + 1;
+      if (area < minArea || area > maxArea) continue;
+      if (boxWidth < 8 || boxHeight < 8) continue;
+
+      components.push({ minX, minY, maxX, maxY, area });
+    }
+
+    components.sort((a, b) => b.area - a.area);
+    const selected = components.slice(0, 6);
+    if (selected.length === 0) return [];
+
+    const scaleX = originalWidth / width;
+    const scaleY = originalHeight / height;
+    const crops: ImageManipulator.ActionCrop['crop'][] = [];
+
+    const clamp = (value: number, min: number, max: number) =>
+      Math.max(min, Math.min(value, max));
+
+    for (const comp of selected) {
+      const rawWidth = Math.round((comp.maxX - comp.minX + 1) * scaleX);
+      const rawHeight = Math.round((comp.maxY - comp.minY + 1) * scaleY);
+      const pad = Math.round(Math.max(rawWidth, rawHeight) * 0.25);
+
+      const originX = clamp(Math.round(comp.minX * scaleX - pad), 0, originalWidth - 1);
+      const originY = clamp(Math.round(comp.minY * scaleY - pad), 0, originalHeight - 1);
+      let cropWidth = Math.max(64, rawWidth + pad * 2);
+      let cropHeight = Math.max(64, rawHeight + pad * 2);
+
+      if (originX + cropWidth > originalWidth) {
+        cropWidth = originalWidth - originX;
+      }
+      if (originY + cropHeight > originalHeight) {
+        cropHeight = originalHeight - originY;
+      }
+
+      crops.push({
+        originX,
+        originY,
+        width: cropWidth,
+        height: cropHeight
+      });
+    }
+
+    return crops;
+  }
+
   /**
    * Analyze car image using on-device ONNX model
    */
@@ -337,6 +479,11 @@ export class AIService {
       candidates.push(await runInference());
 
       if (candidates[0].confidence < 0.35 && originalWidth > 0 && originalHeight > 0) {
+        const detectedCrops = await this.detectWarningLightCrops(baseUri, originalWidth, originalHeight);
+        for (const crop of detectedCrops) {
+          candidates.push(await runInference(crop));
+        }
+
         const minSide = Math.min(originalWidth, originalHeight);
         const cropSize = Math.max(64, Math.floor(minSide * 0.6));
         const half = cropSize / 2;
