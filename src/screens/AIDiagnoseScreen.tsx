@@ -128,10 +128,11 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       const { AIService } = await import('../services/AIService');
       const result = await AIService.analyzeDashboardLight(selectedImage);
       
+      const confidencePct = (result.confidence * 100).toFixed(1);
       const diagnosisText = `Based on the image analysis:
       
 🔍 Detected Issue: ${result.issue}
-📊 Confidence: ${result.confidence}%
+📊 Confidence: ${confidencePct}%
 
 Recommendations:
 ${result.recommendations.map(rec => `• ${rec}`).join('\n')}
@@ -139,7 +140,7 @@ ${result.recommendations.map(rec => `• ${rec}`).join('\n')}
 This is a preliminary diagnosis. Please consult a professional mechanic for accurate assessment.`;
       
       setDiagnosis(diagnosisText);
-      speakDiagnosis(`I've analyzed your car issue. It looks like ${result.issue} with ${result.confidence} percent confidence.`);
+      speakDiagnosis(`I've analyzed your car issue. It looks like ${result.issue} with ${confidencePct} percent confidence.`);
     } catch (error) {
       console.error('Analysis error:', error);
       Alert.alert(

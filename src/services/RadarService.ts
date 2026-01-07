@@ -442,13 +442,15 @@ export class RadarService {
   static async reportRadarLocation(
     radarData: Omit<RadarLocation, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<RadarLocation> {
-    return SupabaseService.reportRadar({
+    const result = await SupabaseService.reportRadar({
         latitude: radarData.latitude,
         longitude: radarData.longitude,
         type: radarData.type,
         confidence: radarData.confidence,
         reportedBy: radarData.reportedBy
     }) as any;
+    this.nearbyCache = null;
+    return result;
   }
 
   static async confirmRadarLocation(

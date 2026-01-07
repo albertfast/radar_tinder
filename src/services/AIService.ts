@@ -24,6 +24,98 @@ let ocrSession: InferenceSession | null = null;
 let dashboardSession: InferenceSession | null = null;
 
 export class AIService {
+  private static softmax(logits: Float32Array): Float32Array {
+    const expValues = new Float32Array(logits.length);
+    let sumExp = 0;
+    for (let i = 0; i < logits.length; i++) {
+      expValues[i] = Math.exp(logits[i]);
+      sumExp += expValues[i];
+    }
+    for (let i = 0; i < expValues.length; i++) {
+      expValues[i] = expValues[i] / sumExp;
+    }
+    return expValues;
+  }
+
+  private static getTopPredictions(
+    probabilities: Float32Array,
+    classes: string[],
+    topK: number
+  ): Array<{ rawLabel: string; label: string; confidence: number }> {
+    const indices = Array.from(probabilities.keys());
+    indices.sort((a, b) => probabilities[b] - probabilities[a]);
+    const picked = indices.slice(0, topK);
+    return picked.map((index) => ({
+      rawLabel: classes[index] || `class_${index}`,
+      label: this.formatDashboardLabel(classes[index] || `class_${index}`),
+      confidence: probabilities[index]
+    }));
+  }
+  private static formatDashboardLabel(label: string): string {
+    if (!label) return 'Warning Light';
+
+    const cleaned = label
+      .replace(/_/g, ' ')
+      .replace(/\s*--+\s*$/g, '')
+      .replace(/\bheadlamb\b/gi, 'headlamp')
+      .replace(/\blamb\b/gi, 'lamp')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const overrides: Record<string, string> = {
+      'ep steering': 'EP Steering',
+      'ebd': 'EBD',
+      'esp': 'ESP',
+      'srs': 'SRS',
+      'ev': 'EV',
+      'awd': 'AWD',
+      'abs': 'ABS',
+      'pcs': 'PCS',
+      'low beam': 'Low Beam',
+      'low brake': 'Low Brake',
+      'tire pressure': 'Tire Pressure',
+      'check engine': 'Check Engine',
+      'oil pressure': 'Oil Pressure',
+      'water fuel': 'Water in Fuel'
+    };
+
+    const lower = cleaned.toLowerCase();
+    if (overrides[lower]) return overrides[lower];
+
+    const uppercaseTokens = new Set(['abs', 'awd', 'ebd', 'esp', 'ev', 'srs', 'pcs']);
+    return cleaned
+      .split(' ')
+      .map((token) => {
+        const lowerToken = token.toLowerCase();
+        if (uppercaseTokens.has(lowerToken)) return lowerToken.toUpperCase();
+        return lowerToken.charAt(0).toUpperCase() + lowerToken.slice(1);
+      })
+      .join(' ');
+  }
+
+  private static resolveDashboardKbKey(label: string): string | null {
+    const normalized = label.toLowerCase();
+    const aliases: Record<string, string> = {
+      abs: 'ABS',
+      airbag: 'Airbag',
+      battery: 'Battery',
+      brake: 'Brake',
+      check_engine: 'Check Engine',
+      coolant: 'Coolant Temp',
+      engine_temperature: 'Coolant Temp',
+      fuel: 'Low Fuel',
+      seatbelt: 'Seatbelt',
+      tire_pressure: 'Tire Pressure',
+      traction_control: 'Traction Control',
+      stability_control: 'Traction Control',
+      slip: 'Traction Control',
+      esp: 'Traction Control',
+      electronic_stability: 'Traction Control'
+    };
+
+    return aliases[normalized] || null;
+  }
+
   /**
    * Load the ONNX model from assets
    */
@@ -191,74 +283,194 @@ export class AIService {
             .sort((a, b) => Number(a) - Number(b))
             .map((key) => meta[key]);
 
-      // 1. Resize image to model input size (default 224x224)
-      const manipResult = await ImageManipulator.manipulateAsync(
+      const baseInfo = await ImageManipulator.manipulateAsync(
         imageUri,
-        [{ resize: { width: inputSize[0], height: inputSize[1] } }],
-        { format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        [],
+        { format: ImageManipulator.SaveFormat.JPEG }
       );
+      const baseUri = baseInfo.uri;
+      const originalWidth = baseInfo.width || inputSize[0];
+      const originalHeight = baseInfo.height || inputSize[1];
 
-      // 2. Convert base64 image data to Float32 tensor
-      // Model expects: [1, 3, H, W] (Batch, Channel, Height, Width) - RGB
-      const tensorData = this.imageToFloat32ArrayRGB(
-        manipResult.base64!,
-        inputSize[0],
-        inputSize[1],
-        mean,
-        std
-      );
-      const inputTensor = new Tensor('float32', tensorData, [1, 3, inputSize[1], inputSize[0]]);
-      
-      // 3. Run inference
-      const feeds: Record<string, Tensor> = {};
-      feeds[loadedSession.inputNames[0]] = inputTensor;
-      
-      const outputMap = await loadedSession.run(feeds);
-      const outputTensor = outputMap[loadedSession.outputNames[0]];
-      const outputData = outputTensor.data as Float32Array;
-      
-      // 4. Get prediction (Argmax)
-      let maxVal = -Infinity;
-      let maxIdx = 0;
-      for (let i = 0; i < outputData.length; i++) {
-        if (outputData[i] > maxVal) {
-          maxVal = outputData[i];
-          maxIdx = i;
+      const runInference = async (crop?: ImageManipulator.ActionCrop['crop']) => {
+        const actions: ImageManipulator.Action[] = [];
+        if (crop) {
+          actions.push({ crop });
+        }
+        actions.push({ resize: { width: inputSize[0], height: inputSize[1] } });
+
+        const manipResult = await ImageManipulator.manipulateAsync(
+          baseUri,
+          actions,
+          { format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+
+        const tensorData = this.imageToFloat32ArrayRGB(
+          manipResult.base64!,
+          inputSize[0],
+          inputSize[1],
+          mean,
+          std
+        );
+        const inputTensor = new Tensor('float32', tensorData, [1, 3, inputSize[1], inputSize[0]]);
+        const feeds: Record<string, Tensor> = {};
+        feeds[loadedSession.inputNames[0]] = inputTensor;
+
+        const outputMap = await loadedSession.run(feeds);
+        const outputTensor = outputMap[loadedSession.outputNames[0]];
+        const outputData = outputTensor.data as Float32Array;
+
+        const probabilities = this.softmax(outputData);
+        let topIndex = 0;
+        let topProb = probabilities[0];
+        for (let i = 1; i < probabilities.length; i++) {
+          if (probabilities[i] > topProb) {
+            topProb = probabilities[i];
+            topIndex = i;
+          }
+        }
+
+        return { probabilities, topIndex, confidence: Math.max(0.01, topProb) };
+      };
+
+      const candidates: Array<{ probabilities: Float32Array; topIndex: number; confidence: number }> = [];
+      candidates.push(await runInference());
+
+      if (candidates[0].confidence < 0.35 && originalWidth > 0 && originalHeight > 0) {
+        const minSide = Math.min(originalWidth, originalHeight);
+        const cropSize = Math.max(64, Math.floor(minSide * 0.6));
+        const half = cropSize / 2;
+        const clamp = (value: number, min: number, max: number) =>
+          Math.max(min, Math.min(value, max));
+        const makeCrop = (cx: number, cy: number) => {
+          const originX = Math.round(clamp(cx - half, 0, originalWidth - cropSize));
+          const originY = Math.round(clamp(cy - half, 0, originalHeight - cropSize));
+          return { originX, originY, width: cropSize, height: cropSize };
+        };
+
+        const centers = [
+          [originalWidth / 2, originalHeight / 2],
+          [half, half],
+          [originalWidth - half, half],
+          [half, originalHeight - half],
+          [originalWidth - half, originalHeight - half]
+        ];
+
+        for (const [cx, cy] of centers) {
+          candidates.push(await runInference(makeCrop(cx, cy)));
         }
       }
-      
-      // Calculate confidence using Softmax
-      // exp(x_i) / sum(exp(x_j))
-      const expValues = new Float32Array(outputData.length);
-      let sumExp = 0;
-      for (let i = 0; i < outputData.length; i++) {
-        expValues[i] = Math.exp(outputData[i]);
-        sumExp += expValues[i];
+
+      const best = candidates.reduce((current, candidate) =>
+        candidate.confidence > current.confidence ? candidate : current
+      );
+
+      const confidence = best.confidence;
+      const maxIdx = best.topIndex;
+      const topPredictions = this.getTopPredictions(best.probabilities, classes, 3);
+      const aggregateMinConfidence = 0.25;
+      const multiDetectThreshold = 0.3;
+      const aggregatedMap = new Map<string, { rawLabel: string; label: string; confidence: number }>();
+
+      for (const candidate of candidates) {
+        const candidateTop = this.getTopPredictions(candidate.probabilities, classes, 3);
+        for (const prediction of candidateTop) {
+          if (prediction.confidence < aggregateMinConfidence) continue;
+          const existing = aggregatedMap.get(prediction.rawLabel);
+          if (!existing || prediction.confidence > existing.confidence) {
+            aggregatedMap.set(prediction.rawLabel, prediction);
+          }
+        }
       }
-      
-      const confidence = Math.max(0.01, expValues[maxIdx] / sumExp);
+
+      const aggregatedPredictions = Array.from(aggregatedMap.values()).sort(
+        (a, b) => b.confidence - a.confidence
+      );
+      const detectedLights = aggregatedPredictions
+        .filter((item) => item.confidence >= multiDetectThreshold)
+        .slice(0, 4);
+      const isMulti = detectedLights.length >= 2;
       
       // Map to class label
       const detectedClass = classes[maxIdx] || `class_${maxIdx}`;
+      const friendlyLabel = this.formatDashboardLabel(detectedClass);
+      const kbKey = this.resolveDashboardKbKey(detectedClass);
+      const kbEntry = (diagnosticKb as any)[kbKey || friendlyLabel || detectedClass];
+      const lowConfidence = confidence < 0.35;
       
       // Get diagnostic information
-      const diagInfo = (diagnosticKb as any)[detectedClass] || {
-        name: `Unknown Symbol (${detectedClass})`,
-        severity: "Low",
-        action: "Symbol not recognized in database."
+      const diagInfo = kbEntry || {
+        name: friendlyLabel,
+        severity: lowConfidence ? "Low" : "Warning",
+        action: lowConfidence
+          ? "Low confidence result. Try focusing on a single warning icon."
+          : `Detected warning light: ${friendlyLabel}. Check the vehicle manual for details.`
       };
+
+      const recommendationExtras: string[] = [];
+      if (lowConfidence && topPredictions.length > 1) {
+        const topList = topPredictions
+          .map((item) => `${item.label} (${(item.confidence * 100).toFixed(1)}%)`)
+          .join(', ');
+        recommendationExtras.push(`Top guesses: ${topList}`);
+      }
+
+      if (isMulti) {
+        const multiSummary = detectedLights.map(
+          (item) => `${item.label} (${(item.confidence * 100).toFixed(1)}%)`
+        );
+        const recommendations = [
+          'Detected lights:',
+          ...multiSummary,
+          'Review each warning light in the vehicle manual to confirm the cause.'
+        ];
+
+        return {
+          issue: 'Multiple warning lights detected',
+          confidence: detectedLights[0]?.confidence ?? confidence,
+          recommendations,
+          category: 'Warning',
+          details: {
+            detected_lights: detectedLights,
+            top_predictions: topPredictions
+          }
+        };
+      }
+
+      if (confidence < 0.2) {
+        const topList = topPredictions
+          .map((item) => `${item.label} (${(item.confidence * 100).toFixed(1)}%)`)
+          .join(', ');
+        return {
+          issue: 'Warning light unclear',
+          confidence: confidence,
+          recommendations: [
+            'Could not confidently identify a warning light from this photo.',
+            `Top guesses: ${topList}`
+          ],
+          category: 'Low',
+          details: {
+            top_predictions: topPredictions,
+            detected_lights: detectedLights
+          }
+        };
+      }
 
       return {
         issue: diagInfo.name,
         confidence: confidence,
         recommendations: [
           diagInfo.action,
-          `Detected Class: ${detectedClass}`
+          `Detected Class: ${friendlyLabel}`,
+          ...recommendationExtras
         ],
         category: diagInfo.severity,
         details: { 
           model_output: detectedClass,
-          raw_confidence: confidence.toFixed(2)
+          display_label: friendlyLabel,
+          raw_confidence: confidence.toFixed(2),
+          top_predictions: topPredictions,
+          detected_lights: detectedLights
         }
       };
     } catch (error) {

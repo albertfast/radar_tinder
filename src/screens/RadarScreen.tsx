@@ -37,8 +37,7 @@ import { useAuthStore } from '../store/authStore';
 import { RadarService } from '../services/RadarService';
 import { GoogleMapsService } from '../services/GoogleMapsService';
 import { LocationService } from '../services/LocationService';
-import { NotificationService } from '../services/NotificationService';
-import { SupabaseService } from '../services/SupabaseService';
+import { OfflineService } from '../services/OfflineService';
 import { RadarAnimation } from '../components/RadarAnimation';
 import RadarMap from '../components/RadarMap';
 import { RadarLocation } from '../types';
@@ -313,9 +312,52 @@ const RadarScreen = ({ navigation, route }: any) => {
   };
 
   const handleReportRadar = async (type: RadarLocation['type']) => {
-      // Report logic
       setReportModalVisible(false);
-      alert('Report Sent! (+50 Points)');
+      if (!user) {
+        alert('Please log in to report hazards.');
+        return;
+      }
+
+      const loc = currentLocationRef.current || await LocationService.getCurrentLocation().catch(() => null);
+      if (!loc) {
+        alert('Location unavailable. Please enable location services.');
+        return;
+      }
+
+      try {
+        await RadarService.reportRadarLocation({
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          type,
+          confidence: 0.7,
+          lastConfirmed: new Date(),
+          reportedBy: user.id,
+        });
+
+        const refreshed = await RadarService.getNearbyRadars(loc.latitude, loc.longitude, 10);
+        setNearbyRadars(refreshed);
+        setRadarLocations(refreshed);
+
+        alert('Report sent. Nearby drivers will be notified.');
+      } catch (error) {
+        console.error('Report hazard failed:', error);
+        try {
+          await OfflineService.saveRadarLocationOffline({
+            id: `offline-${Date.now()}`,
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+            type,
+            confidence: 0.7,
+            lastConfirmed: new Date(),
+            reportedBy: user.id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          } as any);
+          alert('Saved offline. Will sync when online.');
+        } catch (offlineError) {
+          alert('Failed to report hazard. Please try again.');
+        }
+      }
   };
 
   // --- Components ---

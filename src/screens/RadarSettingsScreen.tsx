@@ -1,13 +1,27 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { Text, Switch, useTheme, IconButton, Surface } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSettingsStore } from '../store/settingsStore';
+import { useAuthStore } from '../store/authStore';
+import { SupabaseService } from '../services/SupabaseService';
 
 const RadarSettingsScreen = ({ navigation }: any) => {
   const theme = useTheme();
   const [voiceWarning, setVoiceWarning] = useState(true);
-  const { unitSystem, toggleUnitSystem } = useSettingsStore();
+  const { unitSystem, setUnitSystem } = useSettingsStore();
+  const { user } = useAuthStore();
+
+  const handleUnitToggle = async () => {
+    const nextUnit = unitSystem === 'metric' ? 'imperial' : 'metric';
+    setUnitSystem(nextUnit);
+
+    if (!user?.id) return;
+    const updated = await SupabaseService.updateProfile(user.id, { unit_system: nextUnit });
+    if (!updated) {
+      Alert.alert('Settings', 'Failed to sync settings. Check your connection.');
+    }
+  };
 
   const SettingItem = ({ label, value, type = 'text', onPress }: any) => (
     <Surface style={styles.settingCard} elevation={1}>
@@ -45,7 +59,7 @@ const RadarSettingsScreen = ({ navigation }: any) => {
         <SettingItem 
           label="Distance Unit" 
           value={unitSystem === 'metric' ? 'Kilometers (km)' : 'Miles (mi)'} 
-          onPress={toggleUnitSystem}
+          onPress={handleUnitToggle}
         />
         <SettingItem label="Warning Sound Level" value="100%" />
         <SettingItem 

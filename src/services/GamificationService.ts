@@ -68,13 +68,13 @@ export class GamificationService {
     const profiles = await SupabaseService.getLeaderboard(10);
     
     if (profiles && profiles.length > 0) {
-        return profiles.map((p: any) => ({
-            id: p.id,
-            name: p.username || 'Anonymous',
-            points: p.points || 0,
-            rank: this.getRank(p.points || 0),
-            avatar: p.avatar_url
-        }));
+      return profiles.map((p: any) => ({
+        id: p.id,
+        name: p.full_name || p.username || 'Anonymous',
+        points: p.points || 0,
+        rank: (p.rank as Rank) || this.getRank(p.points || 0),
+        avatar: p.avatar_url,
+      }));
     }
 
     // Fallback to mock if DB is empty or fails, so UI doesn't break

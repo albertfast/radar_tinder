@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Platform, Dimensions } from 'react-native';
-import { createDrawerNavigator, DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
+import { View, StyleSheet, TouchableOpacity, Platform, Dimensions, Alert } from 'react-native';
+import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigation/drawer';
 import { Text, Avatar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,8 +25,12 @@ const CustomDrawerContent = (props: any) => {
 
   const secondaryItems = [
     { icon: 'cog-outline', label: 'Settings', screen: 'Settings' },
-    { icon: 'help-circle-outline', label: 'Support', screen: 'Support' },
+    { icon: 'help-circle-outline', label: 'Support', action: () => Alert.alert('Support', 'Support is coming soon.') },
   ];
+
+  const handleNavigate = (screen: string) => {
+    props.navigation.navigate('MainStack', { screen });
+  };
 
   return (
     <View style={styles.container}>
@@ -44,7 +48,7 @@ const CustomDrawerContent = (props: any) => {
              />
              <TouchableOpacity 
                 style={styles.profileHeader}
-                onPress={() => props.navigation.navigate('Profile')}
+                onPress={() => handleNavigate('Profile')}
              >
                 <Animated.View entering={allowLayoutAnimations ? FadeInDown.delay(200) : undefined}>
                      <View style={styles.avatarContainer}>
@@ -94,7 +98,7 @@ const CustomDrawerContent = (props: any) => {
                     <Animated.View key={item.label} entering={allowLayoutAnimations ? FadeInLeft.delay(400 + (index * 50)) : undefined}>
                         <TouchableOpacity 
                             style={styles.menuItem} 
-                            onPress={() => props.navigation.navigate(item.screen)}
+                            onPress={() => handleNavigate(item.screen)}
                         >
                             <View style={[styles.menuIconBox, { backgroundColor: item.color + '20' }]}>
                                 <MaterialCommunityIcons name={item.icon as any} size={22} color={item.color} />
@@ -114,7 +118,13 @@ const CustomDrawerContent = (props: any) => {
                     <TouchableOpacity 
                         key={item.label}
                         style={styles.menuItem} 
-                        onPress={() => {}}
+                        onPress={() => {
+                          if (item.screen) {
+                            handleNavigate(item.screen);
+                            return;
+                          }
+                          item.action?.();
+                        }}
                     >
                         <MaterialCommunityIcons name={item.icon as any} size={22} color="#94A3B8" style={{marginLeft: 10, marginRight: 16}} />
                         <Text style={[styles.menuLabel, { color: '#94A3B8' }]}>{item.label}</Text>

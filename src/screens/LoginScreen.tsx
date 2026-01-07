@@ -225,6 +225,7 @@ const LoginScreen = ({ navigation }: any) => {
                     keyboardType="email-address"
                     autoCorrect={false}
                     autoComplete="email"
+                    showSoftInputOnFocus={true}
                     blurOnSubmit={false}
                     returnKeyType="next"
                     onSubmitEditing={() => passwordInputRef.current?.focus()}
@@ -244,6 +245,7 @@ const LoginScreen = ({ navigation }: any) => {
                     secureTextEntry
                     autoCorrect={false}
                     autoComplete="password"
+                    showSoftInputOnFocus={true}
                     returnKeyType="done"
                     ref={passwordInputRef}
                     onSubmitEditing={handleLogin}

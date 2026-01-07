@@ -81,9 +81,17 @@ export class SupabaseService {
    */
   static async getLeaderboard(limit: number = 20) {
     try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_leaderboard', {
+        limit_count: limit,
+      });
+
+      if (!rpcError && rpcData) {
+        return rpcData;
+      }
+
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, points, avatar_url')
+        .select('id, full_name, points, rank, avatar_url')
         .order('points', { ascending: false })
         .limit(limit);
 

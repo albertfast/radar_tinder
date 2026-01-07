@@ -26,6 +26,7 @@ const secureStorage = {
 interface SettingsState {
   unitSystem: 'metric' | 'imperial'; // metric = km, imperial = miles
   toggleUnitSystem: () => void;
+  setUnitSystem: (unitSystem: 'metric' | 'imperial') => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -35,6 +36,7 @@ export const useSettingsStore = create<SettingsState>()(
       toggleUnitSystem: () => set((state) => ({ 
         unitSystem: state.unitSystem === 'metric' ? 'imperial' : 'metric' 
       })),
+      setUnitSystem: (unitSystem) => set({ unitSystem }),
     }),
     {
       name: 'settings-storage',

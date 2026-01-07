@@ -4,6 +4,7 @@ import { User } from '../types';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from '../../utils/supabase';
 import { SupabaseService } from '../services/SupabaseService';
+import { useSettingsStore } from './settingsStore';
 
 // Custom storage for React Native using Expo SecureStore
 const secureStorage = {
@@ -63,18 +64,23 @@ export const useAuthStore = create<AuthState>()(
             
             // Map Supabase User + Profile to our App User type
             const appUser: User = {
-                id: data.user.id,
-                email: data.user.email!,
-                name: profile?.name || data.user.email!.split('@')[0],
-                subscriptionType: profile?.subscription_type || 'free',
-                points: profile?.points || 0,
-                rank: profile?.rank || 'Rookie',
-                xp: profile?.xp || 0,
-                level: profile?.level || 1,
-                stats: profile?.stats || { reports: 0, confirmations: 0, distanceDriven: 0 },
-                createdAt: new Date(data.user.created_at),
-                updatedAt: new Date(),
+              id: data.user.id,
+              email: data.user.email!,
+              name: profile?.full_name || profile?.name || data.user.email!.split('@')[0],
+              subscriptionType: profile?.subscription_type || 'free',
+              points: profile?.points || 0,
+              rank: profile?.rank || 'Rookie',
+              xp: profile?.xp || 0,
+              level: profile?.level || 1,
+              stats: profile?.stats || { reports: 0, confirmations: 0, distanceDriven: 0 },
+              createdAt: new Date(data.user.created_at),
+              updatedAt: new Date(),
             };
+
+            const unitSystem = profile?.unit_system;
+            if (unitSystem === 'metric' || unitSystem === 'imperial') {
+              useSettingsStore.getState().setUnitSystem(unitSystem);
+            }
 
             set({ user: appUser, isAuthenticated: true, isLoading: false });
           }

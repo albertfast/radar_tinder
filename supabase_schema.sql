@@ -56,8 +56,30 @@ create table if not exists profiles (
   rank text default 'Rookie',
   xp int default 0,
   level int default 1,
+  unit_system text default 'metric',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Leaderboard RPC (safe read of public fields)
+create or replace function get_leaderboard(limit_count int default 20)
+returns table (
+  id uuid,
+  full_name text,
+  points int,
+  rank text,
+  avatar_url text
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select id, full_name, points, rank, avatar_url
+  from profiles
+  order by points desc
+  limit limit_count;
+$$;
+
+grant execute on function get_leaderboard(int) to anon, authenticated;
 
 -- RLS Policies (Row Level Security)
 alter table radars enable row level security;

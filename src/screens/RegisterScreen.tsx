@@ -100,6 +100,7 @@ const RegisterScreen = ({ navigation }: any) => {
                   value={name}
                   onChangeText={setName}
                   autoCapitalize="words"
+                  showSoftInputOnFocus={true}
                 />
             </View>
 
@@ -114,6 +115,7 @@ const RegisterScreen = ({ navigation }: any) => {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  showSoftInputOnFocus={true}
                 />
             </View>
 
@@ -127,6 +129,7 @@ const RegisterScreen = ({ navigation }: any) => {
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
+                  showSoftInputOnFocus={true}
                 />
             </View>
 
@@ -140,6 +143,7 @@ const RegisterScreen = ({ navigation }: any) => {
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry
+                  showSoftInputOnFocus={true}
                 />
             </View>
 
