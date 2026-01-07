@@ -22,10 +22,13 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs background location access to provide continuous radar detection even when the app is not active.",
         "UIBackgroundModes": [
           "location",
+          "fetch",
+          "location",
           "fetch"
         ],
         "NSCameraUsageDescription": "This app needs camera access for the AR Radar view.",
-        "NSMicrophoneUsageDescription": "This app needs microphone access for AI car diagnosis voice input."
+        "NSMicrophoneUsageDescription": "This app needs microphone access for AI car diagnosis voice input.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -76,6 +79,9 @@
         {
           "android": {
             "minSdkVersion": 24
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
           }
         }
       ],
