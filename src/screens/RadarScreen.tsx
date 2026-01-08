@@ -61,6 +61,12 @@ const darkMapStyle = [
 ];
 
 type TabType = 'Basic' | 'Map' | 'Graphic';
+type NavStep = {
+  instruction: string;
+  distanceMeters: number | null;
+  maneuver?: string;
+  endLocation?: { latitude: number; longitude: number };
+};
 
 const PRO_FEATURES = [
     { title: 'Unlock All Radars', subtitle: 'See Police & Mobile traps', icon: 'shield-star', color: '#FFD700' },
@@ -116,6 +122,8 @@ const RadarScreen = ({ navigation, route }: any) => {
   const [currentSpeed, setCurrentSpeed] = useState<number>(0);
   const [destination, setDestination] = useState('');
   const [routeCoords, setRouteCoords] = useState<any[]>([]);
+  const [navSteps, setNavSteps] = useState<NavStep[]>([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [drivingStartTime, setDrivingStartTime] = useState<Date | null>(null);
@@ -221,8 +229,104 @@ const RadarScreen = ({ navigation, route }: any) => {
     return () => clearInterval(interval);
   }, [isDriving]);
 
+  // Turn-by-turn step progression
+  useEffect(() => {
+    if (!isDriving || navSteps.length === 0) return;
+    const loc = currentLocationRef.current || currentLocation;
+    const step = navSteps[currentStepIndex];
+    if (!loc || !step?.endLocation) return;
+
+    const distanceKm = LocationService.calculateDistanceSync(
+      loc.latitude,
+      loc.longitude,
+      step.endLocation.latitude,
+      step.endLocation.longitude
+    );
+    const distanceMeters = distanceKm * 1000;
+    const threshold = step.distanceMeters
+      ? Math.max(15, Math.min(60, step.distanceMeters * 0.25))
+      : 25;
+
+    if (distanceMeters <= threshold && currentStepIndex < navSteps.length - 1) {
+      setCurrentStepIndex((prev) => Math.min(prev + 1, navSteps.length - 1));
+    }
+  }, [currentLocation, currentStepIndex, navSteps, isDriving]);
 
   // --- Handlers ---
+
+  const decodeHtmlEntities = (text: string) =>
+    text
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+
+  const stripHtml = (html: string) =>
+    decodeHtmlEntities(html.replace(/<[^>]*>/g, ' '))
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const formatStepDistance = (meters?: number | null) => {
+    if (meters === null || meters === undefined) return '';
+    if (unitSystem === 'imperial') {
+      const feet = meters * 3.28084;
+      if (feet < 1000) return `${Math.round(feet)} ft`;
+      const miles = meters / 1609.344;
+      return `${miles.toFixed(1)} mi`;
+    }
+    if (meters < 1000) return `${Math.round(meters)} m`;
+    return `${(meters / 1000).toFixed(1)} km`;
+  };
+
+  const getManeuverIcon = (maneuver?: string) => {
+    switch (maneuver) {
+      case 'turn-left':
+        return 'arrow-left';
+      case 'turn-right':
+        return 'arrow-right';
+      case 'turn-slight-left':
+      case 'keep-left':
+        return 'arrow-top-left';
+      case 'turn-slight-right':
+      case 'keep-right':
+        return 'arrow-top-right';
+      case 'turn-sharp-left':
+        return 'arrow-bottom-left';
+      case 'turn-sharp-right':
+        return 'arrow-bottom-right';
+      case 'uturn-left':
+      case 'uturn-right':
+        return 'backup-restore';
+      case 'merge':
+        return 'call-merge';
+      case 'roundabout-left':
+      case 'roundabout-right':
+        return 'rotate-right';
+      case 'ramp-left':
+        return 'arrow-top-left';
+      case 'ramp-right':
+        return 'arrow-top-right';
+      case 'straight':
+      case 'continue':
+      default:
+        return 'arrow-up';
+    }
+  };
+
+  const getStepDistanceMeters = (step?: NavStep) => {
+    if (!step) return null;
+    const loc = currentLocationRef.current || currentLocation;
+    if (loc && step.endLocation) {
+      const distanceKm = LocationService.calculateDistanceSync(
+        loc.latitude,
+        loc.longitude,
+        step.endLocation.latitude,
+        step.endLocation.longitude
+      );
+      return distanceKm * 1000;
+    }
+    return step.distanceMeters;
+  };
 
   const toggleDrivingMode = () => {
     if (!isDriving) {
@@ -292,6 +396,17 @@ const RadarScreen = ({ navigation, route }: any) => {
           setRouteCoords(res.coordinates);
           setIsDriving(true);
           setActiveTab('Map');
+          const steps = res?.legs?.[0]?.steps || [];
+          const parsedSteps: NavStep[] = steps.map((step: any) => ({
+            instruction: stripHtml(step.html_instructions || step.instructions || ''),
+            distanceMeters: step.distance?.value ?? null,
+            maneuver: step.maneuver,
+            endLocation: step.end_location
+              ? { latitude: step.end_location.lat, longitude: step.end_location.lng }
+              : undefined
+          }));
+          setNavSteps(parsedSteps);
+          setCurrentStepIndex(0);
           // Also fetch radars along route
           const rawRouteRadars = await RadarService.getRadarsAlongRoute(res.coordinates);
           
@@ -495,13 +610,15 @@ const RadarScreen = ({ navigation, route }: any) => {
                                        </TouchableOpacity>
 
                                        {/* Clear/Exit Button */}
-                                       {(destination.length > 0 || isDriving) && (
+                                      {(destination.length > 0 || isDriving) && (
                                             <TouchableOpacity 
                                                 style={[styles.iconBtn, { backgroundColor: '#FF5252', padding: 12 }]} 
                                                 onPress={() => {
                                                     setDestination('');
                                                     setSuggestions([]);
                                                     setRouteCoords([]);
+                                                    setNavSteps([]);
+                                                    setCurrentStepIndex(0);
                                                     setIsDriving(false);
                                                     setActiveTab('Basic');
                                                     // Also clear focused radars
@@ -541,10 +658,18 @@ const RadarScreen = ({ navigation, route }: any) => {
                                    {/* Turn by Turn Top Bar overlay */}
                                    {routeCoords.length > 0 && (
                                        <View style={styles.navInstructionBox}>
-                                            <MaterialCommunityIcons name="arrow-top-right-thick" size={32} color="white" />
+                                            <MaterialCommunityIcons
+                                              name={getManeuverIcon(navSteps[currentStepIndex]?.maneuver)}
+                                              size={32}
+                                              color="white"
+                                            />
                                             <View style={{marginLeft: 15}}>
-                                                <Text style={{color:'white', fontSize: 18, fontWeight: 'bold'}}>200 m</Text>
-                                                <Text style={{color:'#ccc'}}>Turn right onto Main St</Text>
+                                                <Text style={{color:'white', fontSize: 18, fontWeight: 'bold'}}>
+                                                  {formatStepDistance(getStepDistanceMeters(navSteps[currentStepIndex])) || '...'}
+                                                </Text>
+                                                <Text style={{color:'#ccc'}} numberOfLines={2}>
+                                                  {navSteps[currentStepIndex]?.instruction || 'Follow the highlighted route'}
+                                                </Text>
                                             </View>
                                        </View>
                                    )}

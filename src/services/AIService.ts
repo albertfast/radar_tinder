@@ -116,6 +116,49 @@ export class AIService {
     return aliases[normalized] || null;
   }
 
+  private static getKbDetails(entry: any): {
+    sensors: string[];
+    faults: string[];
+    checks: string[];
+  } {
+    const sensors = Array.isArray(entry?.sensors) ? entry.sensors : [];
+    const faults = Array.isArray(entry?.faults)
+      ? entry.faults
+      : Array.isArray(entry?.causes)
+        ? entry.causes
+        : [];
+    const checks = Array.isArray(entry?.checks) ? entry.checks : [];
+
+    return { sensors, faults, checks };
+  }
+
+  private static buildLightSummary(
+    rawLabel: string,
+    confidence: number
+  ): {
+    label: string;
+    entry: any;
+    lines: string[];
+  } {
+    const label = this.formatDashboardLabel(rawLabel);
+    const kbKey = this.resolveDashboardKbKey(rawLabel);
+    const entry = (diagnosticKb as any)[kbKey || label];
+    const details = this.getKbDetails(entry);
+    const lines = [`${label} (${(confidence * 100).toFixed(1)}%)`];
+
+    if (details.sensors.length) {
+      lines.push(`Sensors: ${details.sensors.join(', ')}`);
+    }
+    if (details.faults.length) {
+      lines.push(`Possible issues: ${details.faults.join(', ')}`);
+    }
+    if (details.checks.length) {
+      lines.push(`Checks: ${details.checks.join('; ')}`);
+    }
+
+    return { label, entry, lines };
+  }
+
   /**
    * Load the ONNX model from assets
    */
@@ -184,6 +227,7 @@ export class AIService {
       throw new Error('Failed to load dashboard model');
     }
   }
+
 
   private static async detectWarningLightCrops(
     baseUri: string,
@@ -405,7 +449,7 @@ export class AIService {
    */
   static async analyzeDashboardLight(imageUri: string): Promise<DiagnosisResult> {
     try {
-      const loadedSession = await this.loadDashboardModel();
+      const onnxSession = await this.loadDashboardModel();
       
       const meta = dashboardMetadata as any;
       const inputSize = Array.isArray(meta.input_size) && meta.input_size.length === 2
@@ -454,13 +498,15 @@ export class AIService {
           mean,
           std
         );
+        let outputData: Float32Array;
+
         const inputTensor = new Tensor('float32', tensorData, [1, 3, inputSize[1], inputSize[0]]);
         const feeds: Record<string, Tensor> = {};
-        feeds[loadedSession.inputNames[0]] = inputTensor;
+        feeds[onnxSession.inputNames[0]] = inputTensor;
 
-        const outputMap = await loadedSession.run(feeds);
-        const outputTensor = outputMap[loadedSession.outputNames[0]];
-        const outputData = outputTensor.data as Float32Array;
+        const outputMap = await onnxSession.run(feeds);
+        const outputTensor = outputMap[onnxSession.outputNames[0]];
+        outputData = outputTensor.data as Float32Array;
 
         const probabilities = this.softmax(outputData);
         let topIndex = 0;
@@ -562,15 +608,30 @@ export class AIService {
         recommendationExtras.push(`Top guesses: ${topList}`);
       }
 
+      if (kbEntry) {
+        const kbDetails = this.getKbDetails(kbEntry);
+        if (kbDetails.sensors.length) {
+          recommendationExtras.push(`Sensors: ${kbDetails.sensors.join(', ')}`);
+        }
+        if (kbDetails.faults.length) {
+          recommendationExtras.push(`Possible issues: ${kbDetails.faults.join(', ')}`);
+        }
+        if (kbDetails.checks.length) {
+          recommendationExtras.push(`Checks: ${kbDetails.checks.join('; ')}`);
+        }
+      }
+
       if (isMulti) {
-        const multiSummary = detectedLights.map(
-          (item) => `${item.label} (${(item.confidence * 100).toFixed(1)}%)`
-        );
-        const recommendations = [
-          'Detected lights:',
-          ...multiSummary,
-          'Review each warning light in the vehicle manual to confirm the cause.'
-        ];
+        const recommendations = ['Detected lights:'];
+        const detailsList: Array<{ label: string; confidence: number; entry?: any }> = [];
+
+        for (const item of detectedLights) {
+          const summary = this.buildLightSummary(item.rawLabel, item.confidence);
+          recommendations.push(...summary.lines);
+          detailsList.push({ label: summary.label, confidence: item.confidence, entry: summary.entry });
+        }
+
+        recommendations.push('Review each warning light in the vehicle manual to confirm the cause.');
 
         return {
           issue: 'Multiple warning lights detected',
@@ -578,7 +639,7 @@ export class AIService {
           recommendations,
           category: 'Warning',
           details: {
-            detected_lights: detectedLights,
+            detected_lights: detailsList,
             top_predictions: topPredictions
           }
         };

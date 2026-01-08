@@ -3,6 +3,20 @@
         "name": "Anti-lock Braking System",
         "severity": "High",
         "description": "There is a fault in the ABS system. Your regular brakes will still work, but emergency braking assistance is disabled.",
+        "sensors": [
+            "Wheel speed sensors",
+            "ABS control module"
+        ],
+        "faults": [
+            "Faulty wheel speed sensor",
+            "Low brake fluid",
+            "ABS module failure"
+        ],
+        "checks": [
+            "Inspect wheel speed sensor wiring",
+            "Check brake fluid level",
+            "Scan ABS module for fault codes"
+        ],
         "causes": ["Faulty wheel speed sensor", "Low brake fluid", "ABS module failure"],
         "action": "Drive carefully and have the system inspected as soon as possible."
     },
@@ -10,6 +24,21 @@
         "name": "Airbag / Supplemental Restraint System",
         "severity": "Critical",
         "description": "A fault has been detected in the airbag system. Airbags may not deploy in an accident.",
+        "sensors": [
+            "Impact sensors",
+            "Seatbelt pretensioner",
+            "Clock spring"
+        ],
+        "faults": [
+            "Faulty seatbelt pretensioner",
+            "Clock spring failure",
+            "Impact sensor issue"
+        ],
+        "checks": [
+            "Inspect seatbelt pretensioner connectors",
+            "Scan SRS for fault codes",
+            "Avoid driving until repaired"
+        ],
         "causes": ["Faulty seatbelt pretensioner", "Clock spring failure", "Impact sensor issue"],
         "action": "Seek immediate professional repair. Do not drive if possible."
     },
@@ -17,6 +46,20 @@
         "name": "Charging System Warning",
         "severity": "High",
         "description": "The battery is not being charged or there is a fault in the electrical system.",
+        "sensors": [
+            "Alternator/charging system",
+            "Battery terminals"
+        ],
+        "faults": [
+            "Failing alternator",
+            "Broken serpentine belt",
+            "Loose battery terminals"
+        ],
+        "checks": [
+            "Check battery terminals for corrosion",
+            "Inspect serpentine belt",
+            "Measure charging voltage"
+        ],
         "causes": ["Failing alternator", "Broken serpentine belt", "Loose battery terminals"],
         "action": "Turn off unnecessary electrical items and drive to a service station immediately."
     },
@@ -24,6 +67,20 @@
         "name": "Brake System Warning",
         "severity": "Critical",
         "description": "Serious issue with the braking system or the parking brake is engaged.",
+        "sensors": [
+            "Brake fluid level sensor",
+            "Parking brake switch"
+        ],
+        "faults": [
+            "Low brake fluid",
+            "Worn brake pads",
+            "Hydraulic pressure loss"
+        ],
+        "checks": [
+            "Check brake fluid level",
+            "Verify parking brake is fully released",
+            "Inspect brake pads and lines"
+        ],
         "causes": ["Low brake fluid", "Worn brake pads", "Hydraulic pressure loss"],
         "action": "Stop the vehicle safely. Check brake fluid level. Do not drive if brakes feel soft."
     },
@@ -31,6 +88,21 @@
         "name": "Check Engine / Malfunction Indicator",
         "severity": "Medium",
         "description": "The engine computer has detected a fault in the emission or engine control system.",
+        "sensors": [
+            "O2 sensors",
+            "MAF sensor",
+            "EVAP system"
+        ],
+        "faults": [
+            "Loose gas cap",
+            "Faulty oxygen sensor",
+            "Catalytic converter issue"
+        ],
+        "checks": [
+            "Tighten or replace gas cap",
+            "Scan ECU for OBD-II codes",
+            "Inspect intake for leaks"
+        ],
         "causes": ["Loose gas cap", "Faulty oxygen sensor", "Catalytic converter issue"],
         "action": "Schedule a diagnostic scan. If flashing, reduce speed and seek immediate service."
     },
@@ -38,6 +110,20 @@
         "name": "Tire Pressure Monitoring System (TPMS)",
         "severity": "Warning",
         "description": "One or more tires have low air pressure.",
+        "sensors": [
+            "TPMS wheel sensors",
+            "TPMS receiver"
+        ],
+        "faults": [
+            "Low tire pressure",
+            "Puncture",
+            "TPMS sensor battery low"
+        ],
+        "checks": [
+            "Measure tire pressures and inflate to spec",
+            "Inspect for punctures or leaks",
+            "Reset TPMS if required"
+        ],
         "causes": ["Puncture", "Temperature changes", "Faulty TPMS sensor"],
         "action": "Check tire pressures and inflate to recommended levels."
     },
@@ -45,6 +131,20 @@
         "name": "Engine Overheating Warning",
         "severity": "Critical",
         "description": "The engine is running too hot. Continued driving will cause severe engine damage.",
+        "sensors": [
+            "Coolant temperature sensor",
+            "Radiator fan"
+        ],
+        "faults": [
+            "Coolant leak",
+            "Failing water pump",
+            "Stuck thermostat"
+        ],
+        "checks": [
+            "Pull over and let engine cool",
+            "Check coolant level after cooling",
+            "Inspect for leaks"
+        ],
         "causes": ["Coolant leak", "Failing water pump", "Stuck thermostat"],
         "action": "Pull over safely and turn off the engine immediately. Do not open the radiator cap while hot."
     },
@@ -52,6 +152,20 @@
         "name": "Traction Control / Stability Control",
         "severity": "Warning",
         "description": "The traction control system is either active or has a fault.",
+        "sensors": [
+            "Wheel speed sensors",
+            "Yaw/steering angle sensor"
+        ],
+        "faults": [
+            "Slippery road conditions",
+            "Faulty wheel speed sensor",
+            "Steering angle sensor issue"
+        ],
+        "checks": [
+            "Drive carefully on low-traction surfaces",
+            "Scan stability control module",
+            "Inspect wheel speed sensors"
+        ],
         "causes": ["Slippery road conditions", "Faulty wheel speed sensor", "Steering angle sensor issue"],
         "action": "Drive cautiously on slippery surfaces. If the light stays on, have it checked."
     },
@@ -59,6 +173,20 @@
         "name": "Seatbelt Reminder",
         "severity": "Warning",
         "description": "One or more occupants do not have their seatbelts fastened.",
+        "sensors": [
+            "Seatbelt buckle switch",
+            "Seat occupancy sensor"
+        ],
+        "faults": [
+            "Unbuckled seatbelt",
+            "Heavy object on seat",
+            "Seatbelt switch fault"
+        ],
+        "checks": [
+            "Ensure all occupants buckle up",
+            "Remove heavy objects from seats",
+            "Inspect seatbelt buckle switch"
+        ],
         "causes": ["Unbuckled seatbelt", "Heavy object on seat"],
         "action": "Ensure all occupants are buckled up before driving."
     },
@@ -66,7 +194,73 @@
         "name": "Low Fuel Warning",
         "severity": "Warning",
         "description": "The fuel level is low.",
+        "sensors": [
+            "Fuel level sensor"
+        ],
+        "faults": [
+            "Low fuel level",
+            "Fuel level sensor drift"
+        ],
+        "checks": [
+            "Refuel as soon as possible",
+            "If light stays on, inspect fuel level sensor"
+        ],
         "causes": ["Empty fuel tank"],
         "action": "Refuel as soon as possible to avoid being stranded."
+    },
+    "Oil Pressure": {
+        "name": "Oil Pressure Warning",
+        "severity": "Critical",
+        "description": "Oil pressure is too low. Continued driving can damage the engine.",
+        "sensors": [
+            "Oil pressure sensor"
+        ],
+        "faults": [
+            "Low oil level",
+            "Oil pump failure",
+            "Oil leak"
+        ],
+        "checks": [
+            "Stop engine immediately",
+            "Check oil level",
+            "Inspect for leaks"
+        ],
+        "action": "Stop the engine and check oil level immediately."
+    },
+    "Transmission": {
+        "name": "Transmission Warning",
+        "severity": "High",
+        "description": "Transmission temperature or control system issue detected.",
+        "sensors": [
+            "Transmission temperature sensor",
+            "Transmission control module"
+        ],
+        "faults": [
+            "Overheating transmission fluid",
+            "Low transmission fluid",
+            "Transmission control fault"
+        ],
+        "checks": [
+            "Reduce load and drive gently",
+            "Check transmission fluid level",
+            "Scan transmission control module"
+        ],
+        "action": "Reduce speed and have the transmission inspected."
+    },
+    "Maintenance": {
+        "name": "Maintenance Reminder",
+        "severity": "Info",
+        "description": "Scheduled service is due based on mileage or time.",
+        "sensors": [
+            "Service interval monitor"
+        ],
+        "faults": [
+            "Routine service due"
+        ],
+        "checks": [
+            "Review maintenance schedule",
+            "Schedule service appointment"
+        ],
+        "action": "Plan routine service soon."
     }
 }

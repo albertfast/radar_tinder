@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, Image } from 'react-native';
-import { Text, Surface, Avatar, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, FlatList } from 'react-native';
+import { Text, Surface, Avatar, ActivityIndicator, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GamificationService, Rank } from '../services/GamificationService';
@@ -14,7 +14,7 @@ interface LeaderboardUser {
   avatar?: string;
 }
 
-const LeaderboardScreen = () => {
+const LeaderboardScreen = ({ navigation }: any) => {
   const { user } = useAuthStore();
   const [leaders, setLeaders] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,8 +83,16 @@ const LeaderboardScreen = () => {
       />
       
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Leaderboard</Text>
-        <Text style={styles.headerSubtitle}>Top Drivers this Week</Text>
+        <IconButton 
+          icon="chevron-left" 
+          iconColor="white" 
+          size={30} 
+          onPress={() => navigation.goBack()} 
+        />
+        <View>
+          <Text style={styles.headerTitle}>Leaderboard</Text>
+          <Text style={styles.headerSubtitle}>Top Drivers this Week</Text>
+        </View>
       </View>
 
       {loading ? (
@@ -107,7 +115,7 @@ const LeaderboardScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000', paddingTop: 50 },
   background: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
-  header: { paddingHorizontal: 20, marginBottom: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, marginBottom: 20 },
   headerTitle: { fontSize: 28, fontWeight: 'bold', color: 'white' },
   headerSubtitle: { fontSize: 14, color: '#8E8E93', marginTop: 5 },
   
