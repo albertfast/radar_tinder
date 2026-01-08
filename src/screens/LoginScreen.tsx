@@ -222,9 +222,9 @@ const LoginScreen = ({ navigation }: any) => {
                     value={email}
                     onChangeText={setEmail}
                     autoCapitalize="none"
-                    keyboardType="email-address"
+                    keyboardType="default"
                     autoCorrect={false}
-                    autoComplete="email"
+                    autoComplete="username"
                     showSoftInputOnFocus={true}
                     blurOnSubmit={false}
                     returnKeyType="next"

@@ -1,22 +1,52 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
-import { Text, Surface, IconButton } from 'react-native-paper';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { Text, Surface } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { 
-  FadeInRight, 
-  FadeInUp, 
-  useAnimatedStyle, 
-  useSharedValue, 
+import Animated, {
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
   withSpring,
   interpolate,
   Extrapolate
 } from 'react-native-reanimated';
+import { useRadarStore } from '../store/radarStore';
+import { useAuthStore } from '../store/authStore';
+import { useSettingsStore } from '../store/settingsStore';
+import { DatabaseService } from '../services/DatabaseService';
+import { RadarAlert } from '../types';
+import { formatDistance } from '../utils/format';
 
-const { width } = Dimensions.get('window');
 const allowLayoutAnimations = Platform.OS !== 'android';
 
-const AlertCard3D = ({ alert, index }: any) => {
+const formatAlertType = (type?: RadarAlert['type']) => {
+  switch (type) {
+    case 'red_light':
+      return 'Red Light Camera';
+    case 'fixed':
+      return 'Fixed Camera';
+    case 'mobile':
+      return 'Mobile Radar';
+    case 'police':
+      return 'Police';
+    case 'traffic_enforcement':
+      return 'Traffic Enforcement';
+    case 'speed_camera':
+    default:
+      return 'Speed Camera';
+  }
+};
+
+const AlertCard3D = ({
+  alert,
+  unitSystem,
+  onAcknowledge,
+}: {
+  alert: RadarAlert;
+  unitSystem: 'metric' | 'imperial';
+  onAcknowledge: (id: string) => void;
+}) => {
   const offset = useSharedValue(50);
   const rotation = useSharedValue(10);
 
@@ -25,17 +55,23 @@ const AlertCard3D = ({ alert, index }: any) => {
     rotation.value = withSpring(0, { damping: 12, stiffness: 90 });
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { translateY: offset.value },
-        { perspective: 1000 },
-        { rotateX: `${rotation.value}deg` },
-        { scale: interpolate(offset.value, [0, 50], [1, 0.9], Extrapolate.CLAMP) }
-      ],
-      opacity: interpolate(offset.value, [0, 50], [1, 0], Extrapolate.CLAMP)
-    };
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: offset.value },
+      { perspective: 1000 },
+      { rotateX: `${rotation.value}deg` },
+      { scale: interpolate(offset.value, [0, 50], [1, 0.9], Extrapolate.CLAMP) },
+    ],
+    opacity: interpolate(offset.value, [0, 50], [1, 0], Extrapolate.CLAMP),
+  }));
+
+  const distanceLabel = formatDistance(alert.distance, unitSystem);
+  const etaMinutes = Number.isFinite(alert.estimatedTime)
+    ? Math.max(1, Math.round(alert.estimatedTime * 60))
+    : null;
+  const timeLabel = alert.createdAt instanceof Date ? alert.createdAt.toLocaleTimeString() : '';
+  const label = formatAlertType(alert.type);
+  const severityColor = alert.severity === 'high' ? '#FF5252' : '#4ECDC4';
 
   return (
     <Animated.View style={[styles.alertWrapper, animatedStyle]}>
@@ -46,27 +82,30 @@ const AlertCard3D = ({ alert, index }: any) => {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <View style={styles.alertLeftBar} />
+          <View style={[styles.alertLeftBar, { backgroundColor: severityColor }]} />
           <View style={styles.alertContent}>
             <View style={styles.alertHeader}>
-              <View style={[styles.alertIconContainer, { shadowColor: '#FF5252', shadowOpacity: 0.5, shadowRadius: 10 }]}>
-                <MaterialCommunityIcons name="alert" size={28} color="#FF5252" />
+              <View style={[styles.alertIconContainer, { shadowColor: severityColor, shadowOpacity: 0.5, shadowRadius: 10 }]}>
+                <MaterialCommunityIcons name="alert" size={26} color={severityColor} />
               </View>
               <View style={styles.alertTitleContainer}>
-                <Text style={styles.alertTitle}>{alert.type}</Text>
-                <Text style={styles.alertSubtitle}>{alert.distance} away</Text>
+                <Text style={styles.alertTitle}>{label}</Text>
+                <Text style={styles.alertSubtitle}>{distanceLabel} away</Text>
               </View>
-              <TouchableOpacity style={styles.okButton}>
+              <TouchableOpacity style={styles.okButton} onPress={() => onAcknowledge(alert.id)}>
                 <Text style={styles.okButtonText}>OK</Text>
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.alertFooter}>
               <View style={styles.metaItem}>
                 <MaterialCommunityIcons name="clock-outline" size={14} color="#666" />
-                <Text style={styles.alertMeta}> ETA: {alert.eta}</Text>
+                <Text style={styles.alertMeta}>
+                  {' '}
+                  ETA: {etaMinutes ? `${etaMinutes} min` : '--'}
+                </Text>
               </View>
-              <Text style={styles.alertMeta}>{alert.time}</Text>
+              <Text style={styles.alertMeta}>{timeLabel}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -76,82 +115,94 @@ const AlertCard3D = ({ alert, index }: any) => {
 };
 
 const AlertsScreen = ({ navigation }: any) => {
-  // In a real app, this would come from useRadarStore()
-  // For now, we simulate "Live" alerts based on props or random generation to satisfy the user request for "flow"
-  const [activeAlerts, setActiveAlerts] = React.useState<any[]>([
-      { id: 1, type: 'Radar Detected', distance: '0.3 km', eta: '0.0 min', time: new Date().toLocaleTimeString(), severity: 'high' }
-  ]);
+  const { activeAlerts, acknowledgeAlert, clearAlerts } = useRadarStore();
+  const { user } = useAuthStore();
+  const { unitSystem } = useSettingsStore();
+  const [historyAlerts, setHistoryAlerts] = useState<RadarAlert[]>([]);
 
-  // Simulate incoming alerts while "driving"
+  const visibleAlerts = useMemo(
+    () => activeAlerts.filter((alert) => !alert.acknowledged),
+    [activeAlerts]
+  );
+
   useEffect(() => {
-      const interval = setInterval(() => {
-          if (Math.random() > 0.7) {
-              const newAlert = {
-                  id: Date.now(),
-                  type: Math.random() > 0.5 ? 'Speed Trap' : 'Police',
-                  distance: (Math.random() * 2).toFixed(1) + ' km',
-                  eta: '1.2 min',
-                  time: new Date().toLocaleTimeString(),
-                  severity: Math.random() > 0.5 ? 'high' : 'medium'
-              };
-              setActiveAlerts(prev => [newAlert, ...prev].slice(0, 5));
-          }
-      }, 5000);
-      return () => clearInterval(interval);
-  }, []);
+    const loadHistory = async () => {
+      if (!user) return;
+      try {
+        const history = await DatabaseService.getAlerts(user.id);
+        setHistoryAlerts(history.slice(0, 15));
+      } catch (error) {
+        console.warn('Failed to load alert history:', error);
+      }
+    };
 
-  const historyAlerts = [
-    { id: 3, type: 'Speed Trap', distance: '1.2 km', time: 'Yesterday', severity: 'medium' },
-    { id: 4, type: 'Red Light Camera', distance: '5.4 km', time: '2 days ago', severity: 'low' },
-  ];
+    loadHistory();
+  }, [user?.id, activeAlerts.length]);
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#000000', '#121212']}
-        style={styles.background}
-      />
-      
+      <LinearGradient colors={['#000000', '#121212']} style={styles.background} />
+
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{marginRight: 15}}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 15 }}>
           <MaterialCommunityIcons name="chevron-left" size={32} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Alerts</Text>
-        <View style={{flex:1}} />
-        <TouchableOpacity onPress={() => console.log('Clear All')}>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity onPress={clearAlerts}>
           <Text style={styles.clearAllText}>Clear All</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Active Alerts ({activeAlerts.length})</Text>
-        
-        {activeAlerts.map((alert, index) => (
-          <AlertCard3D key={alert.id} alert={alert} index={index} />
-        ))}
+        <Text style={styles.sectionTitle}>Active Alerts ({visibleAlerts.length})</Text>
+
+        {visibleAlerts.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <MaterialCommunityIcons name="bell-check" size={22} color="#4ECDC4" />
+            <Text style={styles.emptyTitle}>No active alerts</Text>
+            <Text style={styles.emptySubtitle}>
+              Alerts appear as live banners while driving.
+            </Text>
+          </View>
+        ) : (
+          visibleAlerts.map((alert) => (
+            <AlertCard3D
+              key={alert.id}
+              alert={alert}
+              unitSystem={unitSystem}
+              onAcknowledge={acknowledgeAlert}
+            />
+          ))
+        )}
 
         <Text style={[styles.sectionTitle, { marginTop: 30 }]}>Alert History</Text>
-        
-        {historyAlerts.map((alert, index) => (
-          <Animated.View
-            key={alert.id}
-            entering={allowLayoutAnimations ? FadeInUp.delay(300 + (index * 100)) : undefined}
-          >
-            <Surface style={styles.historyCard} elevation={1}>
-              <View style={styles.historyIcon}>
-                <MaterialCommunityIcons 
-                  name={alert.severity === 'high' ? "alert-octagon" : "alert-circle-outline"} 
-                  size={24} 
-                  color="#8E8E93" 
-                />
-              </View>
-              <View style={styles.historyContent}>
-                <Text style={styles.historyTitle}>{alert.type}</Text>
-                <Text style={styles.historySubtitle}>{alert.distance} • {alert.time}</Text>
-              </View>
-            </Surface>
-          </Animated.View>
-        ))}
+        {historyAlerts.length === 0 ? (
+          <Text style={styles.emptyHistoryText}>No saved alerts yet.</Text>
+        ) : (
+          historyAlerts.map((alert, index) => (
+            <Animated.View
+              key={alert.id}
+              entering={allowLayoutAnimations ? FadeInUp.delay(200 + index * 80) : undefined}
+            >
+              <Surface style={styles.historyCard} elevation={1}>
+                <View style={styles.historyIcon}>
+                  <MaterialCommunityIcons
+                    name={alert.severity === 'high' ? 'alert-octagon' : 'alert-circle-outline'}
+                    size={24}
+                    color="#8E8E93"
+                  />
+                </View>
+                <View style={styles.historyContent}>
+                  <Text style={styles.historyTitle}>{formatAlertType(alert.type)}</Text>
+                  <Text style={styles.historySubtitle}>
+                    {formatDistance(alert.distance, unitSystem)} • {alert.createdAt.toLocaleString()}
+                  </Text>
+                </View>
+              </Surface>
+            </Animated.View>
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -165,7 +216,7 @@ const styles = StyleSheet.create({
   clearAllText: { color: '#FF5252', fontSize: 16, fontWeight: '600' },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
   sectionTitle: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
-  
+
   alertWrapper: { marginBottom: 20 },
   alertCard: { borderRadius: 16, overflow: 'hidden', backgroundColor: '#1C1C1E', transform: [{ perspective: 1000 }] },
   cardGradient: { flexDirection: 'row' },
@@ -176,17 +227,30 @@ const styles = StyleSheet.create({
   alertTitleContainer: { flex: 1 },
   alertTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
   alertSubtitle: { color: '#8E8E93', fontSize: 14 },
-  okButton: { backgroundColor: '#FF6B35', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 20, shadowColor: '#FF6B35', shadowOpacity: 0.4, shadowRadius: 5 },
-  okButtonText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
+  okButton: { backgroundColor: '#1F2937', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(78,205,196,0.4)' },
+  okButtonText: { color: '#4ECDC4', fontWeight: 'bold', fontSize: 12 },
   alertFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   metaItem: { flexDirection: 'row', alignItems: 'center' },
   alertMeta: { color: '#666', fontSize: 12 },
-  
+
+  emptyCard: {
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(78,205,196,0.2)',
+    marginBottom: 10,
+  },
+  emptyTitle: { color: 'white', fontSize: 16, fontWeight: '600', marginTop: 8 },
+  emptySubtitle: { color: '#94A3B8', fontSize: 12, marginTop: 4, textAlign: 'center' },
+
   historyCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1C1C1E', padding: 15, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: '#333' },
   historyIcon: { marginRight: 15 },
   historyContent: { flex: 1 },
   historyTitle: { color: 'white', fontSize: 16, fontWeight: '600' },
   historySubtitle: { color: '#8E8E93', fontSize: 12, marginTop: 2 },
+  emptyHistoryText: { color: '#6B7280', fontSize: 12 },
 });
 
 export default AlertsScreen;

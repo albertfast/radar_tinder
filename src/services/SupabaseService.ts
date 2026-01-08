@@ -29,11 +29,12 @@ export class SupabaseService {
   }
 
   /**
-   * Reports a new radar location
+   * Reports a new radar location and stores a report for points.
+   * Returns { radarId, reportId } when successful.
    */
   static async reportRadar(radarData: any) {
     try {
-      const { data, error } = await supabase
+      const { data: radarRow, error: radarError } = await supabase
         .from('radars')
         .insert([
           {
@@ -43,10 +44,26 @@ export class SupabaseService {
             reported_by: radarData.reportedBy,
           },
         ])
-        .select();
+        .select('id')
+        .single();
 
-      if (error) throw error;
-      return data;
+      if (radarError) throw radarError;
+
+      const { data: reportRow, error: reportError } = await supabase
+        .from('radar_reports')
+        .insert([
+          {
+            radar_id: radarRow?.id || null,
+            reporter_id: radarData.reportedBy,
+            type: radarData.type,
+            location: `POINT(${radarData.longitude} ${radarData.latitude})`,
+          },
+        ])
+        .select('id')
+        .single();
+
+      if (reportError) throw reportError;
+      return { radarId: radarRow?.id ?? null, reportId: reportRow?.id ?? null };
     } catch (error) {
       console.error('Supabase reportRadar error:', error);
       return null;
@@ -91,7 +108,7 @@ export class SupabaseService {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, points, rank, avatar_url')
+        .select('id, display_name, username, points, rank, avatar_url')
         .order('points', { ascending: false })
         .limit(limit);
 
@@ -100,6 +117,28 @@ export class SupabaseService {
     } catch (error) {
       console.error('Supabase getLeaderboard error:', error);
       return [];
+    }
+  }
+
+  static async confirmNearbyReport(params: {
+    latitude: number;
+    longitude: number;
+    radiusMeters: number;
+    type?: string | null;
+  }) {
+    try {
+      const { data, error } = await supabase.rpc('confirm_nearby_report', {
+        p_lat: params.latitude,
+        p_long: params.longitude,
+        p_radius_meters: params.radiusMeters,
+        p_type: params.type ?? null,
+      });
+
+      if (error) throw error;
+      return data ?? null;
+    } catch (error) {
+      console.error('Supabase confirmNearbyReport error:', error);
+      return null;
     }
   }
 
@@ -116,6 +155,36 @@ export class SupabaseService {
       return data;
     } catch (error) {
       console.error('Supabase updateProfile error:', error);
+      return null;
+    }
+  }
+
+  static async getEmailForUsername(username: string): Promise<string | null> {
+    try {
+      const { data, error } = await supabase.rpc('get_email_for_username', {
+        p_username: username,
+      });
+
+      if (error) throw error;
+      return data ?? null;
+    } catch (error) {
+      console.error('Supabase getEmailForUsername error:', error);
+      return null;
+    }
+  }
+
+  static async upsertProfile(userId: string, updates: any) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .upsert({ id: userId, ...updates }, { onConflict: 'id' })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Supabase upsertProfile error:', error);
       return null;
     }
   }

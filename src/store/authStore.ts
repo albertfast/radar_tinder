@@ -31,8 +31,13 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<{ data: any; error: any }>;
-  signUp: (email: string, password: string) => Promise<{ data: any; error: any }>;
+  signIn: (identifier: string, password: string) => Promise<{ data: any; error: any }>;
+  signUp: (
+    email: string,
+    password: string,
+    profile?: { username?: string; displayName?: string; avatarUrl?: string }
+  ) => Promise<{ data: any; error: any }>;
+  refreshProfile: () => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
   setLoading: (loading: boolean) => void;
@@ -45,11 +50,21 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
 
-      signIn: async (email: string, password: string) => {
+      signIn: async (identifier: string, password: string) => {
         set({ isLoading: true });
         try {
+          let resolvedEmail = identifier;
+          if (!identifier.includes('@')) {
+            const emailLookup = await SupabaseService.getEmailForUsername(identifier);
+            if (!emailLookup) {
+              set({ isLoading: false });
+              return { data: null, error: new Error('Username not found.') };
+            }
+            resolvedEmail = emailLookup;
+          }
+
           const { data, error } = await supabase.auth.signInWithPassword({
-            email,
+            email: resolvedEmail,
             password,
           });
 
@@ -63,11 +78,17 @@ export const useAuthStore = create<AuthState>()(
             const profile = await SupabaseService.getProfile(data.user.id);
             
             // Map Supabase User + Profile to our App User type
+            const displayName =
+              profile?.display_name || profile?.username || data.user.email!.split('@')[0];
             const appUser: User = {
               id: data.user.id,
               email: data.user.email!,
-              name: profile?.full_name || profile?.name || data.user.email!.split('@')[0],
+              username: profile?.username,
+              displayName: profile?.display_name,
+              name: displayName,
               subscriptionType: profile?.subscription_type || 'free',
+              avatarUrl: profile?.avatar_url,
+              profileImage: profile?.avatar_url,
               points: profile?.points || 0,
               rank: profile?.rank || 'Rookie',
               xp: profile?.xp || 0,
@@ -92,12 +113,24 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      signUp: async (email: string, password: string) => {
+      signUp: async (
+        email: string,
+        password: string,
+        profile?: { username?: string; displayName?: string; avatarUrl?: string }
+      ) => {
         set({ isLoading: true });
         try {
+          const meta = {
+            username: profile?.username,
+            display_name: profile?.displayName || profile?.username,
+            avatar_url: profile?.avatarUrl,
+          };
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
+            options: {
+              data: meta,
+            },
           });
 
           if (error) {
@@ -105,15 +138,58 @@ export const useAuthStore = create<AuthState>()(
             return { data: null, error };
           }
           
-          // Note: Profile creation usually happens via Postgres Trigger on public.users insert
-          // But if we need manual creation, we would do it here.
-          // For now, we assume trigger or just ignore profile until login.
+          if (data.user) {
+            await SupabaseService.upsertProfile(data.user.id, {
+              email,
+              username: profile?.username,
+              display_name: profile?.displayName || profile?.username,
+              avatar_url: profile?.avatarUrl,
+              stats: { reports: 0, confirmations: 0, distanceDriven: 0 },
+              points: 0,
+              xp: 0,
+              level: 1,
+              rank: 'Rookie',
+            });
+          }
 
           set({ isLoading: false });
           return { data, error: null };
         } catch (error) {
           set({ isLoading: false });
           return { data: null, error };
+        }
+      },
+
+      refreshProfile: async () => {
+        const currentUser = get().user;
+        if (!currentUser) return;
+
+        try {
+          const profile = await SupabaseService.getProfile(currentUser.id);
+          if (!profile) return;
+
+          set({
+            user: {
+              ...currentUser,
+              username: profile.username ?? currentUser.username,
+              displayName: profile.display_name ?? currentUser.displayName,
+              name:
+                profile.display_name ||
+                profile.username ||
+                currentUser.name ||
+                currentUser.email.split('@')[0],
+              avatarUrl: profile.avatar_url ?? currentUser.avatarUrl,
+              profileImage: profile.avatar_url ?? currentUser.profileImage,
+              points: profile.points ?? currentUser.points,
+              rank: profile.rank ?? currentUser.rank,
+              xp: profile.xp ?? currentUser.xp,
+              level: profile.level ?? currentUser.level,
+              stats: profile.stats ?? currentUser.stats,
+              updatedAt: new Date(),
+            },
+          });
+        } catch (error) {
+          console.error('Failed to refresh profile:', error);
         }
       },
 

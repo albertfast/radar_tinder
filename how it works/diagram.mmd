@@ -1,0 +1,47 @@
+flowchart TB
+  %% Radar Tinder - System Overview
+  subgraph Mobile App
+    A[Login / Register] -->|email or username| B[Auth Store]
+    B --> C[Profile & Settings]
+    C --> D[Leaderboard UI]
+    C --> E[Driving / Map UI]
+    C --> F[AI Diagnose UI]
+    E --> G[Report Radar]
+    E --> H[Verify Radar]
+    F --> I[On-device ONNX Inference]
+  end
+
+  subgraph Supabase
+    S1[auth.users]
+    S2[profiles<br/>username, display_name, avatar_url, stats]
+    S3[radars]
+    S4[radar_reports]
+    S5[report_confirmations]
+    S6[points_ledger]
+    S7[Realtime Channel]
+  end
+
+  subgraph External APIs
+    X1[Google Maps APIs<br/>Directions/Places/Geocode]
+    X2[OpenStreetMap Overpass]
+  end
+
+  A -->|signUp / signIn| S1
+  S1 -->|trigger| S2
+  B -->|fetch profile| S2
+  D -->|live rankings| S2
+  D <-->|Realtime updates| S7
+  S2 --> S7
+
+  E -->|nearby radars| S3
+  E -->|public radars| X2
+  E -->|routes + nav| X1
+  G --> S4
+  H --> S5
+  S4 -->|aggregate| S3
+  S4 --> S6
+  S5 --> S6
+  S6 -->|points / rank| S2
+
+  F --> I
+  I -->|issues + confidence| F

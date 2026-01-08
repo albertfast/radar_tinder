@@ -1,6 +1,8 @@
 export interface User {
   id: string;
   email: string;
+  username?: string;
+  displayName?: string;
   name: string;
   subscriptionType: 'free' | 'premium' | 'pro';
   subscriptionExpiresAt?: Date;
@@ -11,6 +13,7 @@ export interface User {
     km: string;
   };
   profileImage?: string;
+  avatarUrl?: string;
   carImage?: string;
   points: number;
   rank: 'Rookie' | 'Scout' | 'Ranger' | 'Commander' | 'Legend';
@@ -46,6 +49,7 @@ export interface RadarAlert {
   id: string;
   radarId: string;
   userId: string;
+  type?: RadarLocation['type'];
   distance: number;
   estimatedTime: number;
   severity: 'low' | 'medium' | 'high';

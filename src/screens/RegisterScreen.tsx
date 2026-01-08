@@ -20,15 +20,21 @@ const allowLayoutAnimations = Platform.OS !== 'android';
 
 const RegisterScreen = ({ navigation }: any) => {
   const { signUp, isLoading } = useAuthStore();
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loadingLocal, setLoadingLocal] = useState(false);
 
   const handleRegister = async () => {
-    if (!name || !email || !password || !confirmPassword) {
-      Alert.alert('Missing Fields', 'Please fill in all fields.');
+    if (!username || !email || !password || !confirmPassword) {
+      Alert.alert('Missing Fields', 'Please fill in username, email, and password.');
+      return;
+    }
+
+    if (username.includes(' ')) {
+      Alert.alert('Invalid Username', 'Username cannot contain spaces.');
       return;
     }
 
@@ -39,7 +45,12 @@ const RegisterScreen = ({ navigation }: any) => {
 
     setLoadingLocal(true);
     try {
-      const { data, error } = await signUp(email, password);
+      const displayName = username.trim();
+      const { data, error } = await signUp(email, password, {
+        username: username.trim(),
+        displayName,
+        avatarUrl: avatarUrl.trim() || undefined,
+      });
       
       if (error) {
         Alert.alert('Registration Failed', error.message || 'Something went wrong.');
@@ -90,16 +101,16 @@ const RegisterScreen = ({ navigation }: any) => {
           </View>
 
           <View style={styles.formContainer}>
-            {/* Name Input */}
+            {/* Username Input */}
             <View style={styles.inputWrapper}>
                 <MaterialCommunityIcons name="account-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
                 <TextInput
-                  placeholder="Full Name"
+                  placeholder="Username"
                   placeholderTextColor="#64748B"
                   style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                  autoCapitalize="words"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
                   showSoftInputOnFocus={true}
                 />
             </View>
@@ -129,6 +140,20 @@ const RegisterScreen = ({ navigation }: any) => {
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
+                  showSoftInputOnFocus={true}
+                />
+            </View>
+
+            {/* Avatar URL (Optional) */}
+            <View style={styles.inputWrapper}>
+                <MaterialCommunityIcons name="image-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Avatar URL (optional)"
+                  placeholderTextColor="#64748B"
+                  style={styles.input}
+                  value={avatarUrl}
+                  onChangeText={setAvatarUrl}
+                  autoCapitalize="none"
                   showSoftInputOnFocus={true}
                 />
             </View>

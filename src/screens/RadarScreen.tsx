@@ -38,6 +38,7 @@ import { RadarService } from '../services/RadarService';
 import { GoogleMapsService } from '../services/GoogleMapsService';
 import { LocationService } from '../services/LocationService';
 import { OfflineService } from '../services/OfflineService';
+import { SupabaseService } from '../services/SupabaseService';
 import { RadarAnimation } from '../components/RadarAnimation';
 import RadarMap from '../components/RadarMap';
 import { RadarLocation } from '../types';
@@ -108,7 +109,7 @@ const OptimizedMarker = React.memo(({ coordinate, type, speedLimit }: any) => {
 });
 
 const RadarScreen = ({ navigation, route }: any) => {
-  const { user } = useAuthStore();
+  const { user, refreshProfile } = useAuthStore();
   const { unitSystem } = useSettingsStore();
   const setRadarLocations = useRadarStore((state) => state.setRadarLocations);
   const mapRef = useRef<MapView>(null);
@@ -453,6 +454,7 @@ const RadarScreen = ({ navigation, route }: any) => {
         setNearbyRadars(refreshed);
         setRadarLocations(refreshed);
 
+        await refreshProfile();
         alert('Report sent. Nearby drivers will be notified.');
       } catch (error) {
         console.error('Report hazard failed:', error);
@@ -472,6 +474,33 @@ const RadarScreen = ({ navigation, route }: any) => {
         } catch (offlineError) {
           alert('Failed to report hazard. Please try again.');
         }
+      }
+  };
+
+  const handleConfirmRadar = async (radar: RadarLocation) => {
+      if (!user) {
+        alert('Please log in to confirm reports.');
+        return;
+      }
+
+      const loc = currentLocationRef.current || currentLocation;
+      if (!loc) {
+        alert('Location unavailable. Please enable location services.');
+        return;
+      }
+
+      const reportId = await SupabaseService.confirmNearbyReport({
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        radiusMeters: 150,
+        type: radar.type,
+      });
+
+      if (reportId) {
+        await refreshProfile();
+        alert('Thanks! Confirmation recorded.');
+      } else {
+        alert('No community report to confirm nearby.');
       }
   };
 
@@ -570,6 +599,17 @@ const RadarScreen = ({ navigation, route }: any) => {
                                               {r.type === 'police' ? 'Police Spotted' : 'Speed Camera'}
                                           </Text>
                                           <Text style={styles.alertDist}>{formatDistance(r.distance, unitSystem)}</Text>
+                                          {r.id &&
+                                            !r.id.startsWith('osm-') &&
+                                            !r.id.startsWith('google-') &&
+                                            !r.id.startsWith('mock-') && (
+                                            <TouchableOpacity
+                                              style={styles.confirmButton}
+                                              onPress={() => handleConfirmRadar(r)}
+                                            >
+                                              <Text style={styles.confirmButtonText}>Confirm</Text>
+                                            </TouchableOpacity>
+                                          )}
                                       </View>
                                   ))
                               ) : (
@@ -880,6 +920,8 @@ const styles = StyleSheet.create({
   alertItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: 15, borderRadius: 16, marginBottom: 10 },
   alertText: { color: 'white', flex: 1, marginLeft: 15, fontWeight: '500' },
   alertDist: { color: '#FFD700', fontWeight: 'bold' },
+  confirmButton: { backgroundColor: '#1F2937', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(78,205,196,0.4)' },
+  confirmButtonText: { color: '#4ECDC4', fontSize: 11, fontWeight: '700' },
 
   // Map
   markerBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'white' },

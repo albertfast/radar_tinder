@@ -67,21 +67,16 @@ export class GamificationService {
     // Fetch real data
     const profiles = await SupabaseService.getLeaderboard(10);
     
-    if (profiles && profiles.length > 0) {
-      return profiles.map((p: any) => ({
-        id: p.id,
-        name: p.full_name || p.username || 'Anonymous',
-        points: p.points || 0,
-        rank: (p.rank as Rank) || this.getRank(p.points || 0),
-        avatar: p.avatar_url,
-      }));
+    if (!profiles || profiles.length === 0) {
+      return [];
     }
 
-    // Fallback to mock if DB is empty or fails, so UI doesn't break
-    return [
-      { id: '1', name: 'SpeedDemon', points: 12500, rank: 'Legend', avatar: 'https://i.pravatar.cc/150?u=1' },
-      { id: '2', name: 'RoadRunner', points: 8400, rank: 'Commander', avatar: 'https://i.pravatar.cc/150?u=2' },
-      { id: '3', name: 'GhostRider', points: 6200, rank: 'Commander', avatar: 'https://i.pravatar.cc/150?u=3' },
-    ];
+    return profiles.map((p: any) => ({
+      id: p.id,
+      name: p.display_name || p.username || 'Anonymous',
+      points: p.points || 0,
+      rank: (p.rank as Rank) || this.getRank(p.points || 0),
+      avatar: p.avatar_url,
+    }));
   }
 }

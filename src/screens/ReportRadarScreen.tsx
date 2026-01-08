@@ -19,7 +19,7 @@ import { OfflineService } from '../services/OfflineService';
 
 const ReportRadarScreen = ({ navigation }: any) => {
   const theme = useTheme();
-  const { user } = useAuthStore();
+  const { user, refreshProfile } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [formData, setFormData] = useState({
@@ -74,6 +74,7 @@ const ReportRadarScreen = ({ navigation }: any) => {
       // Save offline as backup
       await OfflineService.saveRadarLocationOffline(radarData);
 
+      await refreshProfile();
       Alert.alert('Success', 'Radar location reported successfully!');
       navigation.goBack();
     } catch (error) {

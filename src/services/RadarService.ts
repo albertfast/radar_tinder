@@ -1,7 +1,6 @@
 import { RadarLocation } from '../types';
 import { LocationService } from './LocationService';
 import { GoogleMapsService } from './GoogleMapsService';
-import { UserReportService } from './UserReportService';
 import { SupabaseService } from './SupabaseService';
 import { useAuthStore } from '../store/authStore';
 
@@ -443,29 +442,37 @@ export class RadarService {
     radarData: Omit<RadarLocation, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<RadarLocation> {
     const result = await SupabaseService.reportRadar({
-        latitude: radarData.latitude,
-        longitude: radarData.longitude,
-        type: radarData.type,
-        confidence: radarData.confidence,
-        reportedBy: radarData.reportedBy
+      latitude: radarData.latitude,
+      longitude: radarData.longitude,
+      type: radarData.type,
+      confidence: radarData.confidence,
+      reportedBy: radarData.reportedBy,
     }) as any;
+    if (!result) {
+      throw new Error('Failed to submit radar report');
+    }
     this.nearbyCache = null;
-    return result;
+
+    return {
+      id: result?.radarId || `user-${Date.now()}`,
+      latitude: radarData.latitude,
+      longitude: radarData.longitude,
+      type: radarData.type,
+      confidence: radarData.confidence,
+      lastConfirmed: radarData.lastConfirmed,
+      reportedBy: radarData.reportedBy,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
   }
 
   static async confirmRadarLocation(
     radarId: string,
     userId: string
   ): Promise<RadarLocation> {
-     // If it's a user report, verify it via UserReportService
-     if (radarId.startsWith('user-')) {
-         await UserReportService.verifyReport(radarId, userId);
-     }
-     
-     // For now, just return the radar from the list (in a real app, we'd update the backend)
-     const radar = (await this.getNearbyRadars(0,0, 100)).find(r => r.id === radarId); // Inefficient but works for mock
-     if (!radar) throw new Error('Radar not found');
-     return radar;
+    const radar = (await this.getNearbyRadars(0, 0, 100)).find((r) => r.id === radarId);
+    if (!radar) throw new Error('Radar not found');
+    return radar;
   }
 
   static async getRadarStatistics(): Promise<{

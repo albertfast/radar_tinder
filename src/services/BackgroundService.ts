@@ -6,6 +6,7 @@ import { NotificationService } from './NotificationService';
 import { LocationService } from './LocationService';
 import { RadarService } from './RadarService';
 import { OfflineService } from './OfflineService';
+import { DatabaseService } from './DatabaseService';
 import { useAuthStore } from '../store/authStore';
 import { useRadarStore } from '../store/radarStore';
 import { RadarLocation } from '../types';
@@ -201,6 +202,9 @@ export class BackgroundService {
   }
 
   private static isProtectionActive = false;
+  private static lastAlertSent: Record<string, number> = {};
+  private static lastAlertStored: Record<string, number> = {};
+  private static ALERT_THROTTLE_MS = 60000;
 
   private static async handleLocationUpdate(location: { 
     latitude: number; 
@@ -292,6 +296,7 @@ export class BackgroundService {
             id: `alert-${Date.now()}-${radar.id}`,
             radarId: radar.id,
             userId: user.id,
+            type: radar.type,
             distance: distance,
             estimatedTime: distance / (speedKph || 60),
             severity: distance < (threshold / 2) ? 'high' : 'medium',
@@ -305,9 +310,22 @@ export class BackgroundService {
       setActiveAlerts(alerts as any);
 
       // Send notifications for high priority alerts
+      const nowMs = Date.now();
       for (const alert of alerts) {
-        if (alert.severity === 'high') {
+        const lastSent = this.lastAlertSent[alert.radarId] || 0;
+        if (alert.severity === 'high' && nowMs - lastSent > this.ALERT_THROTTLE_MS) {
           await NotificationService.sendRadarAlert(alert as any);
+          this.lastAlertSent[alert.radarId] = nowMs;
+        }
+
+        const lastStored = this.lastAlertStored[alert.radarId] || 0;
+        if (nowMs - lastStored > this.ALERT_THROTTLE_MS) {
+          try {
+            await DatabaseService.saveAlert(alert as any);
+            this.lastAlertStored[alert.radarId] = nowMs;
+          } catch (error) {
+            console.warn('Failed to save alert history:', error);
+          }
         }
       }
 
