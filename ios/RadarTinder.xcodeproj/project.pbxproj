@@ -3,18 +3,20 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
+		1D6496C374C24A70908249A0 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616ECA121A3A4C5AA298D155 /* noop-file.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		96905EF65AED1B983A6B3ABC /* libPods-RadarTinder.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 58EEBF8E8E6FB1BC6CAF49B5 /* libPods-RadarTinder.a */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		1D6496C374C24A70908249A0 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616ECA121A3A4C5AA298D155 /* noop-file.swift */; };
+		C76AD3E55612D01BB03A5542 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C9E6C51A557CD26ADC409534 /* PrivacyInfo.xcprivacy */; };
+		F1B1C0DE1234567890ABCDE1 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = F1B1C0DE1234567890ABCDE0 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,14 +27,16 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = RadarTinder/Info.plist; sourceTree = "<group>"; };
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = RadarTinder/main.m; sourceTree = "<group>"; };
 		58EEBF8E8E6FB1BC6CAF49B5 /* libPods-RadarTinder.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-RadarTinder.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		616ECA121A3A4C5AA298D155 /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "RadarTinder/noop-file.swift"; sourceTree = "<group>"; };
 		6C2E3173556A471DD304B334 /* Pods-RadarTinder.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RadarTinder.debug.xcconfig"; path = "Target Support Files/Pods-RadarTinder/Pods-RadarTinder.debug.xcconfig"; sourceTree = "<group>"; };
 		7A4D352CD337FB3A3BF06240 /* Pods-RadarTinder.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RadarTinder.release.xcconfig"; path = "Target Support Files/Pods-RadarTinder/Pods-RadarTinder.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = RadarTinder/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		C45E9C448F0441A9A0B82A2E /* RadarTinder-Bridging-Header.h */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "RadarTinder-Bridging-Header.h"; path = "RadarTinder/RadarTinder-Bridging-Header.h"; sourceTree = "<group>"; };
+		C9E6C51A557CD26ADC409534 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = RadarTinder/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		F1B1C0DE1234567890ABCDE0 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-RadarTinder/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		616ECA121A3A4C5AA298D155 /* noop-file.swift */ = {isa = PBXFileReference; name = "noop-file.swift"; path = "RadarTinder/noop-file.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
-		C45E9C448F0441A9A0B82A2E /* RadarTinder-Bridging-Header.h */ = {isa = PBXFileReference; name = "RadarTinder-Bridging-Header.h"; path = "RadarTinder/RadarTinder-Bridging-Header.h"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,10 +59,12 @@
 				13B07FB01A68108700A75B9A /* AppDelegate.mm */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
+				F1B1C0DE1234567890ABCDE0 /* GoogleService-Info.plist */,
 				13B07FB71A68108700A75B9A /* main.m */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				616ECA121A3A4C5AA298D155 /* noop-file.swift */,
 				C45E9C448F0441A9A0B82A2E /* RadarTinder-Bridging-Header.h */,
+				C9E6C51A557CD26ADC409534 /* PrivacyInfo.xcprivacy */,
 			);
 			name = RadarTinder;
 			sourceTree = "<group>";
@@ -144,11 +150,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "RadarTinder" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
+				C7D66550DD63DA9FD7AE2D45 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
+				75C7AB99B0CA71C707D4BF08 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -195,10 +203,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F1B1C0DE1234567890ABCDE1 /* GoogleService-Info.plist in Resources */,
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				8AF4DCFAEC584610A1B0D15B /* RadarTinder-Bridging-Header.h in Resources */,
+				C76AD3E55612D01BB03A5542 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -242,6 +251,26 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		75C7AB99B0CA71C707D4BF08 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-RadarTinder/Pods-RadarTinder-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoSQLite/crsqlite.framework/crsqlite",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/crsqlite.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-RadarTinder/Pods-RadarTinder-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -249,20 +278,76 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-RadarTinder/Pods-RadarTinder-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXApplication/ExpoApplication_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXNotifications/ExpoNotifications_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXTaskManager/ExpoTaskManager_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXUpdates/EXUpdates.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoDevice/ExpoDevice_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoSystemUI/ExpoSystemUI_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCore/FirebaseCore_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCoreInternal/FirebaseCoreInternal_Privacy.bundle",
+				"${PODS_ROOT}/GoogleMaps/Maps/Frameworks/GoogleMaps.xcframework/ios-arm64/GoogleMaps.framework/Resources/GoogleMaps.bundle",
+				"${PODS_ROOT}/GoogleMaps/Maps/Frameworks/GoogleMaps.xcframework/ios-arm64_x86_64-simulator/GoogleMaps.framework/Resources/GoogleMaps.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ReachabilitySwift/ReachabilitySwift.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/RCTI18nStrings.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/SDWebImage/SDWebImage.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-launcher/EXDevLauncher.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-menu/EXDevMenu.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/lottie-ios/LottiePrivacyInfo.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/lottie-react-native/Lottie_React_Native_Privacy.bundle",
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoApplication_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoNotifications_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoTaskManager_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXUpdates.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoDevice_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoSystemUI_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FirebaseCore_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FirebaseCoreInternal_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleMaps.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleUtilities_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ReachabilitySwift.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCTI18nStrings.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SDWebImage.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevLauncher.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevMenu.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/LottiePrivacyInfo.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Lottie_React_Native_Privacy.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-RadarTinder/Pods-RadarTinder-resources.sh\"\n";
 			showEnvVarsInLog = 0;
+		};
+		C7D66550DD63DA9FD7AE2D45 /* [Expo] Configure project */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-RadarTinder/expo-configure-project.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -287,29 +372,35 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = RadarTinder/RadarTinder.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PT39J58SJC;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"FB_SONARKIT_ENABLED=1",
 				);
 				INFOPLIST_FILE = RadarTinder/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.navigation";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.radartinder.app";
-				PRODUCT_NAME = "RadarTinder";
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = com.radartinder.app;
+				PRODUCT_NAME = RadarTinder;
+				SWIFT_OBJC_BRIDGING_HEADER = "RadarTinder/RadarTinder-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				VERSIONING_SYSTEM = "apple-generic";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				SWIFT_OBJC_BRIDGING_HEADER = RadarTinder/RadarTinder-Bridging-Header.h;
-				CODE_SIGN_ENTITLEMENTS = RadarTinder/RadarTinder.entitlements;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
@@ -319,23 +410,29 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = RadarTinder/RadarTinder.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PT39J58SJC;
 				INFOPLIST_FILE = RadarTinder/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.navigation";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.radartinder.app";
-				PRODUCT_NAME = "RadarTinder";
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = com.radartinder.app;
+				PRODUCT_NAME = RadarTinder;
+				SWIFT_OBJC_BRIDGING_HEADER = "RadarTinder/RadarTinder-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
-				VERSIONING_SYSTEM = "apple-generic";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				SWIFT_OBJC_BRIDGING_HEADER = RadarTinder/RadarTinder-Bridging-Header.h;
-				CODE_SIGN_ENTITLEMENTS = RadarTinder/RadarTinder.entitlements;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
@@ -343,6 +440,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CC = "";
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -369,6 +467,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
+				CXX = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -387,11 +486,19 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
-				LD_RUNPATH_SEARCH_PATHS = "/usr/lib/swift $(inherited)";
-				LIBRARY_SEARCH_PATHS = "\"$(inherited)\"";
+				LD = "";
+				LDPLUSPLUS = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
+				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = "$(inherited)  ";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				USE_HERMES = true;
 			};
 			name = Debug;
 		};
@@ -399,6 +506,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CC = "";
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -425,6 +533,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = YES;
+				CXX = "";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -436,10 +545,18 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
-				LD_RUNPATH_SEARCH_PATHS = "/usr/lib/swift $(inherited)";
-				LIBRARY_SEARCH_PATHS = "\"$(inherited)\"";
+				LD = "";
+				LDPLUSPLUS = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
+				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = "$(inherited)  ";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;

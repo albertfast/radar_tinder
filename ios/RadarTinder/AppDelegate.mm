@@ -8,6 +8,10 @@
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTLinkingManager.h>
 
+#if __has_include(<FirebaseCore/FirebaseCore.h>)
+#import <FirebaseCore/FirebaseCore.h>
+#endif
+
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
@@ -17,6 +21,12 @@
   [GMSServices provideAPIKey:@"AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"];
 #endif
 // @generated end react-native-maps-init
+#if __has_include(<FirebaseCore/FirebaseCore.h>)
+  if ([FIRApp defaultApp] == nil) {
+    [FIRApp configure];
+  }
+#endif
+
   self.moduleName = @"main";
 
   // You can add your custom initial props in the dictionary below.
