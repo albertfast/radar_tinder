@@ -6,7 +6,6 @@ import AIDiagnoseScreen from '../screens/AIDiagnoseScreen';
 import SubscriptionScreen from '../screens/SubscriptionScreen';
 import PermitTestScreen from '../screens/PermitTestScreen';
 import HistoryScreen from '../screens/HistoryScreen';
-import AlertsScreen from '../screens/AlertsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
 import ComponentsShowcaseScreen from '../screens/ComponentsShowcaseScreen';
@@ -21,7 +20,6 @@ const RadarNavigator = () => {
       <Stack.Screen name="AIDiagnose" component={AIDiagnoseScreen} />
       <Stack.Screen name="PermitTest" component={PermitTestScreen} />
       <Stack.Screen name="History" component={HistoryScreen} />
-      <Stack.Screen name="Alerts" component={AlertsScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
       <Stack.Screen name="Settings" component={RadarSettingsScreen} />

@@ -112,6 +112,8 @@ const RadarScreen = ({ navigation, route }: any) => {
   const { user, refreshProfile } = useAuthStore();
   const { unitSystem } = useSettingsStore();
   const setRadarLocations = useRadarStore((state) => state.setRadarLocations);
+  const activeAlerts = useRadarStore((state) => state.activeAlerts);
+  const acknowledgeAlert = useRadarStore((state) => state.acknowledgeAlert);
   const mapRef = useRef<MapView>(null);
 
   // Stats & States
@@ -141,6 +143,11 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   // Refs for cleanup
   const lastPositionRef = useRef<any>(null);
+
+  const activeAlert = useMemo(() => {
+    const unacknowledged = activeAlerts.filter((alert) => !alert.acknowledged);
+    return unacknowledged.sort((a, b) => a.distance - b.distance)[0];
+  }, [activeAlerts]);
 
   // --- Effects ---
 
@@ -312,6 +319,33 @@ const RadarScreen = ({ navigation, route }: any) => {
       default:
         return 'arrow-up';
     }
+  };
+
+  const formatRadarLabel = (type?: RadarLocation['type']) => {
+    switch (type) {
+      case 'red_light':
+        return 'Red Light Camera';
+      case 'fixed':
+        return 'Fixed Camera';
+      case 'mobile':
+        return 'Mobile Radar';
+      case 'police':
+        return 'Police';
+      case 'traffic_enforcement':
+        return 'Traffic Enforcement';
+      case 'speed_camera':
+      default:
+        return 'Speed Camera';
+    }
+  };
+
+  const canConfirmRadar = (radar?: RadarLocation) => {
+    if (!radar?.id) return false;
+    return (
+      !radar.id.startsWith('osm-') &&
+      !radar.id.startsWith('google-') &&
+      !radar.id.startsWith('mock-')
+    );
   };
 
   const getStepDistanceMeters = (step?: NavStep) => {
@@ -573,6 +607,25 @@ const RadarScreen = ({ navigation, route }: any) => {
                   ))}
               </View>
 
+              {activeAlert ? (
+                  <View style={styles.liveAlertBanner}>
+                      <View style={styles.liveAlertIcon}>
+                          <MaterialCommunityIcons name="alert" size={18} color="#FF5252" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                          <Text style={styles.liveAlertTitle}>
+                            {formatRadarLabel(activeAlert.type)}
+                          </Text>
+                          <Text style={styles.liveAlertSubtitle}>
+                            {formatDistance(activeAlert.distance, unitSystem)} • ETA {Math.max(1, Math.round(activeAlert.estimatedTime * 60))} min
+                          </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => acknowledgeAlert(activeAlert.id)} style={styles.liveAlertDismiss}>
+                          <MaterialCommunityIcons name="close" size={16} color="#94A3B8" />
+                      </TouchableOpacity>
+                  </View>
+              ) : null}
+
               <View style={{ flex: 1 }}>
                   {activeTab === 'Basic' && (
                       <View style={styles.basicContainer}>
@@ -599,17 +652,6 @@ const RadarScreen = ({ navigation, route }: any) => {
                                               {r.type === 'police' ? 'Police Spotted' : 'Speed Camera'}
                                           </Text>
                                           <Text style={styles.alertDist}>{formatDistance(r.distance, unitSystem)}</Text>
-                                          {r.id &&
-                                            !r.id.startsWith('osm-') &&
-                                            !r.id.startsWith('google-') &&
-                                            !r.id.startsWith('mock-') && (
-                                            <TouchableOpacity
-                                              style={styles.confirmButton}
-                                              onPress={() => handleConfirmRadar(r)}
-                                            >
-                                              <Text style={styles.confirmButtonText}>Confirm</Text>
-                                            </TouchableOpacity>
-                                          )}
                                       </View>
                                   ))
                               ) : (
@@ -627,6 +669,11 @@ const RadarScreen = ({ navigation, route }: any) => {
                                 routeCoords={routeCoords}
                                 mapRef={mapRef}
                                 showsUserLocation={true}
+                                onRadarPress={(radar: RadarLocation) => {
+                                  if (canConfirmRadar(radar)) {
+                                    handleConfirmRadar(radar);
+                                  }
+                                }}
                             />
                             {/* Map Overlay Controls */}
                            <View style={styles.mapOverlay}>
@@ -789,9 +836,6 @@ const RadarScreen = ({ navigation, route }: any) => {
           </Text>
           
           <View style={styles.headerRight}>
-              <TouchableOpacity onPress={() => navigation.navigate('Alerts')} style={styles.iconBtn}>
-                   <MaterialCommunityIcons name="bell-outline" size={24} color="#F8FAFC" />
-              </TouchableOpacity>
               <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.iconBtn}>
                   {/* Small Profile Dot Indicator */}
                   <View style={{width: 28, height: 28, borderRadius: 14, backgroundColor: '#334155', justifyContent: 'center', alignItems: 'center'}}>
@@ -908,6 +952,38 @@ const styles = StyleSheet.create({
   tabItem: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 8 },
   activeTabItem: { backgroundColor: '#222' },
   tabText: { color: '#888', fontWeight: 'bold', fontSize: 12 },
+
+  liveAlertBanner: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: 'rgba(255,82,82,0.35)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  liveAlertIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,82,82,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveAlertTitle: { color: 'white', fontWeight: '700', fontSize: 13 },
+  liveAlertSubtitle: { color: '#94A3B8', fontSize: 11, marginTop: 2 },
+  liveAlertDismiss: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(148,163,184,0.1)',
+  },
   
   basicContainer: { alignItems: 'center', paddingTop: 20 },
   hudCircle: { width: 220, height: 220, borderRadius: 110, justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: '#222', backgroundColor: '#111' },
@@ -920,8 +996,6 @@ const styles = StyleSheet.create({
   alertItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: 15, borderRadius: 16, marginBottom: 10 },
   alertText: { color: 'white', flex: 1, marginLeft: 15, fontWeight: '500' },
   alertDist: { color: '#FFD700', fontWeight: 'bold' },
-  confirmButton: { backgroundColor: '#1F2937', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(78,205,196,0.4)' },
-  confirmButtonText: { color: '#4ECDC4', fontSize: 11, fontWeight: '700' },
 
   // Map
   markerBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'white' },

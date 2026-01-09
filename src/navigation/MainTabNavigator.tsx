@@ -5,12 +5,10 @@ import { useTheme } from 'react-native-paper';
 
 import RadarNavigator from './RadarNavigator';
 import MapScreen from '../screens/MapScreen';
-import AlertsScreen from '../screens/AlertsScreen';
 import ProfileNavigator from './ProfileNavigator';
 
 export type MainTabParamList = {
   Radar: undefined;
-  Alerts: undefined;
   Profile: undefined;
 };
 
@@ -41,17 +39,6 @@ const MainTabNavigator = () => {
             <Ionicons name="help-circle-outline" size={size} color={color} />
           ),
           tabBarLabel: 'Radar',
-        }}
-      />
-
-      <Tab.Screen
-        name="Alerts"
-        component={AlertsScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications-outline" size={size} color={color} />
-          ),
-          tabBarLabel: 'Alerts',
         }}
       />
 

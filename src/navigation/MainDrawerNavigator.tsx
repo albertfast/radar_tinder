@@ -18,7 +18,6 @@ const CustomDrawerContent = (props: any) => {
 
   const menuItems = [
     { icon: 'radar', label: 'Radar Map', screen: 'RadarMain', color: '#FF5252' },
-    { icon: 'alert-decagram', label: 'Alerts', screen: 'Alerts', color: '#FFA726' },
     { icon: 'car-cog', label: 'AI Diagnosis', screen: 'AIDiagnose', color: '#4ECDC4' },
     { icon: 'trophy-outline', label: 'Leaderboard', screen: 'Leaderboard', color: '#FFD700' },
   ];

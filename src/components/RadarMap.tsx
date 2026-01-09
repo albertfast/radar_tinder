@@ -5,13 +5,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { darkMapStyle } from '../utils/mapStyle';
 
 // Optimized Marker (moved here or kept in same file)
-const OptimizedMarker = React.memo(({ coordinate, type, speedLimit }: any) => {
+const OptimizedMarker = React.memo(({ coordinate, type, speedLimit, onPress }: any) => {
     // ... logic (can copy from RadarScreen or keep simplistic)
     return (
         <Marker
           coordinate={coordinate}
           tracksViewChanges={false} // Force false for stability, or use the timer logic if image issues persist
           anchor={{ x: 0.5, y: 0.5 }}
+          onPress={onPress}
         >
             <View style={[styles.markerBadge, { backgroundColor: type === 'police' ? '#F44336' : '#FF5252' }]}>
                 {type === 'fixed' && speedLimit ? (
@@ -28,12 +29,13 @@ const OptimizedMarker = React.memo(({ coordinate, type, speedLimit }: any) => {
     );
 });
 
-const RadarMap = React.memo(({ 
-    location, 
-    radars, 
-    routeCoords, 
+const RadarMap = React.memo(({
+    location,
+    radars,
+    routeCoords,
     mapRef,
-    showsUserLocation = true
+    showsUserLocation = true,
+    onRadarPress
 }: any) => {
     
     const initialRegion = useMemo(() => ({
@@ -67,6 +69,7 @@ const RadarMap = React.memo(({
                     coordinate={{latitude: r.latitude, longitude: r.longitude}}
                     type={r.type}
                     speedLimit={r.speedLimit}
+                    onPress={() => onRadarPress?.(r)}
                 />
             ))}
         </MapView>
