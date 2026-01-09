@@ -86,7 +86,6 @@
       "expo-secure-store",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
-      "./plugins/withReactNativeGradlePluginFix",
       [
         "expo-build-properties",
         {
@@ -107,7 +106,8 @@
           "imageWidth": 200,
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "./plugins/withReactNativeGradlePluginFix.js"
     ],
     "extra": {
       "eas": {
