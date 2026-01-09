@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "1067370631256",
+    "project_id": "radar-tinder",
+    "storage_bucket": "radar-tinder.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1067370631256:android:23547c8842d705535a3a2d",
+        "android_client_info": {
+          "package_name": "com.radartinder.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1067370631256-q07iln7807qjslns3gdsasm21vb3nsen.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD4rTV_NxHwpEydLH6B13N2y-yxvVcXkVg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1067370631256-q07iln7807qjslns3gdsasm21vb3nsen.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1067370631256-maimlqb1grf3ktff6ifk114v569jc6k3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.radartinder.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

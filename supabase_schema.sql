@@ -211,6 +211,7 @@ begin
 end;
 $$;
 
+drop function if exists public.get_leaderboard(integer);
 create or replace function public.get_leaderboard(limit_count int default 20)
 returns table (
   id uuid,
