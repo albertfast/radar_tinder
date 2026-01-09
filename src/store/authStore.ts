@@ -37,6 +37,13 @@ interface AuthState {
     password: string,
     profile?: { username?: string; displayName?: string; avatarUrl?: string }
   ) => Promise<{ data: any; error: any }>;
+  signInWithProvider: (params: {
+    provider: 'apple' | 'google';
+    idToken: string;
+    nonce?: string;
+    profile?: { email?: string | null; displayName?: string | null; avatarUrl?: string | null };
+  }) => Promise<{ data: any; error: any }>;
+  hydrateFromSupabaseSession: () => Promise<boolean>;
   refreshProfile: () => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
@@ -160,6 +167,120 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      signInWithProvider: async (params) => {
+        set({ isLoading: true });
+        try {
+          const { data, error } = await supabase.auth.signInWithIdToken({
+            provider: params.provider,
+            token: params.idToken,
+            nonce: params.nonce,
+          });
+
+          if (error) {
+            set({ isLoading: false });
+            return { data: null, error };
+          }
+
+          if (data.user) {
+            let profile = await SupabaseService.getProfile(data.user.id);
+            if (!profile) {
+              const displayName =
+                params.profile?.displayName ||
+                params.profile?.email?.split('@')[0] ||
+                data.user.email?.split('@')[0] ||
+                'Driver';
+
+              await SupabaseService.upsertProfile(data.user.id, {
+                email: params.profile?.email || data.user.email,
+                display_name: displayName,
+                avatar_url: params.profile?.avatarUrl,
+                stats: { reports: 0, confirmations: 0, distanceDriven: 0 },
+                points: 0,
+                xp: 0,
+                level: 1,
+                rank: 'Rookie',
+              });
+              profile = await SupabaseService.getProfile(data.user.id);
+            }
+
+            const displayName =
+              profile?.display_name || profile?.username || data.user.email?.split('@')[0] || 'Driver';
+            const appUser: User = {
+              id: data.user.id,
+              email: data.user.email || params.profile?.email || '',
+              username: profile?.username,
+              displayName: profile?.display_name,
+              name: displayName,
+              subscriptionType: profile?.subscription_type || 'free',
+              avatarUrl: profile?.avatar_url,
+              profileImage: profile?.avatar_url,
+              points: profile?.points || 0,
+              rank: profile?.rank || 'Rookie',
+              xp: profile?.xp || 0,
+              level: profile?.level || 1,
+              stats: profile?.stats || { reports: 0, confirmations: 0, distanceDriven: 0 },
+              createdAt: new Date(data.user.created_at),
+              updatedAt: new Date(),
+            };
+
+            const unitSystem = profile?.unit_system;
+            if (unitSystem === 'metric' || unitSystem === 'imperial') {
+              useSettingsStore.getState().setUnitSystem(unitSystem);
+            }
+
+            set({ user: appUser, isAuthenticated: true, isLoading: false });
+          }
+
+          return { data, error: null };
+        } catch (error) {
+          set({ isLoading: false });
+          return { data: null, error };
+        }
+      },
+
+      hydrateFromSupabaseSession: async () => {
+        try {
+          const { data, error } = await supabase.auth.getSession();
+          if (error || !data.session?.user) return false;
+
+          const profile = await SupabaseService.getProfile(data.session.user.id);
+          if (!profile) return false;
+
+          const displayName =
+            profile?.display_name ||
+            profile?.username ||
+            data.session.user.email?.split('@')[0] ||
+            'Driver';
+          const appUser: User = {
+            id: data.session.user.id,
+            email: data.session.user.email || '',
+            username: profile?.username,
+            displayName: profile?.display_name,
+            name: displayName,
+            subscriptionType: profile?.subscription_type || 'free',
+            avatarUrl: profile?.avatar_url,
+            profileImage: profile?.avatar_url,
+            points: profile?.points || 0,
+            rank: profile?.rank || 'Rookie',
+            xp: profile?.xp || 0,
+            level: profile?.level || 1,
+            stats: profile?.stats || { reports: 0, confirmations: 0, distanceDriven: 0 },
+            createdAt: new Date(data.session.user.created_at),
+            updatedAt: new Date(),
+          };
+
+          const unitSystem = profile?.unit_system;
+          if (unitSystem === 'metric' || unitSystem === 'imperial') {
+            useSettingsStore.getState().setUnitSystem(unitSystem);
+          }
+
+          set({ user: appUser, isAuthenticated: true });
+          return true;
+        } catch (error) {
+          return false;
+        }
+      },
+
       refreshProfile: async () => {
         const currentUser = get().user;
         if (!currentUser) return;
@@ -194,6 +315,8 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
+        const { FirebaseAuthService } = require('../services/FirebaseAuthService');
+        await FirebaseAuthService.signOut();
         await supabase.auth.signOut();
         set({ user: null, isAuthenticated: false });
       },

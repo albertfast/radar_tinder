@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import MainDrawerNavigator from './src/navigation/MainDrawerNavigator';
-import AuthNavigator from './src/navigation/AuthNavigator';
+import AuthGateScreen from './src/screens/AuthGateScreen';
 import ReportRadarScreen from './src/screens/ReportRadarScreen';
 import { useAuthStore } from './src/store/authStore';
 import { darkTheme } from './src/utils/theme';
@@ -128,7 +128,7 @@ export default function App() {
                     />
                   </>
                 ) : (
-                  <Stack.Screen name="Auth" component={AuthNavigator} />
+                  <Stack.Screen name="Auth" component={AuthGateScreen} />
                 )}
               </Stack.Navigator>
             </NavigationContainer>

@@ -15,6 +15,7 @@ yarn-error.log*
 *.p12
 *.key
 *.mobileprovision
+ios/AuthKey_*.txt
 *.orig.*
 *.rej
 
