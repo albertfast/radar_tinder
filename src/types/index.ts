@@ -26,6 +26,7 @@ export interface User {
   };
   createdAt: Date;
   updatedAt: Date;
+  adsRemoved?: boolean;
 }
 
 export interface RadarLocation {

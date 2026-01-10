@@ -1,0 +1,49 @@
+mutation CreateNewUser($username: String!, $email: String!, $dateOfBirth: Date!, $gender: String!, $passwordHash: String!, $latitude: Float!, $longitude: Float!) @auth(level: USER, insecureReason: "This mutation is safe to expose to all logged in users.") {
+  user_insert(data: {
+    username: $username,
+    email: $email,
+    dateOfBirth: $dateOfBirth,
+    gender: $gender,
+    passwordHash: $passwordHash,
+    latitude: $latitude,
+    longitude: $longitude,
+    createdAt_expr: "request.time"
+  })
+}
+
+query GetUserById($id: UUID!) @auth(level: USER) {
+  user(id: $id) {
+    id
+    username
+    email
+    bio
+    createdAt
+    dateOfBirth
+    gender
+    lastActiveAt
+    latitude
+    longitude
+    lookingForGender
+    profilePictureUrl
+  }
+}
+
+query ListUsersByProximity($latitude: Float!, $longitude: Float!, $limit: Int) @auth(level: USER, insecureReason: "This query is safe to expose to all logged in users.") {
+  users(
+    limit: $limit
+    orderBy: [{latitude: ASC}, {longitude: ASC}]
+  ) {
+    id
+    username
+    latitude
+    longitude
+  }
+}
+
+mutation AddUserInterest($userId: UUID!, $interestId: UUID!) @auth(level: USER) {
+  userInterest_insert(data: {
+    userId: $userId,
+    interestId: $interestId,
+    createdAt_expr: "request.time"
+  })
+}

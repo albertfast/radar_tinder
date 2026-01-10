@@ -16,6 +16,7 @@ import { useAuthStore } from '../store/authStore';
 import { LocationService } from '../services/LocationService';
 import { RadarService } from '../services/RadarService';
 import { OfflineService } from '../services/OfflineService';
+import { AnalyticsService } from '../services/AnalyticsService';
 
 const ReportRadarScreen = ({ navigation }: any) => {
   const theme = useTheme();
@@ -75,6 +76,12 @@ const ReportRadarScreen = ({ navigation }: any) => {
       await OfflineService.saveRadarLocationOffline(radarData);
 
       await refreshProfile();
+      
+      await AnalyticsService.trackRadarReport({
+          type: radarData.type,
+          location: `${radarData.latitude},${radarData.longitude}`
+      });
+
       Alert.alert('Success', 'Radar location reported successfully!');
       navigation.goBack();
     } catch (error) {

@@ -1,0 +1,74 @@
+mutation CreateDemoData @transaction @auth(level: PUBLIC, insecureReason: "This operation is only used to populate the database with seed data.") {
+  user_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      username: "demouser1",
+      email: "demouser1@example.com",
+      passwordHash: "passwordhash1",
+      createdAt: "2024-04-26T00:00:00Z",
+      dateOfBirth: "1990-01-01",
+      latitude: 37.7749,
+      longitude: -122.4194,
+      gender: "male"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      username: "demouser2",
+      email: "demouser2@example.com",
+      passwordHash: "passwordhash2",
+      createdAt: "2024-04-26T00:00:00Z",
+      dateOfBirth: "1992-02-02",
+      latitude: 34.0522,
+      longitude: -118.2437,
+      gender: "female"
+    }
+  ])
+  interest_insertMany(data: [
+    {
+      id: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      name: "Hiking",
+      category: "Outdoor",
+      description: "Enjoying nature"
+    },
+    {
+      id: "fedcba98-7654-3210-fedc-ba9876543210",
+      name: "Cooking",
+      category: "Indoor",
+      description: "Creating delicious meals"
+    }
+  ])
+  userInterest_insertMany(data: [
+    {
+      userId: "550e8400-e29b-41d4-a716-446655440000",
+      interestId: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+    },
+    {
+      userId: "550e8400-e29b-41d4-a716-446655440001",
+      interestId: "fedcba98-7654-3210-fedc-ba9876543210"
+    }
+  ])
+  like_insertMany(data: [
+    {
+      likerId: "550e8400-e29b-41d4-a716-446655440000",
+      likedId: "550e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2024-04-26T00:00:00Z"
+    }
+  ])
+  match_insertMany(data: [
+    {
+      user1Id: "550e8400-e29b-41d4-a716-446655440000",
+      user2Id: "550e8400-e29b-41d4-a716-446655440001",
+      matchedAt: "2024-04-27T00:00:00Z"
+    }
+  ])
+  message_insertMany(data: [
+    {
+      matchUser1Id: "550e8400-e29b-41d4-a716-446655440000",
+      matchUser2Id: "550e8400-e29b-41d4-a716-446655440001",
+      senderId: "550e8400-e29b-41d4-a716-446655440000",
+      receiverId: "550e8400-e29b-41d4-a716-446655440001",
+      content: "Hello there!",
+      sentAt: "2024-04-27T01:00:00Z"
+    }
+  ])
+}

@@ -11,6 +11,10 @@ import {
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Alert } from 'react-native';
+import { useAuthStore } from '../store/authStore';
+import { FirebaseAuthService } from '../services/FirebaseAuthService';
+import { SubscriptionService } from '../services/SubscriptionService';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -127,6 +131,8 @@ const RadarScan = () => {
 const TrialOfferScreen = ({ navigation }: any) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
+  const [loading, setLoading] = useState(false);
+  const { signInAnonymously } = useAuthStore();
   const scrollX = useSharedValue(0);
 
   // Auto-scrolling logic
@@ -178,9 +184,6 @@ const TrialOfferScreen = ({ navigation }: any) => {
                 <MaterialCommunityIcons name="radar" size={24} color="#FF5252" />
                 <Text style={styles.appName}>RADAR TINDER</Text>
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <Text style={styles.loginLink}>LOG IN</Text>
-            </TouchableOpacity>
         </Animated.View>
 
         {/* Carousel */}
@@ -232,7 +235,32 @@ const TrialOfferScreen = ({ navigation }: any) => {
                 
                 <TouchableOpacity 
                     style={styles.ctaButton}
-                    onPress={() => navigation.navigate('Login')}
+                    onPress={async () => {
+                        try {
+                            setLoading(true);
+                            // Anonymous entry (no account chooser)
+                            try {
+                                await FirebaseAuthService.signInAnonymously();
+                            } catch (firebaseError) {
+                                // Don't block entry if Firebase anonymous auth isn't enabled/configured.
+                                console.warn('Firebase anonymous auth failed:', firebaseError);
+                            }
+                            await signInAnonymously();
+                            
+                            // User wants immediate entry. Subscription logic can run in background/silently.
+                            // The app-state will transition to 'isAuthenticated' and navigate to 'Main' automatically.
+                        } catch (err: any) {
+                            console.error('Silent identification error:', err);
+                            const message =
+                              typeof err?.message === 'string' && err.message.trim().length > 0
+                                ? err.message
+                                : 'Please check your internet connection and try again.';
+                            Alert.alert('Sign-in Error', message);
+                        } finally {
+                            setLoading(false);
+                        }
+                    }}
+                    disabled={loading}
                 >
                     <LinearGradient
                         colors={['#FF5252', '#D32F2F']}
@@ -240,7 +268,11 @@ const TrialOfferScreen = ({ navigation }: any) => {
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                     >
-                        <Text style={styles.ctaText}>START 3-DAY FREE TRIAL</Text>
+                        {loading ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <Text style={styles.ctaText}>START 3-DAY FREE TRIAL</Text>
+                        )}
                     </LinearGradient>
                 </TouchableOpacity>
                 

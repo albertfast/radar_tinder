@@ -45,6 +45,9 @@ import { RadarLocation } from '../types';
 import { BlurView } from 'expo-blur';
 import { useSettingsStore } from '../store/settingsStore';
 import { formatDistance, formatSpeed } from '../utils/format';
+import AdBanner from '../components/AdBanner';
+import { AdService } from '../services/AdService';
+import { AnalyticsService } from '../services/AnalyticsService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -363,11 +366,24 @@ const RadarScreen = ({ navigation, route }: any) => {
     return step.distanceMeters;
   };
 
-  const toggleDrivingMode = () => {
+  const toggleDrivingMode = async () => {
     if (!isDriving) {
         setDrivingStartTime(new Date());
         setTotalDistance(0);
         setIsMuted(true);
+        AnalyticsService.trackEvent('drive_start', {
+          location: currentLocation ? `${currentLocation.latitude},${currentLocation.longitude}` : 'unknown'
+        });
+    } else {
+        AnalyticsService.trackEvent('drive_stop', {
+          duration: drivingStartTime ? (new Date().getTime() - drivingStartTime.getTime()) / 1000 : 0,
+          distance: totalDistance
+        });
+
+        // Show interstitial for free users when they finish a trip
+        if (AdService.shouldShowAds()) {
+            await AdService.showInterstitial();
+        }
     }
     setIsDriving(!isDriving);
   };
@@ -655,8 +671,13 @@ const RadarScreen = ({ navigation, route }: any) => {
                                       </View>
                                   ))
                               ) : (
-                                  <Text style={{color: '#666', marginTop: 10}}>Scanning area...</Text>
+                                  <Text style={{color: '#666', marginTop: 10, textAlign: 'center'}}>Scanning area...</Text>
                               )}
+                          </View>
+
+                          {/* Ad Banner at bottom of Basic Tab */}
+                          <View style={{ marginTop: 'auto', paddingVertical: 15, alignItems: 'center', width: '100%' }}>
+                               <AdBanner />
                           </View>
                       </View>
                   )}

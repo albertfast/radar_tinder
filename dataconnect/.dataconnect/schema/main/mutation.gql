@@ -1,0 +1,644 @@
+extend type Mutation {
+  """
+  ✨ Insert a single `Interest` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  interest_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Interest_Data!
+  ): Interest_KeyOutput! @fdc_generated(from: "Interest", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `Like` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  like_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Like_Data!
+  ): Like_KeyOutput! @fdc_generated(from: "Like", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `Match` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  match_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Match_Data!
+  ): Match_KeyOutput! @fdc_generated(from: "Match", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `Message` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  message_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Message_Data!
+  ): Message_KeyOutput! @fdc_generated(from: "Message", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `User` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  user_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: User_Data!
+  ): User_KeyOutput! @fdc_generated(from: "User", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `UserInterest` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  userInterest_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: UserInterest_Data!
+  ): UserInterest_KeyOutput! @fdc_generated(from: "UserInterest", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert `Interest` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  interest_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Interest_Data!]!
+  ): [Interest_KeyOutput!]! @fdc_generated(from: "Interest", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `Like` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  like_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Like_Data!]!
+  ): [Like_KeyOutput!]! @fdc_generated(from: "Like", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `Match` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  match_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Match_Data!]!
+  ): [Match_KeyOutput!]! @fdc_generated(from: "Match", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `Message` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  message_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Message_Data!]!
+  ): [Message_KeyOutput!]! @fdc_generated(from: "Message", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `User` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  user_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [User_Data!]!
+  ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `UserInterest` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  userInterest_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [UserInterest_Data!]!
+  ): [UserInterest_KeyOutput!]! @fdc_generated(from: "UserInterest", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert or update a single `Interest` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Interest`.
+  """
+  interest_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Interest_Data!
+  ): Interest_KeyOutput! @fdc_generated(from: "Interest", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `Like` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Like`.
+  """
+  like_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Like_Data!
+  ): Like_KeyOutput! @fdc_generated(from: "Like", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `Match` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Match`.
+  """
+  match_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Match_Data!
+  ): Match_KeyOutput! @fdc_generated(from: "Match", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `Message` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Message`.
+  """
+  message_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Message_Data!
+  ): Message_KeyOutput! @fdc_generated(from: "Message", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `User` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `User`.
+  """
+  user_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: User_Data!
+  ): User_KeyOutput! @fdc_generated(from: "User", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `UserInterest` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `UserInterest`.
+  """
+  userInterest_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: UserInterest_Data!
+  ): UserInterest_KeyOutput! @fdc_generated(from: "UserInterest", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update `Interest` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Interest`.
+  """
+  interest_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Interest_Data!]!
+  ): [Interest_KeyOutput!]! @fdc_generated(from: "Interest", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `Like` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Like`.
+  """
+  like_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Like_Data!]!
+  ): [Like_KeyOutput!]! @fdc_generated(from: "Like", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `Match` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Match`.
+  """
+  match_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Match_Data!]!
+  ): [Match_KeyOutput!]! @fdc_generated(from: "Match", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `Message` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Message`.
+  """
+  message_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Message_Data!]!
+  ): [Message_KeyOutput!]! @fdc_generated(from: "Message", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `User` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `User`.
+  """
+  user_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [User_Data!]!
+  ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `UserInterest` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `UserInterest`.
+  """
+  userInterest_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [UserInterest_Data!]!
+  ): [UserInterest_KeyOutput!]! @fdc_generated(from: "UserInterest", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Update a single `Interest` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Interest` or `null` if not found.
+  """
+  interest_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Interest_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Interest_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Interest_Data!
+  ): Interest_KeyOutput @fdc_generated(from: "Interest", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `Like` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Like` or `null` if not found.
+  """
+  like_update(
+    """
+    The key used to identify the object.
+    """
+    key: Like_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Like_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Like_Data!
+  ): Like_KeyOutput @fdc_generated(from: "Like", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `Match` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Match` or `null` if not found.
+  """
+  match_update(
+    """
+    The key used to identify the object.
+    """
+    key: Match_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Match_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Match_Data!
+  ): Match_KeyOutput @fdc_generated(from: "Match", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `Message` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Message` or `null` if not found.
+  """
+  message_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Message_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Message_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Message_Data!
+  ): Message_KeyOutput @fdc_generated(from: "Message", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `User` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `User` or `null` if not found.
+  """
+  user_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: User_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: User_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: User_Data!
+  ): User_KeyOutput @fdc_generated(from: "User", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `UserInterest` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `UserInterest` or `null` if not found.
+  """
+  userInterest_update(
+    """
+    The key used to identify the object.
+    """
+    key: UserInterest_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: UserInterest_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: UserInterest_Data!
+  ): UserInterest_KeyOutput @fdc_generated(from: "UserInterest", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update `Interest` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  interest_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Interest_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Interest_Data!
+  ): Int! @fdc_generated(from: "Interest", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `Like` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  like_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Like_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Like_Data!
+  ): Int! @fdc_generated(from: "Like", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `Match` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  match_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Match_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Match_Data!
+  ): Int! @fdc_generated(from: "Match", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `Message` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  message_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Message_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Message_Data!
+  ): Int! @fdc_generated(from: "Message", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `User` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  user_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: User_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: User_Data!
+  ): Int! @fdc_generated(from: "User", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `UserInterest` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  userInterest_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: UserInterest_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: UserInterest_Data!
+  ): Int! @fdc_generated(from: "UserInterest", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Delete a single `Interest` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  interest_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Interest_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Interest_FirstRow
+  ): Interest_KeyOutput @fdc_generated(from: "Interest", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `Like` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  like_delete(
+    """
+    The key used to identify the object.
+    """
+    key: Like_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Like_FirstRow
+  ): Like_KeyOutput @fdc_generated(from: "Like", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `Match` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  match_delete(
+    """
+    The key used to identify the object.
+    """
+    key: Match_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Match_FirstRow
+  ): Match_KeyOutput @fdc_generated(from: "Match", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `Message` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  message_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Message_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Message_FirstRow
+  ): Message_KeyOutput @fdc_generated(from: "Message", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `User` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  user_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: User_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: User_FirstRow
+  ): User_KeyOutput @fdc_generated(from: "User", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `UserInterest` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  userInterest_delete(
+    """
+    The key used to identify the object.
+    """
+    key: UserInterest_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: UserInterest_FirstRow
+  ): UserInterest_KeyOutput @fdc_generated(from: "UserInterest", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete `Interest` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  interest_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Interest_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Interest", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `Like` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  like_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Like_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Like", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `Match` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  match_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Match_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Match", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `Message` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  message_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Message_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Message", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `User` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  user_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: User_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "User", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `UserInterest` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  userInterest_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: UserInterest_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "UserInterest", purpose: DELETE_MULTIPLE)
+}

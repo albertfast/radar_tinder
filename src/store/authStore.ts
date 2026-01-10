@@ -27,11 +27,14 @@ const secureStorage = {
   },
 };
 
+let inflightAnonymousSignIn: Promise<{ data: any; error: any }> | null = null;
+
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   signIn: (identifier: string, password: string) => Promise<{ data: any; error: any }>;
+  signInAnonymously: () => Promise<{ data: any; error: any }>;
   signUp: (
     email: string,
     password: string,
@@ -117,6 +120,110 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           set({ isLoading: false });
           return { data: null, error };
+        }
+      },
+
+      signInAnonymously: async () => {
+        if (inflightAnonymousSignIn) return inflightAnonymousSignIn;
+
+        inflightAnonymousSignIn = (async () => {
+          set({ isLoading: true });
+
+          // Supabase anonymous auth (creates a temporary user + session)
+          // Requires "Anonymous sign-ins" enabled in Supabase Auth settings.
+          const signInFn = (supabase.auth as any).signInAnonymously;
+          if (typeof signInFn !== 'function') {
+            throw new Error(
+              'Supabase anonymous sign-in is not available (missing auth.signInAnonymously).'
+            );
+          }
+          const { data, error } = await signInFn.call(supabase.auth);
+
+          if (error) {
+            const message = String((error as any)?.message || '');
+            if (message.includes('Anonymous sign-ins are disabled') || message.includes('anonymous') && message.includes('disabled')) {
+              set({ isLoading: false });
+              return {
+                data: null,
+                error: new Error(
+                  'Supabase anonymous sign-ins are disabled. Enable it in Supabase Dashboard → Authentication → Providers → Anonymous.'
+                ),
+              };
+            }
+            if (message.includes('No API key found in request') || message.toLowerCase().includes('apikey')) {
+              set({ isLoading: false });
+              return {
+                data: null,
+                error: new Error(
+                  'Supabase rejected the request (missing apikey). Check EXPO_PUBLIC_SUPABASE_KEY is set (anon key) and restart Metro.'
+                ),
+              };
+            }
+            set({ isLoading: false });
+            return { data: null, error };
+          }
+
+          const supabaseUser = data?.user;
+          if (!supabaseUser) {
+            set({ isLoading: false });
+            return { data: null, error: new Error('Anonymous sign-in failed: missing user') };
+          }
+
+          let profile = await SupabaseService.getProfile(supabaseUser.id);
+          if (!profile) {
+            const displayName = 'Driver';
+            await SupabaseService.upsertProfile(supabaseUser.id, {
+              email: supabaseUser.email,
+              display_name: displayName,
+              stats: { reports: 0, confirmations: 0, distanceDriven: 0 },
+              points: 0,
+              xp: 0,
+              level: 1,
+              rank: 'Rookie',
+            });
+            profile = await SupabaseService.getProfile(supabaseUser.id);
+          }
+
+          const displayName =
+            profile?.display_name ||
+            profile?.username ||
+            supabaseUser.email?.split('@')[0] ||
+            'Driver';
+
+          const appUser: User = {
+            id: supabaseUser.id,
+            email: supabaseUser.email || '',
+            username: profile?.username,
+            displayName: profile?.display_name,
+            name: displayName,
+            subscriptionType: profile?.subscription_type || 'free',
+            avatarUrl: profile?.avatar_url,
+            profileImage: profile?.avatar_url,
+            points: profile?.points || 0,
+            rank: profile?.rank || 'Rookie',
+            xp: profile?.xp || 0,
+            level: profile?.level || 1,
+            stats: profile?.stats || { reports: 0, confirmations: 0, distanceDriven: 0 },
+            createdAt: new Date(supabaseUser.created_at),
+            updatedAt: new Date(),
+          };
+
+          const unitSystem = profile?.unit_system;
+          if (unitSystem === 'metric' || unitSystem === 'imperial') {
+            useSettingsStore.getState().setUnitSystem(unitSystem);
+          }
+
+          set({ user: appUser, isAuthenticated: true, isLoading: false });
+          return { data, error: null };
+        })();
+
+        try {
+          return await inflightAnonymousSignIn;
+        } catch (error) {
+          set({ isLoading: false });
+          return { data: null, error };
+        } finally {
+          inflightAnonymousSignIn = null;
         }
       },
 

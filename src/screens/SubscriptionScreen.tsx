@@ -4,20 +4,30 @@ import { Text, Surface, Button, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../store/authStore';
+import { SubscriptionService } from '../services/SubscriptionService';
+import { AnalyticsService } from '../services/AnalyticsService';
 
 const { width } = Dimensions.get('window');
 
 const SubscriptionScreen = ({ navigation }: any) => {
-  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'yearly'>('yearly');
+  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly' | 'yearly' | 'remove_ads'>('yearly');
   const [isTrialEnabled, setIsTrialEnabled] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const plans = {
     weekly: {
       id: 'weekly',
-      price: '$3.99',
+      price: '$1.99',
       period: 'week',
-      trial: '3 Days Free',
+      trial: null,
       savings: null
+    },
+    monthly: {
+      id: 'monthly',
+      price: '$3.99',
+      period: 'month',
+      trial: null,
+      savings: 'SAVE 20%'
     },
     yearly: {
       id: 'yearly',
@@ -25,15 +35,51 @@ const SubscriptionScreen = ({ navigation }: any) => {
       period: 'year',
       trial: '3 Days Free',
       savings: 'SAVE 80%'
+    },
+    remove_ads: {
+      id: 'remove_ads',
+      price: '$0.99',
+      period: 'once',
+      trial: null,
+      savings: null,
+      label: 'Remove Ads'
     }
   };
 
   const { updateUser } = useAuthStore();
 
-  const handleSubscribe = () => {
-    // Mock subscription logic
-    // Process subscription - logging disabled
-    updateUser({ subscriptionType: 'pro' });
+  const handleSubscribe = async () => {
+    setLoading(true);
+    try {
+      // In a real app, we'd find the matching RevenueCat package
+      // const offerings = await SubscriptionService.getOfferings();
+      // const pack = offerings?.availablePackages.find(p => p.identifier.includes(selectedPlan));
+      
+      // If trial is chosen, it maps to yearly per user request
+      const planToPurchase = isTrialEnabled ? 'yearly' : selectedPlan;
+      
+      // await SubscriptionService.purchasePackage(pack);
+      
+      // Analytics
+      await AnalyticsService.trackEvent('subscription_attempt', {
+        plan: planToPurchase,
+        trial: isTrialEnabled
+      });
+
+      // Mocking success for demo
+      updateUser({ subscriptionType: 'pro' });
+      navigation.goBack();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setLoading(true);
+    await SubscriptionService.restorePurchases();
+    setLoading(false);
     navigation.goBack();
   };
 
@@ -51,7 +97,7 @@ const SubscriptionScreen = ({ navigation }: any) => {
           size={28} 
           onPress={() => navigation.goBack()} 
         />
-        <TouchableOpacity onPress={() => console.log('Restore')}>
+        <TouchableOpacity onPress={handleRestore}>
           <Text style={styles.restoreText}>Restore</Text>
         </TouchableOpacity>
       </View>
@@ -76,12 +122,25 @@ const SubscriptionScreen = ({ navigation }: any) => {
           <PlanOption 
             plan={plans.weekly} 
             isSelected={selectedPlan === 'weekly'} 
-            onSelect={() => setSelectedPlan('weekly')}
+            onSelect={() => { setSelectedPlan('weekly'); setIsTrialEnabled(false); }}
           />
+          <PlanOption 
+            plan={plans.monthly} 
+            isSelected={selectedPlan === 'monthly'} 
+            onSelect={() => { setSelectedPlan('monthly'); setIsTrialEnabled(false); }}
+          />
+        </View>
+
+        <View style={styles.plansContainer}>
           <PlanOption 
             plan={plans.yearly} 
             isSelected={selectedPlan === 'yearly'} 
-            onSelect={() => setSelectedPlan('yearly')}
+            onSelect={() => { setSelectedPlan('yearly'); setIsTrialEnabled(true); }}
+          />
+          <PlanOption 
+            plan={plans.remove_ads} 
+            isSelected={selectedPlan === 'remove_ads'} 
+            onSelect={() => { setSelectedPlan('remove_ads'); setIsTrialEnabled(false); }}
           />
         </View>
 
@@ -99,7 +158,11 @@ const SubscriptionScreen = ({ navigation }: any) => {
           <Text style={styles.trialText}>Enable 3-Day Free Trial</Text>
         </View>
 
-        <TouchableOpacity style={styles.subscribeButton} onPress={handleSubscribe}>
+        <TouchableOpacity 
+          style={[styles.subscribeButton, loading && { opacity: 0.5 }]} 
+          onPress={handleSubscribe}
+          disabled={loading}
+        >
           <LinearGradient
             colors={['#FFD700', '#FFA000']}
             start={{ x: 0, y: 0 }}
@@ -107,13 +170,13 @@ const SubscriptionScreen = ({ navigation }: any) => {
             style={styles.gradientButton}
           >
             <Text style={styles.subscribeButtonText}>
-              {isTrialEnabled ? 'START FREE TRIAL' : 'SUBSCRIBE NOW'}
+              {loading ? 'PROCESSING...' : (isTrialEnabled ? 'START FREE TRIAL' : 'SUBSCRIBE NOW')}
             </Text>
             <Text style={styles.subscribeSubtext}>
-              {isTrialEnabled 
-                ? `Then ${plans[selectedPlan].price}/${plans[selectedPlan].period}`
-                : `Pay ${plans[selectedPlan].price} / ${plans[selectedPlan].period}`
-              }
+              {!loading && (isTrialEnabled 
+                ? `Then ${plans['yearly'].price}/year`
+                : `Pay ${plans[selectedPlan].price} ${plans[selectedPlan].period !== 'once' ? '/ ' + plans[selectedPlan].period : ''}`
+              )}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -146,7 +209,7 @@ const PlanOption = ({ plan, isSelected, onSelect }: any) => (
     )}
     <View style={styles.planHeader}>
       <Text style={[styles.planPeriod, isSelected && styles.selectedText]}>
-        {plan.id === 'weekly' ? 'Weekly' : 'Yearly'}
+        {plan.label || (plan.id.charAt(0).toUpperCase() + plan.id.slice(1))}
       </Text>
       <View style={[styles.radioButton, isSelected && styles.selectedRadio]}>
         {isSelected && <View style={styles.radioInner} />}

@@ -1,0 +1,64 @@
+extend type Interest {
+  """
+  ✨ Implicit primary key field. It's a UUID column default to a generated new value. See `@table` for how to customize it.
+  """
+  id: UUID! @default(expr: "uuidV4()") @fdc_generated(from: "Interest", purpose: IMPLICIT_KEY_FIELD)
+}
+extend type Like {
+  """
+  ✨ Implicit foreign key field based on `Like`.`liker`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  likerId: UUID! @fdc_generated(from: "Like.liker", purpose: IMPLICIT_REF_FIELD)
+  """
+  ✨ Implicit foreign key field based on `Like`.`liked`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  likedId: UUID! @fdc_generated(from: "Like.liked", purpose: IMPLICIT_REF_FIELD)
+}
+extend type Match {
+  """
+  ✨ Implicit foreign key field based on `Match`.`user1`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  user1Id: UUID! @fdc_generated(from: "Match.user1", purpose: IMPLICIT_REF_FIELD)
+  """
+  ✨ Implicit foreign key field based on `Match`.`user2`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  user2Id: UUID! @fdc_generated(from: "Match.user2", purpose: IMPLICIT_REF_FIELD)
+}
+extend type Message {
+  """
+  ✨ Implicit primary key field. It's a UUID column default to a generated new value. See `@table` for how to customize it.
+  """
+  id: UUID! @default(expr: "uuidV4()") @fdc_generated(from: "Message", purpose: IMPLICIT_KEY_FIELD)
+  """
+  ✨ Implicit foreign key field based on `Message`.`match`. It must match the value of `Match`.`user1Id`. See `@ref` for how to customize it.
+  """
+  matchUser1Id: UUID! @fdc_generated(from: "Message.match", purpose: IMPLICIT_REF_FIELD)
+  """
+  ✨ Implicit foreign key field based on `Message`.`match`. It must match the value of `Match`.`user2Id`. See `@ref` for how to customize it.
+  """
+  matchUser2Id: UUID! @fdc_generated(from: "Message.match", purpose: IMPLICIT_REF_FIELD)
+  """
+  ✨ Implicit foreign key field based on `Message`.`receiver`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  receiverId: UUID! @fdc_generated(from: "Message.receiver", purpose: IMPLICIT_REF_FIELD)
+  """
+  ✨ Implicit foreign key field based on `Message`.`sender`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  senderId: UUID! @fdc_generated(from: "Message.sender", purpose: IMPLICIT_REF_FIELD)
+}
+extend type User {
+  """
+  ✨ Implicit primary key field. It's a UUID column default to a generated new value. See `@table` for how to customize it.
+  """
+  id: UUID! @default(expr: "uuidV4()") @fdc_generated(from: "User", purpose: IMPLICIT_KEY_FIELD)
+}
+extend type UserInterest {
+  """
+  ✨ Implicit foreign key field based on `UserInterest`.`user`. It must match the value of `User`.`id`. See `@ref` for how to customize it.
+  """
+  userId: UUID! @fdc_generated(from: "UserInterest.user", purpose: IMPLICIT_REF_FIELD)
+  """
+  ✨ Implicit foreign key field based on `UserInterest`.`interest`. It must match the value of `Interest`.`id`. See `@ref` for how to customize it.
+  """
+  interestId: UUID! @fdc_generated(from: "UserInterest.interest", purpose: IMPLICIT_REF_FIELD)
+}

@@ -9,7 +9,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import MainDrawerNavigator from './src/navigation/MainDrawerNavigator';
-import AuthGateScreen from './src/screens/AuthGateScreen';
 import ReportRadarScreen from './src/screens/ReportRadarScreen';
 import { useAuthStore } from './src/store/authStore';
 import { darkTheme } from './src/utils/theme';
@@ -17,6 +16,9 @@ import { BackgroundService } from './src/services/BackgroundService';
 import { AnalyticsService } from './src/services/AnalyticsService';
 import { CrashReportingService } from './src/services/CrashReportingService';
 import { OfflineService } from './src/services/OfflineService';
+import { AdService } from './src/services/AdService';
+import { SubscriptionService } from './src/services/SubscriptionService';
+import { FirebaseAuthService } from './src/services/FirebaseAuthService';
 
 const Stack = createNativeStackNavigator();
 const queryClient = new QueryClient();
@@ -44,6 +46,9 @@ export default function App() {
         await CrashReportingService.init();
         await OfflineService.init();
         await BackgroundService.init();
+        await AdService.init();
+        await SubscriptionService.init();
+        FirebaseAuthService.configureGoogle();
         
         // Track app launch
         await AnalyticsService.trackEvent('app_launch', {
@@ -128,7 +133,7 @@ export default function App() {
                     />
                   </>
                 ) : (
-                  <Stack.Screen name="Auth" component={AuthGateScreen} />
+                  <Stack.Screen name="Auth" component={require('./src/navigation/AuthNavigator').default} />
                 )}
               </Stack.Navigator>
             </NavigationContainer>
