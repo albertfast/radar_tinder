@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AppState } from 'react-native';
 
 import MainDrawerNavigator from './src/navigation/MainDrawerNavigator';
 import ReportRadarScreen from './src/screens/ReportRadarScreen';
@@ -19,6 +20,7 @@ import { OfflineService } from './src/services/OfflineService';
 import { AdService } from './src/services/AdService';
 import { SubscriptionService } from './src/services/SubscriptionService';
 import { FirebaseAuthService } from './src/services/FirebaseAuthService';
+import { supabase } from './utils/supabase';
 
 const Stack = createNativeStackNavigator();
 const queryClient = new QueryClient();
@@ -49,19 +51,10 @@ export default function App() {
         await AdService.init();
         await SubscriptionService.init();
         FirebaseAuthService.configureGoogle();
-        
-        // Track app launch
+
         await AnalyticsService.trackEvent('app_launch', {
-          authenticated: isAuthenticated,
+          authenticated: useAuthStore.getState().isAuthenticated,
         });
-        
-        // Set user properties if authenticated
-        if (user) {
-          await AnalyticsService.setUserProperties({
-            subscription_type: user.subscriptionType,
-            user_id: user.id,
-          });
-        }
       } catch (error) {
         console.error('Error initializing services:', error);
         await CrashReportingService.reportHandledError(error as Error, {
@@ -72,10 +65,50 @@ export default function App() {
 
     initializeServices();
 
+    let hasSupabaseSession = false;
+    const authSub = supabase.auth.onAuthStateChange((_event, session) => {
+      hasSupabaseSession = Boolean(session);
+      try {
+        if (hasSupabaseSession && AppState.currentState === 'active') {
+          supabase.auth.startAutoRefresh?.();
+        } else {
+          supabase.auth.stopAutoRefresh?.();
+        }
+      } catch (e) {}
+    });
+
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      try {
+        if (nextState === 'active' && hasSupabaseSession) {
+          supabase.auth.startAutoRefresh?.();
+        } else {
+          supabase.auth.stopAutoRefresh?.();
+        }
+      } catch (e) {}
+    });
+
     // Cleanup on unmount
     return () => {
+      authSub.data.subscription.unsubscribe();
+      appStateSub.remove();
       BackgroundService.stop().catch(console.error);
     };
+  }, []);
+
+  useEffect(() => {
+    // Track launch/session state changes and update user-scoped services
+    AnalyticsService.trackEvent('auth_state_change', { authenticated: isAuthenticated }).catch(() => {});
+
+    if (user) {
+      AnalyticsService.setUserProperties({
+        subscription_type: user.subscriptionType,
+        user_id: user.id,
+      }).catch(() => {});
+      AnalyticsService.setUserId(user.id).catch(() => {});
+      SubscriptionService.setUserId(user.id).catch(() => {});
+    } else {
+      AnalyticsService.setUserId(null).catch(() => {});
+    }
   }, [isAuthenticated, user]);
 
   return (

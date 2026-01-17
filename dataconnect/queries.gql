@@ -1,0 +1,214 @@
+# Queries and Mutations for RadarTinder
+
+# ------------------
+# User Profile
+# ------------------
+
+mutation CreateUser(
+  $username: String!,
+  $email: String!,
+  $passwordHash: String!,
+  $gender: String!,
+  $dateOfBirth: Date!,
+  $latitude: Float!,
+  $longitude: Float!,
+  $bio: String,
+  $profilePictureUrl: String,
+  $lookingForGender: String
+) @auth(level: ADMIN) {
+  users_insert(
+    data: {
+      username: $username,
+      email: $email,
+      passwordHash: $passwordHash,
+      gender: $gender,
+      dateOfBirth: $dateOfBirth,
+      latitude: $latitude,
+      longitude: $longitude,
+      bio: $bio,
+      profilePictureUrl: $profilePictureUrl,
+      lookingForGender: $lookingForGender,
+      createdAt_expr: "request.time",
+      lastActiveAt_expr: "request.time"
+    }
+  ) {
+    affected_rows
+    returning {
+      id
+      username
+    }
+  }
+}
+
+query GetUser($userId: UUID!) @auth(level: USER) {
+  users(where: {id: { _eq: $userId }}) {
+    id
+    username
+    email
+    gender
+    dateOfBirth
+    bio
+    profilePictureUrl
+    lookingForGender
+    lastActiveAt
+  }
+}
+
+mutation UpdateUserProfile(
+  $userId: UUID!,
+  $bio: String,
+  $profilePictureUrl: String,
+  $lookingForGender: String
+) @auth(level: USER) {
+  users_update(
+    where: {id: { _eq: $userId }},
+    data: {
+      bio: $bio,
+      profilePictureUrl: $profilePictureUrl,
+      lookingForGender: $lookingForGender
+    }
+  ) {
+    affected_rows
+  }
+}
+
+mutation UpdateUserLocation(
+  $userId: UUID!,
+  $latitude: Float!,
+  $longitude: Float!
+) @auth(level: USER) {
+  users_update(
+    where: {id: { _eq: $userId }},
+    data: {
+      latitude: $latitude,
+      longitude: $longitude,
+      lastActiveAt_expr: "request.time"
+    }
+  ) {
+    affected_rows
+  }
+}
+
+# ------------------
+# Swiping and Matching
+# ------------------
+
+query GetPotentialMatches(
+  $userId: UUID!,
+  $userGender: String!,
+  $lookingFor: String!,
+  $limit: Int = 20
+) @auth(level: USER) {
+  users(
+    limit: $limit,
+    where: {
+      _and: [
+        { id: { _neq: $userId } },
+        { gender: { _eq: $lookingFor } },
+        { lookingForGender: { _in: [$userGender, "ANY"] } },
+        # Exclude users already liked by the current user
+        { likes_liked: { likerId: { _neq: $userId } } },
+         # Exclude users that have already matched with the current user
+        { matches_user1: { user2Id: { _neq: $userId } } },
+        { matches_user2: { user1Id: { _neq: $userId } } }
+      ]
+    },
+    # A real implementation would have a more complex sorting algorithm
+    # based on proximity, interests, etc.
+    orderBy: [{lastActiveAt: DESC}]
+  ) {
+    id
+    username
+    bio
+    profilePictureUrl
+    dateOfBirth
+  }
+}
+
+
+mutation LikeUser($likerId: UUID!, $likedId: UUID!) @auth(level: USER) {
+  likes_insert(
+    data: {
+      likerId: $likerId,
+      likedId: $likedId,
+      createdAt_expr: "request.time"
+    }
+  ) {
+    affected_rows
+  }
+}
+
+# In a real app, match creation would be handled by a trigger or a cloud function
+# after a mutual like is detected.
+mutation CreateMatch($user1Id: UUID!, $user2Id: UUID!) @auth(level: ADMIN) {
+  matches_insert(
+    data: {
+      user1Id: $user1Id,
+      user2Id: $user2Id,
+      matchedAt_expr: "request.time"
+    }
+  ) {
+    affected_rows
+  }
+}
+
+
+query GetMatches($userId: UUID!) @auth(level: USER) {
+  matches(
+    where: {
+      _or: [
+        { user1Id: { _eq: $userId } },
+        { user2Id: { _eq: $userId } }
+      ]
+    },
+    orderBy: [{matchedAt: DESC}]
+  ) {
+    id
+    user1 {
+      id
+      username
+      profilePictureUrl
+    }
+    user2 {
+      id
+      username
+      profilePictureUrl
+    }
+    matchedAt
+  }
+}
+
+# ------------------
+# Messaging
+# ------------------
+
+mutation SendMessage($matchId: UUID!, $senderId: UUID!, $receiverId: UUID!, $content: String!) @auth(level: USER) {
+  messages_insert(
+    data: {
+      matchId: $matchId,
+      senderId: $senderId,
+      receiverId: $receiverId,
+      content: $content,
+      sentAt_expr: "request.time"
+    }
+  ) {
+    affected_rows
+  }
+}
+
+query GetMessages($matchId: UUID!, $limit: Int = 50) @auth(level: USER) {
+  messages(
+    where: { matchId: { _eq: $matchId } },
+    orderBy: [{sentAt: ASC}],
+    limit: $limit
+  ) {
+    id
+    sender {
+      id
+      username
+    }
+    content
+    sentAt
+    readAt
+  }
+}

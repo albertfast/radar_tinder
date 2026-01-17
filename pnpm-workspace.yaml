@@ -1,2 +1,5 @@
+ignoredBuiltDependencies:
+  - protobufjs
+
 overrides:
   '@dataconnect/generated': link:src/dataconnect-generated

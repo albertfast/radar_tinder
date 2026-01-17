@@ -3,11 +3,13 @@ import { View, StyleSheet, FlatList, Platform, RefreshControl, UIManager } from 
 import { Text, Surface, Avatar, ActivityIndicator, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, FadeInDown, BounceInDown, SlideInLeft } from 'react-native-reanimated';
 import { GamificationService, Rank, RANKS } from '../services/GamificationService';
 import { useAuthStore } from '../store/authStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { formatDistance } from '../utils/format';
+import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
+import { HapticPatterns } from '../utils/hapticFeedback';
 import { supabase } from '../../utils/supabase';
 import Radar3DView from '../components/Radar3DView';
 
@@ -36,7 +38,7 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   const orbFloat = useSharedValue(0);
   const progressValue = useSharedValue(0);
   const canUseRadar3D = useMemo(
-    () => Platform.OS === 'android' && !!UIManager.getViewManagerConfig?.('Radar3DView'),
+    () => Platform.OS === 'android' && !!UIManager.getViewManagerConfig?.('RTRadar3DView'),
     []
   );
 
@@ -208,15 +210,18 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
           const badgeColor = isFirst ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32';
           const rankStyle = rankStyles(item.rank);
           return (
-            <Surface
+            <Animated.View
               key={item.id}
-              style={[styles.podiumCard, isFirst && styles.podiumCardTop]}
-              elevation={2}
+              entering={FadeInDown.delay(index * STAGGER_DELAYS.ITEM_SLOW).duration(ANIMATION_TIMING.SLOW)}
             >
-              <View style={styles.podiumHeader}>
-                <MaterialCommunityIcons name="crown" size={22} color={badgeColor} />
-                <Text style={styles.podiumRankText}>{index + 1}</Text>
-              </View>
+              <Surface
+                style={[styles.podiumCard, isFirst && styles.podiumCardTop]}
+                elevation={2}
+              >
+                <View style={styles.podiumHeader}>
+                  <MaterialCommunityIcons name="crown" size={22} color={badgeColor} />
+                  <Text style={styles.podiumRankText}>{index + 1}</Text>
+                </View>
               {item.avatar ? (
                 <Avatar.Image size={isFirst ? 54 : 46} source={{ uri: item.avatar }} />
               ) : (
@@ -231,7 +236,8 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
               </View>
               <Text style={styles.podiumPoints}>{item.points.toLocaleString()}</Text>
               <Text style={styles.podiumPtsLabel}>PTS</Text>
-            </Surface>
+              </Surface>
+            </Animated.View>
           );
         })}
       </View>
@@ -273,7 +279,10 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   };
 
   return (
-    <View style={styles.container}>
+    <Animated.View 
+      style={styles.container}
+      entering={BounceInDown.duration(ANIMATION_TIMING.SLOW)}
+    >
       <LinearGradient
         colors={['#020617', '#0B1220', '#05070D']}
         style={styles.background}
@@ -289,7 +298,10 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
           icon="chevron-left" 
           iconColor="white" 
           size={30} 
-          onPress={() => navigation.goBack()} 
+          onPress={() => {
+            HapticPatterns.light();
+            navigation.goBack();
+          }} 
         />
         <View>
           <Text style={styles.headerTitle}>Leaderboard</Text>
@@ -444,7 +456,7 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
           }
         />
       )}
-    </View>
+    </Animated.View>
   );
 };
 

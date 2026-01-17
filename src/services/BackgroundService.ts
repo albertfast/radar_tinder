@@ -19,6 +19,13 @@ export class BackgroundService {
   private static notificationSubscription: any = null;
   private static isRunning = false;
   private static lastLocationUpdate: { latitude: number; longitude: number; timestamp: number } | null = null;
+  private static lastRadarFetch:
+    | { latitude: number; longitude: number; timestamp: number; radius: number }
+    | null = null;
+  private static lastNearbyRadars: (RadarLocation & { distance: number })[] = [];
+  private static RADAR_FETCH_MIN_INTERVAL_MS_MOVING = 15000;
+  private static RADAR_FETCH_MIN_INTERVAL_MS_STATIONARY = 60000;
+  private static RADAR_FETCH_MIN_DISTANCE_KM = 0.25;
   private static locationPollInterval: ReturnType<typeof setInterval> | null = null;
 
   static async init(): Promise<void> {
@@ -255,12 +262,46 @@ export class BackgroundService {
         this.isProtectionActive = false;
       }
 
-      // Get nearby radars (Circular search - works even without a set destination)
-      const nearbyRadars = await RadarService.getNearbyRadars(
-        location.latitude,
-        location.longitude,
-        user.subscriptionType === 'free' ? 5 : 10
-      );
+      const radiusKm = user.subscriptionType === 'free' ? 5 : 10;
+      const minIntervalMs =
+        speedKph > 10 ? this.RADAR_FETCH_MIN_INTERVAL_MS_MOVING : this.RADAR_FETCH_MIN_INTERVAL_MS_STATIONARY;
+
+      let shouldFetch = !this.lastRadarFetch || this.lastRadarFetch.radius !== radiusKm;
+      if (!shouldFetch && this.lastRadarFetch) {
+        const sinceLastMs = now - this.lastRadarFetch.timestamp;
+        const movedKm = LocationService.calculateDistanceSync(
+          location.latitude,
+          location.longitude,
+          this.lastRadarFetch.latitude,
+          this.lastRadarFetch.longitude
+        );
+        shouldFetch = sinceLastMs >= minIntervalMs || movedKm >= this.RADAR_FETCH_MIN_DISTANCE_KM;
+      }
+
+      const nearbyRadars: (RadarLocation & { distance: number })[] = shouldFetch
+        ? await RadarService.getNearbyRadars(location.latitude, location.longitude, radiusKm)
+        : this.lastNearbyRadars
+            .map((r) => ({
+              ...r,
+              distance: LocationService.calculateDistanceSync(
+                location.latitude,
+                location.longitude,
+                r.latitude,
+                r.longitude
+              ),
+            }))
+            .filter((r) => r.distance <= radiusKm)
+            .sort((a, b) => a.distance - b.distance);
+
+      if (shouldFetch) {
+        this.lastRadarFetch = {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          timestamp: now,
+          radius: radiusKm,
+        };
+        this.lastNearbyRadars = nearbyRadars;
+      }
 
       // Filter and create alerts
       let baseThreshold = 0.8;

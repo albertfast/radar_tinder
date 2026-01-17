@@ -15,14 +15,22 @@ export class RadarService {
     'https://overpass.kumi.systems/api/interpreter',
     'https://overpass.nchc.org.tw/api/interpreter'
   ];
-  private static NEARBY_CACHE_TTL_MS = 15000;
-  private static NEARBY_CACHE_DISTANCE_KM = 0.3;
+  private static NEARBY_CACHE_TTL_MS = 30000;
+  private static NEARBY_CACHE_DISTANCE_KM = 0.5;
   private static nearbyCache: {
     timestamp: number;
     latitude: number;
     longitude: number;
     radius: number;
     radars: RadarLocation[];
+  } | null = null;
+
+  private static inflightNearby: {
+    startedAt: number;
+    latitude: number;
+    longitude: number;
+    radius: number;
+    promise: Promise<(RadarLocation & { distance: number })[]>;
   } | null = null;
 
   /**
@@ -251,144 +259,183 @@ export class RadarService {
       const cached = this.getCachedNearbyRadars(latitude, longitude, radius);
       if (cached) return cached;
 
-      // DIAGNOSTIC: Check connectivity first
-      try {
-        const testPing = await fetch('https://www.google.com', { method: 'HEAD' });
-        console.log('Connectivity Check: Google is ' + (testPing.ok ? 'REACHABLE' : 'UNREACHABLE'));
-      } catch (err) {
-        console.error('Connectivity Check FAILED: No Internet Access', err);
-        // If we can't reach Google, return empty immediately with a specific toast/log
-        return [];
-      }
-
-      // 1. Fetch from all sources in parallel
-      const [osmRadars, supabaseRadars, googlePlaces] = await Promise.all([
-        this.fetchRealRadarsFromOSM(latitude, longitude, radius),
-        SupabaseService.getNearbyRadars(latitude, longitude, radius * 1000),
-        GoogleMapsService.searchNearbyPlaces(latitude, longitude, radius * 1000)
-      ]);
-
-      // Map Supabase radars to RadarLocation type
-      const mappedSupabaseRadars: RadarLocation[] = (supabaseRadars || [])
-        .map((r: any) => ({
-          id: r.id,
-          latitude: r.latitude,
-          longitude: r.longitude,
-          type: r.type as any,
-          confidence: r.confidence,
-          lastConfirmed: new Date(), // Ideally from DB
-          reportedBy: 'user', // Ideally from DB
-          createdAt: new Date(), // Ideally from DB
-          updatedAt: new Date(),
-        }))
-        .filter((r: RadarLocation) => r.type !== 'police');
-
-      let allRadars: RadarLocation[] = [...osmRadars, ...mappedSupabaseRadars];
-
-      // 2. Process Google Places results
-      for (const place of googlePlaces) {
-        const exists = allRadars.some(r => 
-          Math.abs(r.latitude - place.geometry.location.lat) < 0.001 &&
-          Math.abs(r.longitude - place.geometry.location.lng) < 0.001
+      if (this.inflightNearby) {
+        const inflightAgeMs = Date.now() - this.inflightNearby.startedAt;
+        const inflightDistanceKm = LocationService.calculateDistanceSync(
+          latitude,
+          longitude,
+          this.inflightNearby.latitude,
+          this.inflightNearby.longitude
         );
 
-        if (!exists) {
-          if (place.types.includes('police')) {
-            continue;
-          }
-          let type: RadarLocation['type'] = 'speed_camera';
-          
-          if (place.types.includes('traffic_signals')) {
-            type = 'red_light';
-          }
+        if (
+          inflightAgeMs <= this.NEARBY_CACHE_TTL_MS &&
+          inflightDistanceKm <= this.NEARBY_CACHE_DISTANCE_KM &&
+          radius <= this.inflightNearby.radius
+        ) {
+          const inflightResult = await this.inflightNearby.promise.catch(() => null);
+          const cachedAfter = this.getCachedNearbyRadars(latitude, longitude, radius);
+          if (cachedAfter) return cachedAfter;
 
-          const newRadar: RadarLocation = {
-            id: `google-${place.place_id}`,
-            latitude: place.geometry.location.lat,
-            longitude: place.geometry.location.lng,
-            type,
-            confidence: 0.8,
-            lastConfirmed: new Date(),
-            reportedBy: 'Google Maps',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-          allRadars.push(newRadar);
+          if (inflightResult) {
+            return inflightResult
+              .map((r) => ({
+                ...r,
+                distance: LocationService.calculateDistanceSync(latitude, longitude, r.latitude, r.longitude),
+              }))
+              .filter((r) => r.distance <= radius)
+              .sort((a, b) => a.distance - b.distance);
+          }
         }
       }
 
+      const request = (async () => {
+        const [osmResult, supabaseResult, googlePlacesResult] = await Promise.allSettled([
+          this.fetchRealRadarsFromOSM(latitude, longitude, radius),
+          SupabaseService.getNearbyRadars(latitude, longitude, radius * 1000),
+          GoogleMapsService.searchNearbyPlaces(latitude, longitude, radius * 1000),
+        ]);
 
+        const osmRadars = osmResult.status === 'fulfilled' ? osmResult.value : [];
+        const supabaseRadars = supabaseResult.status === 'fulfilled' ? supabaseResult.value : [];
+        const googlePlaces = googlePlacesResult.status === 'fulfilled' ? googlePlacesResult.value : [];
 
-          // 3. Apply Accuracy Scoring & Deduplication & FEATURE GATING
-      const user = useAuthStore.getState().user;
-      const isPro = user?.subscriptionType === 'pro' || user?.rank === 'Global Administrator';
+        // Map Supabase radars to RadarLocation type
+        const mappedSupabaseRadars: RadarLocation[] = (supabaseRadars || [])
+          .map((r: any) => ({
+            id: r.id,
+            latitude: r.latitude,
+            longitude: r.longitude,
+            type: r.type as any,
+            confidence: r.confidence,
+            lastConfirmed: new Date(), // Ideally from DB
+            reportedBy: 'user', // Ideally from DB
+            createdAt: new Date(), // Ideally from DB
+            updatedAt: new Date(),
+          }))
+          .filter((r: RadarLocation) => r.type !== 'police');
 
-      let processedRadars = this.improveAccuracy(allRadars);
+        let allRadars: RadarLocation[] = [...osmRadars, ...mappedSupabaseRadars];
 
-      // --- CRITICAL DATA FIX: INJECT SYNTHETIC RADARS IF DENSITY IS LOW ---
-      // This ensures the "premium feel" of a populated map even in areas with sparse OSM data
-      if (processedRadars.length < 5) {
-          const mockCount = 15 - processedRadars.length;
-          for (let i = 0; i < mockCount; i++) {
-              const angle = Math.random() * Math.PI * 2;
-              const dist = Math.random() * (radius * 0.8 / 111.32); // Convert km to degree approx
-              const typeProb = Math.random();
-              let type: RadarLocation['type'] = 'speed_camera';
-              if (typeProb > 0.6) type = 'fixed'; // increased prob for fixed
-              else if (typeProb > 0.3) type = 'red_light';
+        // 2. Process Google Places results
+        for (const place of googlePlaces) {
+          const exists = allRadars.some(r => 
+            Math.abs(r.latitude - place.geometry.location.lat) < 0.001 &&
+            Math.abs(r.longitude - place.geometry.location.lng) < 0.001
+          );
 
-              processedRadars.push({
-                  id: `mock-${Date.now()}-${i}`,
-                  latitude: latitude + (dist * Math.cos(angle)),
-                  longitude: longitude + (dist * Math.sin(angle)),
-                  type,
-                  confidence: 0.9,
-                  lastConfirmed: new Date(),
-                  reportedBy: 'System AI',
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                  speedLimit: Math.random() > 0.5 ? (Math.floor(Math.random() * 6) + 3) * 10 : undefined
-              });
+          if (!exists) {
+            if (place.types.includes('police')) {
+              continue;
+            }
+            let type: RadarLocation['type'] = 'speed_camera';
+            
+            if (place.types.includes('traffic_signals')) {
+              type = 'red_light';
+            }
+
+            const newRadar: RadarLocation = {
+              id: `google-${place.place_id}`,
+              latitude: place.geometry.location.lat,
+              longitude: place.geometry.location.lng,
+              type,
+              confidence: 0.8,
+              lastConfirmed: new Date(),
+              reportedBy: 'Google Maps',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            allRadars.push(newRadar);
           }
-      }
-      
-      this.nearbyCache = {
-        timestamp: Date.now(),
+        }
+
+        // 3. Apply Accuracy Scoring & Deduplication & FEATURE GATING
+        const user = useAuthStore.getState().user;
+        const isPro = user?.subscriptionType === 'pro' || user?.rank === 'Global Administrator';
+
+        let processedRadars = this.improveAccuracy(allRadars);
+
+        // --- CRITICAL DATA FIX: INJECT SYNTHETIC RADARS IF DENSITY IS LOW ---
+        // This ensures the "premium feel" of a populated map even in areas with sparse OSM data
+        if (processedRadars.length < 5) {
+            const mockCount = 15 - processedRadars.length;
+            for (let i = 0; i < mockCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.random() * (radius * 0.8 / 111.32); // Convert km to degree approx
+                const typeProb = Math.random();
+                let type: RadarLocation['type'] = 'speed_camera';
+                if (typeProb > 0.6) type = 'fixed'; // increased prob for fixed
+                else if (typeProb > 0.3) type = 'red_light';
+
+                processedRadars.push({
+                    id: `mock-${Date.now()}-${i}`,
+                    latitude: latitude + (dist * Math.cos(angle)),
+                    longitude: longitude + (dist * Math.sin(angle)),
+                    type,
+                    confidence: 0.9,
+                    lastConfirmed: new Date(),
+                    reportedBy: 'System AI',
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    speedLimit: Math.random() > 0.5 ? (Math.floor(Math.random() * 6) + 3) * 10 : undefined
+                });
+            }
+        }
+        
+        this.nearbyCache = {
+          timestamp: Date.now(),
+          latitude,
+          longitude,
+          radius,
+          radars: processedRadars.filter(r => {
+               // SHOW ALL FOR PRO/ADMIN
+               if (isPro) return true;
+               
+               // STRICTLY HIDE POLICE per user feedback
+               if (r.type === 'police') return false;
+               
+               return true;
+          }),
+        };
+
+        // 4. Calculate precise distances and sort
+        const nearbyRadars: (RadarLocation & { distance: number })[] = [];
+        
+        for (const radar of this.nearbyCache.radars) {
+          const straightDistance = LocationService.calculateDistanceSync(
+            latitude,
+            longitude,
+            radar.latitude,
+            radar.longitude
+          );
+
+          if (straightDistance <= radius) {
+            nearbyRadars.push({
+              ...radar,
+              distance: straightDistance,
+            });
+          }
+        }
+
+        // Sort by distance (closest first)
+        return nearbyRadars.sort((a, b) => a.distance - b.distance);
+      })();
+
+      this.inflightNearby = {
+        startedAt: Date.now(),
         latitude,
         longitude,
         radius,
-        radars: processedRadars.filter(r => {
-             // SHOW ALL FOR PRO/ADMIN
-             if (isPro) return true;
-             
-             // STRICTLY HIDE POLICE per user feedback
-             if (r.type === 'police') return false;
-             
-             return true;
-        }),
+        promise: request,
       };
 
-      // 4. Calculate precise distances and sort
-      const nearbyRadars: (RadarLocation & { distance: number })[] = [];
-      
-      for (const radar of this.nearbyCache.radars) {
-        const straightDistance = await LocationService.calculateDistance(
-          latitude,
-          longitude,
-          radar.latitude,
-          radar.longitude
-        );
-
-        if (straightDistance <= radius) {
-          nearbyRadars.push({
-            ...radar,
-            distance: straightDistance,
-          });
+      try {
+        return await request;
+      } finally {
+        if (this.inflightNearby?.promise === request) {
+          this.inflightNearby = null;
         }
       }
-
-      // Sort by distance (closest first)
-      return nearbyRadars.sort((a, b) => a.distance - b.distance);
 
     } catch (error) {
       console.error('Error getting nearby radars:', error);

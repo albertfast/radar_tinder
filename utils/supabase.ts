@@ -3,9 +3,27 @@ import 'react-native-url-polyfill/auto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createClient, processLock } from '@supabase/supabase-js'
 
-const lockWithTimeout = async (name: string, acquireTimeout: number, fn: () => Promise<any>) => {
-  const effectiveTimeout = acquireTimeout < 0 ? acquireTimeout : Math.max(acquireTimeout, 60000);
-  return processLock(name, effectiveTimeout, fn);
+const FETCH_TIMEOUT_MS = 20000;
+
+const lockWithoutTimeout = async (name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
+  // In React Native we don't have multi-tab concurrency, and the acquire-timeout warnings are noisy.
+  // Using an infinite process-level lock prevents "timed out" warnings while still serializing auth operations.
+  return processLock(name, -1, fn);
+};
+
+const fetchWithTimeout: typeof fetch = async (input: any, init?: any) => {
+  const AbortControllerImpl = (globalThis as any).AbortController;
+  if (!AbortControllerImpl) {
+    return fetch(input, init);
+  }
+
+  const controller = new AbortControllerImpl();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...(init || {}), signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 };
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -28,11 +46,14 @@ export const supabase = createClient(
   supabaseUrl,
   supabaseAnonKey,
   {
+    global: {
+      fetch: fetchWithTimeout,
+    },
     auth: {
       storage: AsyncStorage,
-      autoRefreshToken: true,
+      autoRefreshToken: false,
       persistSession: true,
       detectSessionInUrl: false,
-      lock: lockWithTimeout,
+      lock: lockWithoutTimeout,
     },
   });

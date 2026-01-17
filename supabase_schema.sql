@@ -28,6 +28,8 @@ returns table (
   dist_meters float
 )
 language plpgsql
+security definer
+set search_path = public
 as $$
 begin
   return query
@@ -136,7 +138,10 @@ end;
 $$;
 
 create or replace function public.apply_report_points()
-returns trigger language plpgsql as $$
+returns trigger 
+language plpgsql
+security definer
+as $$
 declare
   award int := 25;
 begin
@@ -156,7 +161,10 @@ end;
 $$;
 
 create or replace function public.apply_confirmation_points()
-returns trigger language plpgsql as $$
+returns trigger 
+language plpgsql
+security definer
+as $$
 declare
   confirmer_award int := 10;
   reporter_award int := 5;
@@ -269,7 +277,14 @@ $$;
 
 grant execute on function public.get_leaderboard(int) to anon, authenticated;
 grant execute on function public.get_email_for_username(text) to anon, authenticated;
+grant execute on function public.get_nearby_radars(float, float, float) to anon, authenticated;
 grant execute on function public.confirm_nearby_report(float, float, float, text) to authenticated;
+
+-- Grant select on tables for direct queries and RPC functions
+grant select on table public.radars to anon, authenticated;
+grant select on table public.radar_reports to anon, authenticated;
+grant select on table public.report_confirmations to anon, authenticated;
+grant select on table public.profiles to anon, authenticated;
 
 -- RLS
 alter table public.radars enable row level security;
@@ -339,4 +354,66 @@ begin
   ) then
     execute 'create policy "points_read_owner" on public.points_ledger for select using (auth.uid() = user_id)';
   end if;
+
+  -- Allow system/trigger functions to insert points
+  if not exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'points_ledger' and policyname = 'points_insert_system'
+  ) then
+    execute 'create policy "points_insert_system" on public.points_ledger for insert with check (true)';
+  end if;
 end $$;
+
+-- ==========================================
+-- FIREBASE WRAPPER SETUP (Optional)
+-- ==========================================
+/*
+  To enable Firebase connectivity, run these commands in the SQL Editor.
+  You will need your Firebase Service Account JSON key.
+
+  1. Enable Wrappers:
+     create extension if not exists wrappers with schema extensions;
+
+  2. Enable Firebase FDW:
+     create foreign data wrapper firebase_wrapper
+       handler firebase_fdw_handler
+       validator firebase_fdw_validator;
+
+  3. Create Secret in Vault (Replace the JSON with your Service Account Key JSON):
+     select vault.create_secret(
+       '{
+         "type": "service_account",
+         "project_id": "radar-tinder",
+         "private_key_id": "your_private_key_id",
+         "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+         "client_email": "firebase-adminsdk-xxx@radar-tinder.iam.gserviceaccount.com",
+         "client_id": "xxx",
+         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+         "token_uri": "https://oauth2.googleapis.com/token",
+         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+         "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/..."
+       }',
+       'firebase_secret'
+     );
+
+  4. Create Server:
+     create server firebase_server
+       foreign data wrapper firebase_wrapper
+       options (
+         sa_key_id (select id from vault.secrets where name = 'firebase_secret' limit 1),
+         project_id 'radar-tinder'
+       );
+
+  5. Create Schema and Foreign Table for Users:
+     create schema if not exists firebase;
+     
+     create foreign table firebase.users (
+       uid text,
+       email text,
+       created_at timestamp,
+       attrs jsonb
+     )
+     server firebase_server
+     options (
+       object 'auth/users'
+     );
+*/

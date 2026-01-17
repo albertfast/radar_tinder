@@ -5,26 +5,23 @@ import * as Crypto from 'expo-crypto';
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID;
 const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID;
 
-let cachedFirebaseAuth: any | undefined;
-function getFirebaseAuth(): any | null {
-  if (cachedFirebaseAuth !== undefined) return cachedFirebaseAuth;
+let cachedFirebaseAuthModular: any | undefined;
+function getFirebaseAuthModular(): any | null {
+  if (cachedFirebaseAuthModular !== undefined) return cachedFirebaseAuthModular;
 
-  // If the Firebase App native module isn't present in this binary (Expo Go / outdated dev client),
-  // do not require the JS package (it will throw immediately).
   if (!NativeModules?.RNFBAppModule) {
-    cachedFirebaseAuth = null;
-    return cachedFirebaseAuth;
+    cachedFirebaseAuthModular = null;
+    return cachedFirebaseAuthModular;
   }
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require('@react-native-firebase/auth');
-    cachedFirebaseAuth = mod?.default ?? mod;
+    cachedFirebaseAuthModular = require('@react-native-firebase/auth/lib/modular');
   } catch (error) {
-    cachedFirebaseAuth = null;
+    cachedFirebaseAuthModular = null;
   }
 
-  return cachedFirebaseAuth;
+  return cachedFirebaseAuthModular;
 }
 
 let cachedGoogleSignin: any | undefined;
@@ -73,27 +70,28 @@ export const FirebaseAuthService = {
   },
 
   async signInAnonymously() {
-    const auth = getFirebaseAuth();
-    if (!auth) {
+    const authModular = getFirebaseAuthModular();
+    if (!authModular) {
       throw new Error(
         'Firebase Auth is not available in this iOS/Android binary (RNFBAppModule missing).'
       );
     }
 
-    if (auth().currentUser) {
-      return { uid: auth().currentUser!.uid };
+    const auth = authModular.getAuth();
+    if (auth?.currentUser) {
+      return { uid: auth.currentUser.uid };
     }
 
-    const result = await auth().signInAnonymously();
-    if (!result.user) {
+    const result = await authModular.signInAnonymously(auth);
+    if (!result?.user) {
       throw new Error('Anonymous sign-in failed: missing user');
     }
     return { uid: result.user.uid };
   },
 
   async signInWithGoogle() {
-    const auth = getFirebaseAuth();
-    if (!auth) {
+    const authModular = getFirebaseAuthModular();
+    if (!authModular) {
       throw new Error(
         'Firebase Auth is not available in this iOS/Android binary (RNFBAppModule missing).'
       );
@@ -110,8 +108,9 @@ export const FirebaseAuthService = {
       throw new Error('Google sign-in failed: missing idToken');
     }
 
-    const credential = auth.GoogleAuthProvider.credential(idToken);
-    await auth().signInWithCredential(credential);
+    const auth = authModular.getAuth();
+    const credential = authModular.GoogleAuthProvider.credential(idToken);
+    await authModular.signInWithCredential(auth, credential);
 
     return {
       idToken,
@@ -124,8 +123,8 @@ export const FirebaseAuthService = {
   },
 
   async signInWithApple() {
-    const auth = getFirebaseAuth();
-    if (!auth) {
+    const authModular = getFirebaseAuthModular();
+    if (!authModular) {
       throw new Error(
         'Firebase Auth is not available in this iOS/Android binary (RNFBAppModule missing).'
       );
@@ -149,11 +148,12 @@ export const FirebaseAuthService = {
       throw new Error('Apple sign-in failed: missing identity token');
     }
 
-    const appleCredential = auth.AppleAuthProvider.credential(
+    const auth = authModular.getAuth();
+    const appleCredential = authModular.AppleAuthProvider.credential(
       credential.identityToken,
       rawNonce
     );
-    await auth().signInWithCredential(appleCredential);
+    await authModular.signInWithCredential(auth, appleCredential);
 
     const fullName = credential.fullName
       ? [credential.fullName.givenName, credential.fullName.familyName]
@@ -174,9 +174,10 @@ export const FirebaseAuthService = {
 
   async signOut() {
     try {
-      const auth = getFirebaseAuth();
-      if (auth) {
-        await auth().signOut();
+      const authModular = getFirebaseAuthModular();
+      if (authModular) {
+        const auth = authModular.getAuth();
+        await authModular.signOut(auth);
       }
     } catch (error) {}
     try {

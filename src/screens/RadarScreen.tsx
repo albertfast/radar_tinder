@@ -2,36 +2,25 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
   Dimensions,
   TextInput,
-  Clipboard,
   Keyboard,
-  FlatList,
-  Platform,
-  Linking,
-  Modal 
+  Modal,
+  TouchableOpacity,
+  FlatList
 } from 'react-native';
 import { 
   Text, 
-  IconButton,
   Surface,
   FAB,
-  Button
+  Button,
+  IconButton
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { 
-    FadeInDown, 
-    FadeInUp, 
-    withRepeat, 
-    withTiming, 
-    useSharedValue, 
-    useAnimatedStyle,
-    Easing 
-} from 'react-native-reanimated';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useRadarStore } from '../store/radarStore';
 import { useAuthStore } from '../store/authStore';
 import { RadarService } from '../services/RadarService';
@@ -39,8 +28,6 @@ import { GoogleMapsService } from '../services/GoogleMapsService';
 import { LocationService } from '../services/LocationService';
 import { OfflineService } from '../services/OfflineService';
 import { SupabaseService } from '../services/SupabaseService';
-import { RadarAnimation } from '../components/RadarAnimation';
-import RadarMap from '../components/RadarMap';
 import { RadarLocation } from '../types';
 import { BlurView } from 'expo-blur';
 import { useSettingsStore } from '../store/settingsStore';
@@ -48,6 +35,13 @@ import { formatDistance, formatSpeed } from '../utils/format';
 import AdBanner from '../components/AdBanner';
 import { AdService } from '../services/AdService';
 import { AnalyticsService } from '../services/AnalyticsService';
+import { RadarHeader } from './components/RadarHeader';
+import { RadarBasicView } from './components/RadarBasicView';
+import { RadarMapView } from './components/RadarMapViewComponent';
+import { RadarGraphicView } from './components/RadarGraphicView';
+import { RadarAnimation } from '../components/RadarAnimation';
+import RadarMap from '../components/RadarMap';
+import { ANIMATION_TIMING } from '../utils/animationConstants';
 
 const { width, height } = Dimensions.get('window');
 
@@ -151,6 +145,11 @@ const RadarScreen = ({ navigation, route }: any) => {
     const unacknowledged = activeAlerts.filter((alert) => !alert.acknowledged);
     return unacknowledged.sort((a, b) => a.distance - b.distance)[0];
   }, [activeAlerts]);
+
+  const closestRadar = useMemo(() => {
+    if (!nearbyRadars || nearbyRadars.length === 0) return null;
+    return [...nearbyRadars].sort((a, b) => a.distance - b.distance)[0];
+  }, [nearbyRadars]);
 
   // --- Effects ---
 
@@ -556,15 +555,22 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   // --- Components ---
 
-  const ActionCard = ({ icon, title, subtitle, onPress, gradientColors = ['#1E293B', '#0F172A'] }: any) => (
+  const ActionCard = ({ icon, title, subtitle, onPress, gradientColors = ['#0F172A', '#0B1224'], accent = '#4ECDC4', tag }: any) => (
     <TouchableOpacity style={styles.actionCard} onPress={onPress}>
         <LinearGradient
             colors={gradientColors}
             start={{x:0, y:0}} end={{x:1, y:1}}
             style={styles.actionCardGradient}
         >
-            <View style={styles.actionIconContainer}>
-                <MaterialCommunityIcons name={icon} size={32} color="#4ECDC4" />
+            <View style={styles.actionTopRow}>
+                <View style={[styles.actionIconContainer, { backgroundColor: accent + '22', borderColor: accent + '33' }]}>
+                    <MaterialCommunityIcons name={icon} size={28} color={accent} />
+                </View>
+                {tag ? (
+                  <View style={[styles.actionTag, { backgroundColor: accent + '20' }]}>
+                    <Text style={[styles.actionTagText, { color: accent }]}>{tag}</Text>
+                  </View>
+                ) : null}
             </View>
             <Text style={styles.actionTitle}>{title}</Text>
             <Text style={styles.actionSubtitle}>{subtitle}</Text>
@@ -590,6 +596,16 @@ const RadarScreen = ({ navigation, route }: any) => {
               <Text style={{ fontSize: 10, fontWeight: 'bold', color: 'black' }}>UPGRADE</Text>
           </TouchableOpacity>
       </View>
+  );
+
+  const StatPill = ({ icon, label, value, accent = '#4ECDC4' }: { icon: any; label: string; value: string; accent?: string }) => (
+    <View style={[styles.statCard, { borderColor: accent + '40', backgroundColor: accent + '12' }]}>
+      <View style={[styles.statIcon, { backgroundColor: accent + '26' }]}>
+        <MaterialCommunityIcons name={icon} size={18} color={accent} />
+      </View>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
+    </View>
   );
 
   // --- RENDER ---
@@ -786,21 +802,12 @@ const RadarScreen = ({ navigation, route }: any) => {
                   )}
                   
                   {activeTab === 'Graphic' && (
-                      <View style={{flex: 1, padding: 20}}>
-                          <Text style={{color:'white', fontSize: 20, marginBottom: 20}}>Trip Stats</Text>
-                          <View style={{flexDirection: 'row', gap: 10}}>
-                              <View style={[styles.statBox, {backgroundColor: '#1E293B'}]}>
-                                  <Text style={{color:'#4ECDC4', fontSize: 18, fontWeight: 'bold'}}>{formatDistance(totalDistance, unitSystem)}</Text>
-                                  <Text style={{color:'#aaa', fontSize: 12}}>Distance</Text>
-                              </View>
-                              <View style={[styles.statBox, {backgroundColor: '#1E293B'}]}>
-                                  <Text style={{color:'#FF9800', fontSize: 18, fontWeight: 'bold'}}>
-                                    {drivingStartTime ? Math.round((Date.now() - drivingStartTime.getTime())/60000) : 0} m
-                                  </Text>
-                                  <Text style={{color:'#aaa', fontSize: 12}}>Duration</Text>
-                              </View>
-                          </View>
-                      </View>
+                      <RadarGraphicView
+                          totalDistance={totalDistance}
+                          drivingStartTime={drivingStartTime}
+                          currentSpeed={currentSpeed}
+                          unitSystem={unitSystem}
+                      />
                   )}
               </View>
 
@@ -866,50 +873,126 @@ const RadarScreen = ({ navigation, route }: any) => {
           </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-          
-          {/* Animated Driving Button */}
-          <View style={styles.animContainer}>
-              <RadarAnimation />
+      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+          <View style={styles.heroCard}>
+              <LinearGradient
+                colors={['#0B1224', '#08101f']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.heroGlowPrimary} />
+              <View style={styles.heroGlowSecondary} />
+
+              <View style={styles.heroTopRow}>
+                  <View>
+                      <Text style={styles.heroEyebrow}>Immersive radar</Text>
+                      <Text style={styles.heroTitle}>Live 3D Radar</Text>
+                  </View>
+                  <View style={styles.heroBadge}>
+                      <MaterialCommunityIcons name="cube-scan" size={18} color="#0B1424" />
+                      <Text style={styles.heroBadgeText}>3D</Text>
+                  </View>
+              </View>
+
+              <View style={styles.radarShell}>
+                  <View style={styles.radarAura} />
+                  <RadarAnimation />
+                  <View style={[styles.radarChip, styles.radarChipLeft]}>
+                      <MaterialCommunityIcons name="radar" size={18} color="#4ECDC4" />
+                      <Text style={styles.radarChipText}>Live sweep</Text>
+                  </View>
+                  <View style={[styles.radarChip, styles.radarChipRight]}>
+                      <MaterialCommunityIcons 
+                        name={closestRadar ? 'map-marker-distance' : 'map-search'}
+                        size={18} 
+                        color={closestRadar ? '#FFB347' : '#94A3B8'} 
+                      />
+                      <Text style={styles.radarChipText}>
+                        {closestRadar ? formatDistance(closestRadar.distance, unitSystem) : 'Scanning'}
+                      </Text>
+                  </View>
+              </View>
+
+              <View style={styles.statRow}>
+                  <StatPill 
+                    icon="map-marker-distance" 
+                    label="Nearest radar" 
+                    value={closestRadar ? formatDistance(closestRadar.distance, unitSystem) : 'Scanning...'} 
+                    accent="#4ECDC4" 
+                  />
+                  <StatPill 
+                    icon="speedometer" 
+                    label="Speed" 
+                    value={formatSpeed(currentSpeed, unitSystem)} 
+                    accent="#FF5252" 
+                  />
+                  <StatPill 
+                    icon={isMuted ? 'bell-off' : 'bell-ring'} 
+                    label="Alert mode" 
+                    value={isMuted ? 'Muted' : 'Sound on'} 
+                    accent="#38BDF8" 
+                  />
+              </View>
+
               <TouchableOpacity style={styles.startButton} onPress={toggleDrivingMode}>
                   <LinearGradient
-                    colors={['#FF5252', '#D32F2F']}
+                    colors={['#FF6B6B', '#FF5252']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
                     style={styles.startButtonGradient}
                   >
-                      <MaterialCommunityIcons name="steering" size={36} color="white" />
-                      <Text style={styles.startText}>START DRIVING</Text>
+                      <View>
+                          <Text style={styles.startText}>START DRIVING</Text>
+                          <Text style={styles.startSubtext}>3D radar, live alerts and routing</Text>
+                      </View>
+                      <View style={styles.startBadge}>
+                          <MaterialCommunityIcons name="steering" size={20} color="#0B1424" />
+                      </View>
                   </LinearGradient>
               </TouchableOpacity>
           </View>
 
-          {/* Grid Menu */}
+          <Text style={styles.sectionLabel}>Quick actions</Text>
           <View style={styles.gridContainer}>
               <ActionCard 
                 icon="navigation-variant" 
                 title="Navigate" subtitle="Map & Route" 
+                tag="Live" 
+                accent="#38BDF8"
+                gradientColors={['#0c1b2f', '#0a1224']}
                 onPress={() => { setIsDriving(true); setActiveTab('Map'); }} 
               />
               <ActionCard 
                 icon="car-wrench" 
                 title="AI Diagnose" subtitle="Car Issues" 
+                tag="AI"
+                accent="#A78BFA"
+                gradientColors={['#1b102b', '#120b1d']}
                 onPress={() => navigation.navigate('AIDiagnose')} 
               />
               <ActionCard 
                 icon="card-text-outline" 
                 title="Permit Test" subtitle="Practice" 
+                tag="Prep"
+                accent="#F59E0B"
+                gradientColors={['#29170b', '#1b1209']}
                 onPress={() => navigation.navigate('PermitTest')} 
               />
               <ActionCard 
                 icon="chart-timeline-variant" 
                 title="History" subtitle="Past Trips" 
+                tag="Trips"
+                accent="#34D399"
+                gradientColors={['#0d1f19', '#0b1512']}
                 onPress={() => navigation.navigate('History')} 
               />
           </View>
 
-          {/* Pro Features Slider (Replaces Banner) */}
+          <Text style={styles.sectionLabel}>Pro perks</Text>
           <View style={styles.sliderContainer}>
               <LinearGradient
-                colors={['#1E293B', '#0F172A']}
+                colors={['#111827', '#0B1224']}
                 style={styles.sliderGradient}
               >
                   <FlatList
@@ -944,19 +1027,43 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: 'row', gap: 10 },
   iconBtn: { padding: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
 
-  // Big Animation & Button
-  animContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 10, marginBottom: 30 },
-  startButton: { position: 'absolute', bottom: 40, borderRadius: 30, elevation: 10, shadowColor: '#FF5252', shadowRadius: 20, shadowOpacity: 0.5 },
-  startButtonGradient: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 30, paddingVertical: 16, borderRadius: 30 },
-  startText: { color: 'white', fontWeight: 'bold', fontSize: 18, marginLeft: 10, letterSpacing: 1 },
+  // Hero
+  heroCard: { marginHorizontal: 20, marginTop: 10, marginBottom: 16, borderRadius: 28, overflow: 'hidden', padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(12,18,32,0.9)' },
+  heroGlowPrimary: { position: 'absolute', width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(78,205,196,0.18)', top: -60, right: -40 },
+  heroGlowSecondary: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255,82,82,0.08)', bottom: -70, left: -40 },
+  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  heroEyebrow: { color: '#38BDF8', fontSize: 12, letterSpacing: 1, fontWeight: '700', textTransform: 'uppercase' },
+  heroTitle: { color: '#F8FAFC', fontSize: 24, fontWeight: '900', letterSpacing: 0.5, marginTop: 4 },
+  heroBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#4ECDC4', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, gap: 6, shadowColor: '#4ECDC4', shadowOpacity: 0.4, shadowRadius: 10, elevation: 4 },
+  heroBadgeText: { color: '#0B1424', fontWeight: '900', letterSpacing: 0.5 },
+  radarShell: { alignItems: 'center', justifyContent: 'center', marginTop: 2, marginBottom: 12 },
+  radarAura: { position: 'absolute', width: width * 0.9, height: width * 0.9, borderRadius: width * 0.45, backgroundColor: 'rgba(78,205,196,0.05)' },
+  radarChip: { position: 'absolute', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: 'rgba(2,6,23,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  radarChipLeft: { top: 22, left: 22 },
+  radarChipRight: { top: 22, right: 22 },
+  radarChipText: { color: '#E2E8F0', marginLeft: 8, fontWeight: '600', fontSize: 12 },
+  statRow: { flexDirection: 'row', gap: 10, marginTop: 6 },
+  statCard: { flex: 1, padding: 12, borderRadius: 14, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.03)' },
+  statIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  statLabel: { color: '#94A3B8', fontSize: 11, letterSpacing: 0.4 },
+  statValue: { color: '#F8FAFC', fontWeight: '800', fontSize: 16 },
+  startButton: { marginTop: 16, borderRadius: 18, overflow: 'hidden', shadowColor: '#FF5252', shadowRadius: 16, shadowOpacity: 0.45, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
+  startButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 16, borderRadius: 18 },
+  startText: { color: '#FFFFFF', fontWeight: '900', fontSize: 18, letterSpacing: 0.6 },
+  startSubtext: { color: '#F8FAFC', opacity: 0.8, fontSize: 12, marginTop: 4 },
+  startBadge: { width: 42, height: 42, borderRadius: 12, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center' },
+  sectionLabel: { marginHorizontal: 20, marginTop: 26, marginBottom: 10, color: '#94A3B8', letterSpacing: 1, fontSize: 12, fontWeight: '700' },
 
   // Grid
   gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20 },
-  actionCard: { width: '48%', height: 140, marginBottom: 16, borderRadius: 24, overflow: 'hidden' },
-  actionCardGradient: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 10 },
-  actionIconContainer: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(78, 205, 196, 0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  actionTitle: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-  actionSubtitle: { color: '#64748B', fontSize: 12, marginTop: 4 },
+  actionCard: { width: '48%', height: 150, marginBottom: 16, borderRadius: 22, overflow: 'hidden' },
+  actionCardGradient: { flex: 1, justifyContent: 'space-between', padding: 14, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', alignItems: 'flex-start' },
+  actionTopRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  actionIconContainer: { width: 48, height: 48, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 12, borderWidth: 1 },
+  actionTag: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  actionTagText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
+  actionTitle: { color: 'white', fontWeight: '900', fontSize: 16 },
+  actionSubtitle: { color: '#94A3B8', fontSize: 12, marginTop: 2 },
 
   // Pro Slider
   sliderContainer: { marginHorizontal: 20, marginTop: 10, marginBottom: 30, borderRadius: 20, overflow: 'hidden' },
@@ -1022,8 +1129,6 @@ const styles = StyleSheet.create({
   markerBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'white' },
   mapOverlay: { position: 'absolute', top: 20, left: 20, right: 20 },
   mapInput: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 15, borderRadius: 16, color: 'white' },
-
-  statBox: { flex: 1, padding: 20, borderRadius: 20, alignItems: 'center' },
 
   fab: { position: 'absolute', left: 20, bottom: 85, backgroundColor: '#FF5252', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 10, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity:0.3, shadowRadius:4 },
   reportSheet: { backgroundColor: '#1E293B', padding: 30, borderTopLeftRadius: 30, borderTopRightRadius: 30 },

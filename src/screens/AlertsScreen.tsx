@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   FadeInUp,
+  SlideInUp,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -17,6 +18,8 @@ import { useSettingsStore } from '../store/settingsStore';
 import { DatabaseService } from '../services/DatabaseService';
 import { RadarAlert } from '../types';
 import { formatDistance } from '../utils/format';
+import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
+import { HapticPatterns } from '../utils/hapticFeedback';
 
 const allowLayoutAnimations = Platform.OS !== 'android';
 
@@ -140,16 +143,28 @@ const AlertsScreen = ({ navigation }: any) => {
   }, [user?.id, activeAlerts.length]);
 
   return (
-    <View style={styles.container}>
+    <Animated.View 
+      style={styles.container}
+      entering={SlideInUp.duration(ANIMATION_TIMING.SLOW)}
+    >
       <LinearGradient colors={['#000000', '#121212']} style={styles.background} />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 15 }}>
+        <TouchableOpacity 
+          onPress={() => {
+            HapticPatterns.light();
+            navigation.goBack();
+          }} 
+          style={{ marginRight: 15 }}
+        >
           <MaterialCommunityIcons name="chevron-left" size={32} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Alerts</Text>
         <View style={{ flex: 1 }} />
-        <TouchableOpacity onPress={clearAlerts}>
+        <TouchableOpacity onPress={() => {
+          HapticPatterns.medium();
+          clearAlerts();
+        }}>
           <Text style={styles.clearAllText}>Clear All</Text>
         </TouchableOpacity>
       </View>
@@ -183,7 +198,7 @@ const AlertsScreen = ({ navigation }: any) => {
           historyAlerts.map((alert, index) => (
             <Animated.View
               key={alert.id}
-              entering={allowLayoutAnimations ? FadeInUp.delay(200 + index * 80) : undefined}
+              entering={allowLayoutAnimations ? FadeInUp.delay(ANIMATION_TIMING.BASE + index * STAGGER_DELAYS.ITEM_BASE).duration(ANIMATION_TIMING.BASE) : undefined}
             >
               <Surface style={styles.historyCard} elevation={1}>
                 <View style={styles.historyIcon}>
@@ -204,7 +219,7 @@ const AlertsScreen = ({ navigation }: any) => {
           ))
         )}
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 };
 

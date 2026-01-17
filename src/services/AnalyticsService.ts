@@ -1,44 +1,45 @@
 import { NativeModules } from 'react-native';
 
-let cachedFirebaseAnalytics: any | undefined;
-function getFirebaseAnalytics(): any | null {
-  if (cachedFirebaseAnalytics !== undefined) return cachedFirebaseAnalytics;
+type AnalyticsBindings = { mod: any; analytics: any };
 
-  // Avoid crashing on iOS binaries that don't include RNFirebase native modules.
-  if (!NativeModules?.RNFBAppModule) {
-    cachedFirebaseAnalytics = null;
-    return cachedFirebaseAnalytics;
+let cachedAnalyticsBindings: AnalyticsBindings | null | undefined;
+function getAnalyticsBindings(): AnalyticsBindings | null {
+  if (cachedAnalyticsBindings !== undefined) return cachedAnalyticsBindings;
+
+  // Avoid crashing on binaries that don't include the native modules.
+  if (!NativeModules?.RNFBAppModule || !NativeModules?.RNFBAnalyticsModule) {
+    cachedAnalyticsBindings = null;
+    return cachedAnalyticsBindings;
   }
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require('@react-native-firebase/analytics');
-    cachedFirebaseAnalytics = mod?.default ?? mod;
+    const mod = require('@react-native-firebase/analytics/lib/modular');
+    const analytics = mod.getAnalytics();
+    cachedAnalyticsBindings = { mod, analytics };
   } catch (error) {
-    cachedFirebaseAnalytics = null;
+    cachedAnalyticsBindings = null;
   }
 
-  return cachedFirebaseAnalytics;
+  return cachedAnalyticsBindings;
 }
 
 export class AnalyticsService {
   static async init(): Promise<void> {
     try {
-      const analytics = getFirebaseAnalytics();
-      if (!analytics) return;
+      const bindings = getAnalyticsBindings();
+      if (!bindings) return;
 
-      // Firebase Analytics is initialized automatically when the app starts
-      // We can set default properties here
-      await analytics().setAnalyticsCollectionEnabled(true);
+      await bindings.mod.setAnalyticsCollectionEnabled(bindings.analytics, true);
     } catch (error) {
-      console.error('Error initializing analytics service:', error);
+      // Keep analytics optional: missing native modules should not break the app.
     }
   }
 
   static async trackEvent(name: string, properties: Record<string, any> = {}): Promise<void> {
     try {
-      const analytics = getFirebaseAnalytics();
-      if (!analytics) return;
+      const bindings = getAnalyticsBindings();
+      if (!bindings) return;
 
       // Firebase Analytics only accepts strings, numbers, and booleans as property values
       const sanitizedProperties: Record<string, any> = {};
@@ -51,24 +52,24 @@ export class AnalyticsService {
         }
       }
 
-      await analytics().logEvent(name, sanitizedProperties);
+      await bindings.mod.logEvent(bindings.analytics, name, sanitizedProperties);
     } catch (error) {
-      console.error('Error tracking event:', error);
+      // Optional analytics
     }
   }
 
   static async trackScreenView(screenName: string, properties: Record<string, any> = {}): Promise<void> {
     try {
-      const analytics = getFirebaseAnalytics();
-      if (!analytics) return;
+      const bindings = getAnalyticsBindings();
+      if (!bindings) return;
 
-      await analytics().logScreenView({
+      await bindings.mod.logScreenView(bindings.analytics, {
         screen_name: screenName,
         screen_class: screenName,
         ...properties
       });
     } catch (error) {
-       console.error('Error tracking screen view:', error);
+      // Optional analytics
     }
   }
 
@@ -111,29 +112,29 @@ export class AnalyticsService {
 
   static async setUserProperties(properties: Record<string, any>): Promise<void> {
     try {
-      const analytics = getFirebaseAnalytics();
-      if (!analytics) return;
+      const bindings = getAnalyticsBindings();
+      if (!bindings) return;
 
       for (const [key, value] of Object.entries(properties)) {
         if (typeof value === 'string' || value === null) {
-          await analytics().setUserProperty(key, value);
+          await bindings.mod.setUserProperty(bindings.analytics, key, value);
         } else {
-          await analytics().setUserProperty(key, JSON.stringify(value));
+          await bindings.mod.setUserProperty(bindings.analytics, key, JSON.stringify(value));
         }
       }
     } catch (error) {
-      console.error('Error setting user properties:', error);
+      // Optional analytics
     }
   }
 
   static async setUserId(userId: string | null): Promise<void> {
     try {
-      const analytics = getFirebaseAnalytics();
-      if (!analytics) return;
+      const bindings = getAnalyticsBindings();
+      if (!bindings) return;
 
-      await analytics().setUserId(userId);
+      await bindings.mod.setUserId(bindings.analytics, userId);
     } catch (error) {
-      console.error('Error setting user ID:', error);
+      // Optional analytics
     }
   }
 }

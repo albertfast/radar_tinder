@@ -55,9 +55,11 @@ function getGoogleMobileAds(): GoogleMobileAdsExports | null {
 export class AdService {
   private static interstitial: any | null = null;
   private static isInitialized: boolean = false;
+  private static hasAttemptedInit: boolean = false;
 
   static async init(): Promise<void> {
-    if (this.isInitialized) return;
+    if (this.hasAttemptedInit) return;
+    this.hasAttemptedInit = true;
     
     try {
       const googleMobileAds = getGoogleMobileAds();
@@ -65,9 +67,13 @@ export class AdService {
 
       // Check if the native module exists before initializing
       if (typeof mobileAds !== 'function') {
-        console.warn(
-          'Mobile Ads SDK not available in this iOS/Android binary. Skipping ads initialization.'
-        );
+        if (__DEV__) {
+          console.log('Mobile Ads SDK not available in this iOS/Android binary. Skipping ads initialization.');
+        } else {
+          console.warn(
+            'Mobile Ads SDK not available in this iOS/Android binary. Skipping ads initialization.'
+          );
+        }
         return;
       }
 

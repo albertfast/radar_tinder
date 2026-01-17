@@ -12,14 +12,23 @@ const REVENUECAT_API_KEY = Platform.select({
 export class SubscriptionService {
   private static isInitialized = false;
 
+  private static hasValidConfig(): boolean {
+    return Boolean(REVENUECAT_API_KEY) && !REVENUECAT_API_KEY.includes('placeholder');
+  }
+
   static async init(): Promise<void> {
     if (this.isInitialized) return;
     
     try {
-      Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+      if (__DEV__) {
+        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+      }
       
       if (REVENUECAT_API_KEY.includes('placeholder')) {
-        console.log('RevenueCat: Placeholder key detected. Skipping network configuration.');
+        this.isInitialized = true;
+        if (__DEV__) {
+          console.log('RevenueCat: Placeholder key detected. Skipping network configuration.');
+        }
         return;
       }
 
@@ -97,6 +106,8 @@ export class SubscriptionService {
 
   static async setUserId(userId: string): Promise<void> {
     try {
+      if (!this.isInitialized) return;
+      if (!this.hasValidConfig()) return;
       await Purchases.logIn(userId);
     } catch (error) {
       console.error('Error setting RevenueCat user ID:', error);

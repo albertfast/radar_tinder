@@ -3,38 +3,58 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Dimen
 import { Text, Surface, Avatar, IconButton, Divider } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown, FadeInUp, SlideInRight } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../store/authStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
+import { HapticPatterns } from '../utils/hapticFeedback';
 
 const { width } = Dimensions.get('window');
 
-const StatBadge = ({ icon, value, label, color = '#4ECDC4' }: any) => (
-  <View style={styles.statItem}>
+const StatBadge = ({ icon, value, label, color = '#4ECDC4', delay = 0 }: any) => (
+  <Animated.View
+    entering={FadeInDown.delay(delay).duration(ANIMATION_TIMING.BASE)}
+    style={styles.statItem}
+  >
     <View style={[styles.statIconBox, { backgroundColor: `${color}20` }]}>
       <MaterialCommunityIcons name={icon} size={24} color={color} />
     </View>
     <Text style={styles.statNumber}>{value}</Text>
     <Text style={styles.statLabel}>{label}</Text>
-  </View>
+  </Animated.View>
 );
 
-const MenuButton = ({ icon, label, subLabel, onPress, color = 'white' }: any) => (
-  <TouchableOpacity onPress={onPress} style={styles.menuBtn}>
-    <LinearGradient
-      colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
-      style={styles.menuGradient}
+const MenuButton = ({ icon, label, subLabel, onPress, color = 'white', delay = 0 }: any) => (
+  <Animated.View
+    entering={FadeInUp.delay(delay).duration(ANIMATION_TIMING.BASE)}
+    style={styles.menuBtn}
+  >
+    <TouchableOpacity
+      onPress={() => {
+        HapticPatterns.medium();
+        onPress();
+      }}
+      style={styles.menuBtnContent}
+      accessibilityLabel={label}
+      accessibilityHint={subLabel}
+      accessibilityRole="button"
     >
-      <View style={[styles.menuIcon, { backgroundColor: `${color}15` }]}>
-        <MaterialCommunityIcons name={icon} size={24} color={color} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.menuLabel}>{label}</Text>
-        {subLabel && <Text style={styles.menuSubLabel}>{subLabel}</Text>}
-      </View>
-      <MaterialCommunityIcons name="chevron-right" size={24} color="#64748B" />
-    </LinearGradient>
-  </TouchableOpacity>
+      <LinearGradient
+        colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
+        style={styles.menuGradient}
+      >
+        <View style={[styles.menuIcon, { backgroundColor: `${color}15` }]}>
+          <MaterialCommunityIcons name={icon} size={24} color={color} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.menuLabel}>{label}</Text>
+          {subLabel && <Text style={styles.menuSubLabel}>{subLabel}</Text>}
+        </View>
+        <MaterialCommunityIcons name="chevron-right" size={24} color="#64748B" />
+      </LinearGradient>
+    </TouchableOpacity>
+  </Animated.View>
 );
 
 const ProfileScreen = ({ navigation }: any) => {
@@ -69,7 +89,10 @@ const ProfileScreen = ({ navigation }: any) => {
   };
 
   return (
-    <View style={styles.container}>
+    <Animated.View 
+      style={styles.container}
+      entering={SlideInRight.duration(ANIMATION_TIMING.SLOW)}
+    >
       {/* Background with subtle gradient */}
       <LinearGradient
         colors={['#0F172A', '#020617']}
@@ -79,7 +102,16 @@ const ProfileScreen = ({ navigation }: any) => {
       {/* Custom Header */}
       <View style={styles.header}>
         <View style={{flexDirection: 'row', alignItems: 'center'}}>
-            <IconButton icon="arrow-left" iconColor="white" onPress={() => navigation.goBack()} />
+            <IconButton
+              icon="arrow-left"
+              iconColor="white"
+              onPress={() => {
+                HapticPatterns.light();
+                navigation.goBack();
+              }}
+              accessibilityLabel="Go back to previous screen"
+              accessibilityRole="button"
+            />
             <Text style={styles.appTitle}>PROFILE</Text>
         </View>
         <IconButton 
@@ -87,14 +119,20 @@ const ProfileScreen = ({ navigation }: any) => {
           iconColor="#EF4444" 
           size={24} 
           style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
-          onPress={logout} 
+          onPress={logout}
+          accessibilityLabel="Sign out"
+          accessibilityHint="Logs you out of the application"
+          accessibilityRole="button"
         />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         
         {/* Profile Card */}
-        <View style={styles.profileSection}>
+        <Animated.View
+          style={styles.profileSection}
+          entering={FadeInDown.duration(ANIMATION_TIMING.BASE)}
+        >
             <TouchableOpacity onPress={() => pickImage('profile')} style={styles.avatarContainer}>
               <LinearGradient colors={['#4ECDC4', '#2196F3']} style={styles.avatarRing}>
                  {user?.profileImage ? (
@@ -110,15 +148,26 @@ const ProfileScreen = ({ navigation }: any) => {
               </View>
             </TouchableOpacity>
 
-            <Text style={styles.userName}>{user?.name || 'Rookie Driver'}</Text>
+            <Animated.Text
+              style={styles.userName}
+              entering={FadeInDown.delay(100).duration(ANIMATION_TIMING.BASE)}
+            >
+              {user?.name || 'Rookie Driver'}
+            </Animated.Text>
             
-            <View style={styles.levelBadge}>
+            <Animated.View
+              style={styles.levelBadge}
+              entering={FadeInDown.delay(150).duration(ANIMATION_TIMING.BASE)}
+            >
                 <MaterialCommunityIcons name="shield-star" size={16} color="#FFD700" />
                 <Text style={styles.levelText}>Level {user?.level || 1} • {user?.rank || 'Novice'}</Text>
-            </View>
+            </Animated.View>
 
             {/* XP Bar using Gradients */}
-            <View style={styles.xpWrapper}>
+            <Animated.View
+              style={styles.xpWrapper}
+              entering={FadeInDown.delay(200).duration(ANIMATION_TIMING.BASE)}
+            >
                  <Text style={styles.xpLabel}>{user?.points || 0} XP</Text>
                  <View style={styles.xpTrack}>
                     <LinearGradient 
@@ -128,28 +177,50 @@ const ProfileScreen = ({ navigation }: any) => {
                     />
                  </View>
                  <Text style={styles.xpLabel}>Next Lvl</Text>
-            </View>
-        </View>
+            </Animated.View>
+        </Animated.View>
 
         {/* Stats Grid */}
-        <View style={styles.statsGrid}>
+        <Animated.View
+          style={styles.statsGrid}
+          entering={FadeInDown.delay(250).duration(ANIMATION_TIMING.BASE)}
+        >
             <StatBadge 
                 icon="map-marker-distance" 
                 value={(unitSystem === 'metric' 
                     ? (user?.stats?.distanceDriven || 0).toLocaleString() 
                     : ((user?.stats?.distanceDriven || 0) * 0.621371).toFixed(1))} 
                 label={unitSystem === 'metric' ? "km Driven" : "mi Driven"} 
-                color="#4ECDC4" 
+                color="#4ECDC4"
+                delay={0}
             />
-            <StatBadge icon="bullhorn-outline" value={user?.stats?.reports || 0} label="Reports" color="#FFD700" />
-            <StatBadge icon="check-decagram" value={user?.stats?.confirmations || 0} label="Helped" color="#A855F7" />
-        </View>
+            <StatBadge 
+              icon="bullhorn-outline" 
+              value={user?.stats?.reports || 0} 
+              label="Reports" 
+              color="#FFD700"
+              delay={STAGGER_DELAYS.ITEM_FAST}
+            />
+            <StatBadge 
+              icon="check-decagram" 
+              value={user?.stats?.confirmations || 0} 
+              label="Helped" 
+              color="#A855F7"
+              delay={STAGGER_DELAYS.ITEM_FAST * 2}
+            />
+        </Animated.View>
 
         {/* Garage Section */}
         <Text style={styles.sectionHeader}>MY GARAGE</Text>
         <Surface style={styles.garageCard} elevation={4}>
             <LinearGradient colors={['#1E293B', '#0F172A']} style={styles.garageGradient}>
-                <TouchableOpacity onPress={() => pickImage('car')} style={styles.carImageWrapper}>
+                <TouchableOpacity
+                  onPress={() => pickImage('car')}
+                  style={styles.carImageWrapper}
+                  accessibilityLabel="Vehicle photo"
+                  accessibilityHint="Tap to change your car photo"
+                  accessibilityRole="button"
+                >
                     {user?.carImage ? (
                         <Image source={{ uri: user.carImage }} style={styles.carImage} resizeMode="cover" />
                     ) : (
@@ -163,7 +234,11 @@ const ProfileScreen = ({ navigation }: any) => {
                  <View style={styles.garageDetails}>
                      <View style={styles.garageHeaderRow}>
                          <Text style={styles.garageTitle}>{carBrand || 'Unknown'} {carModel || 'Vehicle'}</Text>
-                         <TouchableOpacity onPress={() => isEditing ? handleSave() : setIsEditing(true)}>
+                         <TouchableOpacity
+                           onPress={() => isEditing ? handleSave() : setIsEditing(true)}
+                           accessibilityLabel={isEditing ? 'Save vehicle details' : 'Edit vehicle details'}
+                           accessibilityRole="button"
+                         >
                              <Text style={styles.editBtn}>{isEditing ? 'Done' : 'Edit'}</Text>
                          </TouchableOpacity>
                      </View>
@@ -214,17 +289,27 @@ const ProfileScreen = ({ navigation }: any) => {
              />
         </View>
         
-        <TouchableOpacity style={styles.legalLink} onPress={() => navigation.navigate('Terms')}>
+        <TouchableOpacity
+          style={styles.legalLink}
+          onPress={() => navigation.navigate('Terms')}
+          accessibilityLabel="Terms of Service"
+          accessibilityRole="link"
+        >
             <Text style={styles.legalText}>Terms of Service</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.legalLink} onPress={() => navigation.navigate('Privacy')}>
+        <TouchableOpacity
+          style={styles.legalLink}
+          onPress={() => navigation.navigate('Privacy')}
+          accessibilityLabel="Privacy Policy"
+          accessibilityRole="link"
+        >
             <Text style={styles.legalText}>Privacy Policy</Text>
         </TouchableOpacity>
 
         <Text style={styles.version}>v1.0.2 (Beta)</Text>
         <View style={{height: 100}} /> 
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -285,7 +370,8 @@ const styles = StyleSheet.create({
 
   // Menu
   menuGrid: { gap: 12, marginBottom: 30 },
-  menuBtn: { borderRadius: 16, overflow: 'hidden' },
+  menuBtn: { borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
+  menuBtnContent: { width: '100%' },
   menuGradient: { flexDirection: 'row', alignItems: 'center', padding: 16 },
   menuIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
   menuLabel: { color: 'white', fontSize: 16, fontWeight: 'bold' },
