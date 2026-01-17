@@ -34,15 +34,15 @@ const weeklyTripsData = [
 ];
 
 const speedHistoryData = [
-  { time: '09:00', speed: 45 },
-  { time: '10:15', speed: 62 },
-  { time: '11:30', speed: 58 },
-  { time: '12:45', speed: 71 },
-  { time: '14:00', speed: 85 },
-  { time: '15:20', speed: 72 },
-  { time: '16:35', speed: 88 },
-  { time: '17:50', speed: 65 },
-  { time: '19:00', speed: 92 },
+  { time: '09:00', speed: 42 },
+  { time: '10:15', speed: 58 },
+  { time: '11:30', speed: 54 },
+  { time: '12:45', speed: 67 },
+  { time: '14:00', speed: 78 },
+  { time: '15:20', speed: 70 },
+  { time: '16:35', speed: 84 },
+  { time: '17:50', speed: 63 },
+  { time: '19:00', speed: 89 },
 ];
 
 const recentActivities = [
@@ -122,6 +122,12 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
     avgSpeed: Math.round(speedHistoryData.reduce((acc, d) => acc + d.speed, 0) / speedHistoryData.length),
   };
 
+  const speedSummary = {
+    average: Math.round(speedHistoryData.reduce((acc, d) => acc + d.speed, 0) / speedHistoryData.length),
+    peak: Math.max(...speedHistoryData.map(d => d.speed)),
+    stability: Math.max(0, 100 - (Math.max(...speedHistoryData.map(d => d.speed)) - Math.min(...speedHistoryData.map(d => d.speed)))),
+  };
+
   const displayDistance = formatDistance(weeklyStats.totalDistance);
   const displayAvgSpeed = `${weeklyStats.avgSpeed} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`;
 
@@ -192,6 +198,32 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons name="chart-line" size={20} color="#45B7D1" />
             <Text style={styles.sectionTitle}>Speed Trends (Today)</Text>
+          </View>
+          <View style={styles.speedSummary}>
+            <View style={styles.speedCardWrapper}>
+              <StatCard
+                title="Avg speed"
+                value={`${speedSummary.average} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`}
+                color="#45B7D1"
+                trend="stable"
+              />
+            </View>
+            <View style={styles.speedCardWrapper}>
+              <StatCard
+                title="Top speed"
+                value={`${speedSummary.peak} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`}
+                color="#FF6B6B"
+                trend="up"
+              />
+            </View>
+            <View style={styles.speedCardWrapper}>
+              <StatCard
+                title="Stability"
+                value={`${speedSummary.stability}%`}
+                color="#4ECDC4"
+                trend="down"
+              />
+            </View>
           </View>
           <LineChart
             data={speedHistoryData.map(d => d.speed)}
@@ -433,6 +465,13 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 16,
   },
+  speedSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 12,
+  },
+  speedCardWrapper: { flex: 1 },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',

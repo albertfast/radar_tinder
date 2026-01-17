@@ -286,7 +286,7 @@
 
 @implementation Radar3DViewManager
 
-RCT_EXPORT_MODULE(RTRadar3DView)
+RCT_EXPORT_MODULE(RTRadar3DGLView)
 
 - (UIView *)view {
     return [[Radar3DView alloc] initWithFrame:CGRectZero];

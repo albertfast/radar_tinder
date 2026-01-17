@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ANIMATION_TIMING } from '../utils/animationConstants';
+import Svg, { Path, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 
@@ -79,85 +80,66 @@ export const LineChart: React.FC<LineChartProps> = ({
 }) => {
   const minValue = Math.min(...data);
   const range = maxValue - minValue || 1;
+  const chartWidth = width - 48;
 
-  // Normalize data to 0-100
-  const normalizedData = data.map(val => ((val - minValue) / range) * 100);
+  const points = useMemo(
+    () =>
+      data.map((val, idx) => {
+        const x = (idx / Math.max(1, data.length - 1)) * chartWidth;
+        const y = height - ((val - minValue) / range) * height;
+        return { x, y, val, label: labels[idx] };
+      }),
+    [data, labels, chartWidth, height, minValue, range],
+  );
+
+  const path = useMemo(() => {
+    if (points.length === 0) return '';
+    return points.reduce((acc, p, idx) => {
+      if (idx === 0) return `M ${p.x} ${p.y}`;
+      const prev = points[idx - 1];
+      const cx = (prev.x + p.x) / 2;
+      return `${acc} C ${cx} ${prev.y}, ${cx} ${p.y}, ${p.x} ${p.y}`;
+    }, '');
+  }, [points]);
+
+  const areaPath = useMemo(() => {
+    if (points.length === 0) return '';
+    const first = points[0];
+    const last = points[points.length - 1];
+    return `${path} L ${last.x} ${height} L ${first.x} ${height} Z`;
+  }, [path, points, height]);
 
   return (
     <View style={[styles.lineChartContainer, { height }]}>
-      <View style={styles.lineChartInner}>
-        {/* Grid lines */}
-        {[0, 25, 50, 75, 100].map((line) => (
-          <View
-            key={line}
-            style={[
-              styles.gridLine,
-              { bottom: `${line}%` },
-            ]}
+      <Svg width={chartWidth} height={height}>
+        <Defs>
+          <SvgLinearGradient id="lineFill" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor={color} stopOpacity={0.25} />
+            <Stop offset="100%" stopColor={color} stopOpacity={0.0} />
+          </SvgLinearGradient>
+        </Defs>
+
+        {/* Grid */}
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
+          <Path
+            key={ratio}
+            d={`M0 ${height * ratio} H ${chartWidth}`}
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth={1}
           />
         ))}
 
-        {/* Smooth connecting lines and points */}
-        <View style={StyleSheet.absoluteFill}>
-          {normalizedData.map((val, idx) => {
-            const totalWidth = width - 32;
-            const pointX = (idx / (normalizedData.length - 1 || 1)) * totalWidth;
-            const pointY = (1 - val / 100) * height;
+        {/* Area fill */}
+        <Path d={areaPath} fill="url(#lineFill)" />
 
-            return (
-              <View
-                key={`point-${idx}`}
-                style={[
-                  styles.dataPoint,
-                  {
-                    left: pointX + 16,
-                    top: pointY,
-                  },
-                ]}
-              >
-                <Animated.View
-                  entering={FadeInDown.delay(idx * 50).duration(ANIMATION_TIMING.BASE)}
-                  style={[styles.point, { backgroundColor: color }]}
-                />
-              </View>
-            );
-          })}
+        {/* Line */}
+        <Path d={path} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round" />
 
-          {/* Connection lines between points */}
-          {normalizedData.map((val, idx) => {
-            if (idx === 0) return null;
-            const prevVal = normalizedData[idx - 1];
-            const totalWidth = width - 32;
-            
-            const x1 = ((idx - 1) / (normalizedData.length - 1)) * totalWidth;
-            const y1 = (1 - prevVal / 100) * height;
-            const x2 = (idx / (normalizedData.length - 1)) * totalWidth;
-            const y2 = (1 - val / 100) * height;
-
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-
-            return (
-              <View
-                key={`line-${idx}`}
-                style={[
-                  styles.lineConnection,
-                  {
-                    left: x1 + 16,
-                    top: y1,
-                    width: distance,
-                    backgroundColor: color,
-                    opacity: 0.6,
-                    transform: [{ rotate: `${angle}deg` }, { translateY: -1 }],
-                  },
-                ]}
-              />
-            );
-          })}
-        </View>
-      </View>
+        {/* Points */}
+        {points.map((p, idx) => (
+          <Circle key={idx} cx={p.x} cy={p.y} r={6} fill="#0B1320" stroke={color} strokeWidth={2} />
+        ))}
+      </Svg>
 
       {/* Labels */}
       <View style={styles.labelsContainer}>

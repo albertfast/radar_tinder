@@ -38,7 +38,7 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   const orbFloat = useSharedValue(0);
   const progressValue = useSharedValue(0);
   const canUseRadar3D = useMemo(
-    () => Platform.OS === 'android' && !!UIManager.getViewManagerConfig?.('RTRadar3DView'),
+    () => Platform.OS === 'android' && !!UIManager.getViewManagerConfig?.('RTRadar3DGLView'),
     []
   );
 

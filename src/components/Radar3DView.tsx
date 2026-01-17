@@ -8,7 +8,7 @@ export interface Radar3DViewProps extends ViewProps {
   onRadarClick?: (event: any) => void;
 }
 
-const NATIVE_VIEW_NAME = 'RTRadar3DView';
+const NATIVE_VIEW_NAME = 'RTRadar3DGLView';
 
 const Radar3DView = (props: Radar3DViewProps) => {
   const NativeRadar3DView = useMemo(() => {

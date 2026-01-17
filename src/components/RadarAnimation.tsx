@@ -12,7 +12,7 @@ const SIZE = width * 0.8;
 export const RadarAnimation = () => {
   const canUseRadar3D = useMemo(() => {
     if (Platform.OS !== 'android') return false;
-    return !!UIManager.getViewManagerConfig?.('RTRadar3DView');
+    return !!UIManager.getViewManagerConfig?.('RTRadar3DGLView');
   }, []);
 
   useEffect(() => {
@@ -37,6 +37,14 @@ export const RadarAnimation = () => {
 };
 
 const RadarFallback = () => {
+  type Particle = {
+    id: number;
+    x: number;
+    y: number;
+    size: number;
+    color: string;
+  };
+
   const sweep = useSharedValue(0);
   const pulse = useSharedValue(0);
   const rotationX = useSharedValue(0);
@@ -44,17 +52,21 @@ const RadarFallback = () => {
   const breathing = useSharedValue(0);
   const orbit = useSharedValue(0);
 
-  const particles = useMemo(
-    () =>
-      Array.from({ length: 12 }, (_, i) => ({
+  const particles = useMemo<Particle[]>(() => {
+    const result: Particle[] = [];
+    for (let i = 0; i < 12; i++) {
+      result.push({
         id: i,
         x: Math.random() * SIZE * 0.6 - SIZE * 0.3,
         y: Math.random() * SIZE * 0.4 - SIZE * 0.2,
         size: 6 + Math.random() * 6,
         color: i % 3 === 0 ? 'rgba(255,82,82,0.9)' : 'rgba(78,205,196,0.9)',
-      })),
-    []
-  );
+      });
+    }
+    return result;
+  }, []);
+
+  const gridSlots = [0, 1, 2, 3, 4, 5];
 
   useEffect(() => {
     sweep.value = withRepeat(
@@ -116,10 +128,10 @@ const RadarFallback = () => {
       <View style={styles.groundGlow} />
       <View style={styles.backGlow} />
       <Animated.View style={[styles.gridPlane, orbitStyle]}>
-        {Array.from({ length: 6 }).map((_, i) => (
+        {gridSlots.map((i) => (
           <View key={`v-${i}`} style={[styles.gridLine, { left: `${15 + i * 14}%` }]} />
         ))}
-        {Array.from({ length: 6 }).map((_, i) => (
+        {gridSlots.map((i) => (
           <View key={`h-${i}`} style={[styles.gridLine, { top: `${20 + i * 12}%`, width: '100%', height: 1 }]} />
         ))}
       </Animated.View>
