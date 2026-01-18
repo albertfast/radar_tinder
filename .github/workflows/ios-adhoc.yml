@@ -57,7 +57,11 @@ jobs:
         run: |
           rm -rf ios
           npx expo prebuild --platform ios --clean
+          
+          # Add modular headers for Firebase Swift pods
           cd ios
+          sed -i '' "s/platform :ios/use_modular_headers!\n\nplatform :ios/" Podfile
+          
           pod install --repo-update
           cd ..
 
