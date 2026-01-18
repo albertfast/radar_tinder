@@ -89,6 +89,7 @@ src/
 
 ### Prerequisites
 - Node.js (v16 or higher)
+- pnpm (v8 or higher)
 - Expo CLI
 - iOS Simulator (for iOS development)
 - Android Studio/Emulator (for Android development)
@@ -97,16 +98,41 @@ src/
 1. Clone the repository
 2. Install dependencies:
    ```bash
-   bun install
+   pnpm install
    ```
 3. Start the development server:
    ```bash
-   bun start
+   pnpm start
    ```
 4. Run on device/simulator:
-   - iOS: `bun run ios`
-   - Android: `bun run android`
-   - Web: `bun run web`
+   - iOS: `pnpm run ios`
+   - Android: `pnpm run android`
+   - Web: `pnpm run web`
+
+## Building for iOS
+
+For detailed iOS build instructions, including fixing Firebase build errors and GitHub Actions setup, see:
+- 📖 [iOS Build Setup Guide (English)](./docs/IOS_BUILD_SETUP.md)
+- 📖 [iOS Build Setup Guide (Türkçe)](./docs/IOS_BUILD_SETUP_TR.md)
+
+### Quick Build Commands
+
+**Using GitHub Actions** (Recommended):
+- Push to `master` branch or manually trigger workflow in GitHub Actions tab
+
+**Using EAS Build**:
+```bash
+# Build for testing
+eas build --platform ios --profile adhoc
+
+# Build for App Store
+eas build --platform ios --profile production
+```
+
+**Encode Credentials for GitHub**:
+```bash
+./scripts/encode-credentials.sh
+```
 
 ## Usage
 
