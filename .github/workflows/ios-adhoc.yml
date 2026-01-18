@@ -41,18 +41,21 @@ jobs:
           pod install --repo-update
           cd ..
 
-      - name: Decode credentials
-        env:
-          IOS_DIST_P12_BASE64: ${{ secrets.IOS_DIST_P12_BASE64 }}
-          IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+      - name: Verify credentials
         run: |
-          mkdir -p credentials
-          echo "$IOS_DIST_P12_BASE64" | tr -d '\n\r ' | base64 -D > credentials/dist-cert.p12
-          echo "$IOS_PROFILE_BASE64" | tr -d '\n\r ' | base64 -D > credentials/profile.mobileprovision
+          ls -la credentials/
+          file credentials/dist-cert.p12
+          file credentials/profile.mobileprovision
+
+      - name: Load environment from .env
+        run: |
+          if [ -f .env ]; then
+            export $(cat .env | grep -E "^(EXPO_TOKEN|IOS_DIST_P12_PASSWORD)=" | xargs)
+            echo "EXPO_TOKEN=${EXPO_TOKEN}" >> $GITHUB_ENV
+            echo "IOS_DIST_P12_PASSWORD=${IOS_DIST_P12_PASSWORD}" >> $GITHUB_ENV
+          fi
 
       - name: Create credentials.json
-        env:
-          IOS_DIST_P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
         run: |
           cat > credentials.json <<EOF
           {
@@ -60,7 +63,7 @@ jobs:
               "provisioningProfilePath": "credentials/profile.mobileprovision",
               "distributionCertificate": {
                 "path": "credentials/dist-cert.p12",
-                "password": "$IOS_DIST_P12_PASSWORD"
+                "password": "${{ env.IOS_DIST_P12_PASSWORD }}"
               }
             }
           }
