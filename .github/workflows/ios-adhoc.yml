@@ -58,13 +58,12 @@ jobs:
           rm -rf ios
           npx expo prebuild --platform ios --clean
           
-          # Add Firebase static framework flag for Swift pods compatibility
-          # This avoids the ReactCommon module redefinition issue
+          # Debug: Show Podfile content after prebuild
+          echo "=== Podfile after prebuild ==="
+          head -50 ios/Podfile
+          echo "=== End Podfile ==="
+          
           cd ios
-          sed -i '' "s/require_relative '..\/node_modules\/react-native\/scripts\/react_native_pods'/\$RNFirebaseAsStaticFramework = true\n\nrequire_relative '..\/node_modules\/react-native\/scripts\/react_native_pods'/" Podfile
-          
-          cat Podfile | head -20
-          
           pod install --repo-update
           cd ..
 

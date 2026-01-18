@@ -1,0 +1,89 @@
+name: Build Android Release (Play Store)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - 'android/**'
+      - 'src/**'
+      - 'package.json'
+      - 'app.json'
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install EAS CLI and Login
+        run: |
+          npm install -g eas-cli
+          eas whoami
+
+      - name: Install dependencies (fresh)
+        run: |
+          rm -f pnpm-lock.yaml
+          pnpm install
+
+      - name: Setup Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p credentials
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > credentials/release.keystore
+          
+          cat > credentials.json <<EOF
+          {
+            "android": {
+              "keystore": {
+                "keystorePath": "credentials/release.keystore",
+                "keystorePassword": "$ANDROID_KEYSTORE_PASSWORD",
+                "keyAlias": "$ANDROID_KEY_ALIAS",
+                "keyPassword": "$ANDROID_KEY_PASSWORD"
+              }
+            }
+          }
+          EOF
+
+      - name: Generate Android native code
+        run: |
+          rm -rf android
+          npx expo prebuild --platform android --clean
+
+      - name: Build AAB for Play Store
+        run: |
+          eas build --platform android --profile production --local --non-interactive --output=./RadarTinder.aab
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: RadarTinder-playstore
+          path: ./RadarTinder.aab
