@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "eas-build-pre-install": "printf 'packages:\\n  - \".\"\\n' > pnpm-workspace.yaml",
+    "eas-build-pre-install": "node -e \"require('fs').writeFileSync('pnpm-workspace.yaml', 'packages:\\n  - .\\n')\"",
     "postinstall": "patch-package && (cd ios && pod install --repo-update)",
     "start": "expo start",
     "android": "expo run:android",
