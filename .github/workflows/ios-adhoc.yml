@@ -53,10 +53,11 @@ jobs:
           echo "$IOS_PROFILE_BASE64" | base64 -D > credentials/profile.mobileprovision
           ls -la credentials/
 
-      - name: Fix Firebase and install pods
+      - name: Generate iOS native code
         run: |
+          rm -rf ios
+          npx expo prebuild --platform ios --clean
           cd ios
-          rm -rf Pods Podfile.lock
           pod install --repo-update
           cd ..
 

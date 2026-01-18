@@ -61,7 +61,7 @@
     "react-native": "0.74.5",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "~2.16.1",
-    "react-native-google-mobile-ads": "^14.2.4",
+    "react-native-google-mobile-ads": "^13.4.1",
     "react-native-maps": "1.14.0",
     "react-native-paper": "^5.12.3",
     "react-native-purchases": "^9.6.14",

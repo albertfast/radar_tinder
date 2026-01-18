@@ -87,6 +87,13 @@
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-9670547831022880~5105162950",
+          "iosAppId": "ca-app-pub-9670547831022880~5105162950"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
