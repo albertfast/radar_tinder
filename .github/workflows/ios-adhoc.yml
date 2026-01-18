@@ -58,9 +58,12 @@ jobs:
           rm -rf ios
           npx expo prebuild --platform ios --clean
           
-          # Add modular headers for Firebase Swift pods
+          # Add Firebase static framework flag for Swift pods compatibility
+          # This avoids the ReactCommon module redefinition issue
           cd ios
-          sed -i '' "s/platform :ios/use_modular_headers!\n\nplatform :ios/" Podfile
+          sed -i '' "s/require_relative '..\/node_modules\/react-native\/scripts\/react_native_pods'/\$RNFirebaseAsStaticFramework = true\n\nrequire_relative '..\/node_modules\/react-native\/scripts\/react_native_pods'/" Podfile
+          
+          cat Podfile | head -20
           
           pod install --repo-update
           cd ..
