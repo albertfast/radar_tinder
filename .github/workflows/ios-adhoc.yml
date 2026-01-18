@@ -24,7 +24,7 @@ jobs:
           version: 8
 
       - name: Configure pnpm workspace
-        run: echo 'packages:\n  - "."' > pnpm-workspace.yaml
+        run: printf 'packages:\\n  - "."\\n' > pnpm-workspace.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
