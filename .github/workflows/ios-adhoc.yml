@@ -26,6 +26,11 @@ jobs:
         with:
           version: 8
 
+      - name: Install EAS CLI and Login
+        run: |
+          npm install -g eas-cli
+          eas whoami
+
       - name: Install CocoaPods
         run: |
           sudo gem install cocoapods -v 1.16.2
@@ -68,12 +73,9 @@ jobs:
           }
           EOF
 
-      - name: Install EAS CLI
-        run: pnpm add -g eas-cli
-
       - name: Build IPA
         run: |
-          eas build --platform ios --profile adhoc --local --non-interactive --clear-cache --output=./RadarTinder.ipa
+          eas build --platform ios --profile adhoc --local --non-interactive --output=./RadarTinder.ipa
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4

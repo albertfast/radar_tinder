@@ -36,6 +36,19 @@ use_modular_headers!
 
 prepare_react_native_project!
 
+# Fix Firebase Swift header issue
+pre_install do |installer|
+  installer.pod_targets.each do |pod|
+    if pod.name.eql?('FirebaseAuth') || pod.name.eql?('FirebaseCore') || 
+       pod.name.eql?('FirebaseCoreInternal') || pod.name.eql?('FirebaseCoreExtension') ||
+       pod.name.start_with?('Firebase')
+      def pod.build_type
+        Pod::BuildType.static_library
+      end
+    end
+  end
+end
+
 target 'RadarTinder' do
   use_expo_modules!
 # @generated begin react-native-maps - expo prebuild (DO NOT MODIFY) sync-e9cc66c360abe50bc66d89fffb3c55b034d7d369

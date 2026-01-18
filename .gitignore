@@ -46,3 +46,4 @@ ios/build/
 ios/*.xcworkspace
 ios/*.xcodeproj/project.xcworkspace
 ios/*.xcodeproj/xcuserdata
+credentials.json
