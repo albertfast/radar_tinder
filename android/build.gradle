@@ -9,6 +9,9 @@ buildscript {
         kotlinVersion = findProperty('android.kotlinVersion') ?: '1.9.23'
 
         ndkVersion = "26.1.10909125"
+        
+        // Pin onnxruntime version to avoid dynamic resolution
+        onnxruntimeVersion = "1.23.0"
     }
     repositories {
         google()
@@ -38,6 +41,15 @@ allprojects {
         google()
         mavenCentral()
         maven { url 'https://www.jitpack.io' }
+    }
+}
+
+// Force onnxruntime version to avoid dynamic resolution (latest.integration)
+subprojects {
+    configurations.all {
+        resolutionStrategy {
+            force "com.microsoft.onnxruntime:onnxruntime-android:${rootProject.ext.onnxruntimeVersion}"
+        }
     }
 }
 // @generated begin expo-camera-import - expo prebuild (DO NOT MODIFY) sync-f244f4f3d8bf7229102e8f992b525b8602c74770
