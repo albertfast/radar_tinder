@@ -37,8 +37,10 @@ jobs:
           sudo gem install cocoapods -v 1.16.2
           pod --version
 
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+      - name: Install dependencies (fresh)
+        run: |
+          rm -f pnpm-lock.yaml
+          pnpm install
 
       - name: Setup credentials from secrets
         env:
