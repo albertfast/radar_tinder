@@ -123,10 +123,6 @@
       ],
       "./plugins/withReactNativeGradlePluginFix.js"
     ],
-    "react-native-google-mobile-ads": {
-      "android_app_id": "ca-app-pub-9670547831022880~5105162950",
-      "ios_app_id": "ca-app-pub-9670547831022880~5105162950"
-    },
     "extra": {
       "eas": {
         "projectId": "62bbc6f8-257a-48e8-adb8-0b80558e3e92"
@@ -138,5 +134,9 @@
       "enabled": true,
       "fallbackToCacheTimeout": 0
     }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-9670547831022880~5105162950",
+    "ios_app_id": "ca-app-pub-9670547831022880~5105162950"
   }
 }

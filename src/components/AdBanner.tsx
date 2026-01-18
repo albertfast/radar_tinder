@@ -46,8 +46,8 @@ const AdBanner: React.FC<AdBannerProps> = ({ size }) => {
 
   const resolvedSize = size ?? BannerAdSize.ANCHORED_ADAPTIVE_BANNER;
 
-  // Using Test ID for development
-  const adUnitId = __DEV__ ? TestIds.BANNER : 'ca-app-pub-3940256099942544/6300978111';
+  // Real Ad Unit ID for production, test ID for development
+  const adUnitId = __DEV__ ? TestIds.BANNER : 'ca-app-pub-9670547831022880/8900297100';
 
   return (
     <View style={styles.container}>

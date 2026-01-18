@@ -10,39 +10,26 @@ import { AnalyticsService } from '../services/AnalyticsService';
 const { width } = Dimensions.get('window');
 
 const SubscriptionScreen = ({ navigation }: any) => {
-  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly' | 'yearly' | 'remove_ads'>('yearly');
+  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'yearly'>('yearly');
   const [isTrialEnabled, setIsTrialEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
 
   const plans = {
     weekly: {
-      id: 'weekly',
+      id: 'rc_weekly_399',
       price: '$3.99',
       period: 'week',
       trial: null,
-      savings: null
-    },
-    monthly: {
-      id: 'monthly',
-      price: '$3.99',
-      period: 'month',
-      trial: null,
-      savings: 'SAVE 20%'
+      savings: null,
+      description: 'Billed weekly'
     },
     yearly: {
-      id: 'yearly',
+      id: 'rc_yearly_1999',
       price: '$19.99',
       period: 'year',
       trial: '3 Days Free',
-      savings: 'SAVE 80%'
-    },
-    remove_ads: {
-      id: 'remove_ads',
-      price: '$0.99',
-      period: 'once',
-      trial: null,
-      savings: null,
-      label: 'Remove Ads'
+      savings: 'BEST VALUE',
+      description: 'Only $0.38/week'
     }
   };
 
@@ -120,27 +107,14 @@ const SubscriptionScreen = ({ navigation }: any) => {
 
         <View style={styles.plansContainer}>
           <PlanOption 
-            plan={plans.weekly} 
-            isSelected={selectedPlan === 'weekly'} 
-            onSelect={() => { setSelectedPlan('weekly'); setIsTrialEnabled(false); }}
-          />
-          <PlanOption 
-            plan={plans.monthly} 
-            isSelected={selectedPlan === 'monthly'} 
-            onSelect={() => { setSelectedPlan('monthly'); setIsTrialEnabled(false); }}
-          />
-        </View>
-
-        <View style={styles.plansContainer}>
-          <PlanOption 
             plan={plans.yearly} 
             isSelected={selectedPlan === 'yearly'} 
             onSelect={() => { setSelectedPlan('yearly'); setIsTrialEnabled(true); }}
           />
           <PlanOption 
-            plan={plans.remove_ads} 
-            isSelected={selectedPlan === 'remove_ads'} 
-            onSelect={() => { setSelectedPlan('remove_ads'); setIsTrialEnabled(false); }}
+            plan={plans.weekly} 
+            isSelected={selectedPlan === 'weekly'} 
+            onSelect={() => { setSelectedPlan('weekly'); setIsTrialEnabled(false); }}
           />
         </View>
 
@@ -174,8 +148,8 @@ const SubscriptionScreen = ({ navigation }: any) => {
             </Text>
             <Text style={styles.subscribeSubtext}>
               {!loading && (isTrialEnabled 
-                ? `Then ${plans['yearly'].price}/year`
-                : `Pay ${plans[selectedPlan].price} ${plans[selectedPlan].period !== 'once' ? '/ ' + plans[selectedPlan].period : ''}`
+                ? `Then ${plans.yearly.price}/year after trial`
+                : `${plans[selectedPlan].price}/${plans[selectedPlan].period}`
               )}
             </Text>
           </LinearGradient>
