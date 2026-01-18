@@ -57,12 +57,10 @@ jobs:
           cat > credentials.json <<EOF
           {
             "ios": {
-              "adhoc": {
-                "provisioningProfilePath": "credentials/profile.mobileprovision",
-                "distributionCertificate": {
-                  "path": "credentials/dist-cert.p12",
-                  "password": "$IOS_DIST_P12_PASSWORD"
-                }
+              "provisioningProfilePath": "credentials/profile.mobileprovision",
+              "distributionCertificate": {
+                "path": "credentials/dist-cert.p12",
+                "password": "$IOS_DIST_P12_PASSWORD"
               }
             }
           }
