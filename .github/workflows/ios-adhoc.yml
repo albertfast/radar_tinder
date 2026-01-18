@@ -40,15 +40,19 @@ jobs:
 
       - name: Decode and save credentials
         env:
-          IOS_DIST_CERT_BASE64: ${{ secrets.IOS_DIST_CERT_BASE64 }}
-          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
-          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          IOS_DIST_CERT_BASE64: ${{ secrets.IOS_DIST_CERT_BASE64 || secrets.EXPO_IOS_DIST_CERT_BASE64 || vars.IOS_DIST_CERT_BASE64 || vars.EXPO_IOS_DIST_CERT_BASE64 }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 || secrets.EXPO_IOS_PROVISIONING_PROFILE_BASE64 || vars.IOS_PROVISIONING_PROFILE_BASE64 || vars.EXPO_IOS_PROVISIONING_PROFILE_BASE64 }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 || secrets.EXPO_APPLE_API_KEY_BASE64 || vars.APPLE_API_KEY_BASE64 || vars.EXPO_APPLE_API_KEY_BASE64 }}
         run: |
           mkdir -p ./credentials
           # Distribution cert + provisioning profile
-          if [ -n "$IOS_DIST_CERT_BASE64" ] && [ -n "$IOS_PROVISIONING_PROFILE_BASE64" ]; then
-            echo "$IOS_DIST_CERT_BASE64" | base64 --decode > ./credentials/dist-cert.p12
-            echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > ./credentials/profile.mobileprovision
+          CERT_B64="${IOS_DIST_CERT_BASE64:-$EXPO_IOS_DIST_CERT_BASE64}"
+          PROFILE_B64="${IOS_PROVISIONING_PROFILE_BASE64:-$EXPO_IOS_PROVISIONING_PROFILE_BASE64}"
+          KEY_B64="${APPLE_API_KEY_BASE64:-$EXPO_APPLE_API_KEY_BASE64}"
+
+          if [ -n "$CERT_B64" ] && [ -n "$PROFILE_B64" ]; then
+            echo "$CERT_B64" | base64 --decode > ./credentials/dist-cert.p12
+            echo "$PROFILE_B64" | base64 --decode > ./credentials/profile.mobileprovision
             echo "Decoded cert and provisioning profile from secrets."
           else
             if [ -f ./credentials/dist-cert.p12 ] && [ -f ./credentials/profile.mobileprovision ]; then
@@ -59,8 +63,8 @@ jobs:
             fi
           fi
           # Apple API key
-          if [ -n "$APPLE_API_KEY_BASE64" ]; then
-            echo "$APPLE_API_KEY_BASE64" | base64 --decode > ./credentials/AuthKey_9C7772Y8RC.p8
+          if [ -n "$KEY_B64" ]; then
+            echo "$KEY_B64" | base64 --decode > ./credentials/AuthKey_9C7772Y8RC.p8
             echo "Decoded Apple API key from secret."
           else
             if [ -f ./credentials/AuthKey_9C7772Y8RC.p8 ]; then
