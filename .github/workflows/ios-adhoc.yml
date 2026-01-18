@@ -1,0 +1,96 @@
+name: iOS AdHoc IPA (local build on macOS)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["beaconios"]
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    env:
+      EAS_PROFILE: adhoc # Changed back to adhoc as per user preference
+      WORKDIR: eb-app-react-native-project
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: "eb-app-react-native-project/package.json"
+
+      - name: Clean and Install JS deps
+        working-directory: ${{ env.WORKDIR }}
+        env:
+          NODE_ENV: production
+        run: |
+          rm -rf node_modules package-lock.json ios
+          npm install
+
+      - name: Expo Prebuild (Generate iOS folder)
+        working-directory: ${{ env.WORKDIR }}
+        env:
+          NODE_ENV: production
+        run: |
+          npx expo prebuild --platform ios --no-install
+
+      - name: Verify Autolinking
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          npx expo-modules-autolinking resolve --platform apple --json . | grep -i "ibeacon" || (echo "❌ expo-ibeacon NOT FOUND in autolinking!" && exit 1)
+          echo "✅ expo-ibeacon found in autolinking"
+
+      - name: Install Pods
+        working-directory: ${{ env.WORKDIR }}/ios
+        run: pod install
+
+      - name: Install EAS CLI
+        run: npm i -g eas-cli
+
+      - name: Restore iOS credentials files
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          mkdir -p credentials/ios
+          echo "$IOS_DIST_P12_BASE64" | base64 --decode > credentials/ios/dist-cert.p12
+          echo "$IOS_PROFILE_BASE64" | base64 --decode > credentials/ios/profile.mobileprovision
+
+          # Create credentials.json safely using Node
+          node -e "
+            const fs = require('fs');
+            const creds = {
+              ios: {
+                bundleIdentifier: 'com.eyebeamit.app',
+                distributionCertificate: {
+                  path: 'credentials/ios/dist-cert.p12',
+                  password: process.env.IOS_DIST_P12_PASSWORD
+                },
+                provisioningProfilePath: 'credentials/ios/profile.mobileprovision'
+              }
+            };
+            fs.writeFileSync('credentials.json', JSON.stringify(creds, null, 2));
+          "
+        env:
+          IOS_DIST_P12_BASE64: ${{ secrets.IOS_DIST_P12_BASE64 }}
+          IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+          IOS_DIST_P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+
+      - name: Build IPA locally (no EAS remote quota)
+        working-directory: ${{ env.WORKDIR }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas build -p ios --profile $EAS_PROFILE --local --non-interactive --output=./app.ipa
+
+      - name: List generated files
+        working-directory: ${{ env.WORKDIR }}
+        run: ls -R
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-adhoc-ipa
+          path: "${{ env.WORKDIR }}/**/*.ipa"

@@ -17,7 +17,7 @@ const SubscriptionScreen = ({ navigation }: any) => {
   const plans = {
     weekly: {
       id: 'weekly',
-      price: '$1.99',
+      price: '$3.99',
       period: 'week',
       trial: null,
       savings: null

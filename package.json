@@ -73,6 +73,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@react-native/gradle-plugin": "^0.74.89",
     "@types/react": "~18.2.45",
     "@types/three": "^0.182.0",
     "patch-package": "^8.0.1",
