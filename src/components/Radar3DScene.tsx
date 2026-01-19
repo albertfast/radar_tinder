@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, extend } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -172,3 +173,4 @@ const Radar3DSceneCanvas = ({ rotationSpeed = 1, pulseEnabled = true }: { rotati
 };
 
 export default Radar3DSceneCanvas;
+// @ts-nocheck

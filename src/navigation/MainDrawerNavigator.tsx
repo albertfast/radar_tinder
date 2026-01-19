@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInLeft, FadeInDown } from 'react-native-reanimated';
 import { useAuthStore } from '../store/authStore';
-import RadarNavigator from './RadarNavigator';
+import MainTabNavigator from './MainTabNavigator';
 import { BlurView } from 'expo-blur';
 
 const Drawer = createDrawerNavigator();
@@ -28,7 +28,15 @@ const CustomDrawerContent = (props: any) => {
   ];
 
   const handleNavigate = (screen: string) => {
-    props.navigation.navigate('MainStack', { screen });
+    const map: Record<string, any> = {
+      RadarMain: { screen: 'Home' },
+      AIDiagnose: { screen: 'Diagnose' },
+      Leaderboard: { screen: 'Home', params: { screen: 'Leaderboard' } },
+      Settings: { screen: 'Home', params: { screen: 'Settings' } },
+      Profile: { screen: 'Profile' },
+    };
+    const target = map[screen] || { screen: 'Home' };
+    props.navigation.navigate('MainTabs', target);
   };
 
   return (
@@ -159,7 +167,7 @@ const MainDrawerNavigator = () => {
                 sceneContainerStyle: { backgroundColor: '#0F172A' },
             }}
         >
-            <Drawer.Screen name="MainStack" component={RadarNavigator} />
+        <Drawer.Screen name="MainTabs" component={MainTabNavigator} />
         </Drawer.Navigator>
     );
 };

@@ -238,17 +238,35 @@ const TrialOfferScreen = ({ navigation }: any) => {
                     onPress={async () => {
                         try {
                             setLoading(true);
-                            // Anonymous entry (no account chooser)
+                            
+                            // 1. First sign in anonymously to create user session
                             try {
                                 await FirebaseAuthService.signInAnonymously();
                             } catch (firebaseError) {
-                                // Don't block entry if Firebase anonymous auth isn't enabled/configured.
                                 console.warn('Firebase anonymous auth failed:', firebaseError);
                             }
                             await signInAnonymously();
                             
-                            // User wants immediate entry. Subscription logic can run in background/silently.
-                            // The app-state will transition to 'isAuthenticated' and navigate to 'Main' automatically.
+                            // 2. Now try to start the subscription with free trial
+                            // RevenueCat will handle the trial period
+                            try {
+                                const { SubscriptionService } = await import('../services/SubscriptionService');
+                                const offerings = await SubscriptionService.getOfferings();
+                                
+                                // Find the yearly package with trial
+                                const yearlyPackage = offerings?.availablePackages?.find(
+                                    (p: any) => p.identifier.includes('yearly') || p.identifier.includes('annual')
+                                );
+                                
+                                if (yearlyPackage) {
+                                    await SubscriptionService.purchasePackage(yearlyPackage);
+                                }
+                            } catch (subError) {
+                                // Subscription failed or cancelled - user continues with free tier
+                                console.log('Subscription not started:', subError);
+                            }
+                            
+                            // User enters app (authenticated now)
                         } catch (err: any) {
                             console.error('Silent identification error:', err);
                             const message =
@@ -277,6 +295,31 @@ const TrialOfferScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
                 
                 <Text style={styles.ctaSub}>Unlocks all features. Cancel anytime.</Text>
+                
+                {/* Skip option for free tier with ads */}
+                <TouchableOpacity 
+                    style={styles.skipBtn}
+                    onPress={async () => {
+                        try {
+                            setLoading(true);
+                            try {
+                                await FirebaseAuthService.signInAnonymously();
+                            } catch (firebaseError) {
+                                console.warn('Firebase anonymous auth failed:', firebaseError);
+                            }
+                            await signInAnonymously();
+                            // User continues with free tier (will see ads)
+                        } catch (err: any) {
+                            console.error('Skip sign-in error:', err);
+                            Alert.alert('Error', 'Please check your internet connection.');
+                        } finally {
+                            setLoading(false);
+                        }
+                    }}
+                    disabled={loading}
+                >
+                    <Text style={styles.skipText}>Continue with Ads (Free)</Text>
+                </TouchableOpacity>
             </LinearGradient>
             
             <TouchableOpacity style={styles.restoreBtn}>
@@ -474,6 +517,20 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 12,
     marginTop: 12,
+  },
+  skipBtn: {
+    alignItems: 'center',
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 8,
+  },
+  skipText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '500',
   },
   restoreBtn: {
     alignItems: 'center',

@@ -163,11 +163,14 @@ export class BackgroundService {
           console.warn('Location permission not granted');
           return;
         }
+        let consecutiveErrors = 0;
+        const MAX_CONSECUTIVE_ERRORS = 3;
         const poll = async () => {
           try {
             const location = await Location.getCurrentPositionAsync({
               accuracy: Location.Accuracy.Balanced,
             });
+            consecutiveErrors = 0; // Reset on success
             await this.handleLocationUpdate({
               latitude: location.coords.latitude,
               longitude: location.coords.longitude,
@@ -175,7 +178,17 @@ export class BackgroundService {
               speed: location.coords.speed,
             });
           } catch (error) {
-            console.warn('Location poll failed:', error);
+            consecutiveErrors++;
+            if (consecutiveErrors <= MAX_CONSECUTIVE_ERRORS) {
+              console.warn(`Location poll failed (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, error);
+            }
+            if (consecutiveErrors === MAX_CONSECUTIVE_ERRORS) {
+              console.warn('Location polling disabled after consecutive errors. Enable location services to resume.');
+              if (this.locationPollInterval) {
+                clearInterval(this.locationPollInterval);
+                this.locationPollInterval = null;
+              }
+            }
           }
         };
         await poll();

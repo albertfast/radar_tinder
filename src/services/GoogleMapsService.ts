@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+// Fallback to hardcoded key if environment variable is not set
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ';
 
 interface PlaceResult {
   place_id: string;
@@ -141,24 +142,43 @@ export class GoogleMapsService {
     destination: string
   ): Promise<any> {
     try {
+      if (!GOOGLE_MAPS_API_KEY) {
+        console.error('Google Maps API key is not configured');
+        return { error: 'API_KEY_MISSING', message: 'Google Maps API key is not configured' };
+      }
+
       const origin = `${originLat},${originLng}`;
       const url = `${this.BASE_URL}/directions/json?origin=${origin}&destination=${encodeURIComponent(destination)}&key=${GOOGLE_MAPS_API_KEY}`;
 
+      console.log('[GoogleMapsService] Fetching directions to:', destination);
+      
       const response = await fetch(url);
       const data = await response.json();
 
       if (data.status === 'OK') {
         const points = this.decodePolyline(data.routes[0].overview_polyline.points);
+        console.log('[GoogleMapsService] Route found with', points.length, 'points');
         return {
           ...data.routes[0],
           coordinates: points
         };
       }
-      console.warn('Directions API Error:', data.status);
+      
+      console.warn('Directions API Error:', data.status, data.error_message);
+      
+      // Return error information for better user feedback
+      if (data.status === 'ZERO_RESULTS') {
+        return { error: 'ZERO_RESULTS', message: 'No route found to this destination' };
+      } else if (data.status === 'NOT_FOUND') {
+        return { error: 'NOT_FOUND', message: 'Location not found' };
+      } else if (data.status === 'REQUEST_DENIED') {
+        return { error: 'REQUEST_DENIED', message: 'API request denied. Please check your API key.' };
+      }
+      
       return null;
     } catch (error) {
       console.error('Error getting directions:', error);
-      return null;
+      return { error: 'NETWORK_ERROR', message: 'Network error. Please check your internet connection.' };
     }
   }
 

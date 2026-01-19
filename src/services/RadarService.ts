@@ -351,7 +351,7 @@ export class RadarService {
 
         // 3. Apply Accuracy Scoring & Deduplication & FEATURE GATING
         const user = useAuthStore.getState().user;
-        const isPro = user?.subscriptionType === 'pro' || user?.rank === 'Global Administrator';
+        const isPro = user?.subscriptionType === 'pro';
 
         let processedRadars = this.improveAccuracy(allRadars);
 

@@ -198,9 +198,35 @@ export class AIService {
     }
   }
 
+  private static async ensureDashboardSidecar(modelPath: string) {
+    try {
+      const dataAsset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx.data'));
+      await dataAsset.downloadAsync();
+
+      const targetPath = modelPath.endsWith('.onnx')
+        ? modelPath.replace(/dashboard_net\.onnx$/, 'dashboard_net.onnx.data')
+        : `${modelPath}.data`;
+
+      const existing = await FileSystem.getInfoAsync(targetPath);
+      if (existing.exists) return targetPath;
+
+      const source = dataAsset.localUri || dataAsset.uri;
+      if (!source) return null;
+
+      await FileSystem.copyAsync({ from: source, to: targetPath });
+      return targetPath;
+    } catch (error) {
+      console.warn('Dashboard model sidecar copy failed:', error);
+      return null;
+    }
+  }
+
   private static async loadDashboardModel() {
     if (dashboardSession) return dashboardSession;
-    if (dashboardModelFailed) throw new Error('Failed to load dashboard model');
+    if (dashboardModelFailed) {
+      // allow a retry attempt after clearing the cache/state
+      dashboardModelFailed = false;
+    }
     if (dashboardSessionPromise) return dashboardSessionPromise;
 
     dashboardSessionPromise = (async () => {
@@ -221,9 +247,12 @@ export class AIService {
       }
 
       try {
+        await this.ensureDashboardSidecar(modelPath);
         dashboardSession = await InferenceSession.create(modelPath);
+        dashboardModelFailed = false;
         return dashboardSession;
       } catch (error) {
+        console.error('Dashboard model load failed:', error);
         // If the cached file is corrupted/truncated, delete it once and let the next run re-download.
         try {
           await FileSystem.deleteAsync(modelPath, { idempotent: true });
@@ -835,6 +864,16 @@ export class AIService {
         data[i] = -meanVals[i % 3];
       }
       return data;
+    }
+  }
+
+  static async preloadModels(): Promise<boolean> {
+    try {
+      await Promise.all([this.loadDashboardModel(), this.loadOcrModel()]);
+      return true;
+    } catch (error) {
+      console.error('Model preload failed:', error);
+      return false;
     }
   }
 

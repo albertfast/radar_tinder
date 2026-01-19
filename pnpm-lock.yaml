@@ -58,7 +58,7 @@ importers:
         version: 2.90.1
       '@tanstack/react-query':
         specifier: ^5.28.9
-        version: 5.90.18(react@18.2.0)
+        version: 5.90.19(react@18.2.0)
       expo:
         specifier: ~51.0.39
         version: 51.0.39(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(react-native@0.74.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0)
@@ -168,8 +168,8 @@ importers:
         specifier: ~2.16.1
         version: 2.16.2(react-native@0.74.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0)
       react-native-google-mobile-ads:
-        specifier: ^16.0.1
-        version: 16.0.1(expo@51.0.39(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(react-native@0.74.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0))(react@18.2.0)
+        specifier: ^13.4.1
+        version: 13.6.1(react@18.2.0)
       react-native-maps:
         specifier: 1.14.0
         version: 1.14.0(react-native@0.74.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0)
@@ -964,7 +964,7 @@ packages:
 
   '@expo/bunyan@4.0.1':
     resolution: {integrity: sha512-+Lla7nYSiHZirgK+U/uYzsLv/X+HaJienbD5AKX1UQZHYfWaP+9uuQluRB4GrEVWF0GZ7vEVp/jzaOT9k/SQlg==}
-    engines: {'0': node >=0.10.0}
+    engines: {node: '>=0.10.0'}
 
   '@expo/cli@0.18.31':
     resolution: {integrity: sha512-v9llw9fT3Uv+TCM6Xllo54t672CuYtinEQZ2LPJ2EJsCwuTc4Cd2gXQaouuIVD21VoeGQnr5JtJuWbF97sBKzQ==}
@@ -1770,11 +1770,11 @@ packages:
     peerDependencies:
       '@svgr/core': '*'
 
-  '@tanstack/query-core@5.90.18':
-    resolution: {integrity: sha512-rbGx6bHgPNVzutP7BEr+53UPKohpckqlMAad+To9UxTbeaQ+kC/1SDRj+QzkwbQ7qhLT/1IKp34yS6thda6fzA==}
+  '@tanstack/query-core@5.90.19':
+    resolution: {integrity: sha512-GLW5sjPVIvH491VV1ufddnfldyVB+teCnpPIvweEfkpRx7CfUmUGhoh9cdcUKBh/KwVxk22aNEDxeTsvmyB/WA==}
 
-  '@tanstack/react-query@5.90.18':
-    resolution: {integrity: sha512-KqNZX0C5IFz4639zR1ilnQ288tQdJrMNLtzmlzyJ14xauBkhtLEy3mPU/V4KiHsr41eL1ILZbDP36TB12lYfCQ==}
+  '@tanstack/react-query@5.90.19':
+    resolution: {integrity: sha512-qTZRZ4QyTzQc+M0IzrbKHxSeISUmRB3RPGmao5bT+sI6ayxSRhn0FXEnT5Hg3as8SBFcRosrXXRFB+yAcxVxJQ==}
     peerDependencies:
       react: ^18 || ^19
 
@@ -4412,13 +4412,8 @@ packages:
       react: '*'
       react-native: '*'
 
-  react-native-google-mobile-ads@16.0.1:
-    resolution: {integrity: sha512-fBbJ34LAHb9Z2agVocqYMgj45UGGh7epMdaT5E3tbZEWTMN+nNxXnK9BVH9RQXD51D9AgEOcxvIIf4um5gIaYA==}
-    peerDependencies:
-      expo: '>=47.0.0'
-    peerDependenciesMeta:
-      expo:
-        optional: true
+  react-native-google-mobile-ads@13.6.1:
+    resolution: {integrity: sha512-+VXeT79H/fipOQcic2oDGqr3k8fDkg+DMm9kuxyrnppqXJ9G45HvvpTHDGDDGMHHx8kVLAbpa0WZ/i/evnxrjQ==}
 
   react-native-maps@1.14.0:
     resolution: {integrity: sha512-ai7h4UdRLGPFCguz1fI8n4sKLEh35nZXHAH4nSWyAeHGrN8K9GjICu9Xd4Q5Ok4h+WwrM6Xz5pGbF3Qm1tO6iQ==}
@@ -7856,11 +7851,11 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  '@tanstack/query-core@5.90.18': {}
+  '@tanstack/query-core@5.90.19': {}
 
-  '@tanstack/react-query@5.90.18(react@18.2.0)':
+  '@tanstack/react-query@5.90.19(react@18.2.0)':
     dependencies:
-      '@tanstack/query-core': 5.90.18
+      '@tanstack/query-core': 5.90.19
       react: 18.2.0
 
   '@trysound/sax@0.2.0': {}
@@ -10798,12 +10793,10 @@ snapshots:
       react: 18.2.0
       react-native: 0.74.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.2.79)(react@18.2.0)
 
-  react-native-google-mobile-ads@16.0.1(expo@51.0.39(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(react-native@0.74.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0))(react@18.2.0):
+  react-native-google-mobile-ads@13.6.1(react@18.2.0):
     dependencies:
       '@iabtcf/core': 1.5.6
       use-deep-compare-effect: 1.8.1(react@18.2.0)
-    optionalDependencies:
-      expo: 51.0.39(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(react-native@0.74.5(@babel/core@7.28.6)(@babel/preset-env@7.28.6(@babel/core@7.28.6))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0)
     transitivePeerDependencies:
       - react
 

@@ -18,7 +18,7 @@ import {
   IconButton
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useRadarStore } from '../store/radarStore';
@@ -122,6 +122,8 @@ const RadarScreen = ({ navigation, route }: any) => {
   const [currentSpeed, setCurrentSpeed] = useState<number>(0);
   const [destination, setDestination] = useState('');
   const [routeCoords, setRouteCoords] = useState<any[]>([]);
+  const [routeMeta, setRouteMeta] = useState<{ etaText: string; distanceText: string; destinationLabel: string } | null>(null);
+  const [destinationCoord, setDestinationCoord] = useState<{ latitude: number; longitude: number } | null>(null);
   const [navSteps, setNavSteps] = useState<NavStep[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -137,6 +139,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const autocompleteTimer = useRef<NodeJS.Timeout | null>(null);
   const proSliderRef = useRef<FlatList>(null);
   const [proSliderIndex, setProSliderIndex] = useState(0);
+  const hasCenteredMapRef = useRef(false);
 
   // Refs for cleanup
   const lastPositionRef = useRef<any>(null);
@@ -200,6 +203,18 @@ const RadarScreen = ({ navigation, route }: any) => {
 
     return unsubscribe;
   }, [isDriving, activeTab]);
+
+  // Center the camera the first time we get a fix so the map doesn't stay on the default city
+  useEffect(() => {
+    if (currentLocation && mapRef.current && !hasCenteredMapRef.current) {
+        mapRef.current.animateCamera({
+          center: { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+          zoom: 15,
+          pitch: 45,
+        }, { duration: 800 });
+        hasCenteredMapRef.current = true;
+    }
+  }, [currentLocation]);
 
   // Periodic Radar Fetch
   useEffect(() => {
@@ -431,48 +446,108 @@ const RadarScreen = ({ navigation, route }: any) => {
   const handleNavigate = async (targetDest?: string) => {
       const finalDest = targetDest || destination;
       // Simplified navigate logic
-      if (!finalDest || !currentLocation) return;
-
-      // Unfocus keyboard
-      if (Platform.OS === 'android') {
-        const Keyboard = require('react-native').Keyboard;
-        Keyboard.dismiss();
+      if (!finalDest) {
+        console.warn('No destination provided');
+        return;
       }
+      setRouteMeta(null);
+      setDestinationCoord(null);
 
-      const res = await GoogleMapsService.getDirections(
-          currentLocation.latitude, currentLocation.longitude, finalDest
-      );
-      if(res?.coordinates) {
-          setRouteCoords(res.coordinates);
-          setIsDriving(true);
-          setActiveTab('Map');
-          const steps = res?.legs?.[0]?.steps || [];
-          const parsedSteps: NavStep[] = steps.map((step: any) => ({
-            instruction: stripHtml(step.html_instructions || step.instructions || ''),
-            distanceMeters: step.distance?.value ?? null,
-            maneuver: step.maneuver,
-            endLocation: step.end_location
-              ? { latitude: step.end_location.lat, longitude: step.end_location.lng }
-              : undefined
-          }));
-          setNavSteps(parsedSteps);
-          setCurrentStepIndex(0);
-          // Also fetch radars along route
-          const rawRouteRadars = await RadarService.getRadarsAlongRoute(res.coordinates);
-          
-          // Calculate distance from current location for proper display
-          const routeRadarsWithDist = await Promise.all(rawRouteRadars.map(async (r) => {
-              const d = await LocationService.calculateDistance(
-                  currentLocation.latitude, currentLocation.longitude,
-                  r.latitude, r.longitude
-              );
-              return { ...r, distance: d };
-          }));
+      try {
+        // Unfocus keyboard to reveal more map space
+        Keyboard.dismiss();
 
-          setNearbyRadars(routeRadarsWithDist.sort((a,b) => a.distance - b.distance));
-          
-          // Clear suggestions just in case
-          setSuggestions([]);
+        // Get current location from ref or fetch fresh
+        let loc = currentLocationRef.current || currentLocation;
+        if (!loc) {
+          try {
+            loc = await LocationService.getCurrentLocation();
+            if (loc) {
+              setCurrentLocation(loc);
+              currentLocationRef.current = loc;
+            }
+          } catch (error) {
+            console.error('Failed to get current location:', error);
+            alert('Unable to get your location. Please enable location services and try again.');
+            return;
+          }
+        }
+
+        if (!loc) {
+          alert('Location unavailable. Please enable location services.');
+          return;
+        }
+
+        const res = await GoogleMapsService.getDirections(
+            loc.latitude, loc.longitude, finalDest
+        );
+        
+        // Handle error responses
+        if (!res || res?.error) {
+            alert(res?.message || 'Unable to get directions. Please try again.');
+            return;
+        }
+        
+        if(res?.coordinates?.length) {
+            setRouteCoords(res.coordinates);
+            const primaryLeg = res?.legs?.[0];
+            if (primaryLeg) {
+              setRouteMeta({
+                etaText: primaryLeg.duration?.text || 'ETA —',
+                distanceText: primaryLeg.distance?.text || 'Distance —',
+                destinationLabel: primaryLeg.end_address || finalDest
+              });
+              if (primaryLeg.end_location?.lat && primaryLeg.end_location?.lng) {
+                setDestinationCoord({
+                  latitude: primaryLeg.end_location.lat,
+                  longitude: primaryLeg.end_location.lng
+                });
+              }
+            } else {
+              setRouteMeta(null);
+              setDestinationCoord(null);
+            }
+            setIsDriving(true);
+            setActiveTab('Map');
+            const steps = primaryLeg?.steps || [];
+            const parsedSteps: NavStep[] = steps.map((step: any) => ({
+              instruction: stripHtml(step.html_instructions || step.instructions || ''),
+              distanceMeters: step.distance?.value ?? null,
+              maneuver: step.maneuver,
+              endLocation: step.end_location
+                ? { latitude: step.end_location.lat, longitude: step.end_location.lng }
+                : undefined
+            }));
+            setNavSteps(parsedSteps);
+            setCurrentStepIndex(0);
+            // Also fetch radars along route
+            const rawRouteRadars = await RadarService.getRadarsAlongRoute(res.coordinates);
+            
+            // Calculate distance from current location for proper display
+            const routeRadarsWithDist = await Promise.all(rawRouteRadars.map(async (r) => {
+                const d = await LocationService.calculateDistance(
+                    loc.latitude, loc.longitude,
+                    r.latitude, r.longitude
+                );
+                return { ...r, distance: d };
+            }));
+
+            setNearbyRadars(routeRadarsWithDist.sort((a,b) => a.distance - b.distance));
+            
+            // Clear suggestions just in case
+            setSuggestions([]);
+
+            mapRef.current?.fitToCoordinates(res.coordinates, {
+              edgePadding: { top: 180, right: 80, bottom: 260, left: 80 },
+              animated: true,
+            });
+            hasCenteredMapRef.current = true;
+        } else {
+            alert('Unable to find route. Please check the destination and try again.');
+        }
+      } catch (error) {
+        console.error('Navigation failed:', error);
+        alert('Route could not be created. Check your connection and try again.');
       }
   };
 
@@ -706,6 +781,8 @@ const RadarScreen = ({ navigation, route }: any) => {
                                 routeCoords={routeCoords}
                                 mapRef={mapRef}
                                 showsUserLocation={true}
+                                destinationPoint={destinationCoord}
+                                mapPadding={{ top: 220, right: 20, bottom: 300, left: 20 }}
                                 onRadarPress={(radar: RadarLocation) => {
                                   if (canConfirmRadar(radar)) {
                                     handleConfirmRadar(radar);
@@ -741,6 +818,8 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                     setDestination('');
                                                     setSuggestions([]);
                                                     setRouteCoords([]);
+                                                    setRouteMeta(null);
+                                                    setDestinationCoord(null);
                                                     setNavSteps([]);
                                                     setCurrentStepIndex(0);
                                                     setIsDriving(false);
@@ -748,7 +827,9 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                     // Also clear focused radars
                                                     setNearbyRadars([]); 
                                                     // Trigger refetch of nearby
-                                                    RadarService.getNearbyRadars(currentLocation.latitude, currentLocation.longitude, 10).then(setNearbyRadars);
+                                                    if (currentLocation) {
+                                                      RadarService.getNearbyRadars(currentLocation.latitude, currentLocation.longitude, 10).then(setNearbyRadars);
+                                                    }
                                                 }}
                                             >
                                                 <MaterialCommunityIcons name="close" size={24} color="white" />
@@ -762,7 +843,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                            <MaterialCommunityIcons name="crosshairs-gps" size={24} color="#4ECDC4" />
                                        </TouchableOpacity>
                                    </View>
-                                   
+                                  
                                    {/* Suggestions Dropdown */}
                                    {suggestions.length > 0 && (
                                        <View style={styles.suggestionsContainer}>
@@ -778,6 +859,31 @@ const RadarScreen = ({ navigation, route }: any) => {
                                            ))}
                                        </View>
                                    )}
+                                  
+                                  {routeMeta && (
+                                      <TouchableOpacity activeOpacity={0.9} onPress={centerMap}>
+                                        <LinearGradient
+                                          colors={['rgba(14,23,42,0.95)', 'rgba(12,20,33,0.85)']}
+                                          start={{ x: 0, y: 0 }}
+                                          end={{ x: 1, y: 1 }}
+                                          style={styles.routeSummaryCard}
+                                        >
+                                          <View style={styles.routeSummaryRow}>
+                                            <View style={styles.routeIconBubble}>
+                                              <MaterialCommunityIcons name="steering" size={18} color="#4ECDC4" />
+                                            </View>
+                                            <View style={{flex: 1}}>
+                                              <Text style={styles.routeSummaryTitle} numberOfLines={1}>{routeMeta.destinationLabel}</Text>
+                                              <Text style={styles.routeSummaryMeta}>{routeMeta.distanceText} • ETA {routeMeta.etaText}</Text>
+                                            </View>
+                                            <View style={styles.routeBadge}>
+                                              <MaterialCommunityIcons name="radar" size={14} color="#0B1424" />
+                                              <Text style={styles.routeBadgeText}>{nearbyRadars.length}</Text>
+                                            </View>
+                                          </View>
+                                        </LinearGradient>
+                                      </TouchableOpacity>
+                                  )}
                                    
                                    {/* Turn by Turn Top Bar overlay */}
                                    {routeCoords.length > 0 && (
@@ -1129,6 +1235,13 @@ const styles = StyleSheet.create({
   markerBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'white' },
   mapOverlay: { position: 'absolute', top: 20, left: 20, right: 20 },
   mapInput: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 15, borderRadius: 16, color: 'white' },
+  routeSummaryCard: { marginTop: 10, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(78,205,196,0.25)' },
+  routeSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  routeIconBubble: { width: 38, height: 38, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(78,205,196,0.5)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(78,205,196,0.1)' },
+  routeSummaryTitle: { color: '#E2E8F0', fontWeight: '800', fontSize: 15 },
+  routeSummaryMeta: { color: '#94A3B8', marginTop: 2, fontSize: 12 },
+  routeBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: '#4ECDC4' },
+  routeBadgeText: { color: '#0B1424', fontWeight: '800' },
 
   fab: { position: 'absolute', left: 20, bottom: 85, backgroundColor: '#FF5252', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 10, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity:0.3, shadowRadius:4 },
   reportSheet: { backgroundColor: '#1E293B', padding: 30, borderTopLeftRadius: 30, borderTopRightRadius: 30 },

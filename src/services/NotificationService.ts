@@ -63,6 +63,7 @@ export class NotificationService {
       handleNotification: async () => ({
         shouldPlaySound: true,
         shouldSetBadge: true,
+        shouldShowAlert: true,
         shouldShowBanner: true,
         shouldShowList: true,
       }),
@@ -138,9 +139,8 @@ export class NotificationService {
         },
         trigger: {
           seconds: 3600, // 1 hour
-          repeats: true,
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL
-        } as any,
+          repeats: true
+        },
       });
     } catch (error) {
       // Fail silently if trigger is not supported in the current environment

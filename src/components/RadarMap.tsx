@@ -35,7 +35,9 @@ const RadarMap = React.memo(({
     routeCoords,
     mapRef,
     showsUserLocation = true,
-    onRadarPress
+    onRadarPress,
+    destinationPoint,
+    mapPadding,
 }: any) => {
     
     const initialRegion = useMemo(() => ({
@@ -43,7 +45,16 @@ const RadarMap = React.memo(({
         longitude: location?.longitude || -122.4194,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
-    }), []); // Only calculate once
+    }), [location?.latitude, location?.longitude]);
+
+    const finalDestination = useMemo(() => {
+      if (destinationPoint?.latitude && destinationPoint?.longitude) {
+        return destinationPoint;
+      }
+      return routeCoords?.length ? routeCoords[routeCoords.length - 1] : null;
+    }, [destinationPoint, routeCoords]);
+
+    const padding = mapPadding || { top: 200, right: 40, bottom: 280, left: 40 };
 
     return (
         <MapView
@@ -55,12 +66,29 @@ const RadarMap = React.memo(({
             showsUserLocation={showsUserLocation}
             showsMyLocationButton={false}
             showsCompass={false}
+            showsTraffic
+            mapPadding={padding}
+            pitchEnabled
+            rotateEnabled
             toolbarEnabled={false}
             zoomControlEnabled={true} // Enable native zoom buttons
             moveOnMarkerPress={false}
         >
             {routeCoords.length > 0 && (
-                <Polyline coordinates={routeCoords} strokeWidth={5} strokeColor="#2196F3" />
+                <Polyline 
+                  coordinates={routeCoords} 
+                  strokeWidth={6} 
+                  strokeColor="#4ECDC4" 
+                  lineCap="round"
+                  lineJoin="round"
+                />
+            )}
+            {finalDestination && (
+              <Marker coordinate={finalDestination} anchor={{ x: 0.5, y: 1 }}>
+                  <View style={styles.destinationMarker}>
+                      <MaterialCommunityIcons name="flag-checkered" size={16} color="#0B1424" />
+                  </View>
+              </Marker>
             )}
             
             {radars.map((r: any, i: number) => (
@@ -88,12 +116,18 @@ const RadarMap = React.memo(({
     
     return (
         prev.radars === next.radars && 
-        prev.routeCoords === next.routeCoords
+        prev.routeCoords === next.routeCoords &&
+        prev.destinationPoint?.latitude === next.destinationPoint?.latitude &&
+        prev.destinationPoint?.longitude === next.destinationPoint?.longitude &&
+        prev.location?.latitude === next.location?.latitude &&
+        prev.location?.longitude === next.location?.longitude &&
+        prev.mapPadding === next.mapPadding
     );
 });
 
 const styles = StyleSheet.create({
   markerBadge: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'white', elevation: 5 },
+  destinationMarker: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, backgroundColor: '#FCD34D', borderWidth: 1, borderColor: '#0B1424', elevation: 6 },
 });
 
 export default RadarMap;

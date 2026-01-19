@@ -61,6 +61,7 @@ const ProfileScreen = ({ navigation }: any) => {
   const { user, logout, updateUser } = useAuthStore();
   const { unitSystem } = useSettingsStore();
   const [isEditing, setIsEditing] = useState(false);
+  const [username, setUsername] = useState(user?.username || user?.name || '');
   
   // Local state for editing
   const [carBrand, setCarBrand] = useState(user?.carDetails?.brand || '');
@@ -86,6 +87,12 @@ const ProfileScreen = ({ navigation }: any) => {
     if (!result.canceled) {
       updateUser(type === 'profile' ? { profileImage: result.assets[0].uri } : { carImage: result.assets[0].uri });
     }
+  };
+
+  const handleUsernameSave = () => {
+    const clean = username.trim();
+    if (!clean) return;
+    updateUser({ username: clean, name: clean, displayName: clean });
   };
 
   return (
@@ -152,7 +159,7 @@ const ProfileScreen = ({ navigation }: any) => {
               style={styles.userName}
               entering={FadeInDown.delay(100).duration(ANIMATION_TIMING.BASE)}
             >
-              {user?.name || 'Rookie Driver'}
+              {user?.username || user?.name || 'Rookie Driver'}
             </Animated.Text>
             
             <Animated.View
@@ -161,6 +168,27 @@ const ProfileScreen = ({ navigation }: any) => {
             >
                 <MaterialCommunityIcons name="shield-star" size={16} color="#FFD700" />
                 <Text style={styles.levelText}>Level {user?.level || 1} • {user?.rank || 'Novice'}</Text>
+            </Animated.View>
+
+            {/* Username / leaderboard handle */}
+            <Animated.View
+              entering={FadeInDown.delay(180).duration(ANIMATION_TIMING.BASE)}
+              style={styles.usernameCard}
+            >
+              <Text style={styles.usernameLabel}>Username for leaderboard</Text>
+              <View style={styles.usernameRow}>
+                  <TextInput
+                    style={styles.usernameInput}
+                    value={username}
+                    onChangeText={setUsername}
+                    placeholder="Enter username"
+                    placeholderTextColor="#64748B"
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity style={styles.usernameSave} onPress={handleUsernameSave}>
+                    <Text style={styles.usernameSaveText}>Save</Text>
+                  </TouchableOpacity>
+              </View>
             </Animated.View>
 
             {/* XP Bar using Gradients */}
@@ -337,6 +365,12 @@ const styles = StyleSheet.create({
   xpTrack: { flex: 1, height: 6, backgroundColor: '#1E293B', borderRadius: 3, overflow: 'hidden' },
   xpFill: { height: '100%', borderRadius: 3 },
   xpLabel: { color: '#64748B', fontSize: 10, fontWeight: 'bold' },
+  usernameCard: { width: '100%', backgroundColor: 'rgba(15,23,42,0.85)', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginTop: 14 },
+  usernameLabel: { color: '#94A3B8', fontSize: 12, fontWeight: '700', marginBottom: 6, letterSpacing: 0.4 },
+  usernameRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  usernameInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: 'white', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  usernameSave: { backgroundColor: '#4ECDC4', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
+  usernameSaveText: { color: '#0B1424', fontWeight: '800' },
 
   // Stats
   statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },

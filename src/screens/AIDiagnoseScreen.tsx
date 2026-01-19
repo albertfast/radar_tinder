@@ -12,6 +12,8 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
   const [recording, setRecording] = useState<import('expo-av').Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceDescription, setVoiceDescription] = useState<string | null>(null);
+  const [modelReady, setModelReady] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -20,6 +22,26 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       }
     };
   }, [recording]);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const { AIService } = await import('../services/AIService');
+        const ok = await AIService.preloadModels();
+        if (isMounted) {
+          setModelReady(ok);
+          setModelError(ok ? null : 'AI modeli indirilemedi. İnternet bağlantısını kontrol edin ve tekrar deneyin.');
+        }
+      } catch (error) {
+        console.error('AI preload failed', error);
+        if (isMounted) {
+          setModelError('AI modeli hazırlanamadı. Uygulamayı yeniden başlatıp tekrar deneyin.');
+        }
+      }
+    })();
+    return () => { isMounted = false; };
+  }, []);
 
   const startRecording = async () => {
     try {
@@ -113,6 +135,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
 
     setIsAnalyzing(true);
     setLoadingStep('uploading');
+    setModelError(null);
     
     try {
       // Simulate steps for premium feel
@@ -127,6 +150,15 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       // Lazy-load AI service to avoid native module crashes at app startup.
       const { AIService } = await import('../services/AIService');
       const result = await AIService.analyzeDashboardLight(selectedImage);
+
+      const issueLabel = (result.issue || '').toLowerCase();
+      if (result.category === 'Error' || issueLabel.includes('fail')) {
+        const message = 'AI modeli şu anda açılamıyor. İnternet bağlantınızı ve cihaz depolama alanını kontrol ederek tekrar deneyin.';
+        setModelError(message);
+        Alert.alert('Model yüklenemedi', message);
+        return;
+      }
+      setModelReady(true);
       
       const confidencePct = (result.confidence * 100).toFixed(1);
       const diagnosisText = `Based on the image analysis:
@@ -170,7 +202,18 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.subtitle}>Upload a photo and describe the issue</Text>
+        <View style={{ marginBottom: 12 }}>
+          <Text style={styles.subtitle}>Upload a photo and describe the issue</Text>
+          <Text style={[styles.modelStatus, { color: modelReady ? '#22c55e' : '#94A3B8' }]}>
+            {modelReady ? 'On-device model ready' : 'Preparing on-device model...'}
+          </Text>
+        </View>
+        {modelError && (
+          <Surface style={[styles.infoBox, { borderColor: '#FF6B6B', marginBottom: 14 }]} elevation={1}>
+            <MaterialCommunityIcons name="alert" size={24} color="#FF6B6B" />
+            <Text style={[styles.infoText, { color: '#FCA5A5' }]}>{modelError}</Text>
+          </Surface>
+        )}
 
         {/* Voice Recording Section */}
         <Surface style={styles.voiceContainer} elevation={2}>
@@ -268,6 +311,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 24, fontWeight: 'bold', color: 'white' },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
   subtitle: { color: '#8E8E93', fontSize: 16, textAlign: 'center', marginBottom: 20 },
+  modelStatus: { textAlign: 'center', fontSize: 13, fontWeight: '600' },
   voiceContainer: { backgroundColor: '#1C1C1E', borderRadius: 20, padding: 20, alignItems: 'center', marginBottom: 30, borderWidth: 1, borderColor: '#333' },
   micButton: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#2196F3', justifyContent: 'center', alignItems: 'center', marginBottom: 10, elevation: 5, shadowColor: '#2196F3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 10 },
   micButtonActive: { backgroundColor: '#FF5252', shadowColor: '#FF5252', transform: [{ scale: 1.1 }] },

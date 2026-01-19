@@ -126,12 +126,18 @@ export default function App() {
                       screens: {
                         MainTabs: {
                           screens: {
-                            Radar: {
+                            Home: {
                               screens: {
                                 RadarMain: {
                                   path: 'navigate',
                                 },
                               },
+                            },
+                            Map: {
+                              path: 'map',
+                            },
+                            Diagnose: {
+                              path: 'diagnose',
                             },
                           },
                         },

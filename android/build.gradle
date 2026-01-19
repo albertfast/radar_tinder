@@ -6,7 +6,7 @@ buildscript {
         minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '23')
         compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '34')
         targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '34')
-        kotlinVersion = findProperty('android.kotlinVersion') ?: '1.9.23'
+        kotlinVersion = findProperty('android.kotlinVersion') ?: '1.9.24'
 
         ndkVersion = "26.1.10909125"
         
@@ -21,7 +21,7 @@ buildscript {
         classpath 'com.google.gms:google-services:4.4.1'
         classpath('com.android.tools.build:gradle:8.2.1')
         classpath('com.facebook.react:react-native-gradle-plugin:0.74.5')
-        classpath('org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22')
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
     }
 }
 
@@ -45,10 +45,15 @@ allprojects {
 }
 
 // Force onnxruntime version to avoid dynamic resolution (latest.integration)
+// Also force Kotlin stdlib to match our Kotlin version
 subprojects {
     configurations.all {
         resolutionStrategy {
             force "com.microsoft.onnxruntime:onnxruntime-android:${rootProject.ext.onnxruntimeVersion}"
+            // Force Kotlin stdlib to match project Kotlin version
+            force "org.jetbrains.kotlin:kotlin-stdlib:${rootProject.ext.kotlinVersion}"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${rootProject.ext.kotlinVersion}"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${rootProject.ext.kotlinVersion}"
         }
     }
 }

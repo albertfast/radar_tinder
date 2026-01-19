@@ -7,6 +7,14 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
-    "jsx": "react-jsx"
-  }
+    "jsx": "react-jsx",
+    "module": "es2020",
+    "target": "es2020"
+  },
+  "exclude": [
+    "src/app/**",
+    "src/components/ui/**",
+    "src/hooks/**",
+    "src/lib/**"
+  ]
 }

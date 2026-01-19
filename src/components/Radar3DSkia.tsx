@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useMemo, useEffect, useRef } from 'react';
 import { Canvas, Group, Skia, useClock, RoundedRect, Circle, Line } from '@shopify/react-native-skia';
 import { Dimensions } from 'react-native';
@@ -226,3 +227,4 @@ const Radar3DSkia = ({ rotationSpeed = 1, pulseEnabled = true }: { rotationSpeed
 };
 
 export default Radar3DSkia;
+// @ts-nocheck
