@@ -26,6 +26,10 @@ let dashboardSessionPromise: Promise<InferenceSession> | null = null;
 let dashboardModelFailed: boolean = false;
 let dashboardAnalysisErrorLogged: boolean = false;
 
+// Fallback base URL for remote-hosted models. You can override by setting
+// `MODEL_BASE_URL` at build-time or replacing this string with your CDN URL.
+const REMOTE_MODEL_BASE = 'https://raw.githubusercontent.com/albertfast/radar_tinder/master/assets/models';
+
 export class AIService {
   private static softmax(logits: Float32Array): Float32Array {
     const expValues = new Float32Array(logits.length);
@@ -193,8 +197,19 @@ export class AIService {
       ocrSession = await InferenceSession.create(modelPath);
       return ocrSession;
     } catch (error) {
-      console.error('Error loading OCR model:', error);
-      throw new Error('Failed to load OCR model');
+      console.error('Error loading OCR model from bundled asset:', error);
+      // Attempt fallback to remote model URL
+      try {
+        const remoteUrl = `${REMOTE_MODEL_BASE}/digital_ocr_net.onnx`;
+        const remotePath = `${FileSystem.cacheDirectory}digital_ocr_net.onnx`;
+        console.warn('Attempting to download OCR model from remote URL:', remoteUrl);
+        await FileSystem.downloadAsync(remoteUrl, remotePath);
+        ocrSession = await InferenceSession.create(remotePath);
+        return ocrSession;
+      } catch (remoteError) {
+        console.error('Error loading OCR model from remote URL:', remoteError);
+        throw new Error('Failed to load OCR model');
+      }
     }
   }
 
@@ -252,12 +267,26 @@ export class AIService {
         dashboardModelFailed = false;
         return dashboardSession;
       } catch (error) {
-        console.error('Dashboard model load failed:', error);
+        console.error('Dashboard model load failed from bundled asset:', error);
         // If the cached file is corrupted/truncated, delete it once and let the next run re-download.
         try {
           await FileSystem.deleteAsync(modelPath, { idempotent: true });
         } catch (e) {}
-        throw new Error('Failed to load dashboard model');
+
+        // Try remote fallback
+        try {
+          const remoteUrl = `${REMOTE_MODEL_BASE}/dashboard_net.onnx`;
+          const remotePath = `${FileSystem.cacheDirectory}dashboard_net.onnx`;
+          console.warn('Attempting to download dashboard model from remote URL:', remoteUrl);
+          await FileSystem.downloadAsync(remoteUrl, remotePath);
+          await this.ensureDashboardSidecar(remotePath);
+          dashboardSession = await InferenceSession.create(remotePath);
+          dashboardModelFailed = false;
+          return dashboardSession;
+        } catch (remoteErr) {
+          console.error('Dashboard model load failed from remote URL:', remoteErr);
+          throw new Error('Failed to load dashboard model');
+        }
       }
     })()
       .catch((error) => {

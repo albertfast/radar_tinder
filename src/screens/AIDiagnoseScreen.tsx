@@ -31,12 +31,12 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
         const ok = await AIService.preloadModels();
         if (isMounted) {
           setModelReady(ok);
-          setModelError(ok ? null : 'AI modeli indirilemedi. İnternet bağlantısını kontrol edin ve tekrar deneyin.');
+          setModelError(ok ? null : 'AI model could not be downloaded. Check your internet connection and try again.');
         }
       } catch (error) {
         console.error('AI preload failed', error);
         if (isMounted) {
-          setModelError('AI modeli hazırlanamadı. Uygulamayı yeniden başlatıp tekrar deneyin.');
+          setModelError('AI model could not be prepared. Please restart the app and try again.');
         }
       }
     })();
@@ -153,9 +153,9 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
 
       const issueLabel = (result.issue || '').toLowerCase();
       if (result.category === 'Error' || issueLabel.includes('fail')) {
-        const message = 'AI modeli şu anda açılamıyor. İnternet bağlantınızı ve cihaz depolama alanını kontrol ederek tekrar deneyin.';
+        const message = 'AI model cannot be loaded right now. Please check your internet connection and device storage and try again.';
         setModelError(message);
-        Alert.alert('Model yüklenemedi', message);
+        Alert.alert('Model failed to load', message);
         return;
       }
       setModelReady(true);
