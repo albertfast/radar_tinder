@@ -17,9 +17,9 @@ const CustomDrawerContent = (props: any) => {
   const { user, logout } = useAuthStore();
 
   const menuItems = [
-    { icon: 'radar', label: 'Radar Map', screen: 'RadarMain', color: '#FF5252' },
-    { icon: 'car-cog', label: 'AI Diagnosis', screen: 'AIDiagnose', color: '#4ECDC4' },
-    { icon: 'trophy-outline', label: 'Leaderboard', screen: 'Leaderboard', color: '#FFD700' },
+    { icon: 'radar', label: 'Radar Map', screen: 'Home', color: '#FF5252' },
+    { icon: 'car-cog', label: 'AI Diagnosis', screen: 'Diagnose', color: '#4ECDC4' },
+    { icon: 'trophy-outline', label: 'Leaderboard', screen: 'Home', params: { screen: 'Leaderboard' }, color: '#FFD700' },
   ];
 
   const secondaryItems = [
@@ -27,16 +27,8 @@ const CustomDrawerContent = (props: any) => {
     { icon: 'help-circle-outline', label: 'Support', action: () => Alert.alert('Support', 'Support is coming soon.') },
   ];
 
-  const handleNavigate = (screen: string) => {
-    const map: Record<string, any> = {
-      RadarMain: { screen: 'Home' },
-      AIDiagnose: { screen: 'Diagnose' },
-      Leaderboard: { screen: 'Home', params: { screen: 'Leaderboard' } },
-      Settings: { screen: 'Home', params: { screen: 'Settings' } },
-      Profile: { screen: 'Profile' },
-    };
-    const target = map[screen] || { screen: 'Home' };
-    props.navigation.navigate('MainTabs', target);
+  const handleNavigate = (screen: string, params?: any) => {
+    props.navigation.navigate('MainTabs', { screen, params });
   };
 
   return (

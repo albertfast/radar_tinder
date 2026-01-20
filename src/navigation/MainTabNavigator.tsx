@@ -7,15 +7,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import RadarNavigator from './RadarNavigator';
-import MapScreen from '../screens/MapScreen';
 import ProfileNavigator from './ProfileNavigator';
 import AIDiagnoseScreen from '../screens/AIDiagnoseScreen';
+import HistoryScreen from '../screens/HistoryScreen';
 
 export type MainTabParamList = {
-  Home: undefined;
-  Map: undefined;
-  Drive: undefined;
+  Home: { forceTab?: string } | undefined;
+  Navigate: { forceTab?: string } | undefined;
+  Drive: { forceTab?: string } | undefined;
   Diagnose: undefined;
+  History: undefined;
   Profile: undefined;
 };
 
@@ -23,9 +24,10 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 const TAB_ICONS: Record<keyof MainTabParamList, any> = {
   Home: 'home-variant',
-  Map: 'map-marker-radius',
+  Navigate: 'map-marker-radius',
   Drive: 'radar',
   Diagnose: 'car-wrench',
+  History: 'car-multiple',
   Profile: 'account-circle',
 };
 
@@ -103,18 +105,25 @@ const MainTabNavigator = () => {
       />
 
       <Tab.Screen
-        name="Map"
-        component={MapScreen}
+        name="Navigate"
+        component={RadarNavigator}
+        initialParams={{ forceTab: 'Map' }}
       />
 
       <Tab.Screen
         name="Drive"
         component={RadarNavigator}
+        initialParams={{ forceTab: 'Map' }}
       />
 
       <Tab.Screen
         name="Diagnose"
         component={AIDiagnoseScreen}
+      />
+
+      <Tab.Screen
+        name="History"
+        component={HistoryScreen}
       />
 
       <Tab.Screen

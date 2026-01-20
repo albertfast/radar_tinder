@@ -36,11 +36,9 @@ import AdBanner from '../components/AdBanner';
 import { AdService } from '../services/AdService';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { RadarHeader } from './components/RadarHeader';
-import { RadarBasicView } from './components/RadarBasicView';
-import { RadarMapView } from './components/RadarMapViewComponent';
-import { RadarGraphicView } from './components/RadarGraphicView';
 import { RadarAnimation } from '../components/RadarAnimation';
 import RadarMap from '../components/RadarMap';
+import { RadarGraphicView } from './components/RadarGraphicView';
 import { ANIMATION_TIMING } from '../utils/animationConstants';
 
 const { width, height } = Dimensions.get('window');
@@ -144,6 +142,15 @@ const RadarScreen = ({ navigation, route }: any) => {
   // Refs for cleanup
   const lastPositionRef = useRef<any>(null);
 
+  // Force map tab when navigation params request it
+  useEffect(() => {
+    if (route?.params?.forceTab === 'Map') {
+      setActiveTab('Map');
+      setIsDriving(true);
+      navigation.setParams?.({ forceTab: undefined });
+    }
+  }, [route?.params?.forceTab]);
+
   const activeAlert = useMemo(() => {
     const unacknowledged = activeAlerts.filter((alert) => !alert.acknowledged);
     return unacknowledged.sort((a, b) => a.distance - b.distance)[0];
@@ -163,7 +170,11 @@ const RadarScreen = ({ navigation, route }: any) => {
         let next = proSliderIndex + 1;
         if (next >= PRO_FEATURES.length) next = 0;
         setProSliderIndex(next);
-        proSliderRef.current?.scrollToIndex({ index: next, animated: true });
+        proSliderRef.current?.scrollToIndex({
+          index: next,
+          animated: true,
+          viewPosition: 0.5,
+        });
     }, 4000);
     return () => clearInterval(interval);
   }, [proSliderIndex, isDriving]);
@@ -382,6 +393,7 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   const toggleDrivingMode = async () => {
     if (!isDriving) {
+        setActiveTab('Basic');
         setDrivingStartTime(new Date());
         setTotalDistance(0);
         setIsMuted(true);
@@ -696,22 +708,9 @@ const RadarScreen = ({ navigation, route }: any) => {
                   <IconButton icon="chevron-down" iconColor="#fff" size={32} onPress={toggleDrivingMode} />
                   <View style={{alignItems: 'center'}}>
                       <Text style={styles.drivingModeTitle}>DRIVING MODE</Text>
-                      <Text style={styles.drivingModeSub}>{activeTab.toUpperCase()}</Text>
+                      <Text style={styles.drivingModeSub}>MAP</Text>
                   </View>
                   <IconButton icon="cog" iconColor="#fff" onPress={() => navigation.navigate('RadarSettings')} />
-              </View>
-
-              {/* Tabs */}
-              <View style={styles.tabBar}>
-                  {(['Basic', 'Map', 'Graphic'] as TabType[]).map(t => (
-                      <TouchableOpacity 
-                        key={t} 
-                        style={[styles.tabItem, activeTab === t && styles.activeTabItem]}
-                        onPress={() => setActiveTab(t)}
-                      >
-                          <Text style={[styles.tabText, activeTab === t && { color: '#FF5252' }]}>{t}</Text>
-                      </TouchableOpacity>
-                  ))}
               </View>
 
               {activeAlert ? (
@@ -733,10 +732,22 @@ const RadarScreen = ({ navigation, route }: any) => {
                   </View>
               ) : null}
 
+              {/* Tabs */}
+              <View style={styles.tabBar}>
+                  {(['Basic', 'Map', 'Graphic'] as TabType[]).map(t => (
+                      <TouchableOpacity 
+                        key={t} 
+                        style={[styles.tabItem, activeTab === t && styles.activeTabItem]}
+                        onPress={() => setActiveTab(t)}
+                      >
+                          <Text style={[styles.tabText, activeTab === t && { color: '#FF5252' }]}>{t}</Text>
+                      </TouchableOpacity>
+                  ))}
+              </View>
+
               <View style={{ flex: 1 }}>
                   {activeTab === 'Basic' && (
                       <View style={styles.basicContainer}>
-                          {/* HUD Speedometer */}
                           <View style={styles.hudCircle}>
                               <Text style={styles.speedText}>{formatSpeed(currentSpeed, unitSystem).split(' ')[0]}</Text>
                               <Text style={styles.unitText}>{formatSpeed(currentSpeed, unitSystem).split(' ')[1]}</Text>
@@ -744,7 +755,6 @@ const RadarScreen = ({ navigation, route }: any) => {
                               <View style={[styles.ring, { width: 230, height: 230, borderColor: 'rgba(78,205,196,0.3)', borderWidth: 1 }]} />
                           </View>
 
-                          {/* Live Alerts List */}
                           <View style={styles.alertsList}>
                               <Text style={styles.sectionHeader}>NEARBY RADARS</Text>
                               {nearbyRadars.length > 0 ? (
@@ -766,7 +776,6 @@ const RadarScreen = ({ navigation, route }: any) => {
                               )}
                           </View>
 
-                          {/* Ad Banner at bottom of Basic Tab */}
                           <View style={{ marginTop: 'auto', paddingVertical: 15, alignItems: 'center', width: '100%' }}>
                                <AdBanner />
                           </View>
@@ -789,8 +798,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                   }
                                 }}
                             />
-                            {/* Map Overlay Controls */}
-                           <View style={styles.mapOverlay}>
+                            <View style={styles.mapOverlay}>
                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
                                        <View style={{flex: 1}}>
                                             <TextInput 
@@ -810,7 +818,6 @@ const RadarScreen = ({ navigation, route }: any) => {
                                            <Text style={{color: 'black', fontWeight: 'bold'}}>GO</Text>
                                        </TouchableOpacity>
 
-                                       {/* Clear/Exit Button */}
                                       {(destination.length > 0 || isDriving) && (
                                             <TouchableOpacity 
                                                 style={[styles.iconBtn, { backgroundColor: '#FF5252', padding: 12 }]} 
@@ -824,9 +831,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                     setCurrentStepIndex(0);
                                                     setIsDriving(false);
                                                     setActiveTab('Basic');
-                                                    // Also clear focused radars
                                                     setNearbyRadars([]); 
-                                                    // Trigger refetch of nearby
                                                     if (currentLocation) {
                                                       RadarService.getNearbyRadars(currentLocation.latitude, currentLocation.longitude, 10).then(setNearbyRadars);
                                                     }
@@ -843,8 +848,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                            <MaterialCommunityIcons name="crosshairs-gps" size={24} color="#4ECDC4" />
                                        </TouchableOpacity>
                                    </View>
-                                  
-                                   {/* Suggestions Dropdown */}
+                                   
                                    {suggestions.length > 0 && (
                                        <View style={styles.suggestionsContainer}>
                                            {suggestions.map((item) => (
@@ -884,11 +888,10 @@ const RadarScreen = ({ navigation, route }: any) => {
                                         </LinearGradient>
                                       </TouchableOpacity>
                                   )}
-                                   
-                                   {/* Turn by Turn Top Bar overlay */}
-                                   {routeCoords.length > 0 && (
-                                       <View style={styles.navInstructionBox}>
-                                            <MaterialCommunityIcons
+                                    
+                                    {routeCoords.length > 0 && (
+                                        <View style={styles.navInstructionBox}>
+                                             <MaterialCommunityIcons
                                               name={getManeuverIcon(navSteps[currentStepIndex]?.maneuver)}
                                               size={32}
                                               color="white"
@@ -901,8 +904,8 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                   {navSteps[currentStepIndex]?.instruction || 'Follow the highlighted route'}
                                                 </Text>
                                             </View>
-                                       </View>
-                                   )}
+                                        </View>
+                                    )}
                            </View>
                       </View>
                   )}
@@ -979,8 +982,43 @@ const RadarScreen = ({ navigation, route }: any) => {
           </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-          <View style={styles.heroCard}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false} scrollEnabled={false}>
+          {/* Pro perks moved up */}
+          <View style={styles.sliderContainer}>
+              <LinearGradient
+                colors={['#111827', '#0B1224']}
+                style={styles.sliderGradient}
+              >
+                  <FlatList
+                    ref={proSliderRef}
+                    data={PRO_FEATURES}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    getItemLayout={(_, index) => ({
+                      length: width - 40,
+                      offset: (width - 40) * index,
+                      index,
+                    })}
+                    onScrollToIndexFailed={({ index }) => {
+                      proSliderRef.current?.scrollToOffset({
+                        offset: (width - 40) * Math.max(0, Math.min(index, PRO_FEATURES.length - 1)),
+                        animated: true,
+                      });
+                    }}
+                    renderItem={({ item }) => <ProSlideItem item={item} />}
+                    keyExtractor={(item) => item.title}
+                  />
+                  {/* Pagination Dots */}
+                  <View style={styles.pager}>
+                      {PRO_FEATURES.map((_, i) => (
+                          <View key={i} style={[styles.dot, i === proSliderIndex ? { backgroundColor: '#4ECDC4', width: 16 } : {}]} />
+                      ))}
+                  </View>
+              </LinearGradient>
+          </View>
+
+          <View style={[styles.heroCard, { marginTop: 6, paddingVertical: 14 }]}>
               <LinearGradient
                 colors={['#0B1224', '#08101f']}
                 start={{ x: 0, y: 0 }}
@@ -1059,66 +1097,6 @@ const RadarScreen = ({ navigation, route }: any) => {
               </TouchableOpacity>
           </View>
 
-          <Text style={styles.sectionLabel}>Quick actions</Text>
-          <View style={styles.gridContainer}>
-              <ActionCard 
-                icon="navigation-variant" 
-                title="Navigate" subtitle="Map & Route" 
-                tag="Live" 
-                accent="#38BDF8"
-                gradientColors={['#0c1b2f', '#0a1224']}
-                onPress={() => { setIsDriving(true); setActiveTab('Map'); }} 
-              />
-              <ActionCard 
-                icon="car-wrench" 
-                title="AI Diagnose" subtitle="Car Issues" 
-                tag="AI"
-                accent="#A78BFA"
-                gradientColors={['#1b102b', '#120b1d']}
-                onPress={() => navigation.navigate('AIDiagnose')} 
-              />
-              <ActionCard 
-                icon="card-text-outline" 
-                title="Permit Test" subtitle="Practice" 
-                tag="Prep"
-                accent="#F59E0B"
-                gradientColors={['#29170b', '#1b1209']}
-                onPress={() => navigation.navigate('PermitTest')} 
-              />
-              <ActionCard 
-                icon="chart-timeline-variant" 
-                title="History" subtitle="Past Trips" 
-                tag="Trips"
-                accent="#34D399"
-                gradientColors={['#0d1f19', '#0b1512']}
-                onPress={() => navigation.navigate('History')} 
-              />
-          </View>
-
-          <Text style={styles.sectionLabel}>Pro perks</Text>
-          <View style={styles.sliderContainer}>
-              <LinearGradient
-                colors={['#111827', '#0B1224']}
-                style={styles.sliderGradient}
-              >
-                  <FlatList
-                    ref={proSliderRef}
-                    data={PRO_FEATURES}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    renderItem={({ item }) => <ProSlideItem item={item} />}
-                    keyExtractor={(item) => item.title}
-                  />
-                  {/* Pagination Dots */}
-                  <View style={styles.pager}>
-                      {PRO_FEATURES.map((_, i) => (
-                          <View key={i} style={[styles.dot, i === proSliderIndex ? { backgroundColor: '#4ECDC4', width: 16 } : {}]} />
-                      ))}
-                  </View>
-              </LinearGradient>
-          </View>
-
       </ScrollView>
     </View>
   );
@@ -1134,27 +1112,27 @@ const styles = StyleSheet.create({
   iconBtn: { padding: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
 
   // Hero
-  heroCard: { marginHorizontal: 20, marginTop: 10, marginBottom: 16, borderRadius: 28, overflow: 'hidden', padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(12,18,32,0.9)' },
-  heroGlowPrimary: { position: 'absolute', width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(78,205,196,0.18)', top: -60, right: -40 },
-  heroGlowSecondary: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255,82,82,0.08)', bottom: -70, left: -40 },
+  heroCard: { marginHorizontal: 16, marginTop: 6, marginBottom: 10, borderRadius: 22, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(12,18,32,0.92)' },
+  heroGlowPrimary: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(78,205,196,0.18)', top: -50, right: -30 },
+  heroGlowSecondary: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(255,82,82,0.08)', bottom: -60, left: -30 },
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   heroEyebrow: { color: '#38BDF8', fontSize: 12, letterSpacing: 1, fontWeight: '700', textTransform: 'uppercase' },
   heroTitle: { color: '#F8FAFC', fontSize: 24, fontWeight: '900', letterSpacing: 0.5, marginTop: 4 },
   heroBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#4ECDC4', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, gap: 6, shadowColor: '#4ECDC4', shadowOpacity: 0.4, shadowRadius: 10, elevation: 4 },
   heroBadgeText: { color: '#0B1424', fontWeight: '900', letterSpacing: 0.5 },
-  radarShell: { alignItems: 'center', justifyContent: 'center', marginTop: 2, marginBottom: 12 },
-  radarAura: { position: 'absolute', width: width * 0.9, height: width * 0.9, borderRadius: width * 0.45, backgroundColor: 'rgba(78,205,196,0.05)' },
+  radarShell: { alignItems: 'center', justifyContent: 'center', marginTop: 0, marginBottom: 8 },
+  radarAura: { position: 'absolute', width: width * 0.7, height: width * 0.7, borderRadius: width * 0.35, backgroundColor: 'rgba(78,205,196,0.05)' },
   radarChip: { position: 'absolute', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: 'rgba(2,6,23,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   radarChipLeft: { top: 22, left: 22 },
   radarChipRight: { top: 22, right: 22 },
   radarChipText: { color: '#E2E8F0', marginLeft: 8, fontWeight: '600', fontSize: 12 },
-  statRow: { flexDirection: 'row', gap: 10, marginTop: 6 },
-  statCard: { flex: 1, padding: 12, borderRadius: 14, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.03)' },
+  statRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  statCard: { flex: 1, padding: 10, borderRadius: 12, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.03)' },
   statIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   statLabel: { color: '#94A3B8', fontSize: 11, letterSpacing: 0.4 },
   statValue: { color: '#F8FAFC', fontWeight: '800', fontSize: 16 },
-  startButton: { marginTop: 16, borderRadius: 18, overflow: 'hidden', shadowColor: '#FF5252', shadowRadius: 16, shadowOpacity: 0.45, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
-  startButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 16, borderRadius: 18 },
+  startButton: { marginTop: 10, borderRadius: 18, overflow: 'hidden', shadowColor: '#FF5252', shadowRadius: 16, shadowOpacity: 0.45, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
+  startButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 18 },
   startText: { color: '#FFFFFF', fontWeight: '900', fontSize: 18, letterSpacing: 0.6 },
   startSubtext: { color: '#F8FAFC', opacity: 0.8, fontSize: 12, marginTop: 4 },
   startBadge: { width: 42, height: 42, borderRadius: 12, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center' },
@@ -1172,11 +1150,15 @@ const styles = StyleSheet.create({
   actionSubtitle: { color: '#94A3B8', fontSize: 12, marginTop: 2 },
 
   // Pro Slider
-  sliderContainer: { marginHorizontal: 20, marginTop: 10, marginBottom: 30, borderRadius: 20, overflow: 'hidden' },
-  sliderGradient: { paddingVertical: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  sliderContainer: { marginHorizontal: 16, marginTop: 0, marginBottom: 10, borderRadius: 18, overflow: 'hidden' },
+  sliderGradient: { paddingVertical: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   proIconBox: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   pager: { flexDirection: 'row', justifyContent: 'center', marginTop: 15, gap: 6 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#334155' },
+  vehicleCard: { marginHorizontal: 16, marginTop: 6, marginBottom: 10, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(12,18,32,0.9)' },
+  vehicleIcon: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(78,205,196,0.15)' },
+  vehicleTitle: { color: '#E2E8F0', fontWeight: '800', fontSize: 15 },
+  vehicleSubtitle: { color: '#94A3B8', fontSize: 12 },
 
   // Driving Mode
   drivingHeader: { paddingTop: 50, paddingBottom: 10, paddingHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#000' },
