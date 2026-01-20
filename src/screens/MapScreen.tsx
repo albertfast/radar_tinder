@@ -181,6 +181,7 @@ const styles = StyleSheet.create({
     height: 50,
     borderWidth: 1,
     borderColor: '#333',
+    minHeight: 50,
   },
   searchInput: {
     flex: 1,
@@ -210,6 +211,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#333',
+    minHeight: 50,
+    minWidth: 50,
   }
 });
 

@@ -1,17 +1,30 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
 import { Text, Surface } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const MOCK_HISTORY = [
-    { id: '1', date: 'Today, 10:23 AM', distance: '12.4 km', duration: '24m', score: 98, from: 'Home', to: 'Work' },
-    { id: '2', date: 'Yesterday, 6:15 PM', distance: '12.8 km', duration: '32m', score: 85, from: 'Work', to: 'Home' },
-    { id: '3', date: 'Aug 24, 2:00 PM', distance: '45.2 km', duration: '55m', score: 92, from: 'Downtown', to: 'Airport' },
-    { id: '4', date: 'Aug 23, 9:00 AM', distance: '5.1 km', duration: '12m', score: 100, from: 'Home', to: 'Gym' },
-];
+import { SupabaseService } from '../services/SupabaseService';
 
 const HistoryScreen = ({ navigation }: any) => {
+  const [trips, setTrips] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadTrips();
+  }, []);
+
+  const loadTrips = async () => {
+    try {
+      setLoading(true);
+      const data = await SupabaseService.getUserTrips();
+      setTrips(data || []);
+    } catch (error) {
+      console.error('Failed to load trips:', error);
+      setTrips([]);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#0F172A', '#020617']} style={StyleSheet.absoluteFill} />
@@ -27,15 +40,24 @@ const HistoryScreen = ({ navigation }: any) => {
       </View>
 
       <FlatList
-        data={MOCK_HISTORY}
+        data={trips}
         keyExtractor={item => item.id}
         contentContainerStyle={{ padding: 20 }}
+        ListEmptyComponent={
+          loading ? (
+            <View style={{ alignItems: 'center', paddingTop: 40 }}>
+              <ActivityIndicator size="large" color="#4ECDC4" />
+            </View>
+          ) : (
+            <Text style={{ color: '#94A3B8', textAlign: 'center', paddingTop: 40 }}>No trips yet</Text>
+          )
+        }
         renderItem={({ item }) => (
             <Surface style={styles.tripCard}>
                 <View style={styles.tripHeader}>
-                    <Text style={styles.dateText}>{item.date}</Text>
-                    <View style={[styles.scoreBadge, { backgroundColor: item.score > 90 ? '#10B981' : '#F59E0B' }]}>
-                        <Text style={styles.scoreText}>{item.score}</Text>
+                    <Text style={styles.dateText}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                    <View style={[styles.scoreBadge, { backgroundColor: (item.score || 0) > 90 ? '#10B981' : '#F59E0B' }]}>
+                        <Text style={styles.scoreText}>{item.score || 0}</Text>
                     </View>
                 </View>
 
@@ -46,19 +68,19 @@ const HistoryScreen = ({ navigation }: any) => {
                         <View style={[styles.dot, { backgroundColor: '#4ECDC4' }]} />
                     </View>
                     <View style={styles.locCol}>
-                        <Text style={styles.locText}>{item.from}</Text>
-                        <Text style={[styles.locText, { marginTop: 22 }]}>{item.to}</Text>
+                        <Text style={styles.locText}>{item.startLocation || 'Start'}</Text>
+                        <Text style={[styles.locText, { marginTop: 22 }]}>{item.endLocation || 'End'}</Text>
                     </View>
                 </View>
 
                 <View style={styles.statsRow}>
                     <View style={styles.stat}>
                         <MaterialCommunityIcons name="map-marker-distance" size={16} color="#94A3B8" />
-                        <Text style={styles.statText}>{item.distance}</Text>
+                        <Text style={styles.statText}>{((item.distance || 0) / 1000).toFixed(1)} km</Text>
                     </View>
                     <View style={styles.stat}>
                         <MaterialCommunityIcons name="clock-outline" size={16} color="#94A3B8" />
-                        <Text style={styles.statText}>{item.duration}</Text>
+                        <Text style={styles.statText}>{Math.round((item.duration || 0) / 60)}m</Text>
                     </View>
                     <TouchableOpacity style={styles.detailsBtn}>
                         <Text style={styles.detailsText}>Details</Text>

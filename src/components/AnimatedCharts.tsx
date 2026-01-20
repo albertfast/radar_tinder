@@ -278,11 +278,8 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    shadowColor: '#4ECDC4',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
     elevation: 3,
+    backgroundColor: '#4ECDC4',
   },
   labelsContainer: {
     flexDirection: 'row',

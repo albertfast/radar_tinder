@@ -1097,6 +1097,26 @@ const RadarScreen = ({ navigation, route }: any) => {
               </TouchableOpacity>
           </View>
 
+          {/* Action Cards Section */}
+          <Text style={styles.sectionLabel}>QUICK ACCESS</Text>
+          <View style={styles.gridContainer}>
+              <ActionCard 
+                  icon="book-open-variant"
+                  title="Permit Test"
+                  subtitle="Practice driver's license exam"
+                  tag="NEW"
+                  accent="#4ECDC4"
+                  onPress={() => navigation.navigate('PermitTest')}
+              />
+              <ActionCard 
+                  icon="car-cog"
+                  title="AI Diagnosis"
+                  subtitle="Scan your dashboard warnings"
+                  accent="#FF6B6B"
+                  onPress={() => navigation.navigate('AIDiagnose')}
+              />
+          </View>
+
       </ScrollView>
     </View>
   );

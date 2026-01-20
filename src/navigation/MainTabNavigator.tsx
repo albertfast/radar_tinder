@@ -113,7 +113,7 @@ const MainTabNavigator = () => {
       <Tab.Screen
         name="Drive"
         component={RadarNavigator}
-        initialParams={{ forceTab: 'Map' }}
+        initialParams={{ forceTab: 'Graphic' }}
       />
 
       <Tab.Screen

@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ANIMATION_TIMING, STAGGER_DELAYS } from '../../utils/animationConstants';
 import { BarChart, LineChart, StatCard } from '../../components/AnimatedCharts';
+import { SupabaseService } from '../../services/SupabaseService';
 
 const { width } = Dimensions.get('window');
 
@@ -22,7 +23,7 @@ interface RadarGraphicViewProps {
   unitSystem: 'metric' | 'imperial';
 }
 
-// Mock data for dashboard
+// Mock data for dashboard - fallback
 const weeklyTripsData = [
   { day: 'Mon', trips: 3, distance: 45.2 },
   { day: 'Tue', trips: 5, distance: 62.8 },
@@ -99,6 +100,59 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   currentSpeed,
   unitSystem,
 }) => {
+  const [weeklyData, setWeeklyData] = useState(weeklyTripsData);
+  const [speedData, setSpeedData] = useState(speedHistoryData);
+  const [recentAlerts, setRecentAlerts] = useState(recentActivities);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  // Load real data from Supabase
+  useEffect(() => {
+    loadDrivingData();
+  }, []);
+
+  const loadDrivingData = async () => {
+    try {
+      setDataLoading(true);
+      
+      // Load user's weekly trip statistics
+      const trips = await SupabaseService.getUserTrips();
+      if (trips && trips.length > 0) {
+        // Group trips by day of week
+        const dayMap: { [key: string]: { trips: number; distance: number } } = {};
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        
+        days.forEach(day => {
+          dayMap[day] = { trips: 0, distance: 0 };
+        });
+
+        trips.forEach((trip: any) => {
+          const date = new Date(trip.createdAt);
+          const dayName = days[date.getDay()];
+          if (dayMap[dayName]) {
+            dayMap[dayName].trips += 1;
+            dayMap[dayName].distance += (trip.distance || 0) / 1000; // Convert to km
+          }
+        });
+
+        const newWeeklyData = days.map(day => ({
+          day,
+          trips: dayMap[day].trips,
+          distance: dayMap[day].distance,
+        }));
+        setWeeklyData(newWeeklyData);
+      }
+
+      // Load recent radar alerts/incidents if available
+      // Note: This assumes you have a method to fetch recent radar incidents
+      // For now, using mock data
+      
+      setDataLoading(false);
+    } catch (error) {
+      console.error('Failed to load driving data:', error);
+      setDataLoading(false);
+      // Keep using mock data on error
+    }
+  };
   const formatDistance = (km: number) => {
     if (unitSystem === 'imperial') {
       const miles = km * 0.621371;
@@ -117,15 +171,15 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   };
 
   const weeklyStats = {
-    totalDistance: weeklyTripsData.reduce((acc, d) => acc + d.distance, 0),
-    totalTrips: weeklyTripsData.reduce((acc, d) => acc + d.trips, 0),
-    avgSpeed: Math.round(speedHistoryData.reduce((acc, d) => acc + d.speed, 0) / speedHistoryData.length),
+    totalDistance: weeklyData.reduce((acc, d) => acc + d.distance, 0),
+    totalTrips: weeklyData.reduce((acc, d) => acc + d.trips, 0),
+    avgSpeed: Math.round(speedData.reduce((acc, d) => acc + d.speed, 0) / speedData.length),
   };
 
   const speedSummary = {
-    average: Math.round(speedHistoryData.reduce((acc, d) => acc + d.speed, 0) / speedHistoryData.length),
-    peak: Math.max(...speedHistoryData.map(d => d.speed)),
-    stability: Math.max(0, 100 - (Math.max(...speedHistoryData.map(d => d.speed)) - Math.min(...speedHistoryData.map(d => d.speed)))),
+    average: Math.round(speedData.reduce((acc, d) => acc + d.speed, 0) / speedData.length),
+    peak: Math.max(...speedData.map(d => d.speed)),
+    stability: Math.max(0, 100 - (Math.max(...speedData.map(d => d.speed)) - Math.min(...speedData.map(d => d.speed)))),
   };
 
   const displayDistance = formatDistance(weeklyStats.totalDistance);
@@ -175,10 +229,10 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             <Text style={styles.sectionTitle}>Weekly Trips</Text>
           </View>
           <BarChart
-            data={weeklyTripsData.map(d => ({ 
+            data={weeklyData.map(d => ({ 
               label: d.day, 
               value: d.trips,
-              color: ['#FF6B6B', '#FFA500', '#FFD700', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'][weeklyTripsData.indexOf(d)]
+              color: ['#FF6B6B', '#FFA500', '#FFD700', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'][weeklyData.indexOf(d)]
             }))}
             height={180}
             maxValue={7}
@@ -226,8 +280,8 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             </View>
           </View>
           <LineChart
-            data={speedHistoryData.map(d => d.speed)}
-            labels={speedHistoryData.map(d => d.time)}
+            data={speedData.map(d => d.speed)}
+            labels={speedData.map(d => d.time)}
             height={160}
             maxValue={100}
             color="#45B7D1"
@@ -295,7 +349,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             <Text style={styles.sectionTitle}>Recent Activities</Text>
           </View>
           <View>
-            {recentActivities.map((activity, idx) => (
+            {recentAlerts.map((activity, idx) => (
               <Animated.View
                 key={activity.id}
                 entering={FadeInDown.delay(420 + idx * 50).duration(ANIMATION_TIMING.BASE)}

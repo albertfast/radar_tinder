@@ -298,6 +298,7 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 20,
     elevation: 2,
+    minHeight: 100,
   },
   cardTitle: {
     fontSize: 18,
@@ -327,6 +328,7 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 20,
     elevation: 2,
+    minHeight: 150,
   },
   typeGrid: {
     flexDirection: 'row',
@@ -351,6 +353,7 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 20,
     elevation: 2,
+    minHeight: 180,
   },
   input: {
     height: 50,
