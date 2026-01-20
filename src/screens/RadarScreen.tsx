@@ -142,11 +142,16 @@ const RadarScreen = ({ navigation, route }: any) => {
   // Refs for cleanup
   const lastPositionRef = useRef<any>(null);
 
-  // Force map tab when navigation params request it
+  // Force tab when navigation params request it
   useEffect(() => {
-    if (route?.params?.forceTab === 'Map') {
-      setActiveTab('Map');
+    const forceTab = route?.params?.forceTab as TabType | undefined;
+    if (forceTab === 'Map' || forceTab === 'Graphic') {
+      setActiveTab(forceTab);
       setIsDriving(true);
+      navigation.setParams?.({ forceTab: undefined });
+    } else if (forceTab === 'Basic') {
+      setActiveTab('Basic');
+      setIsDriving(false);
       navigation.setParams?.({ forceTab: undefined });
     }
   }, [route?.params?.forceTab]);
