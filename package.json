@@ -12,6 +12,7 @@
     "@dataconnect/generated": "link:src/dataconnect-generated",
     "@expo/config-plugins": "^54.0.4",
     "@expo/vector-icons": "^14.0.3",
+    "@react-native/assets-registry": "^0.74.0",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-firebase/analytics": "^20.5.0",
     "@react-native-firebase/app": "^20.5.0",
