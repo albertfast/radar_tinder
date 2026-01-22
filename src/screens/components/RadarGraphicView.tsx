@@ -1,20 +1,17 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ANIMATION_TIMING, STAGGER_DELAYS } from '../../utils/animationConstants';
 import { BarChart, LineChart, StatCard } from '../../components/AnimatedCharts';
 import { SupabaseService } from '../../services/SupabaseService';
-
-const { width } = Dimensions.get('window');
-
-interface TripStatsData {
-  distance: number;
-  duration: number;
-  maxSpeed: number;
-}
+import { useAuthStore } from '../../store/authStore';
+import { DatabaseService } from '../../services/DatabaseService';
+import { useRadarStore } from '../../store/radarStore';
+import { useAutoHideTabBar } from '../../hooks/use-auto-hide-tab-bar';
+import { TAB_BAR_HEIGHT } from '../../constants/layout';
 
 interface RadarGraphicViewProps {
   totalDistance: number;
@@ -23,76 +20,16 @@ interface RadarGraphicViewProps {
   unitSystem: 'metric' | 'imperial';
 }
 
-// Mock data for dashboard - fallback
-const weeklyTripsData = [
-  { day: 'Mon', trips: 3, distance: 45.2 },
-  { day: 'Tue', trips: 5, distance: 62.8 },
-  { day: 'Wed', trips: 4, distance: 58.3 },
-  { day: 'Thu', trips: 6, distance: 71.5 },
-  { day: 'Fri', trips: 7, distance: 89.2 },
-  { day: 'Sat', trips: 2, distance: 32.1 },
-  { day: 'Sun', trips: 4, distance: 55.6 },
+const emptyWeeklyTrips = [
+  { day: 'Sun', trips: 0, distance: 0 },
+  { day: 'Mon', trips: 0, distance: 0 },
+  { day: 'Tue', trips: 0, distance: 0 },
+  { day: 'Wed', trips: 0, distance: 0 },
+  { day: 'Thu', trips: 0, distance: 0 },
+  { day: 'Fri', trips: 0, distance: 0 },
+  { day: 'Sat', trips: 0, distance: 0 },
 ];
 
-const speedHistoryData = [
-  { time: '09:00', speed: 42 },
-  { time: '10:15', speed: 58 },
-  { time: '11:30', speed: 54 },
-  { time: '12:45', speed: 67 },
-  { time: '14:00', speed: 78 },
-  { time: '15:20', speed: 70 },
-  { time: '16:35', speed: 84 },
-  { time: '17:50', speed: 63 },
-  { time: '19:00', speed: 89 },
-];
-
-const recentActivities = [
-  { 
-    id: '1', 
-    type: 'radar', 
-    title: 'Speed Camera', 
-    location: 'Main St', 
-    time: '2 min ago',
-    icon: 'radar',
-    color: '#FF5252'
-  },
-  { 
-    id: '2', 
-    type: 'accident', 
-    title: 'Accident Report', 
-    location: 'Highway 101', 
-    time: '15 min ago',
-    icon: 'alert-circle',
-    color: '#FFB300'
-  },
-  { 
-    id: '3', 
-    type: 'hazard', 
-    title: 'Road Hazard', 
-    location: 'Downtown Area', 
-    time: '28 min ago',
-    icon: 'alert',
-    color: '#FFA500'
-  },
-  {
-    id: '4',
-    type: 'congestion',
-    title: 'Heavy Traffic',
-    location: 'Riverside Blvd',
-    time: '45 min ago',
-    icon: 'traffic-light',
-    color: '#FF6B6B'
-  },
-  {
-    id: '5',
-    type: 'weather',
-    title: 'Heavy Rain',
-    location: 'Airport Region',
-    time: '1h ago',
-    icon: 'weather-rainy',
-    color: '#4ECDC4'
-  },
-];
 
 export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   totalDistance,
@@ -100,57 +37,168 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   currentSpeed,
   unitSystem,
 }) => {
-  const [weeklyData, setWeeklyData] = useState(weeklyTripsData);
-  const [speedData, setSpeedData] = useState(speedHistoryData);
-  const [recentAlerts, setRecentAlerts] = useState(recentActivities);
-  const [dataLoading, setDataLoading] = useState(true);
+  const { user } = useAuthStore();
+  const activeAlerts = useRadarStore((state) => state.activeAlerts);
+  const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
+  const [weeklyData, setWeeklyData] = useState(emptyWeeklyTrips);
+  const [speedData, setSpeedData] = useState<Array<{ time: string; speed: number }>>([]);
+  const lastSpeedSampleRef = useRef(0);
+  const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
+  const [weeklyDurationSeconds, setWeeklyDurationSeconds] = useState(0);
+  const [weeklyAlertCount, setWeeklyAlertCount] = useState(0);
+  const lastRecentIds = useRef<string>('');
 
   // Load real data from Supabase
   useEffect(() => {
     loadDrivingData();
-  }, []);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (drivingStartTime) {
+      setSpeedData([]);
+      lastSpeedSampleRef.current = 0;
+    }
+  }, [drivingStartTime]);
+
+  useEffect(() => {
+    if (!drivingStartTime) return;
+    const now = Date.now();
+    if (now - lastSpeedSampleRef.current < 5000) return;
+    lastSpeedSampleRef.current = now;
+    const nowDate = new Date();
+    const hh = String(nowDate.getHours()).padStart(2, '0');
+    const mm = String(nowDate.getMinutes()).padStart(2, '0');
+    const timeLabel = `${hh}:${mm}`;
+    const sampleSpeed = Math.max(0, Math.round(currentSpeed));
+    setSpeedData((prev) => {
+      const next = [...prev, { time: timeLabel, speed: sampleSpeed }];
+      return next.slice(-12);
+    });
+  }, [currentSpeed, drivingStartTime]);
 
   const loadDrivingData = async () => {
     try {
-      setDataLoading(true);
       
       // Load user's weekly trip statistics
-      const trips = await SupabaseService.getUserTrips();
-      if (trips && trips.length > 0) {
-        // Group trips by day of week
-        const dayMap: { [key: string]: { trips: number; distance: number } } = {};
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        
-        days.forEach(day => {
-          dayMap[day] = { trips: 0, distance: 0 };
-        });
+      const trips = await SupabaseService.getUserTrips(user?.id);
+      // Group trips by day of week
+      const dayMap: { [key: string]: { trips: number; distance: number } } = {};
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const weekStart = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      let durationSeconds = 0;
+      
+      days.forEach(day => {
+        dayMap[day] = { trips: 0, distance: 0 };
+      });
 
-        trips.forEach((trip: any) => {
-          const date = new Date(trip.createdAt);
-          const dayName = days[date.getDay()];
-          if (dayMap[dayName]) {
-            dayMap[dayName].trips += 1;
-            dayMap[dayName].distance += (trip.distance || 0) / 1000; // Convert to km
-          }
-        });
+      trips.forEach((trip: any) => {
+        const date = trip.createdAt ? new Date(trip.createdAt) : null;
+        if (!date || Number.isNaN(date.getTime())) return;
+        if (date.getTime() < weekStart) return;
+        const dayName = days[date.getDay()];
+        if (dayMap[dayName]) {
+          dayMap[dayName].trips += 1;
+          dayMap[dayName].distance += (trip.distance || 0) / 1000; // Convert to km
+          durationSeconds += Number(trip.duration || 0);
+        }
+      });
 
-        const newWeeklyData = days.map(day => ({
-          day,
-          trips: dayMap[day].trips,
-          distance: dayMap[day].distance,
-        }));
-        setWeeklyData(newWeeklyData);
-      }
+      const newWeeklyData = days.map(day => ({
+        day,
+        trips: dayMap[day].trips,
+        distance: dayMap[day].distance,
+      }));
+      setWeeklyData(newWeeklyData);
+      setWeeklyDurationSeconds(durationSeconds);
 
       // Load recent radar alerts/incidents if available
       // Note: This assumes you have a method to fetch recent radar incidents
       // For now, using mock data
       
-      setDataLoading(false);
     } catch (error) {
       console.error('Failed to load driving data:', error);
-      setDataLoading(false);
       // Keep using mock data on error
+    }
+  };
+
+  const formatTimeAgo = (date?: Date) => {
+    if (!date) return 'Just now';
+    const diffMs = Date.now() - date.getTime();
+    if (diffMs < 60 * 1000) return `${Math.max(1, Math.round(diffMs / 1000))}s ago`;
+    if (diffMs < 60 * 60 * 1000) return `${Math.max(1, Math.round(diffMs / (60 * 1000)))}m ago`;
+    if (diffMs < 24 * 60 * 60 * 1000) return `${Math.max(1, Math.round(diffMs / (60 * 60 * 1000)))}h ago`;
+    const days = Math.round(diffMs / (24 * 60 * 60 * 1000));
+    return `${days}d ago`;
+  };
+
+  const loadRecentActivity = async () => {
+    if (!user?.id) {
+      setRecentAlerts([]);
+      setWeeklyAlertCount(0);
+      return;
+    }
+
+    try {
+      const history = await DatabaseService.getAlerts(user.id);
+      const merged = [...activeAlerts, ...history].reduce((acc: any[], alert: any) => {
+        if (acc.find((item) => item.id === alert.id)) return acc;
+        acc.push(alert);
+        return acc;
+      }, []);
+
+      merged.sort((a: any, b: any) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      });
+
+      const weekStart = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const weeklyAlerts = merged.filter((item: any) => {
+        const created = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+        return created >= weekStart;
+      });
+      setWeeklyAlertCount(weeklyAlerts.length);
+
+      const activities = merged.slice(0, 6).map((alert: any) => {
+        const type = String(alert.type || 'radar');
+        const meta = {
+          speed_camera: { title: 'Speed Camera', icon: 'radar', color: '#FF5252' },
+          police: { title: 'Police Spotted', icon: 'police-badge', color: '#FF6B6B' },
+          mobile: { title: 'Mobile Radar', icon: 'car-wrench', color: '#FFB300' },
+          red_light: { title: 'Red Light Camera', icon: 'traffic-light', color: '#FF8A65' },
+          traffic_enforcement: { title: 'Traffic Enforcement', icon: 'alert-circle', color: '#FFA500' },
+          info: { title: 'Driving Session', icon: 'road-variant', color: '#4ECDC4' },
+        }[type] || { title: 'Radar Alert', icon: 'alert', color: '#FFA500' };
+
+        const distanceLabel =
+          typeof alert.distance === 'number' && Number.isFinite(alert.distance)
+            ? `${formatDistance(alert.distance)} away`
+            : 'Nearby';
+
+        const createdAt = alert.createdAt instanceof Date
+          ? alert.createdAt
+          : alert.createdAt
+            ? new Date(alert.createdAt)
+            : undefined;
+
+        return {
+          id: alert.id,
+          type,
+          title: meta.title,
+          location: distanceLabel,
+          time: formatTimeAgo(createdAt),
+          icon: meta.icon,
+          color: meta.color,
+        };
+      });
+
+      const ids = activities.map((item) => item.id).join('|');
+      if (ids !== lastRecentIds.current) {
+        setRecentAlerts(activities);
+        lastRecentIds.current = ids;
+      }
+    } catch (error) {
+      console.warn('Failed to load recent activity:', error);
     }
   };
   const formatDistance = (km: number) => {
@@ -170,23 +218,53 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
     return `${minutes}m`;
   };
 
+  useEffect(() => {
+    loadRecentActivity();
+  }, [user?.id, activeAlerts.length]);
+
   const weeklyStats = {
     totalDistance: weeklyData.reduce((acc, d) => acc + d.distance, 0),
     totalTrips: weeklyData.reduce((acc, d) => acc + d.trips, 0),
-    avgSpeed: Math.round(speedData.reduce((acc, d) => acc + d.speed, 0) / speedData.length),
+    avgSpeed: speedData.length
+      ? Math.round(speedData.reduce((acc, d) => acc + d.speed, 0) / speedData.length)
+      : 0,
   };
 
+  const weeklyDurationLabel = useMemo(() => {
+    if (!weeklyDurationSeconds) return '0h';
+    const hours = weeklyDurationSeconds / 3600;
+    if (hours < 1) {
+      const mins = Math.max(1, Math.round(weeklyDurationSeconds / 60));
+      return `${mins}m`;
+    }
+    return `${hours.toFixed(1)}h`;
+  }, [weeklyDurationSeconds]);
+
   const speedSummary = {
-    average: Math.round(speedData.reduce((acc, d) => acc + d.speed, 0) / speedData.length),
-    peak: Math.max(...speedData.map(d => d.speed)),
-    stability: Math.max(0, 100 - (Math.max(...speedData.map(d => d.speed)) - Math.min(...speedData.map(d => d.speed)))),
+    average: speedData.length
+      ? Math.round(speedData.reduce((acc, d) => acc + d.speed, 0) / speedData.length)
+      : 0,
+    peak: speedData.length ? Math.max(...speedData.map(d => d.speed)) : 0,
+    stability: speedData.length
+      ? Math.max(0, 100 - (Math.max(...speedData.map(d => d.speed)) - Math.min(...speedData.map(d => d.speed))))
+      : 0,
   };
+
+  const speedSeries = speedData.length ? speedData : [{ time: '--', speed: 0 }];
 
   const displayDistance = formatDistance(weeklyStats.totalDistance);
   const displayAvgSpeed = `${weeklyStats.avgSpeed} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`;
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.containerContent, { paddingBottom: TAB_BAR_HEIGHT + 32 }]}
+      showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      onScrollBeginDrag={onScrollBeginDrag}
+      onScrollEndDrag={onScrollEndDrag}
+      scrollEventThrottle={16}
+    >
       {/* Current Session Stats */}
       <Animated.View
         style={styles.statsGrid}
@@ -280,8 +358,8 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             </View>
           </View>
           <LineChart
-            data={speedData.map(d => d.speed)}
-            labels={speedData.map(d => d.time)}
+            data={speedSeries.map(d => d.speed)}
+            labels={speedSeries.map(d => d.time)}
             height={160}
             maxValue={100}
             color="#45B7D1"
@@ -349,7 +427,9 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             <Text style={styles.sectionTitle}>Recent Activities</Text>
           </View>
           <View>
-            {recentAlerts.map((activity, idx) => (
+            {recentAlerts.length === 0 ? (
+              <Text style={styles.emptyActivityText}>No recent activity yet.</Text>
+            ) : recentAlerts.map((activity, idx) => (
               <Animated.View
                 key={activity.id}
                 entering={FadeInDown.delay(420 + idx * 50).duration(ANIMATION_TIMING.BASE)}
@@ -404,14 +484,14 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             <ActivityStat
               icon="timer"
               label="Total Time"
-              value="18.5h"
+              value={weeklyDurationLabel}
               color="#45B7D1"
               delay={540}
             />
             <ActivityStat
               icon="alert-outline"
               label="Alerts Detected"
-              value="12"
+              value={weeklyAlertCount.toString()}
               color="#FFB300"
               delay={560}
             />
@@ -476,8 +556,10 @@ const ActivityStat = ({ icon, label, value, color, delay }: any) => (
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: '#1a1a1a',
+  },
+  containerContent: {
+    padding: 16,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -594,6 +676,12 @@ const styles = StyleSheet.create({
   activityTime: {
     fontSize: 10,
     color: '#707070',
+  },
+  emptyActivityText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    textAlign: 'center',
+    paddingVertical: 12,
   },
   summaryGrid: {
     flexDirection: 'row',

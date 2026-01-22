@@ -9,6 +9,9 @@ import { useAuthStore } from '../store/authStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
 import { HapticPatterns } from '../utils/hapticFeedback';
+import { SupabaseService } from '../services/SupabaseService';
+import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 const { width } = Dimensions.get('window');
 
@@ -60,6 +63,7 @@ const MenuButton = ({ icon, label, subLabel, onPress, color = 'white', delay = 0
 const ProfileScreen = ({ navigation }: any) => {
   const { user, logout, updateUser } = useAuthStore();
   const { unitSystem } = useSettingsStore();
+  const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [isEditing, setIsEditing] = useState(false);
   const [username, setUsername] = useState(user?.username || user?.name || '');
   
@@ -89,10 +93,18 @@ const ProfileScreen = ({ navigation }: any) => {
     }
   };
 
-  const handleUsernameSave = () => {
+  const handleUsernameSave = async () => {
     const clean = username.trim();
     if (!clean) return;
     updateUser({ username: clean, name: clean, displayName: clean });
+    if (user?.id) {
+      try {
+        await SupabaseService.updateProfile(user.id, {
+          username: clean,
+          display_name: clean,
+        });
+      } catch (error) {}
+    }
   };
 
   return (
@@ -133,7 +145,14 @@ const ProfileScreen = ({ navigation }: any) => {
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + 24 }]}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScrollEndDrag={onScrollEndDrag}
+        scrollEventThrottle={16}
+      >
         
         {/* Profile Card */}
         <Animated.View
@@ -300,13 +319,6 @@ const ProfileScreen = ({ navigation }: any) => {
                 subLabel="Compare with others"
                 color="#FFD700"
                 onPress={() => navigation.navigate('Leaderboard')} 
-             />
-             <MenuButton 
-                icon="palette" 
-                label="Design Kit" 
-                subLabel="UI Components"
-                color="#7DD3FC"
-                onPress={() => navigation.navigate('ComponentsShowcase')} 
              />
              <MenuButton 
                 icon="cog" 

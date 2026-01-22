@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -128,6 +128,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [drivingStartTime, setDrivingStartTime] = useState<Date | null>(null);
   const [totalDistance, setTotalDistance] = useState<number>(0);
+  const [followHeading, setFollowHeading] = useState(true);
 
   // Refs for logic
   const currentLocationRef = useRef(currentLocation);
@@ -138,9 +139,27 @@ const RadarScreen = ({ navigation, route }: any) => {
   const proSliderRef = useRef<FlatList>(null);
   const [proSliderIndex, setProSliderIndex] = useState(0);
   const hasCenteredMapRef = useRef(false);
+  const interactionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
+  const tripStartRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
+  const tripStartLabelRef = useRef<string | null>(null);
+  const totalDistanceRef = useRef(totalDistance);
+  const drivingStartTimeRef = useRef<Date | null>(drivingStartTime);
 
   // Refs for cleanup
   const lastPositionRef = useRef<any>(null);
+
+  const uiScale = Math.min(width / 375, 1.15);
+  const mapOverlayInset = Math.max(12, Math.round(width * 0.04));
+  const mapOverlayTop = Math.max(12, Math.round(height * 0.03));
+  const mapControlSize = Math.max(38, Math.round(42 * uiScale));
+  const mapControlGap = Math.max(8, Math.round(8 * uiScale));
+  const mapPadding = {
+    top: Math.max(160, Math.round(height * 0.22)),
+    right: mapOverlayInset,
+    bottom: Math.max(220, Math.round(height * 0.34)),
+    left: mapOverlayInset,
+  };
 
   // Force tab when navigation params request it
   useEffect(() => {
@@ -165,6 +184,10 @@ const RadarScreen = ({ navigation, route }: any) => {
     if (!nearbyRadars || nearbyRadars.length === 0) return null;
     return [...nearbyRadars].sort((a, b) => a.distance - b.distance)[0];
   }, [nearbyRadars]);
+
+  const compassRotation = currentLocation?.heading != null
+    ? `${currentLocation.heading}deg`
+    : '0deg';
 
   // --- Effects ---
 
@@ -201,13 +224,13 @@ const RadarScreen = ({ navigation, route }: any) => {
             }
             
             // Smooth Camera Follow
-            if (isDriving && activeTab === 'Map' && !isInteractingRef.current) {
+            if (isDriving && activeTab === 'Map' && !isInteractingRef.current && !isTypingRef.current) {
                 const now = Date.now();
                 if (now - lastCameraUpdateRef.current >= 2000) {
                     mapRef.current?.animateCamera({
                         center: { latitude: location.latitude, longitude: location.longitude },
                         pitch: 50,
-                        heading: location.heading || 0,
+                        heading: followHeading ? (location.heading || 0) : 0,
                         altitude: 800,
                         zoom: 17
                     }, { duration: 1500 });
@@ -218,7 +241,7 @@ const RadarScreen = ({ navigation, route }: any) => {
     });
 
     return unsubscribe;
-  }, [isDriving, activeTab]);
+  }, [isDriving, activeTab, followHeading]);
 
   // Center the camera the first time we get a fix so the map doesn't stay on the default city
   useEffect(() => {
@@ -227,10 +250,19 @@ const RadarScreen = ({ navigation, route }: any) => {
           center: { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
           zoom: 15,
           pitch: 45,
+          heading: followHeading ? (currentLocation.heading || 0) : 0,
         }, { duration: 800 });
         hasCenteredMapRef.current = true;
     }
-  }, [currentLocation]);
+  }, [currentLocation, followHeading]);
+
+  useEffect(() => {
+    totalDistanceRef.current = totalDistance;
+  }, [totalDistance]);
+
+  useEffect(() => {
+    drivingStartTimeRef.current = drivingStartTime;
+  }, [drivingStartTime]);
 
   // Periodic Radar Fetch
   useEffect(() => {
@@ -399,17 +431,39 @@ const RadarScreen = ({ navigation, route }: any) => {
   const toggleDrivingMode = async () => {
     if (!isDriving) {
         setActiveTab('Basic');
-        setDrivingStartTime(new Date());
+        const startTime = new Date();
+        setDrivingStartTime(startTime);
+        drivingStartTimeRef.current = startTime;
         setTotalDistance(0);
+        totalDistanceRef.current = 0;
         setIsMuted(true);
+        tripStartRef.current = null;
+        tripStartLabelRef.current = null;
+        const startLoc = currentLocationRef.current || currentLocation;
+        if (startLoc?.latitude && startLoc?.longitude) {
+          tripStartRef.current = {
+            latitude: startLoc.latitude,
+            longitude: startLoc.longitude,
+            timestamp: Date.now(),
+          };
+          tripStartLabelRef.current = null;
+          LocationService.reverseGeocode(startLoc.latitude, startLoc.longitude)
+            .then((addresses) => {
+              tripStartLabelRef.current = formatGeocodeLabel(addresses[0], startLoc);
+            })
+            .catch(() => {});
+        }
         AnalyticsService.trackEvent('drive_start', {
           location: currentLocation ? `${currentLocation.latitude},${currentLocation.longitude}` : 'unknown'
         });
     } else {
+        const startTime = drivingStartTimeRef.current;
         AnalyticsService.trackEvent('drive_stop', {
-          duration: drivingStartTime ? (new Date().getTime() - drivingStartTime.getTime()) / 1000 : 0,
-          distance: totalDistance
+          duration: startTime ? (new Date().getTime() - startTime.getTime()) / 1000 : 0,
+          distance: totalDistanceRef.current
         });
+
+        await saveTripIfNeeded();
 
         // Show interstitial for free users when they finish a trip
         if (AdService.shouldShowAds()) {
@@ -427,7 +481,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                 longitude: currentLocation.longitude,
             },
             zoom: 17,
-            heading: currentLocation.heading || 0,
+            heading: followHeading ? (currentLocation.heading || 0) : 0,
             pitch: 60,
         }, { duration: 1000 });
         isInteractingRef.current = false;
@@ -435,7 +489,6 @@ const RadarScreen = ({ navigation, route }: any) => {
   };
 
   const handleTextChange = (text: string) => {
-      setDestination(text);
       setDestination(text);
       if (autocompleteTimer.current) clearTimeout(autocompleteTimer.current);
       
@@ -460,6 +513,116 @@ const RadarScreen = ({ navigation, route }: any) => {
       handleNavigate(desc);
   };
 
+  const formatGeocodeLabel = (
+    addr?: { name?: string; street?: string; city?: string; region?: string; country?: string },
+    coords?: { latitude: number; longitude: number }
+  ) => {
+    if (addr) {
+      const main = [addr.name, addr.street, addr.city].filter(Boolean).join(' ');
+      const region = [addr.region, addr.country].filter(Boolean).join(', ');
+      return [main, region].filter(Boolean).join(', ');
+    }
+    if (coords) {
+      return `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`;
+    }
+    return 'Unknown';
+  };
+
+  const saveTripIfNeeded = useCallback(async () => {
+    if (!user) return;
+    const startTime = drivingStartTimeRef.current;
+    if (!startTime || !tripStartRef.current) return;
+
+    const distanceMeters = Math.round(totalDistanceRef.current * 1000);
+    if (distanceMeters < 200) {
+      tripStartRef.current = null;
+      tripStartLabelRef.current = null;
+      return;
+    }
+
+    const endTime = new Date();
+    const durationSeconds = Math.max(0, Math.round((endTime.getTime() - startTime.getTime()) / 1000));
+    const endLocation = currentLocationRef.current || currentLocation;
+
+    let startLabel = tripStartLabelRef.current;
+    if (!startLabel && tripStartRef.current) {
+      try {
+        const addresses = await LocationService.reverseGeocode(
+          tripStartRef.current.latitude,
+          tripStartRef.current.longitude
+        );
+        startLabel = formatGeocodeLabel(addresses[0], tripStartRef.current);
+        tripStartLabelRef.current = startLabel;
+      } catch (error) {}
+    }
+
+    let endLabel = 'End';
+    if (endLocation?.latitude && endLocation?.longitude) {
+      try {
+        const addresses = await LocationService.reverseGeocode(
+          endLocation.latitude,
+          endLocation.longitude
+        );
+        endLabel = formatGeocodeLabel(addresses[0], endLocation);
+      } catch (error) {
+        endLabel = formatGeocodeLabel(undefined, endLocation);
+      }
+    }
+
+    await SupabaseService.createTrip({
+      userId: user.id,
+      startLocation: startLabel || 'Start',
+      endLocation: endLabel,
+      distance: distanceMeters,
+      duration: durationSeconds,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      score: 0,
+    });
+
+    tripStartRef.current = null;
+    tripStartLabelRef.current = null;
+  }, [currentLocation, user]);
+
+  const markInteracting = useCallback(() => {
+    isInteractingRef.current = true;
+    if (interactionTimeoutRef.current) {
+      clearTimeout(interactionTimeoutRef.current);
+    }
+    interactionTimeoutRef.current = setTimeout(() => {
+      if (!isTypingRef.current) {
+        isInteractingRef.current = false;
+      }
+    }, 2000);
+  }, []);
+
+  const endInteracting = useCallback(() => {
+    if (!isTypingRef.current) {
+      isInteractingRef.current = false;
+    }
+  }, []);
+
+  const zoomMap = useCallback(async (delta: number) => {
+    if (!mapRef.current) return;
+    try {
+      const camera = await mapRef.current.getCamera();
+      const currentZoom = typeof camera.zoom === 'number' ? camera.zoom : 17;
+      const nextZoom = Math.max(2, Math.min(20, currentZoom + delta));
+      mapRef.current.animateCamera({ zoom: nextZoom }, { duration: 200 });
+      markInteracting();
+    } catch (error) {}
+  }, [markInteracting]);
+
+  const toggleHeadingMode = useCallback(() => {
+    markInteracting();
+    setFollowHeading((prev) => {
+      const next = !prev;
+      const heading = next ? (currentLocation?.heading || 0) : 0;
+      mapRef.current?.animateCamera({ heading }, { duration: 300 });
+      return next;
+    });
+  }, [currentLocation, markInteracting]);
+
   const handleNavigate = async (targetDest?: string) => {
       const finalDest = targetDest || destination;
       // Simplified navigate logic
@@ -473,6 +636,7 @@ const RadarScreen = ({ navigation, route }: any) => {
       try {
         // Unfocus keyboard to reveal more map space
         Keyboard.dismiss();
+        isTypingRef.current = false;
 
         // Get current location from ref or fetch fresh
         let loc = currentLocationRef.current || currentLocation;
@@ -796,23 +960,44 @@ const RadarScreen = ({ navigation, route }: any) => {
                                 mapRef={mapRef}
                                 showsUserLocation={true}
                                 destinationPoint={destinationCoord}
-                                mapPadding={{ top: 220, right: 20, bottom: 300, left: 20 }}
+                                mapPadding={mapPadding}
                                 onRadarPress={(radar: RadarLocation) => {
                                   if (canConfirmRadar(radar)) {
                                     handleConfirmRadar(radar);
                                   }
                                 }}
+                                onMapTouchStart={markInteracting}
+                                onMapTouchEnd={endInteracting}
                             />
-                            <View style={styles.mapOverlay}>
-                                   <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                            <View style={[styles.mapOverlay, { top: mapOverlayTop, left: mapOverlayInset, right: mapOverlayInset }]}>
+                                   <View style={{flexDirection: 'row', alignItems: 'center', gap: mapControlGap}}>
                                        <View style={{flex: 1}}>
                                             <TextInput 
                                                 placeholder="Go somewhere..." 
                                                 placeholderTextColor="#aaa"
-                                                style={styles.mapInput}
+                                                style={[
+                                                  styles.mapInput,
+                                                  {
+                                                    paddingVertical: Math.round(10 * uiScale),
+                                                    paddingHorizontal: Math.round(12 * uiScale),
+                                                    fontSize: Math.round(15 * uiScale),
+                                                  },
+                                                ]}
                                                 value={destination}
                                                 onChangeText={handleTextChange}
                                                 onSubmitEditing={() => handleNavigate()}
+                                                returnKeyType="search"
+                                                blurOnSubmit={false}
+                                                autoCorrect={false}
+                                                autoCapitalize="none"
+                                                onFocus={() => {
+                                                  isTypingRef.current = true;
+                                                  isInteractingRef.current = true;
+                                                }}
+                                                onBlur={() => {
+                                                  isTypingRef.current = false;
+                                                  endInteracting();
+                                                }}
                                             />
                                        </View>
                                        
@@ -826,7 +1011,10 @@ const RadarScreen = ({ navigation, route }: any) => {
                                       {(destination.length > 0 || isDriving) && (
                                             <TouchableOpacity 
                                                 style={[styles.iconBtn, { backgroundColor: '#FF5252', padding: 12 }]} 
-                                                onPress={() => {
+                                                onPress={async () => {
+                                                    try {
+                                                      await saveTripIfNeeded();
+                                                    } catch (error) {}
                                                     setDestination('');
                                                     setSuggestions([]);
                                                     setRouteCoords([]);
@@ -875,19 +1063,19 @@ const RadarScreen = ({ navigation, route }: any) => {
                                           colors={['rgba(14,23,42,0.95)', 'rgba(12,20,33,0.85)']}
                                           start={{ x: 0, y: 0 }}
                                           end={{ x: 1, y: 1 }}
-                                          style={styles.routeSummaryCard}
+                                          style={[styles.routeSummaryCard, { padding: Math.round(12 * uiScale) }]}
                                         >
                                           <View style={styles.routeSummaryRow}>
                                             <View style={styles.routeIconBubble}>
                                               <MaterialCommunityIcons name="steering" size={18} color="#4ECDC4" />
                                             </View>
                                             <View style={{flex: 1}}>
-                                              <Text style={styles.routeSummaryTitle} numberOfLines={1}>{routeMeta.destinationLabel}</Text>
-                                              <Text style={styles.routeSummaryMeta}>{routeMeta.distanceText} • ETA {routeMeta.etaText}</Text>
+                                              <Text style={[styles.routeSummaryTitle, { fontSize: Math.round(15 * uiScale) }]} numberOfLines={1}>{routeMeta.destinationLabel}</Text>
+                                              <Text style={[styles.routeSummaryMeta, { fontSize: Math.round(12 * uiScale) }]}>{routeMeta.distanceText} • ETA {routeMeta.etaText}</Text>
                                             </View>
                                             <View style={styles.routeBadge}>
                                               <MaterialCommunityIcons name="radar" size={14} color="#0B1424" />
-                                              <Text style={styles.routeBadgeText}>{nearbyRadars.length}</Text>
+                                              <Text style={[styles.routeBadgeText, { fontSize: Math.round(12 * uiScale) }]}>{nearbyRadars.length}</Text>
                                             </View>
                                           </View>
                                         </LinearGradient>
@@ -895,22 +1083,67 @@ const RadarScreen = ({ navigation, route }: any) => {
                                   )}
                                     
                                     {routeCoords.length > 0 && (
-                                        <View style={styles.navInstructionBox}>
+                                        <View style={[styles.navInstructionBox, { padding: Math.round(12 * uiScale) }]}>
                                              <MaterialCommunityIcons
                                               name={getManeuverIcon(navSteps[currentStepIndex]?.maneuver)}
                                               size={32}
                                               color="white"
                                             />
                                             <View style={{marginLeft: 15}}>
-                                                <Text style={{color:'white', fontSize: 18, fontWeight: 'bold'}}>
+                                                <Text style={{color:'white', fontSize: Math.round(16 * uiScale), fontWeight: 'bold'}}>
                                                   {formatStepDistance(getStepDistanceMeters(navSteps[currentStepIndex])) || '...'}
                                                 </Text>
-                                                <Text style={{color:'#ccc'}} numberOfLines={2}>
+                                                <Text style={{color:'#ccc', fontSize: Math.round(12 * uiScale)}} numberOfLines={2}>
                                                   {navSteps[currentStepIndex]?.instruction || 'Follow the highlighted route'}
                                                 </Text>
                                             </View>
                                         </View>
                                     )}
+                           </View>
+                           <View
+                             style={[
+                               styles.mapControls,
+                               {
+                                 right: mapOverlayInset,
+                                 bottom: Math.max(110, Math.round(height * 0.22)),
+                                 gap: mapControlGap,
+                               },
+                             ]}
+                           >
+                             <TouchableOpacity
+                               style={[
+                                 styles.mapControlButton,
+                                 { width: mapControlSize, height: mapControlSize },
+                               ]}
+                               onPress={() => zoomMap(1)}
+                             >
+                               <MaterialCommunityIcons name="plus" size={Math.round(20 * uiScale)} color="white" />
+                             </TouchableOpacity>
+                             <TouchableOpacity
+                               style={[
+                                 styles.mapControlButton,
+                                 { width: mapControlSize, height: mapControlSize },
+                               ]}
+                               onPress={() => zoomMap(-1)}
+                             >
+                               <MaterialCommunityIcons name="minus" size={Math.round(20 * uiScale)} color="white" />
+                             </TouchableOpacity>
+                             <TouchableOpacity
+                               style={[
+                                 styles.mapControlButton,
+                                 followHeading && styles.mapControlButtonActive,
+                                 { width: mapControlSize, height: mapControlSize },
+                               ]}
+                               onPress={toggleHeadingMode}
+                             >
+                               <View style={{ transform: [{ rotate: compassRotation }] }}>
+                                 <MaterialCommunityIcons
+                                   name="navigation"
+                                   size={Math.round(20 * uiScale)}
+                                   color={followHeading ? '#0B1424' : 'white'}
+                                 />
+                               </View>
+                             </TouchableOpacity>
                            </View>
                       </View>
                   )}
@@ -1229,6 +1462,9 @@ const styles = StyleSheet.create({
   routeSummaryMeta: { color: '#94A3B8', marginTop: 2, fontSize: 12 },
   routeBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: '#4ECDC4' },
   routeBadgeText: { color: '#0B1424', fontWeight: '800' },
+  mapControls: { position: 'absolute', alignItems: 'center', zIndex: 10 },
+  mapControlButton: { borderRadius: 16, backgroundColor: 'rgba(15,23,42,0.95)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  mapControlButtonActive: { backgroundColor: '#4ECDC4', borderColor: '#4ECDC4' },
 
   fab: { position: 'absolute', left: 20, bottom: 85, backgroundColor: '#FF5252', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 10, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity:0.3, shadowRadius:4 },
   reportSheet: { backgroundColor: '#1E293B', padding: 30, borderTopLeftRadius: 30, borderTopRightRadius: 30 },

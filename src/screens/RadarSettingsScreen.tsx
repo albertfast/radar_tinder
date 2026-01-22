@@ -8,6 +8,8 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useAuthStore } from '../store/authStore';
 import { SupabaseService } from '../services/SupabaseService';
 import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
+import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 const RadarSettingsScreen = ({ navigation }: any) => {
   const theme = useTheme();
@@ -15,6 +17,7 @@ const RadarSettingsScreen = ({ navigation }: any) => {
   const [soundLevel, setSoundLevel] = useState(100);
   const { unitSystem, setUnitSystem } = useSettingsStore();
   const { user } = useAuthStore();
+  const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
 
   const handleUnitToggle = async () => {
     const nextUnit = unitSystem === 'metric' ? 'imperial' : 'metric';
@@ -89,7 +92,15 @@ const RadarSettingsScreen = ({ navigation }: any) => {
         </Animated.Text>
       </Animated.View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + 24 }}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScrollEndDrag={onScrollEndDrag}
+        scrollEventThrottle={16}
+      >
         <SettingItem 
           label="Distance Unit" 
           value={unitSystem === 'metric' ? 'Kilometers (km)' : 'Miles (mi)'} 

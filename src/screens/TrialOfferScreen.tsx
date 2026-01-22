@@ -231,7 +231,7 @@ const TrialOfferScreen = ({ navigation }: any) => {
                     <Text style={styles.planBadgeText}>PREMIUM ACCESS</Text>
                 </View>
                 <Text style={styles.trialText}>3-Day Free Trial</Text>
-                <Text style={styles.priceText}>Then $3.99/week or $19.99/year</Text>
+                <Text style={styles.priceText}>Then $19.99/year. Or start weekly at $3.99/week.</Text>
                 
                 <TouchableOpacity 
                     style={styles.ctaButton}
@@ -294,7 +294,7 @@ const TrialOfferScreen = ({ navigation }: any) => {
                     </LinearGradient>
                 </TouchableOpacity>
                 
-                <Text style={styles.ctaSub}>Unlocks all features. Cancel anytime.</Text>
+                <Text style={styles.ctaSub}>Unlocks all features. Weekly plan bills immediately.</Text>
                 
                 {/* Skip option for free tier with ads */}
                 <TouchableOpacity 

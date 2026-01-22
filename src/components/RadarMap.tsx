@@ -38,6 +38,8 @@ const RadarMap = React.memo(({
     onRadarPress,
     destinationPoint,
     mapPadding,
+    onMapTouchStart,
+    onMapTouchEnd,
 }: any) => {
     
     const initialRegion = useMemo(() => ({
@@ -71,8 +73,13 @@ const RadarMap = React.memo(({
             pitchEnabled
             rotateEnabled
             toolbarEnabled={false}
-            zoomControlEnabled={true} // Enable native zoom buttons
+            zoomControlEnabled={false}
             moveOnMarkerPress={false}
+            onPanDrag={() => onMapTouchStart?.()}
+            onPress={() => onMapTouchStart?.()}
+            onTouchStart={() => onMapTouchStart?.()}
+            onTouchEnd={() => onMapTouchEnd?.()}
+            onRegionChangeComplete={() => onMapTouchEnd?.()}
         >
             {routeCoords.length > 0 && (
                 <Polyline 

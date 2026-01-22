@@ -18,10 +18,13 @@ import { LocationService } from '../services/LocationService';
 import { RadarService } from '../services/RadarService';
 import { OfflineService } from '../services/OfflineService';
 import { AnalyticsService } from '../services/AnalyticsService';
+import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 const ReportRadarScreen = ({ navigation }: any) => {
   const theme = useTheme();
   const { user, refreshProfile } = useAuthStore();
+  const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [isLoading, setIsLoading] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [formData, setFormData] = useState({
@@ -131,7 +134,14 @@ const ReportRadarScreen = ({ navigation }: any) => {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content}>
+    <ScrollView
+      style={styles.content}
+      contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + 24 }}
+      onScroll={onScroll}
+      onScrollBeginDrag={onScrollBeginDrag}
+      onScrollEndDrag={onScrollEndDrag}
+      scrollEventThrottle={16}
+    >
         <View style={[styles.locationCard, { backgroundColor: theme.colors.surface }]}>
           <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
             Location

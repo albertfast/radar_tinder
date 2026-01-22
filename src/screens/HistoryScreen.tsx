@@ -4,19 +4,24 @@ import { Text, Surface } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SupabaseService } from '../services/SupabaseService';
+import { useAuthStore } from '../store/authStore';
+import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 const HistoryScreen = ({ navigation }: any) => {
+  const { user } = useAuthStore();
+  const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [trips, setTrips] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadTrips();
-  }, []);
+  }, [user?.id]);
 
   const loadTrips = async () => {
     try {
       setLoading(true);
-      const data = await SupabaseService.getUserTrips();
+      const data = await SupabaseService.getUserTrips(user?.id);
       setTrips(data || []);
     } catch (error) {
       console.error('Failed to load trips:', error);
@@ -42,7 +47,11 @@ const HistoryScreen = ({ navigation }: any) => {
       <FlatList
         data={trips}
         keyExtractor={item => item.id}
-        contentContainerStyle={{ padding: 20 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_HEIGHT + 24 }}
+        onScroll={onScroll}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScrollEndDrag={onScrollEndDrag}
+        scrollEventThrottle={16}
         ListEmptyComponent={
           loading ? (
             <View style={{ alignItems: 'center', paddingTop: 40 }}>
@@ -52,10 +61,15 @@ const HistoryScreen = ({ navigation }: any) => {
             <Text style={{ color: '#94A3B8', textAlign: 'center', paddingTop: 40 }}>No trips yet</Text>
           )
         }
-        renderItem={({ item }) => (
+        renderItem={({ item }) => {
+          const createdAt = item.createdAt ? new Date(item.createdAt) : null;
+          const dateLabel = createdAt && !Number.isNaN(createdAt.getTime())
+            ? createdAt.toLocaleDateString()
+            : '—';
+          return (
             <Surface style={styles.tripCard}>
                 <View style={styles.tripHeader}>
-                    <Text style={styles.dateText}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                    <Text style={styles.dateText}>{dateLabel}</Text>
                     <View style={[styles.scoreBadge, { backgroundColor: (item.score || 0) > 90 ? '#10B981' : '#F59E0B' }]}>
                         <Text style={styles.scoreText}>{item.score || 0}</Text>
                     </View>
@@ -88,7 +102,8 @@ const HistoryScreen = ({ navigation }: any) => {
                     </TouchableOpacity>
                 </View>
             </Surface>
-        )}
+          );
+        }}
       />
     </View>
   );

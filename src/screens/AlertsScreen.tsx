@@ -20,6 +20,8 @@ import { RadarAlert } from '../types';
 import { formatDistance } from '../utils/format';
 import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
 import { HapticPatterns } from '../utils/hapticFeedback';
+import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 const allowLayoutAnimations = Platform.OS !== 'android';
 
@@ -121,6 +123,7 @@ const AlertsScreen = ({ navigation }: any) => {
   const { activeAlerts, acknowledgeAlert, clearAlerts } = useRadarStore();
   const { user } = useAuthStore();
   const { unitSystem } = useSettingsStore();
+  const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [historyAlerts, setHistoryAlerts] = useState<RadarAlert[]>([]);
 
   const visibleAlerts = useMemo(
@@ -169,7 +172,14 @@ const AlertsScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + 24 }]}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScrollEndDrag={onScrollEndDrag}
+        scrollEventThrottle={16}
+      >
         <Text style={styles.sectionTitle}>Active Alerts ({visibleAlerts.length})</Text>
 
         {visibleAlerts.length === 0 ? (

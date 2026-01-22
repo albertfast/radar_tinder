@@ -5,6 +5,21 @@ import 'react-native-url-polyfill/auto';
 import { supabase } from '../../utils/supabase';
 
 export class SupabaseService {
+  private static normalizeTrip(row: any) {
+    return {
+      id: row?.id,
+      userId: row?.user_id,
+      startLocation: row?.start_location ?? null,
+      endLocation: row?.end_location ?? null,
+      distance: row?.distance != null ? Number(row.distance) : 0,
+      duration: row?.duration != null ? Number(row.duration) : 0,
+      score: row?.score != null ? Number(row.score) : 0,
+      startTime: row?.start_time ?? null,
+      endTime: row?.end_time ?? null,
+      createdAt: row?.created_at ?? null,
+      updatedAt: row?.updated_at ?? null,
+    };
+  }
   /**
    * Fetches radars within a given radius using PostGIS
    * @param latitude User's latitude
@@ -189,18 +204,58 @@ export class SupabaseService {
     }
   }
 
-  /**
-   * Fetches user's trip history from Supabase
-   */
-  static async getUserTrips() {
+  static async createTrip(params: {
+    userId: string;
+    startLocation?: string | null;
+    endLocation?: string | null;
+    distance: number;
+    duration: number;
+    score?: number;
+    startTime?: string | null;
+    endTime?: string | null;
+  }) {
     try {
       const { data, error } = await supabase
         .from('trips')
+        .insert([
+          {
+            user_id: params.userId,
+            start_location: params.startLocation,
+            end_location: params.endLocation,
+            distance: params.distance,
+            duration: params.duration,
+            score: params.score ?? 0,
+            start_time: params.startTime,
+            end_time: params.endTime,
+          },
+        ])
         .select('*')
-        .order('created_at', { ascending: false });
+        .single();
 
       if (error) throw error;
-      return data || [];
+      return data ? this.normalizeTrip(data) : null;
+    } catch (error) {
+      console.error('Supabase createTrip error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetches user's trip history from Supabase
+   */
+  static async getUserTrips(userId?: string) {
+    try {
+      let query = supabase
+        .from('trips')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return (data || []).map((row) => this.normalizeTrip(row));
     } catch (error) {
       console.error('Supabase getUserTrips error:', error);
       return [];

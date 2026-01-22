@@ -4,10 +4,13 @@ import { Text, Surface, ProgressBar, Button, IconButton } from 'react-native-pap
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getQuestionsForState, getAllStates } from '../services/PermitTestService';
+import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 // Questions loaded from service
 
 const PermitTestScreen = ({ navigation }: any) => {
+  const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -40,7 +43,13 @@ const PermitTestScreen = ({ navigation }: any) => {
                 <Text style={styles.headerTitle}>Select State</Text>
                 <View style={{width: 30}} />
              </View>
-             <ScrollView contentContainerStyle={{padding: 20}}>
+             <ScrollView
+               contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_HEIGHT + 24 }}
+               onScroll={onScroll}
+               onScrollBeginDrag={onScrollBeginDrag}
+               onScrollEndDrag={onScrollEndDrag}
+               scrollEventThrottle={16}
+             >
                  <Text style={{color:'#94A3B8', marginBottom: 20}}>Choose your state to load specific practice questions.</Text>
                  {STATES.map((state) => (
                      <TouchableOpacity 

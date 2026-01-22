@@ -2,8 +2,11 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 const TermsScreen = ({ navigation }: any) => {
+  const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#000000', '#121212']} style={styles.background} />
@@ -13,7 +16,13 @@ const TermsScreen = ({ navigation }: any) => {
         <Text style={styles.headerTitle}>Terms of Service</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + 24 }]}
+        onScroll={onScroll}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScrollEndDrag={onScrollEndDrag}
+        scrollEventThrottle={16}
+      >
         <Text style={styles.text}>
           <Text style={styles.bold}>Last Updated: December 21, 2025</Text>{"\n\n"}
           

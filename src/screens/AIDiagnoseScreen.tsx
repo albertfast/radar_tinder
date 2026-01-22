@@ -3,6 +3,8 @@ import { View, StyleSheet, Image, TouchableOpacity, ScrollView, Alert } from 're
 import { Text, Surface, ActivityIndicator, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 const AIDiagnoseScreen = ({ navigation }: any) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -14,6 +16,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
   const [voiceDescription, setVoiceDescription] = useState<string | null>(null);
   const [modelReady, setModelReady] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
+  const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
 
   useEffect(() => {
     return () => {
@@ -201,7 +204,13 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + 24 }]}
+        onScroll={onScroll}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScrollEndDrag={onScrollEndDrag}
+        scrollEventThrottle={16}
+      >
         <View style={{ marginBottom: 12 }}>
           <Text style={styles.subtitle}>Upload a photo and describe the issue</Text>
           <Text style={[styles.modelStatus, { color: modelReady ? '#22c55e' : '#94A3B8' }]}>

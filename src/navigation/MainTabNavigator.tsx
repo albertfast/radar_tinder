@@ -1,15 +1,17 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import RadarNavigator from './RadarNavigator';
 import ProfileNavigator from './ProfileNavigator';
 import AIDiagnoseScreen from '../screens/AIDiagnoseScreen';
 import HistoryScreen from '../screens/HistoryScreen';
+import { useUiStore } from '../store/uiStore';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 export type MainTabParamList = {
   Home: { forceTab?: string } | undefined;
@@ -33,9 +35,26 @@ const TAB_ICONS: Record<keyof MainTabParamList, any> = {
 
 const PillTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
   const insets = useSafeAreaInsets();
+  const tabBarHidden = useUiStore((s) => s.tabBarHidden);
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(1);
+
+  useEffect(() => {
+    const hideDistance = TAB_BAR_HEIGHT + Math.max(insets.bottom, 10) + 16;
+    translateY.value = withTiming(tabBarHidden ? hideDistance : 0, { duration: 220 });
+    opacity.value = withTiming(tabBarHidden ? 0 : 1, { duration: 160 });
+  }, [tabBarHidden, insets.bottom, opacity, translateY]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+    opacity: opacity.value,
+  }));
 
   return (
-    <View style={[styles.tabWrapper, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+    <Animated.View
+      style={[styles.tabWrapper, { paddingBottom: Math.max(insets.bottom, 10) }, animatedStyle]}
+      pointerEvents={tabBarHidden ? 'none' : 'auto'}
+    >
       <LinearGradient
         colors={['rgba(15,23,42,0.95)', 'rgba(2,6,23,0.9)']}
         start={{ x: 0, y: 0 }}
@@ -85,13 +104,11 @@ const PillTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
           );
         })}
       </LinearGradient>
-    </View>
+    </Animated.View>
   );
 };
 
 const MainTabNavigator = () => {
-  const theme = useTheme();
-
   return (
     <Tab.Navigator
       screenOptions={{

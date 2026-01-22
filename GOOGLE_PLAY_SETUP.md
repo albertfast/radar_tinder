@@ -94,6 +94,34 @@ RevenueCat Dashboard > Project Settings > API Keys bölümünden alınır.
   - Phone: 1080x1920 veya 1920x1080
   - Tablet: 1200x1920 veya 1920x1200
 
+Suggested English copy:
+
+Short description (<=80 chars):
+Real-time radar alerts, smart navigation, trip stats, and AI diagnostics.
+
+Full description:
+Radar Tinder helps drivers stay aware of speed traps and road hazards with live navigation,
+community reports, and smart driving insights. Whether you are commuting or road-tripping,
+Radar Tinder keeps you informed and focused.
+
+Key features:
+- Live radar & speed trap alerts (fixed, mobile, red-light, police)
+- Navigation with route guidance and radar proximity alerts
+- Heading-aware map with compass and zoom controls
+- Community reporting and confirmations for higher accuracy
+- Trip history with distance, duration, and driving stats
+- Weekly charts and performance insights
+- Leaderboard and driver profiles
+- Permit test practice by state
+- AI car diagnostics from dashboard light photos
+- Offline caching for weak connectivity
+- Ad-supported free mode, or upgrade for an ad-free experience
+
+Subscription info:
+- 3-day free trial on the yearly plan, then $19.99/year
+- Weekly plan $3.99/week, billed immediately
+- Cancel anytime in Google Play settings
+
 ### 4.3 App Content
 - Privacy policy URL (gerekli)
 - App access (login gerektiriyor mu?)
