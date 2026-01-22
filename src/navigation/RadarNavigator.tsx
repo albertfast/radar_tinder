@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import RadarScreen from '../screens/RadarScreen';
 import RadarSettingsScreen from '../screens/RadarSettingsScreen';
@@ -12,8 +12,16 @@ import ComponentsShowcaseScreen from '../screens/ComponentsShowcaseScreen';
 
 const Stack = createNativeStackNavigator();
 
-const RadarNavigator = ({ route }: any) => {
+const RadarNavigator = ({ route, navigation }: any) => {
   const initialParams = route?.params;
+
+  // Handle navigation to nested screens from drawer menu
+  useEffect(() => {
+    if (initialParams?.screen && initialParams.screen !== 'RadarMain') {
+      navigation.navigate(initialParams.screen);
+    }
+  }, [initialParams?.screen, navigation]);
+
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="RadarMain" component={RadarScreen} initialParams={initialParams} />

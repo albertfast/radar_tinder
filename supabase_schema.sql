@@ -417,3 +417,32 @@ end $$;
        object 'auth/users'
      );
 */
+-- Trips/Driving Sessions
+create table if not exists public.trips (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  start_location text,
+  end_location text,
+  distance numeric default 0,
+  duration int default 0,
+  score int default 0,
+  start_time timestamptz,
+  end_time timestamptz,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  updated_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+create index if not exists trips_user_id_idx on public.trips (user_id);
+create index if not exists trips_created_at_idx on public.trips (created_at);
+
+-- RLS for trips
+alter table public.trips enable row level security;
+
+create policy "trips_select_own" on public.trips
+  for select using (auth.uid() = user_id);
+
+create policy "trips_insert_own" on public.trips
+  for insert with check (auth.uid() = user_id);
+
+create policy "trips_update_own" on public.trips
+  for update using (auth.uid() = user_id);

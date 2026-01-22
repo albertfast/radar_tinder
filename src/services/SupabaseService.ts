@@ -188,4 +188,22 @@ export class SupabaseService {
       return null;
     }
   }
+
+  /**
+   * Fetches user's trip history from Supabase
+   */
+  static async getUserTrips() {
+    try {
+      const { data, error } = await supabase
+        .from('trips')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Supabase getUserTrips error:', error);
+      return [];
+    }
+  }
 }

@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "radar-tinder",
+  "private_key_id": "496078bf0bae7b7a02ef35e8eae5596be7f6b70a",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC/okSWWYfTAIfa\n2kiZ2u8c5yKwqP3uDz3dWDaVRRR/5XFN3zm2WmQrg7wqC/YOY2RLvbXaInK/wwlu\nr+PXb9fZA+eqimr4raBJ+pdHQASl8BagArW2HdurggGsQMN9245vGa09j5pb4aem\nqikkoDgV5M8lP0NjL0Bzbvkix0lfrPpFefvC1CO+wEuFo2EscYG+ut+LdiGmGZfg\n/EYRkAMr3k+kjG8UMA7qoLk9IRPYZEQtC4H7mST1U9xiPElI5ozSdO6RN04Ft6Jx\nzgXECt6c0x8dN5Hxl+jQzb26FtZ3p1MuSwQaTmGU0Aci0D88ActBGLfou+xdtYFQ\n9dyOOyDJAgMBAAECggEADAv3f5OegxxTDgYfnwNpOXIKx1wCRY1B/HiLit/yOVWL\nRUPRiRX+2tDv2t1QYShsoUnKZS159PXd8Y4/VpdedHMnRLxpm9svWsM08BrVR/iz\nNWkiMvIG0Y3tTL6wA2kSV8ffkQGGaL0DaOnkxvuG9xJglsT2t6Ucaj1JTl9EjK3z\nQPhKbvRdn9lYxD75PwrURnxEgeek09SkfsBbbz4gUA351WviffVYSC9uULp6873S\ngJgS9E5Hxlw4IMUsZPB6o5VrdLmW+C0F/F400aL32LXZnCV4Bmx/eZTcZ1vY1nwh\nIyN4kY5JbvgXxxjLPYEGi881ueqM+rc7cLfkbNpXoQKBgQDy2hlou9YbTbN/CUtB\nkeSleVBOQsGRgpo/8xxDvKU0KdN4HT/JcGkJixowgHZvrs7UJmsYx8l2agKumxRl\ntqJOPAkZ3bqAPouBOEksC6vn98nQsz2PsJLcvujubXOH3h+Gi0u3mR4Ksv3pv0Ah\nD1WfStCX+TbL4yKxNPsIWLln4QKBgQDKAkqrQufYSXhSMVgxn2hnln7lEO1fpkKz\nNV2xz3j2APXWqD3+4x0fDLqs7B8ZfvOphirf0L3CAAkbgpVji4BdnxvtTHfMI16r\nOVYMkQMZ/XA/rgU2ylfEQcf6jpLn7W0ieKDKNy0X5bXjjtJr2AJAtfYB5lJrz+Yb\nUooYIjo16QKBgQCr4gPT5gZvQrqFcl2KZikvmUJmcccxJv/nvTjHFJDU77mVrRYF\njAM71vFNXM720wHek+Z/HoCPyA5n6KkyKGaN+t3yKcYjmKECb4USoJwmTXHQvdwX\nhEEd7h1NC7iWdHdZseOAaeYiandeZpeMDp9qY/hpZ+EJw5Q9WiNG0A1B4QKBgQCe\nuSo+YrWUhjXaLxdi9iOssN1H0wMQUqy57saNvb0HXj3LyincKktpaDENSgItoEiH\n/PmXHoba9fgx+2qx6pyT8z6YN6sxZOEvnD92ZEKRm0clYfCK2nYXqLAeuQPI5A8K\nNMnx2WS/ECjYghHn1rP+cHq5h2VffN0KvtHuoIYocQKBgQCoCLYFXlHuOnZYRQ+m\nUL22QCpxdjloPnqEjxJcZOPypmBqREkhZ4kJu4c27Nq8p9m7KKE+bf6noYwmUd1n\nUTwciCfQc+GiPpB7te4Ik7KJjbm5hGGV9+y5DFrVXtFWbpRUiTovppEyp+lpO8+u\n4D6mSJqM4Ve179QPXRhfvCdIlw==\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@radar-tinder.iam.gserviceaccount.com",
+  "client_id": "106370782654033245027",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40radar-tinder.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

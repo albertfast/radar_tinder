@@ -1,0 +1,19 @@
+diff --git a/node_modules/expo-sensors/android/src/main/java/expo/modules/sensors/services/BaseSensorService.kt b/node_modules/expo-sensors/android/src/main/java/expo/modules/sensors/services/BaseSensorService.kt
+index f31cb86..f766103 100644
+--- a/node_modules/expo-sensors/android/src/main/java/expo/modules/sensors/services/BaseSensorService.kt
++++ b/node_modules/expo-sensors/android/src/main/java/expo/modules/sensors/services/BaseSensorService.kt
+@@ -35,9 +35,11 @@ abstract class BaseSensorService internal constructor(reactContext: Context?) :
+     }
+ 
+     return try {
+-      context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)?.run {
+-        requestedPermissions.contains(Manifest.permission.HIGH_SAMPLING_RATE_SENSORS)
+-      } ?: false
++      context.packageManager
++        .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
++        ?.requestedPermissions
++        ?.let { it.contains(Manifest.permission.HIGH_SAMPLING_RATE_SENSORS) }
++        ?: false
+     } catch (e: PackageManager.NameNotFoundException) {
+       false
+     }

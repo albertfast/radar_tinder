@@ -19,6 +19,7 @@ const CustomDrawerContent = (props: any) => {
   const menuItems = [
     { icon: 'radar', label: 'Radar Map', screen: 'Home', color: '#FF5252' },
     { icon: 'car-cog', label: 'AI Diagnosis', screen: 'Diagnose', color: '#4ECDC4' },
+    { icon: 'book-open-variant', label: 'Permit Test', screen: 'Home', params: { screen: 'PermitTest' }, color: '#96CEB4' },
     { icon: 'trophy-outline', label: 'Leaderboard', screen: 'Home', params: { screen: 'Leaderboard' }, color: '#FFD700' },
   ];
 
@@ -28,7 +29,15 @@ const CustomDrawerContent = (props: any) => {
   ];
 
   const handleNavigate = (screen: string, params?: any) => {
-    props.navigation.navigate('MainTabs', { screen, params });
+    // For PermitTest, navigate to Home (RadarNavigator) with screen parameter
+    if (screen === 'PermitTest') {
+      props.navigation.navigate('MainTabs', { 
+        screen: 'Home',
+        params: { screen: 'PermitTest' }
+      });
+    } else {
+      props.navigation.navigate(screen, params);
+    }
   };
 
   return (

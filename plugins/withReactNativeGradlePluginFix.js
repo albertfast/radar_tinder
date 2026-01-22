@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { withProjectBuildGradle, withSettingsGradle } = require('@expo/config-plugins');
+const { withProjectBuildGradle, withSettingsGradle } = require('expo/config-plugins');
 
 const DUPLICATE_MARKER =
   "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })";

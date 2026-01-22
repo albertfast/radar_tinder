@@ -1,6 +1,5 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
-const exclusionList = require('metro-config/src/defaults/exclusionList');
 
 module.exports = (() => {
   const config = getDefaultConfig(__dirname);
@@ -28,11 +27,12 @@ module.exports = (() => {
       path.join(__dirname, 'node_modules'),
       path.join(__dirname, 'node_modules', '.pnpm', 'node_modules'),
     ],
-    blockList: exclusionList([
+    blockList: [
+      ...(Array.isArray(resolver.blockList) ? resolver.blockList : [resolver.blockList]),
       // Exclude the huge modelx python environment and .git folder (project-local only)
       new RegExp('^' + escapeRegExp(path.join(__dirname, 'modelx')) + '.*'),
       new RegExp('^' + escapeRegExp(path.join(__dirname, '.git')) + '.*'),
-    ]),
+    ],
   };
 
   return config;
