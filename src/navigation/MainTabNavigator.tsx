@@ -15,7 +15,7 @@ import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 export type MainTabParamList = {
   Home: { forceTab?: string } | undefined;
-  Navigate: { forceTab?: string } | undefined;
+  Permit: { screen?: string } | undefined;
   Drive: { forceTab?: string } | undefined;
   Diagnose: undefined;
   History: undefined;
@@ -26,7 +26,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 const TAB_ICONS: Record<keyof MainTabParamList, any> = {
   Home: 'home-variant',
-  Navigate: 'map-marker-radius',
+  Permit: 'book-open-variant',
   Drive: 'radar',
   Diagnose: 'car-wrench',
   History: 'car-multiple',
@@ -122,9 +122,9 @@ const MainTabNavigator = () => {
       />
 
       <Tab.Screen
-        name="Navigate"
+        name="Permit"
         component={RadarNavigator}
-        initialParams={{ forceTab: 'Map' }}
+        initialParams={{ screen: 'PermitTest' }}
       />
 
       <Tab.Screen

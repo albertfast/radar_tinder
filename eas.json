@@ -32,6 +32,14 @@
         "simulator": false
       }
     },
+    "testflight": {
+      "credentialsSource": "remote",
+      "distribution": "store",
+      "autoIncrement": true,
+      "ios": {
+        "simulator": false
+      }
+    },
     "production": {
       "credentialsSource": "local",
       "distribution": "store",
@@ -42,6 +50,7 @@
     }
   },
   "submit": {
+    "testflight": {},
     "production": {}
   }
 }

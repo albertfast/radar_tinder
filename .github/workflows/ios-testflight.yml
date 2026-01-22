@@ -1,0 +1,51 @@
+name: Build iOS TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-submit-ios:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+      EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+      EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH: ./private_keys/AuthKey_${{ secrets.ASC_API_KEY_ID }}.p8
+      EAS_NO_VCS: 1
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install EAS CLI and login
+        run: |
+          npm install -g eas-cli
+          eas whoami
+
+      - name: Configure App Store Connect API key
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+        run: |
+          mkdir -p private_keys
+          echo "$ASC_API_KEY_P8_BASE64" | base64 -d > "private_keys/AuthKey_${{ secrets.ASC_API_KEY_ID }}.p8"
+
+      - name: Build iOS (TestFlight)
+        run: eas build --platform ios --profile testflight --non-interactive
+
+      - name: Submit to TestFlight
+        run: eas submit --platform ios --profile testflight --non-interactive --latest

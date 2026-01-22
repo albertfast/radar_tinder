@@ -145,6 +145,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const tripStartLabelRef = useRef<string | null>(null);
   const totalDistanceRef = useRef(totalDistance);
   const drivingStartTimeRef = useRef<Date | null>(drivingStartTime);
+  const destinationInputRef = useRef<TextInput>(null);
 
   // Refs for cleanup
   const lastPositionRef = useRef<any>(null);
@@ -596,6 +597,15 @@ const RadarScreen = ({ navigation, route }: any) => {
     }, 2000);
   }, []);
 
+  const handleMapTouchStart = useCallback(() => {
+    if (destinationInputRef.current?.isFocused()) {
+      destinationInputRef.current.blur();
+      isTypingRef.current = false;
+    }
+    Keyboard.dismiss();
+    markInteracting();
+  }, [markInteracting]);
+
   const endInteracting = useCallback(() => {
     if (!isTypingRef.current) {
       isInteractingRef.current = false;
@@ -953,7 +963,7 @@ const RadarScreen = ({ navigation, route }: any) => {
 
                   {activeTab === 'Map' && (
                       <View style={{flex: 1}}>
-                           <RadarMap
+                            <RadarMap
                                 location={currentLocation || {latitude: 37.7749, longitude: -122.4194}}
                                 radars={nearbyRadars}
                                 routeCoords={routeCoords}
@@ -966,13 +976,14 @@ const RadarScreen = ({ navigation, route }: any) => {
                                     handleConfirmRadar(radar);
                                   }
                                 }}
-                                onMapTouchStart={markInteracting}
+                                onMapTouchStart={handleMapTouchStart}
                                 onMapTouchEnd={endInteracting}
                             />
                             <View style={[styles.mapOverlay, { top: mapOverlayTop, left: mapOverlayInset, right: mapOverlayInset }]}>
                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: mapControlGap}}>
                                        <View style={{flex: 1}}>
                                             <TextInput 
+                                                ref={destinationInputRef}
                                                 placeholder="Go somewhere..." 
                                                 placeholderTextColor="#aaa"
                                                 style={[
