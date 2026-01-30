@@ -5,8 +5,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
+import { useAuthStore } from '../store/authStore';
+import { hasProAccess } from '../utils/access';
+import ProGate from '../components/ProGate';
 
 const AIDiagnoseScreen = ({ navigation }: any) => {
+  const { user } = useAuthStore();
+  const canUse = hasProAccess(user);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [diagnosis, setDiagnosis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -18,6 +23,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
   const [modelError, setModelError] = useState<string | null>(null);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
 
+
   useEffect(() => {
     return () => {
       if (recording) {
@@ -28,6 +34,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     let isMounted = true;
+    if (!canUse) return () => { isMounted = false; };
     (async () => {
       try {
         const { AIService } = await import('../services/AIService');
@@ -187,6 +194,16 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
       setLoadingStep('');
     }
   };
+
+  if (!canUse) {
+    return (
+      <ProGate
+        title="AI Diagnostics"
+        subtitle="Upgrade to Pro to scan dashboard lights with AI."
+        onUpgrade={() => navigation.navigate('Home', { screen: 'Subscription' })}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>

@@ -13,7 +13,7 @@ const TITLE_FONT = Platform.select({ ios: 'Georgia', android: 'serif' });
 const DISPLAY_FONT = Platform.select({ ios: 'AvenirNext-Heavy', android: 'sans-serif-condensed' });
 
 const SubscriptionScreen = ({ navigation }: any) => {
-  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'yearly'>('yearly');
+  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'yearly' | 'adfree'>('yearly');
   const [isTrialEnabled, setIsTrialEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
@@ -21,6 +21,16 @@ const SubscriptionScreen = ({ navigation }: any) => {
   const trialActive = trialAvailable && isTrialEnabled;
 
   const plans = {
+    adfree: {
+      id: 'remove_ads',
+      name: 'Ad-Free Basic',
+      price: '$0.99',
+      period: 'once',
+      trial: null,
+      tag: 'AD-FREE',
+      description: 'Remove ads. Limited access to core features.',
+      accent: '#F59E0B',
+    },
     weekly: {
       id: 'rc_weekly_399',
       name: 'Weekly',
@@ -55,7 +65,11 @@ const SubscriptionScreen = ({ navigation }: any) => {
         trial: trialActive,
       });
 
-      updateUser({ subscriptionType: 'pro' });
+      if (planToPurchase === 'adfree') {
+        updateUser({ subscriptionType: 'free', adsRemoved: true });
+      } else {
+        updateUser({ subscriptionType: 'pro', adsRemoved: false });
+      }
       navigation.goBack();
     } catch (err) {
       console.error(err);
@@ -111,6 +125,14 @@ const SubscriptionScreen = ({ navigation }: any) => {
             onSelect={() => {
               setSelectedPlan('yearly');
               setIsTrialEnabled(true);
+            }}
+          />
+          <PlanOption
+            plan={plans.adfree}
+            isSelected={selectedPlan === 'adfree'}
+            onSelect={() => {
+              setSelectedPlan('adfree');
+              setIsTrialEnabled(false);
             }}
           />
           <PlanOption
@@ -176,7 +198,9 @@ const SubscriptionScreen = ({ navigation }: any) => {
               {!loading &&
                 (trialActive
                   ? `Then ${plans.yearly.price}/year after trial`
-                  : `${plans[selectedPlan].price}/${plans[selectedPlan].period} billed immediately`)}
+                  : selectedPlan === 'adfree'
+                    ? 'One-time purchase'
+                    : `${plans[selectedPlan].price}/${plans[selectedPlan].period} billed immediately`)}
             </Text>
           </LinearGradient>
         </TouchableOpacity>

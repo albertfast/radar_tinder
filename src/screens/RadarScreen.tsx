@@ -32,6 +32,7 @@ import { RadarLocation } from '../types';
 import { BlurView } from 'expo-blur';
 import { useSettingsStore } from '../store/settingsStore';
 import { formatDistance, formatSpeed } from '../utils/format';
+import { hasProAccess } from '../utils/access';
 import AdBanner from '../components/AdBanner';
 import { AdService } from '../services/AdService';
 import { AnalyticsService } from '../services/AnalyticsService';
@@ -105,6 +106,7 @@ const OptimizedMarker = React.memo(({ coordinate, type, speedLimit }: any) => {
 
 const RadarScreen = ({ navigation, route }: any) => {
   const { user, refreshProfile } = useAuthStore();
+  const canUsePro = hasProAccess(user);
   const { unitSystem } = useSettingsStore();
   const setRadarLocations = useRadarStore((state) => state.setRadarLocations);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
@@ -166,7 +168,11 @@ const RadarScreen = ({ navigation, route }: any) => {
   useEffect(() => {
     const forceTab = route?.params?.forceTab as TabType | undefined;
     if (forceTab === 'Map' || forceTab === 'Graphic') {
-      setActiveTab(forceTab);
+      if (forceTab === 'Graphic' && !canUsePro) {
+        setActiveTab('Basic');
+      } else {
+        setActiveTab(forceTab);
+      }
       setIsDriving(true);
       navigation.setParams?.({ forceTab: undefined });
     } else if (forceTab === 'Basic') {
@@ -174,7 +180,7 @@ const RadarScreen = ({ navigation, route }: any) => {
       setIsDriving(false);
       navigation.setParams?.({ forceTab: undefined });
     }
-  }, [route?.params?.forceTab]);
+  }, [route?.params?.forceTab, canUsePro]);
 
   const activeAlert = useMemo(() => {
     const unacknowledged = activeAlerts.filter((alert) => !alert.acknowledged);
@@ -634,6 +640,11 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, [currentLocation, markInteracting]);
 
   const handleNavigate = async (targetDest?: string) => {
+      if (!canUsePro) {
+        alert('Navigation is a Pro feature. Upgrade to unlock turn-by-turn guidance.');
+        navigation.navigate('Subscription');
+        return;
+      }
       const finalDest = targetDest || destination;
       // Simplified navigate logic
       if (!finalDest) {
@@ -917,7 +928,13 @@ const RadarScreen = ({ navigation, route }: any) => {
                       <TouchableOpacity 
                         key={t} 
                         style={[styles.tabItem, activeTab === t && styles.activeTabItem]}
-                        onPress={() => setActiveTab(t)}
+                        onPress={() => {
+                          if (t === 'Graphic' && !canUsePro) {
+                            navigation.navigate('Subscription');
+                            return;
+                          }
+                          setActiveTab(t);
+                        }}
                       >
                           <Text style={[styles.tabText, activeTab === t && { color: '#FF5252' }]}>{t}</Text>
                       </TouchableOpacity>
@@ -1110,6 +1127,9 @@ const RadarScreen = ({ navigation, route }: any) => {
                                             </View>
                                         </View>
                                     )}
+                           </View>
+                           <View style={styles.mapAdContainer}>
+                             <AdBanner />
                            </View>
                            <View
                              style={[
@@ -1476,6 +1496,7 @@ const styles = StyleSheet.create({
   mapControls: { position: 'absolute', alignItems: 'center', zIndex: 10 },
   mapControlButton: { borderRadius: 16, backgroundColor: 'rgba(15,23,42,0.95)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   mapControlButtonActive: { backgroundColor: '#4ECDC4', borderColor: '#4ECDC4' },
+  mapAdContainer: { position: 'absolute', left: 0, right: 0, bottom: 10, alignItems: 'center' },
 
   fab: { position: 'absolute', left: 20, bottom: 85, backgroundColor: '#FF5252', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 10, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity:0.3, shadowRadius:4 },
   reportSheet: { backgroundColor: '#1E293B', padding: 30, borderTopLeftRadius: 30, borderTopRightRadius: 30 },

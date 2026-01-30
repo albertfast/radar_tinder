@@ -12,6 +12,8 @@ import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
 import { HapticPatterns } from '../utils/hapticFeedback';
 import { supabase } from '../../utils/supabase';
 import Radar3DView from '../components/Radar3DView';
+import { hasProAccess } from '../utils/access';
+import ProGate from '../components/ProGate';
 
 interface LeaderboardUser {
   id: string;
@@ -26,6 +28,7 @@ type Tone = { bg: string; text: string; border: string };
 
 const LeaderboardScreen = ({ navigation }: NavProps) => {
   const { user } = useAuthStore();
+  const canUse = hasProAccess(user);
   const { unitSystem } = useSettingsStore();
   const [leaders, setLeaders] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,8 +46,9 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   );
 
   useEffect(() => {
+    if (!canUse) return;
     loadLeaderboard(false);
-  }, []);
+  }, [canUse]);
 
   useEffect(() => {
     pulse.value = withRepeat(withTiming(1, { duration: 1200 }), -1, true);
@@ -57,6 +61,7 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   }, []);
 
   useEffect(() => {
+    if (!canUse) return;
     const channel = supabase
       .channel('leaderboard-live')
       .on(
@@ -74,6 +79,11 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   }, []);
 
   const loadLeaderboard = async (silent = false) => {
+    if (!canUse) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       if (!silent && leaders.length === 0) {
         setLoading(true);
@@ -89,6 +99,7 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   };
 
   const handleRefresh = async () => {
+    if (!canUse) return;
     setRefreshing(true);
     await loadLeaderboard(true);
   };
@@ -277,6 +288,16 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
       </Surface>
     );
   };
+
+  if (!canUse) {
+    return (
+      <ProGate
+        title="Leaderboard"
+        subtitle="Upgrade to Pro to compete on the leaderboard."
+        onUpgrade={() => navigation.navigate('Home', { screen: 'Subscription' })}
+      />
+    );
+  }
 
   return (
     <Animated.View 

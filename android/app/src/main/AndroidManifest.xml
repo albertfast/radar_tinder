@@ -3,6 +3,8 @@
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <!-- Remove ACTIVITY_RECOGNITION if injected by a dependency to avoid Health apps policy -->
+  <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" tools:node="remove"/>
     <!-- Remove camera permission injected by libraries if the app doesn't use the camera.
       This prevents Play Store privacy-policy warnings when the app doesn't actually access camera. -->
     <uses-permission android:name="android.permission.CAMERA" tools:node="remove"/>

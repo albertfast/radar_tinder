@@ -96,9 +96,9 @@ export class SubscriptionService {
     // Check for "remove_ads" entitlement (one-time)
     const adsRemoved = typeof customerInfo.entitlements.active['remove_ads'] !== 'undefined';
     
-    updateUser({ 
+    updateUser({
       subscriptionType: isPro ? 'pro' : 'free',
-      // We'll need to add this property to the User type or just use subscriptionType
+      adsRemoved,
     });
 
     console.log('User subscription status updated:', { isPro, adsRemoved });

@@ -12,6 +12,9 @@ import { DatabaseService } from '../../services/DatabaseService';
 import { useRadarStore } from '../../store/radarStore';
 import { useAutoHideTabBar } from '../../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../../constants/layout';
+import { hasProAccess } from '../../utils/access';
+import ProGate from '../../components/ProGate';
+import AdBanner from '../../components/AdBanner';
 
 interface RadarGraphicViewProps {
   totalDistance: number;
@@ -38,6 +41,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   unitSystem,
 }) => {
   const { user } = useAuthStore();
+  const canUse = hasProAccess(user);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [weeklyData, setWeeklyData] = useState(emptyWeeklyTrips);
@@ -50,7 +54,9 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
 
   // Load real data from Supabase
   useEffect(() => {
-    loadDrivingData();
+    if (canUse) {
+      loadDrivingData();
+    }
   }, [user?.id]);
 
   useEffect(() => {
@@ -219,8 +225,9 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   };
 
   useEffect(() => {
+    if (!canUse) return;
     loadRecentActivity();
-  }, [user?.id, activeAlerts.length]);
+  }, [user?.id, activeAlerts.length, canUse]);
 
   const weeklyStats = {
     totalDistance: weeklyData.reduce((acc, d) => acc + d.distance, 0),
@@ -254,6 +261,15 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
 
   const displayDistance = formatDistance(weeklyStats.totalDistance);
   const displayAvgSpeed = `${weeklyStats.avgSpeed} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`;
+
+  if (!canUse) {
+    return (
+      <ProGate
+        title="Graphic Dashboard"
+        subtitle="Upgrade to Pro to unlock weekly stats and activity insights."
+      />
+    );
+  }
 
   return (
     <ScrollView
@@ -498,6 +514,10 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
           </View>
         </LinearGradient>
       </Animated.View>
+
+      <View style={{ marginTop: 8 }}>
+        <AdBanner />
+      </View>
 
       <View style={styles.spacer} />
     </ScrollView>

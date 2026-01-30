@@ -3,7 +3,7 @@
     "name": "Radar Tinder",
     "scheme": "radartinder",
     "slug": "radar-tinder",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -55,7 +55,7 @@
     },
     "android": {
       "package": "com.radartinder.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

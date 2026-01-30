@@ -7,16 +7,32 @@ import { SupabaseService } from '../services/SupabaseService';
 import { useAuthStore } from '../store/authStore';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
+import { hasProAccess } from '../utils/access';
+import ProGate from '../components/ProGate';
+import AdBanner from '../components/AdBanner';
 
 const HistoryScreen = ({ navigation }: any) => {
   const { user } = useAuthStore();
+  const canUse = hasProAccess(user);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [trips, setTrips] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadTrips();
-  }, [user?.id]);
+    if (canUse) {
+      loadTrips();
+    }
+  }, [user?.id, canUse]);
+
+  if (!canUse) {
+    return (
+      <ProGate
+        title="Trip History"
+        subtitle="Upgrade to Pro to view trip history and weekly stats."
+        onUpgrade={() => navigation.navigate('Home', { screen: 'Subscription' })}
+      />
+    );
+  }
 
   const loadTrips = async () => {
     try {
@@ -48,6 +64,11 @@ const HistoryScreen = ({ navigation }: any) => {
         data={trips}
         keyExtractor={item => item.id}
         contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_HEIGHT + 24 }}
+        ListFooterComponent={
+          <View style={{ marginTop: 12 }}>
+            <AdBanner />
+          </View>
+        }
         onScroll={onScroll}
         onScrollBeginDrag={onScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}

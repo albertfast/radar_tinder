@@ -6,10 +6,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getQuestionsForState, getAllStates } from '../services/PermitTestService';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
+import { useAuthStore } from '../store/authStore';
+import { hasProAccess } from '../utils/access';
+import ProGate from '../components/ProGate';
 
 // Questions loaded from service
 
 const PermitTestScreen = ({ navigation }: any) => {
+  const { user } = useAuthStore();
+  const canUse = hasProAccess(user);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [questions, setQuestions] = useState<any[]>([]);
@@ -31,6 +36,16 @@ const PermitTestScreen = ({ navigation }: any) => {
         setSelectedOption(null);
     }
   }, [selectedState]);
+
+  if (!canUse) {
+      return (
+          <ProGate
+            title="Permit Test"
+            subtitle="Upgrade to Pro to access permit test practice."
+            onUpgrade={() => navigation.navigate('Subscription')}
+          />
+      );
+  }
 
   if (!selectedState) {
       return (

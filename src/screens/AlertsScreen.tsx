@@ -22,6 +22,7 @@ import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
 import { HapticPatterns } from '../utils/hapticFeedback';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
+import AdBanner from '../components/AdBanner';
 
 const allowLayoutAnimations = Platform.OS !== 'android';
 
@@ -228,6 +229,9 @@ const AlertsScreen = ({ navigation }: any) => {
             </Animated.View>
           ))
         )}
+        <View style={{ marginTop: 16 }}>
+          <AdBanner />
+        </View>
       </ScrollView>
     </Animated.View>
   );
