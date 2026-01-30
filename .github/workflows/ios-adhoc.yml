@@ -45,12 +45,15 @@ jobs:
       - name: Setup credentials from secrets
         env:
           IOS_DIST_P12_BASE64: ${{ secrets.IOS_DIST_P12_BASE64 }}
-          IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+          IOS_ADHOC_PROFILE_BASE64: ${{ secrets.IOS_ADHOC_PROFILE_BASE64 }}
           IOS_DIST_P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
         run: |
           mkdir -p credentials
           echo "$IOS_DIST_P12_BASE64" | base64 -D > credentials/dist-cert.p12
-          echo "$IOS_PROFILE_BASE64" | base64 -D > credentials/profile.mobileprovision
+          echo "$IOS_ADHOC_PROFILE_BASE64" | base64 -D > credentials/adhoc.mobileprovision
+          # Validate profile type (AdHoc should include ProvisionedDevices)
+          security cms -D -i credentials/adhoc.mobileprovision > /tmp/adhoc.plist
+          /usr/libexec/PlistBuddy -c "Print :ProvisionedDevices" /tmp/adhoc.plist > /tmp/adhoc_devices.txt
           ls -la credentials/
 
       - name: Generate iOS native code
@@ -74,7 +77,7 @@ jobs:
           cat > credentials.json <<EOF
           {
             "ios": {
-              "provisioningProfilePath": "credentials/profile.mobileprovision",
+              "provisioningProfilePath": "credentials/adhoc.mobileprovision",
               "distributionCertificate": {
                 "path": "credentials/dist-cert.p12",
                 "password": "$IOS_DIST_P12_PASSWORD"

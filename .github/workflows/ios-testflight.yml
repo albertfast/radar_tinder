@@ -50,6 +50,9 @@ jobs:
           mkdir -p credentials
           echo "$IOS_DIST_P12_BASE64" | base64 -D > credentials/dist-cert.p12
           echo "$IOS_APPSTORE_PROFILE_BASE64" | base64 -D > credentials/appstore.mobileprovision
+          # Validate profile type (App Store should NOT include ProvisionedDevices)
+          security cms -D -i credentials/appstore.mobileprovision > /tmp/appstore.plist
+          /usr/libexec/PlistBuddy -c "Print :ProvisionedDevices" /tmp/appstore.plist && exit 1 || true
           ls -la credentials/
 
       - name: Generate iOS native code
