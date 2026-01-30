@@ -8,4 +8,4 @@ overrides:
   '@dataconnect/generated': link:src/dataconnect-generated
 
 patchedDependencies:
-  react-native-screens: patches/react-native-screens.patch
+  react-native-screens: pnpm-patches/react-native-screens.patch
