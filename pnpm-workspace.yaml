@@ -1,8 +1,11 @@
 packages:
-  - '.'
+  - .
 
 ignoredBuiltDependencies:
   - protobufjs
 
 overrides:
   '@dataconnect/generated': link:src/dataconnect-generated
+
+patchedDependencies:
+  react-native-screens: patches/react-native-screens.patch

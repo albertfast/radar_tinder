@@ -1,0 +1,13 @@
+diff --git a/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt b/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
+index 458465ce9f396a02d4cb7c426fefc561c6dbb7b9..fa3803f92bb9283cdc1c902e57b1dfa2c3259658 100644
+--- a/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
++++ b/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
+@@ -316,7 +316,7 @@ class ScreenStack(context: Context?) : ScreenContainer(context) {
+     }
+ 
+     private fun obtainDrawingOp(): DrawingOp =
+-        if (drawingOpPool.isEmpty()) DrawingOp() else drawingOpPool.removeLast()
++        if (drawingOpPool.isEmpty()) DrawingOp() else drawingOpPool.removeAt(drawingOpPool.lastIndex)
+ 
+     private inner class DrawingOp {
+         var canvas: Canvas? = null
