@@ -3,7 +3,7 @@
     "name": "Radar Tinder",
     "scheme": "radartinder",
     "slug": "radar-tinder",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -55,28 +55,25 @@
     },
     "android": {
       "package": "com.radartinder.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B0F1A"
       },
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
-        "NOTIFICATIONS",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
         "WAKE_LOCK",
         "RECEIVE_BOOT_COMPLETED",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
         "ACCESS_NETWORK_STATE",
         "INTERNET",
-        "SYSTEM_ALERT_WINDOW",
         "CAMERA",
-        "RECORD_AUDIO",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "RECORD_AUDIO"
       ],
       "config": {
         "googleMaps": {
@@ -131,7 +128,7 @@
       }
     },
     "owner": "albertfast",
-    "runtimeVersion": "1.0.1",
+    "runtimeVersion": "1.0.4",
     "updates": {
       "enabled": true,
       "fallbackToCacheTimeout": 0
