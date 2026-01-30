@@ -14,7 +14,6 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.radartinder.app",
       "buildNumber": "1",
-      "usesAppleSignIn": true,
       "googleServicesFile": "./GoogleService-Info.plist",
       "config": {
         "googleMapsApiKey": "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
