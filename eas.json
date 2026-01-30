@@ -33,7 +33,7 @@
       }
     },
     "testflight": {
-      "credentialsSource": "local",
+      "credentialsSource": "remote",
       "distribution": "store",
       "autoIncrement": true,
       "ios": {
