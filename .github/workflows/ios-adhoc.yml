@@ -85,7 +85,7 @@ jobs:
 
       - name: Build IPA
         run: |
-          eas build --platform ios --profile adhoc --local --interactive --output=./RadarTinder.ipa
+          eas build --platform ios --profile adhoc --local --non-interactive --output=./RadarTinder.ipa
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
