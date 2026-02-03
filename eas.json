@@ -35,6 +35,7 @@
     "testflight": {
       "credentialsSource": "local",
       "distribution": "store",
+      "ascAppId": "6758140652",
       "autoIncrement": true,
       "ios": {
         "simulator": false
@@ -50,7 +51,9 @@
     }
   },
   "submit": {
-    "testflight": {},
+    "testflight": {
+      "ascAppId": "6758140652"
+    },
     "production": {}
   }
 }

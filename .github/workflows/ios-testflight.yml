@@ -87,5 +87,11 @@ jobs:
       - name: Build iOS (TestFlight)
         run: eas build --platform ios --profile testflight --local --non-interactive --output=./RadarTinder.ipa
 
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RadarTinder-TestFlight
+          path: ./RadarTinder.ipa
+
       - name: Submit to TestFlight
         run: eas submit --platform ios --profile testflight --non-interactive --path ./RadarTinder.ipa
