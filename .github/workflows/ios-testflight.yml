@@ -94,4 +94,4 @@ jobs:
           path: ./RadarTinder.ipa
 
       - name: Submit to TestFlight
-        run: eas submit --platform ios --profile testflight --non-interactive --path ./RadarTinder.ipa
+        run: eas submit --platform ios --profile testflight --path ./RadarTinder.ipa
