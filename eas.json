@@ -41,7 +41,6 @@
     "testflight": {
       "credentialsSource": "local",
       "distribution": "store",
-      "autoIncrement": true,
       "developmentClient": false,
       "ios": {
         "simulator": false,
@@ -51,7 +50,6 @@
     "production": {
       "credentialsSource": "local",
       "distribution": "store",
-      "autoIncrement": true,
       "developmentClient": false,
       "ios": {
         "simulator": false,
