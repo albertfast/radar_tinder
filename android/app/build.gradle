@@ -119,9 +119,7 @@ android {
         def versionCodeProp = project.hasProperty('VERSION_CODE') ? project.property('VERSION_CODE') : null
         def versionCodeEnv =
             System.getenv('VERSION_CODE') ?:
-            System.getenv('ANDROID_VERSION_CODE') ?:
-            System.getenv('EAS_BUILD_NUMBER') ?:
-            System.getenv('GITHUB_RUN_NUMBER')
+            System.getenv('ANDROID_VERSION_CODE')
         def fallbackVersionCode = (System.currentTimeMillis() / 1000L).toLong() // monotonic, fits in int for decades
         def computedVersionCode = (versionCodeProp ?: versionCodeEnv ?: fallbackVersionCode.toString()).toString().toLong()
         // Android versionCode must be a 32-bit int.
