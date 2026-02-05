@@ -35,8 +35,19 @@ export class BackgroundService {
       if (this.isRunning) return;
       
       this.isRunning = true;
-      await NotificationService.init();
-      await OfflineService.init();
+      
+      // Initialize services with individual error handling
+      try {
+        await NotificationService.init();
+      } catch (error) {
+        console.error('Error initializing notification service in background:', error);
+      }
+
+      try {
+        await OfflineService.init();
+      } catch (error) {
+        console.error('Error initializing offline service in background:', error);
+      }
       
       this.setupAppStateListener();
       this.setupNotificationListener();
@@ -44,16 +55,28 @@ export class BackgroundService {
       // CRITICAL: Start background location updates IMMEDIATELY while app is in foreground
       // Android 12+ requires foreground services to be started while app is foreground
       // This prevents "Foreground service cannot be started when the application is in the background" error
-      await this.startBackgroundLocationUpdates();
+      // Wrap in try-catch to prevent crash if permissions not granted yet
+      try {
+        await this.startBackgroundLocationUpdates();
+      } catch (error) {
+        console.error('Error starting background location updates:', error);
+        // Don't throw - app should still work without background location
+      }
       
       // Start tracking immediately if app is active
       if (AppState.currentState === 'active') {
-        await this.startLocationTracking();
+        try {
+          await this.startLocationTracking();
+        } catch (error) {
+          console.error('Error starting location tracking:', error);
+          // Don't throw - app should still work without foreground location
+        }
       }
       
       // Service ready - logging disabled to reduce noise
     } catch (error) {
       console.error('Error initializing background service:', error);
+      // Error is logged but not rethrown - allows app to continue without background features
     }
   }
 
