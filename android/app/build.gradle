@@ -116,7 +116,17 @@ android {
         applicationId 'com.radartinder.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 42
+        def versionCodeProp = project.hasProperty('VERSION_CODE') ? project.property('VERSION_CODE') : null
+        def versionCodeEnv =
+            System.getenv('VERSION_CODE') ?:
+            System.getenv('ANDROID_VERSION_CODE') ?:
+            System.getenv('EAS_BUILD_NUMBER') ?:
+            System.getenv('GITHUB_RUN_NUMBER')
+        def fallbackVersionCode = (System.currentTimeMillis() / 1000L).toLong() // monotonic, fits in int for decades
+        def computedVersionCode = (versionCodeProp ?: versionCodeEnv ?: fallbackVersionCode.toString()).toString().toLong()
+        // Android versionCode must be a 32-bit int.
+        def clampedVersionCode = computedVersionCode > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) computedVersionCode
+        versionCode clampedVersionCode
         versionName "1.0.4"
     }
     signingConfigs {
