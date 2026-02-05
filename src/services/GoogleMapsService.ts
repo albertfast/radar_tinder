@@ -211,24 +211,12 @@ export class GoogleMapsService {
 
   /**
    * Get autocomplete suggestions for a place query
+   * NOTE: Google Places API disabled to reduce costs - using direct geocoding instead
    */
   static async getPlaceAutocomplete(input: string): Promise<any[]> {
-    try {
-      if (!input || input.length < 3) return [];
-      
-      const url = `${this.BASE_URL}/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${GOOGLE_MAPS_API_KEY}`;
-      
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.status === 'OK') {
-        return data.predictions;
-      }
-      return [];
-    } catch (error) {
-      console.error('Error getting autocomplete:', error);
-      return [];
-    }
+    // Places API disabled - return empty array
+    // User can still search by typing full address and pressing GO
+    return [];
   }
   /**
    * Get address from coordinates using Geocoding API

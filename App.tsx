@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { NavigationContainer, DarkTheme as NavigationDarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
@@ -7,7 +7,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AppState } from 'react-native';
+import { AppState, View, ActivityIndicator } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+import * as Font from 'expo-font';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import MainDrawerNavigator from './src/navigation/MainDrawerNavigator';
 import ReportRadarScreen from './src/screens/ReportRadarScreen';
@@ -25,6 +28,9 @@ import { supabase } from './utils/supabase';
 const Stack = createNativeStackNavigator();
 const queryClient = new QueryClient();
 
+// Keep splash screen visible while loading
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 // Combine Paper dark theme with Navigation dark theme
 const combinedDarkTheme = {
   ...NavigationDarkTheme,
@@ -39,6 +45,30 @@ const prefix = Linking.createURL('/');
 
 export default function App() {
   const { isAuthenticated, user } = useAuthStore();
+  const [appIsReady, setAppIsReady] = useState(false);
+
+  // Load fonts and prepare app
+  useEffect(() => {
+    async function prepare() {
+      try {
+        // Load MaterialCommunityIcons font explicitly
+        await Font.loadAsync({
+          ...MaterialCommunityIcons.font,
+        });
+      } catch (e) {
+        console.warn('Font loading error:', e);
+      } finally {
+        setAppIsReady(true);
+      }
+    }
+    prepare();
+  }, []);
+
+  const onLayoutRootView = useCallback(async () => {
+    if (appIsReady) {
+      await SplashScreen.hideAsync();
+    }
+  }, [appIsReady]);
 
   useEffect(() => {
     // Initialize services
@@ -111,8 +141,17 @@ export default function App() {
     }
   }, [isAuthenticated, user]);
 
+  // Don't render until fonts are loaded
+  if (!appIsReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0F1A' }}>
+        <ActivityIndicator size="large" color="#4ECDC4" />
+      </View>
+    );
+  }
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <PaperProvider theme={combinedDarkTheme}>

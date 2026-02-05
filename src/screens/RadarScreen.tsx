@@ -1016,8 +1016,8 @@ const RadarScreen = ({ navigation, route }: any) => {
                                 onMapTouchEnd={endInteracting}
                             />
                             <View style={[styles.mapOverlay, { top: mapOverlayTop, left: mapOverlayInset, right: mapOverlayInset }]}>
-                                   <View style={{flexDirection: 'row', alignItems: 'center', gap: mapControlGap}}>
-                                       <View style={{flex: 1}}>
+                                   <View style={{flexDirection: 'row', alignItems: 'center', gap: mapControlGap}} pointerEvents="box-none">
+                                       <View style={{flex: 1}} pointerEvents="box-none">
                                             <TextInput 
                                                 ref={destinationInputRef}
                                                 placeholder="Go somewhere..." 
@@ -1041,7 +1041,13 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                 autoCorrect={false}
                                                 autoCapitalize="none"
                                                 keyboardType="default"
+                                                editable={!isDriving}
                                                 onFocus={() => {
+                                                  if (isDriving) {
+                                                    Keyboard.dismiss();
+                                                    destinationInputRef.current?.blur();
+                                                    return;
+                                                  }
                                                   isTypingRef.current = true;
                                                   isInteractingRef.current = true;
                                                 }}

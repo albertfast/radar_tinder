@@ -6,7 +6,8 @@ import {
   Dimensions, 
   TextInput,
   TouchableOpacity,
-  FlatList
+  FlatList,
+  Keyboard
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Text, useTheme, Surface, IconButton } from 'react-native-paper';
@@ -132,7 +133,12 @@ const MapScreen = () => {
             placeholderTextColor="#8E8E93"
             value={searchQuery}
             onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
+            onSubmitEditing={() => {
+              Keyboard.dismiss();
+              handleSearch();
+            }}
+            returnKeyType="search"
+            blurOnSubmit={true}
           />
           {searchQuery !== '' && (
             <IconButton 
