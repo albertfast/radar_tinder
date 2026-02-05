@@ -16,10 +16,6 @@ jobs:
       EAS_NO_VCS: 1
       # Skip Metro bundling during build (bundle is created by EAS)
       SKIP_BUNDLING: 1
-      # ccache configuration for faster C/C++/Objective-C compilation
-      CC: ccache clang
-      CXX: ccache clang++
-      CCACHE_DIR: ~/Library/Caches/ccache
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,23 +43,6 @@ jobs:
           xcodebuild -version
           xcodebuild -showsdks
           xcrun --sdk iphoneos --show-sdk-path || true
-
-      - name: Setup ccache for faster Xcode builds
-        run: |
-          brew install ccache
-          ccache --set-config=max_size=2G
-          ccache --set-config=compression=true
-          ccache -z
-
-      - name: Setup ccache cache
-        uses: actions/cache@v4
-        with:
-          path: ~/Library/Caches/ccache
-          # Sequential run_number key allows ccache to accumulate across builds
-          # restore-keys ensures we get the most recent cache from any previous run
-          key: ${{ runner.os }}-ccache-${{ github.run_number }}
-          restore-keys: |
-            ${{ runner.os }}-ccache-
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -151,11 +130,6 @@ jobs:
             echo "Using cached Pods, running install"
             pod install --verbose
           fi
-
-      - name: Show ccache statistics
-        run: |
-          echo "=== ccache statistics ==="
-          ccache -s
 
       - name: Build iOS LOCAL (TestFlight)
         run: |
