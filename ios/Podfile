@@ -66,7 +66,7 @@ target 'RadarTinder' do
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
-      :ccache_enabled => true,
+      :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
     )
 
     # This is necessary for Xcode 14, because it signs resource bundles by default
@@ -94,19 +94,20 @@ target 'RadarTinder' do
         # Disable strict warnings that cause build failures in Xcode 26
         config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
         config.build_settings['ENABLE_STRICT_OBJC_MSGSEND'] = 'NO'
-        config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
         
         # Fix module map issues - allow implicit imports
         config.build_settings['CLANG_WARN_IMPLICIT_MODULES'] = 'NO'
         config.build_settings['CLANG_ENABLE_MODULE_DEBUGGING'] = 'NO'
         
-        # Optimize build speed - enable parallel builds
-        config.build_settings['SWIFT_COMPILATION_MODE'] = 'wholemodule'
-        config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-O'
-        config.build_settings['GCC_OPTIMIZATION_LEVEL'] = 's'
-        
-        # Use new build system for better performance
+        # Optimize build speed - disable index store for CI builds
         config.build_settings['COMPILER_INDEX_STORE_ENABLE'] = 'NO'
+        
+        # Apply optimization settings only for Release builds
+        if config.name == 'Release'
+          config.build_settings['SWIFT_COMPILATION_MODE'] = 'wholemodule'
+          config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-O'
+          config.build_settings['GCC_OPTIMIZATION_LEVEL'] = 's'
+        end
       end
     end
     
