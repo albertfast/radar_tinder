@@ -4,6 +4,26 @@ apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
+// Auto-increment version code from file
+def versionPropsFile = file('version.properties')
+def versionProps = new Properties()
+if (versionPropsFile.exists()) {
+    versionProps.load(new FileInputStream(versionPropsFile))
+}
+def vCode = (versionProps['VERSION_CODE'] ?: '42').toInteger()
+
+// Increment version on release builds
+tasks.configureEach { task ->
+    if (task.name == 'bundleRelease' || task.name == 'assembleRelease') {
+        task.doFirst {
+            def newCode = vCode + 1
+            versionProps['VERSION_CODE'] = newCode.toString()
+            versionProps.store(versionPropsFile.newWriter(), null)
+            println "Auto-incremented VERSION_CODE to ${newCode}"
+        }
+    }
+}
+
 static def versionToNumber(major, minor, patch) {
   return patch * 100 + minor * 10000 + major * 1000000
 }
@@ -114,8 +134,8 @@ android {
         applicationId 'com.radartinder.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 40
-        versionName "1.0.40"
+        versionCode vCode
+        versionName "1.0.${vCode}"
     }
     signingConfigs {
         debug {

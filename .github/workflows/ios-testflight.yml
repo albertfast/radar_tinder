@@ -74,6 +74,7 @@ jobs:
       - name: Install CocoaPods
         run: |
           cd ios
+          rm -f Podfile.lock
           pod install --repo-update
 
       - name: Build iOS LOCAL (TestFlight)
