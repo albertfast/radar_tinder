@@ -120,7 +120,8 @@ android {
         def versionCodeEnv =
             System.getenv('VERSION_CODE') ?:
             System.getenv('ANDROID_VERSION_CODE')
-        def fallbackVersionCode = (System.currentTimeMillis() / 1000L).toLong() // monotonic, fits in int for decades
+        // Match app.config.js logic: timestamp + 300,000,000 so local builds match EAS/Expo versioning
+        def fallbackVersionCode = ((System.currentTimeMillis() / 1000L) + 300000000).toLong()
         def computedVersionCode = (versionCodeProp ?: versionCodeEnv ?: fallbackVersionCode.toString()).toString().toLong()
         // Android versionCode must be a 32-bit int.
         def clampedVersionCode = computedVersionCode > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) computedVersionCode
