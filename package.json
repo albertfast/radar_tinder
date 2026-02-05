@@ -86,8 +86,5 @@
     "react-native-svg-transformer": "^1.5.2",
     "typescript": "~5.3.3"
   },
-  "overrides": {
-    "@dataconnect/generated": "link:src/dataconnect-generated"
-  },
   "private": true
 }
