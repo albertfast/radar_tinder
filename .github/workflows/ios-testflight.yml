@@ -14,6 +14,12 @@ jobs:
       EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
       EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
       EAS_NO_VCS: 1
+      # Speed up builds
+      SKIP_BUNDLING: 1
+      # ccache configuration
+      CC: ccache clang
+      CXX: ccache clang++
+      CCACHE_DIR: ~/Library/Caches/ccache
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,6 +54,14 @@ jobs:
           ccache --set-config=max_size=2G
           ccache --set-config=compression=true
           ccache -z
+
+      - name: Setup ccache cache
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -125,6 +139,13 @@ jobs:
           rm -rf ios
           npx expo prebuild --platform ios --clean
           cd ios
+          # Create .xcode.env.local for ccache in Xcode
+          cat > .xcode.env.local << 'EOF'
+export NODE_BINARY=$(command -v node)
+export CC="ccache clang"
+export CXX="ccache clang++"
+export CCACHE_DIR="${HOME}/Library/Caches/ccache"
+EOF
           # Only do full clean if cache miss or Podfile changed
           if [ ! -d "Pods" ]; then
             echo "No Pods cache found, doing fresh install"
@@ -133,6 +154,11 @@ jobs:
             echo "Using cached Pods, running install"
             pod install --verbose
           fi
+
+      - name: Show ccache statistics
+        run: |
+          echo "=== ccache statistics ==="
+          ccache -s
 
       - name: Build iOS LOCAL (TestFlight)
         run: |
