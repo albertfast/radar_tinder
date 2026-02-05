@@ -8,7 +8,9 @@ import {
   Keyboard,
   Modal,
   TouchableOpacity,
-  FlatList
+  FlatList,
+  Platform,
+  Pressable,
 } from 'react-native';
 import { 
   Text, 
@@ -1017,7 +1019,14 @@ const RadarScreen = ({ navigation, route }: any) => {
                             />
                             <View style={[styles.mapOverlay, { top: mapOverlayTop, left: mapOverlayInset, right: mapOverlayInset }]}>
                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: mapControlGap}} pointerEvents="box-none">
-                                       <View style={{flex: 1}} pointerEvents="box-none">
+                                       <Pressable 
+                                         style={{flex: 1}} 
+                                         onPress={() => {
+                                           if (!isDriving && destinationInputRef.current) {
+                                             destinationInputRef.current.focus();
+                                           }
+                                         }}
+                                       >
                                             <TextInput 
                                                 ref={destinationInputRef}
                                                 placeholder="Go somewhere..." 
@@ -1058,7 +1067,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                   }, 100);
                                                 }}
                                             />
-                                       </View>
+                                       </Pressable>
                                        
                                        <TouchableOpacity 
                                             style={[styles.iconBtn, { backgroundColor: '#4ECDC4', padding: 12 }]} 

@@ -55,8 +55,10 @@ export class GoogleMapsService {
       if (data.status === 'OK') {
         return data.results;
       } else {
-        // Don't warn for ZERO_RESULTS, it's normal
-        if (data.status !== 'ZERO_RESULTS') {
+        // Don't warn for expected errors - reduces log spam
+        // REQUEST_DENIED is expected when Places API is disabled
+        // ZERO_RESULTS is normal when no places found
+        if (data.status !== 'ZERO_RESULTS' && data.status !== 'REQUEST_DENIED') {
           console.warn('Google Places API Error:', data.status, data.error_message);
         }
         return [];
