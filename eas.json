@@ -12,7 +12,7 @@
       },
       "ios": {
         "simulator": false,
-        "image": "macos-sonoma-14.6-xcode-16.0"
+        "image": "macos-sequoia-15.5-xcode-26.0"
       },
       "android": {
         "buildType": "apk"
@@ -24,7 +24,7 @@
       "distribution": "internal",
       "ios": {
         "simulator": false,
-        "image": "macos-sonoma-14.6-xcode-16.0"
+        "image": "macos-sequoia-15.5-xcode-26.0"
       }
     },
     "preview": {
@@ -32,7 +32,7 @@
       "distribution": "internal",
       "ios": {
         "simulator": false,
-        "image": "macos-sonoma-14.6-xcode-16.0"
+        "image": "macos-sequoia-15.5-xcode-26.0"
       },
       "android": {
         "buildType": "apk"
