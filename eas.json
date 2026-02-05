@@ -36,17 +36,18 @@
       "credentialsSource": "local",
       "distribution": "store",
       "autoIncrement": true,
+      "developmentClient": false,
       "ios": {
-        "simulator": false,
-        "image": "macos-sonoma-14.6-xcode-16.0"
+        "simulator": false
       }
     },
     "production": {
       "credentialsSource": "local",
       "distribution": "store",
       "autoIncrement": true,
+      "developmentClient": false,
       "ios": {
-        "image": "macos-sonoma-14.6-xcode-16.0"
+        "simulator": false
       },
       "android": {
         "buildType": "app-bundle"

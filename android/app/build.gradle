@@ -114,8 +114,8 @@ android {
         applicationId 'com.radartinder.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 18
-        versionName "1.0.18"
+        versionCode 40
+        versionName "1.0.40"
     }
     signingConfigs {
         debug {
