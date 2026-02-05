@@ -39,6 +39,12 @@ android/app/src/main/assets/
 android/app/build
 android/build
 build/
+*.aab
+*.apk
+
+# iOS Build Artifacts
+*.ipa
+*.dSYM.zip
 
 # iOS
 ios/Pods/
@@ -47,3 +53,10 @@ ios/*.xcworkspace
 ios/*.xcodeproj/project.xcworkspace
 ios/*.xcodeproj/xcuserdata
 credentials.json
+
+# Build outputs
+*.aab
+*.apk
+*.ipa
+android/app/build/
+ios/build/
