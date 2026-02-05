@@ -47,7 +47,7 @@ jobs:
           eas whoami
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Setup Android signing (create credentials.json)
         env:
