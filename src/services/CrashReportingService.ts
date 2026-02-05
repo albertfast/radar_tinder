@@ -1,3 +1,7 @@
+import crashlytics from '@react-native-firebase/crashlytics';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
+
 export class CrashReportingService {
   private static isInitialized = false;
   private static errorQueue: Array<Error> = [];
@@ -5,6 +9,10 @@ export class CrashReportingService {
   static async init(): Promise<void> {
     try {
       if (this.isInitialized) return;
+
+      try {
+        await crashlytics().setCrashlyticsCollectionEnabled(true);
+      } catch (e) {}
 
       // Set up global error handlers
       this.setupErrorHandlers();
@@ -72,8 +80,11 @@ export class CrashReportingService {
         },
       };
 
-      // Log to console for debugging
-      console.error('Crash Report:', crashReport);
+      // Log to Crashlytics (native + JS)
+      try {
+        crashlytics().log(JSON.stringify({ context }));
+        crashlytics().recordError(error);
+      } catch (e) {}
 
       // Try to send immediately
       await this.sendCrashReport(crashReport);
@@ -131,13 +142,7 @@ export class CrashReportingService {
 
   private static async sendCrashReport(report: any): Promise<void> {
     try {
-      // TODO: Replace with actual crash reporting API call
-      // Sending crash report - logging disabled in production
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Crash report sent - logging disabled to reduce noise
+      // Crashlytics handles delivery; keep placeholder for future integrations.
     } catch (error) {
       console.error('Error sending crash report:', error);
       throw error;
@@ -175,11 +180,10 @@ export class CrashReportingService {
     try {
       return {
         platform: 'mobile',
-        // TODO: Add actual device info using Expo Device module
-        // device_name: Device.deviceName,
-        // device_type: Device.deviceType,
-        // os_version: Device.osVersion,
-        // app_version: Constants.manifest?.version,
+        device_name: Device.deviceName,
+        device_type: Device.deviceType,
+        os_version: Device.osVersion,
+        app_version: Constants.expoConfig?.version,
       };
     } catch (error) {
       console.error('Error getting device info:', error);
