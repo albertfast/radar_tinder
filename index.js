@@ -1,7 +1,8 @@
 import 'react-native-url-polyfill/auto';
 import { AppRegistry } from 'react-native';
 import App from './App';
-import { name as appName } from './app.json';
+
+const appName = "main";
 
 // In case app.json structure is { "expo": { "name": ... } } or similar, we fallback or parse carefully.
 // Standard RN expects app.json to have { "name": "appName" } at top level usually, 
