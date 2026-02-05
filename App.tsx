@@ -9,8 +9,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppState, View, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Font from 'expo-font';
-import { MaterialCommunityIcons, Ionicons, FontAwesome, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
+import { 
+  MaterialCommunityIcons, 
+  Ionicons, 
+  FontAwesome, 
+  FontAwesome5, 
+  MaterialIcons,
+  Feather,
+  AntDesign,
+  Entypo
+} from '@expo/vector-icons';
 
 import MainDrawerNavigator from './src/navigation/MainDrawerNavigator';
 import ReportRadarScreen from './src/screens/ReportRadarScreen';
@@ -45,34 +54,24 @@ const prefix = Linking.createURL('/');
 
 export default function App() {
   const { isAuthenticated, user } = useAuthStore();
-  const [appIsReady, setAppIsReady] = useState(false);
-
-  // Load fonts and prepare app
-  useEffect(() => {
-    async function prepare() {
-      try {
-        // Load all icon fonts explicitly for production builds
-        await Font.loadAsync({
-          ...MaterialCommunityIcons.font,
-          ...Ionicons.font,
-          ...FontAwesome.font,
-          ...FontAwesome5.font,
-          ...MaterialIcons.font,
-        });
-      } catch (e) {
-        console.warn('Font loading error:', e);
-      } finally {
-        setAppIsReady(true);
-      }
-    }
-    prepare();
-  }, []);
+  
+  // Load all icon fonts using useFonts hook
+  const [fontsLoaded] = useFonts({
+    ...MaterialCommunityIcons.font,
+    ...Ionicons.font,
+    ...FontAwesome.font,
+    ...FontAwesome5.font,
+    ...MaterialIcons.font,
+    ...Feather.font,
+    ...AntDesign.font,
+    ...Entypo.font,
+  });
 
   const onLayoutRootView = useCallback(async () => {
-    if (appIsReady) {
+    if (fontsLoaded) {
       await SplashScreen.hideAsync();
     }
-  }, [appIsReady]);
+  }, [fontsLoaded]);
 
   useEffect(() => {
     // Initialize services
@@ -146,7 +145,7 @@ export default function App() {
   }, [isAuthenticated, user]);
 
   // Don't render until fonts are loaded
-  if (!appIsReady) {
+  if (!fontsLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0F1A' }}>
         <ActivityIndicator size="large" color="#4ECDC4" />

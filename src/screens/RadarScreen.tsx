@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   FlatList,
   Platform,
-  Pressable,
 } from 'react-native';
 import { 
   Text, 
@@ -215,25 +214,6 @@ const RadarScreen = ({ navigation, route }: any) => {
     }, 4000);
     return () => clearInterval(interval);
   }, [proSliderIndex, isDriving]);
-
-  // Android keyboard fix for driving mode
-  useEffect(() => {
-    if (isDriving && activeTab === 'Map') {
-      // Dismiss keyboard when entering driving mode
-      Keyboard.dismiss();
-      
-      // Prevent keyboard from auto-showing
-      const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-        if (!isTypingRef.current && destinationInputRef.current?.isFocused()) {
-          destinationInputRef.current?.blur();
-        }
-      });
-      
-      return () => {
-        keyboardDidShowListener.remove();
-      };
-    }
-  }, [isDriving, activeTab]);
 
   // General Location Tracking
   useEffect(() => {
@@ -1017,16 +997,21 @@ const RadarScreen = ({ navigation, route }: any) => {
                                 onMapTouchStart={handleMapTouchStart}
                                 onMapTouchEnd={endInteracting}
                             />
-                            <View style={[styles.mapOverlay, { top: mapOverlayTop, left: mapOverlayInset, right: mapOverlayInset }]}>
-                                   <View style={{flexDirection: 'row', alignItems: 'center', gap: mapControlGap}} pointerEvents="box-none">
-                                       <Pressable 
-                                         style={{flex: 1}} 
+                            <View 
+                              style={[styles.mapOverlay, { top: mapOverlayTop, left: mapOverlayInset, right: mapOverlayInset }]}
+                              pointerEvents="box-none"
+                            >
+                                   <View style={{flexDirection: 'row', alignItems: 'center', gap: mapControlGap}}>
+                                       <TouchableOpacity
+                                         style={{flex: 1}}
+                                         activeOpacity={1}
                                          onPress={() => {
-                                           if (!isDriving && destinationInputRef.current) {
-                                             destinationInputRef.current.focus();
-                                           }
+                                           setTimeout(() => {
+                                             destinationInputRef.current?.focus();
+                                           }, 100);
                                          }}
                                        >
+                                         <View>
                                             <TextInput 
                                                 ref={destinationInputRef}
                                                 placeholder="Go somewhere..." 
@@ -1050,13 +1035,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                 autoCorrect={false}
                                                 autoCapitalize="none"
                                                 keyboardType="default"
-                                                editable={!isDriving}
                                                 onFocus={() => {
-                                                  if (isDriving) {
-                                                    Keyboard.dismiss();
-                                                    destinationInputRef.current?.blur();
-                                                    return;
-                                                  }
                                                   isTypingRef.current = true;
                                                   isInteractingRef.current = true;
                                                 }}
@@ -1067,7 +1046,8 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                   }, 100);
                                                 }}
                                             />
-                                       </Pressable>
+                                         </View>
+                                       </TouchableOpacity>
                                        
                                        <TouchableOpacity 
                                             style={[styles.iconBtn, { backgroundColor: '#4ECDC4', padding: 12 }]} 
