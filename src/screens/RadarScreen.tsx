@@ -1032,21 +1032,24 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                 ]}
                                                 value={destination}
                                                 onChangeText={handleTextChange}
-                                                onSubmitEditing={() => handleNavigate()}
+                                                onSubmitEditing={() => {
+                                                  Keyboard.dismiss();
+                                                  handleNavigate();
+                                                }}
                                                 returnKeyType="search"
                                                 blurOnSubmit={true}
                                                 autoCorrect={false}
                                                 autoCapitalize="none"
-                                                autoFocus={false}
                                                 keyboardType="default"
-                                                showSoftInputOnFocus={true}
                                                 onFocus={() => {
                                                   isTypingRef.current = true;
                                                   isInteractingRef.current = true;
                                                 }}
                                                 onBlur={() => {
                                                   isTypingRef.current = false;
-                                                  endInteracting();
+                                                  setTimeout(() => {
+                                                    endInteracting();
+                                                  }, 100);
                                                 }}
                                             />
                                        </View>

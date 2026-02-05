@@ -52,7 +52,7 @@ const PillTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
 
   return (
     <Animated.View
-      style={[styles.tabWrapper, { paddingBottom: Math.max(insets.bottom, 10) }, animatedStyle]}
+      style={[styles.tabWrapper, { paddingBottom: Math.max(insets.bottom + 8, 18) }, animatedStyle]}
       pointerEvents={tabBarHidden ? 'none' : 'auto'}
     >
       <LinearGradient
