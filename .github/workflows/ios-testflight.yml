@@ -94,13 +94,16 @@ jobs:
           rm -rf ios
           npx expo prebuild --platform ios --clean
           cd ios
-          pod install --repo-update
+          pod deintegrate || true
+          rm -rf Pods Podfile.lock
+          pod install --repo-update --verbose
 
       - name: Build iOS LOCAL (TestFlight)
         run: |
           eas build --platform ios --profile testflight --local --non-interactive --output ./RadarTinder.ipa
         env:
           EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH: ${{ github.workspace }}/credentials/AuthKey_${{ secrets.ASC_API_KEY_ID }}.p8
+          IPHONEOS_DEPLOYMENT_TARGET: "13.4"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
