@@ -104,11 +104,11 @@ target 'RadarTinder' do
         config.build_settings['COMPILER_INDEX_STORE_ENABLE'] = 'NO'
         
         # Apply optimization settings only for Release builds
-        if config.name == 'Release'
-          config.build_settings['SWIFT_COMPILATION_MODE'] = 'wholemodule'
-          config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-O'
-          config.build_settings['GCC_OPTIMIZATION_LEVEL'] = 's'
-        end
+        # if config.name == 'Release'
+        #   config.build_settings['SWIFT_COMPILATION_MODE'] = 'wholemodule'
+        #   config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-O'
+        #   config.build_settings['GCC_OPTIMIZATION_LEVEL'] = 's'
+        # end
       end
     end
   end
