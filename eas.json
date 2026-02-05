@@ -45,7 +45,7 @@
       "developmentClient": false,
       "ios": {
         "simulator": false,
-        "image": "macos-sonoma-14.6-xcode-16.0"
+        "image": "macos-sequoia-15.5-xcode-26.0"
       }
     },
     "production": {
@@ -55,7 +55,7 @@
       "developmentClient": false,
       "ios": {
         "simulator": false,
-        "image": "macos-sonoma-14.6-xcode-16.0"
+        "image": "macos-sequoia-15.5-xcode-26.0"
       },
       "android": {
         "buildType": "app-bundle"
