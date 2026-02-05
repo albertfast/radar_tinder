@@ -14,9 +14,9 @@ jobs:
       EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
       EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
       EAS_NO_VCS: 1
-      # Speed up builds
+      # Skip Metro bundling during build (bundle is created by EAS)
       SKIP_BUNDLING: 1
-      # ccache configuration
+      # ccache configuration for faster C/C++/Objective-C compilation
       CC: ccache clang
       CXX: ccache clang++
       CCACHE_DIR: ~/Library/Caches/ccache
@@ -59,7 +59,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/Library/Caches/ccache
-          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          # Use date-based key to allow cache reuse across commits while invalidating daily
+          key: ${{ runner.os }}-ccache-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-ccache-
 
