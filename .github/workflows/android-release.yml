@@ -56,6 +56,16 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          missing=0
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then echo "Missing ANDROID_KEYSTORE_BASE64 secret"; missing=1; fi
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then echo "Missing ANDROID_KEYSTORE_PASSWORD secret"; missing=1; fi
+          if [ -z "$ANDROID_KEY_ALIAS" ]; then echo "Missing ANDROID_KEY_ALIAS secret"; missing=1; fi
+          if [ -z "$ANDROID_KEY_PASSWORD" ]; then echo "Missing ANDROID_KEY_PASSWORD secret"; missing=1; fi
+          if [ "$missing" -ne 0 ]; then
+            echo "Android signing secrets are required for local EAS build."
+            exit 1
+          fi
+
           mkdir -p credentials
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > credentials/release.keystore
 
