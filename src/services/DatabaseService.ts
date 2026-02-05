@@ -11,7 +11,8 @@ export class DatabaseService {
       await this.createTables();
     } catch (error) {
       console.error('Error initializing database:', error);
-      throw error;
+      // Don't throw - database errors should not crash the app
+      // The app can still work with remote data only
     }
   }
 

@@ -32,6 +32,7 @@ import { OfflineService } from './src/services/OfflineService';
 import { AdService } from './src/services/AdService';
 import { SubscriptionService } from './src/services/SubscriptionService';
 import { FirebaseAuthService } from './src/services/FirebaseAuthService';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { supabase } from './utils/supabase';
 
 const Stack = createNativeStackNavigator();
@@ -74,25 +75,59 @@ export default function App() {
   }, [fontsLoaded]);
 
   useEffect(() => {
-    // Initialize services
+    // Initialize services with proper error isolation
     const initializeServices = async () => {
+      // Initialize crash reporting first (but don't let it crash the app)
+      try {
+        await CrashReportingService.init();
+      } catch (error) {
+        console.error('Error initializing crash reporting:', error);
+      }
+
+      // Initialize other services with individual error handling
       try {
         await AnalyticsService.init();
-        await CrashReportingService.init();
-        await OfflineService.init();
-        await BackgroundService.init();
-        await AdService.init();
-        await SubscriptionService.init();
-        FirebaseAuthService.configureGoogle();
+      } catch (error) {
+        console.error('Error initializing analytics:', error);
+      }
 
+      try {
+        await OfflineService.init();
+      } catch (error) {
+        console.error('Error initializing offline service:', error);
+      }
+
+      try {
+        await BackgroundService.init();
+      } catch (error) {
+        console.error('Error initializing background service:', error);
+      }
+
+      try {
+        await AdService.init();
+      } catch (error) {
+        console.error('Error initializing ad service:', error);
+      }
+
+      try {
+        await SubscriptionService.init();
+      } catch (error) {
+        console.error('Error initializing subscription service:', error);
+      }
+
+      try {
+        FirebaseAuthService.configureGoogle();
+      } catch (error) {
+        console.error('Error configuring Google Auth:', error);
+      }
+
+      // Track app launch (optional, won't crash if it fails)
+      try {
         await AnalyticsService.trackEvent('app_launch', {
           authenticated: useAuthStore.getState().isAuthenticated,
         });
       } catch (error) {
-        console.error('Error initializing services:', error);
-        await CrashReportingService.reportHandledError(error as Error, {
-          context: 'app_initialization',
-        });
+        console.error('Error tracking app launch:', error);
       }
     };
 
@@ -154,73 +189,75 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <PaperProvider theme={combinedDarkTheme}>
-            <NavigationContainer
-              theme={combinedDarkTheme}
-              linking={{
-                prefixes: [prefix, 'radartinder://'],
-                config: {
-                  screens: {
-                    Main: {
-                      screens: {
-                        MainTabs: {
-                          screens: {
-                            Home: {
-                              screens: {
-                                RadarMain: {
-                                  path: 'navigate',
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <PaperProvider theme={combinedDarkTheme}>
+              <NavigationContainer
+                theme={combinedDarkTheme}
+                linking={{
+                  prefixes: [prefix, 'radartinder://'],
+                  config: {
+                    screens: {
+                      Main: {
+                        screens: {
+                          MainTabs: {
+                            screens: {
+                              Home: {
+                                screens: {
+                                  RadarMain: {
+                                    path: 'navigate',
+                                  },
                                 },
                               },
-                            },
-                            Map: {
-                              path: 'map',
-                            },
-                            Diagnose: {
-                              path: 'diagnose',
+                              Map: {
+                                path: 'map',
+                              },
+                              Diagnose: {
+                                path: 'diagnose',
+                              },
                             },
                           },
                         },
                       },
                     },
-                  },
-                } as any,
-              }}
-              onStateChange={async () => {
-                // Track screen changes
-                await AnalyticsService.trackEvent('navigation_change', {
-                  authenticated: isAuthenticated,
-                });
-              }}
-            >
-              <StatusBar style="light" />
-              <Stack.Navigator screenOptions={{ headerShown: false }}>
-                {isAuthenticated ? (
-                  <>
-                    <Stack.Screen name="Main" component={MainDrawerNavigator} />
-                    <Stack.Screen 
-                      name="ReportRadar" 
-                      component={ReportRadarScreen}
-                      options={{
-                        headerShown: true,
-                        title: 'Report Radar',
-                        headerStyle: {
-                          backgroundColor: combinedDarkTheme.colors.surface,
-                        },
-                        headerTintColor: combinedDarkTheme.colors.text,
-                      }}
-                    />
-                  </>
-                ) : (
-                  <Stack.Screen name="Auth" component={require('./src/navigation/AuthNavigator').default} />
-                )}
-              </Stack.Navigator>
-            </NavigationContainer>
-          </PaperProvider>
-        </QueryClientProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+                  } as any,
+                }}
+                onStateChange={async () => {
+                  // Track screen changes
+                  await AnalyticsService.trackEvent('navigation_change', {
+                    authenticated: isAuthenticated,
+                  });
+                }}
+              >
+                <StatusBar style="light" />
+                <Stack.Navigator screenOptions={{ headerShown: false }}>
+                  {isAuthenticated ? (
+                    <>
+                      <Stack.Screen name="Main" component={MainDrawerNavigator} />
+                      <Stack.Screen 
+                        name="ReportRadar" 
+                        component={ReportRadarScreen}
+                        options={{
+                          headerShown: true,
+                          title: 'Report Radar',
+                          headerStyle: {
+                            backgroundColor: combinedDarkTheme.colors.surface,
+                          },
+                          headerTintColor: combinedDarkTheme.colors.text,
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <Stack.Screen name="Auth" component={require('./src/navigation/AuthNavigator').default} />
+                  )}
+                </Stack.Navigator>
+              </NavigationContainer>
+            </PaperProvider>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
