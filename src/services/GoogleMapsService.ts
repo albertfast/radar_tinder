@@ -141,7 +141,8 @@ export class GoogleMapsService {
   static async getDirections(
     originLat: number,
     originLng: number,
-    destination: string
+    destination: string,
+    options?: { alternatives?: boolean; prefer?: 'duration' | 'distance' }
   ): Promise<any> {
     try {
       if (!GOOGLE_MAPS_API_KEY) {
@@ -150,7 +151,8 @@ export class GoogleMapsService {
       }
 
       const origin = `${originLat},${originLng}`;
-      const url = `${this.BASE_URL}/directions/json?origin=${origin}&destination=${encodeURIComponent(destination)}&key=${GOOGLE_MAPS_API_KEY}`;
+      const alternatives = options?.alternatives ? '&alternatives=true' : '';
+      const url = `${this.BASE_URL}/directions/json?origin=${origin}&destination=${encodeURIComponent(destination)}&mode=driving${alternatives}&language=en&key=${GOOGLE_MAPS_API_KEY}`;
 
       console.log('[GoogleMapsService] Fetching directions to:', destination);
       
@@ -158,11 +160,29 @@ export class GoogleMapsService {
       const data = await response.json();
 
       if (data.status === 'OK') {
-        const points = this.decodePolyline(data.routes[0].overview_polyline.points);
+        const routes = Array.isArray(data.routes) ? data.routes : [];
+        const scoredRoutes = routes.map((route: any) => {
+          const leg = route?.legs?.[0];
+          const duration = leg?.duration?.value ?? Number.MAX_SAFE_INTEGER;
+          const distance = leg?.distance?.value ?? Number.MAX_SAFE_INTEGER;
+          return { route, duration, distance };
+        });
+
+        const prefer = options?.prefer === 'distance' ? 'distance' : 'duration';
+        scoredRoutes.sort((a, b) => {
+          if (prefer === 'distance') {
+            return a.distance - b.distance || a.duration - b.duration;
+          }
+          return a.duration - b.duration || a.distance - b.distance;
+        });
+
+        const selectedRoute = scoredRoutes[0]?.route ?? routes[0];
+        const points = this.decodePolyline(selectedRoute.overview_polyline.points);
         console.log('[GoogleMapsService] Route found with', points.length, 'points');
         return {
-          ...data.routes[0],
-          coordinates: points
+          ...selectedRoute,
+          coordinates: points,
+          routes
         };
       }
       
@@ -225,7 +245,7 @@ export class GoogleMapsService {
    */
   static async getReverseGeocoding(latitude: number, longitude: number): Promise<string | null> {
     try {
-      const url = `${this.BASE_URL}/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+      const url = `${this.BASE_URL}/geocode/json?latlng=${latitude},${longitude}&language=en&key=${GOOGLE_MAPS_API_KEY}`;
       const response = await fetch(url);
       const data = await response.json();
 
@@ -237,6 +257,31 @@ export class GoogleMapsService {
     } catch (error) {
       console.error('Error reverse geocoding:', error);
       return null;
+    }
+  }
+
+  /**
+   * Get address suggestions using Geocoding API (Places disabled).
+   */
+  static async getGeocodeSuggestions(input: string): Promise<string[]> {
+    try {
+      const query = input.trim();
+      if (!query) return [];
+      if (!GOOGLE_MAPS_API_KEY) return [];
+      const url = `${this.BASE_URL}/geocode/json?address=${encodeURIComponent(query)}&language=en&key=${GOOGLE_MAPS_API_KEY}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === 'OK' && Array.isArray(data.results)) {
+        return data.results
+          .map((result: any) => result.formatted_address)
+          .filter(Boolean)
+          .slice(0, 6);
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching geocode suggestions:', error);
+      return [];
     }
   }
 }

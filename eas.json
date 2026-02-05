@@ -78,6 +78,11 @@
         "ascApiKeyId": "${EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID}"
       }
     },
-    "production": {}
+    "production": {
+      "android": {
+       "serviceAccountKeyPath": "./google-service-account.json",
+       "track": "internal"
+      }
+    }
   }
 }

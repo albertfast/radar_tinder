@@ -68,7 +68,7 @@ const RadarMap = React.memo(({
             showsUserLocation={showsUserLocation}
             showsMyLocationButton={false}
             showsCompass={false}
-            showsTraffic
+            showsTraffic={false}
             mapPadding={padding}
             pitchEnabled
             rotateEnabled

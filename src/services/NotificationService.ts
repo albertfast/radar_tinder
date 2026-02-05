@@ -72,14 +72,27 @@ export class NotificationService {
 
   static async sendRadarAlert(alert: RadarAlert, locationName?: string): Promise<void> {
     try {
-      const title = 'Radar Detected!';
+      const radarLabel = (() => {
+        const type = String(alert.type || '');
+        if (type === 'speed_camera' || type === 'fixed') return 'Speed Camera';
+        if (type === 'police' || type === 'mobile' || type === 'traffic_enforcement') return 'Speed Trap';
+        if (type === 'red_light') return 'Red Light Camera';
+        return 'Radar';
+      })();
+
+      const title = `${radarLabel} Ahead`;
       const hasDistance = Number.isFinite(alert.distance);
       const hasEta = Number.isFinite(alert.estimatedTime);
-      let body = locationName || 'Radar detected.';
+      const shortLocation = locationName
+        ? locationName.split(',').slice(0, 2).join(', ')
+        : '';
+
+      let body = shortLocation ? `${radarLabel} near ${shortLocation}.` : `${radarLabel} detected.`;
 
       if (hasDistance) {
         const etaPart = hasEta ? ` ETA: ${alert.estimatedTime.toFixed(1)} min` : '';
-        body = `Radar detected ${alert.distance.toFixed(1)} km away${locationName ? ` at ${locationName}` : ''}.${etaPart}`;
+        const locationPart = shortLocation ? ` near ${shortLocation}` : '';
+        body = `${radarLabel} ${alert.distance.toFixed(1)} km ahead${locationPart}.${etaPart}`;
       }
 
       await Notifications.scheduleNotificationAsync({
