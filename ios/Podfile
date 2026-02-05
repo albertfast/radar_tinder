@@ -99,7 +99,8 @@ target 'RadarTinder' do
         config.build_settings['CLANG_WARN_IMPLICIT_MODULES'] = 'NO'
         config.build_settings['CLANG_ENABLE_MODULE_DEBUGGING'] = 'NO'
         
-        # Optimize build speed - disable index store for CI builds
+        # Disable index store for CI builds (this setting only affects CI, not local dev)
+        # Local developers won't have this in their Pods since they build locally
         config.build_settings['COMPILER_INDEX_STORE_ENABLE'] = 'NO'
         
         # Apply optimization settings only for Release builds
