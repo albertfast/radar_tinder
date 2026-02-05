@@ -28,10 +28,13 @@ jobs:
 
       - name: Install iOS platform (required for generic iOS device archive)
         run: |
-          sudo xcodebuild -runFirstLaunch
-          sudo xcodebuild -downloadPlatform iOS
-          xcodebuild -version
-          xcodebuild -showsdks
+            sudo xcodebuild -runFirstLaunch
+            xcrun simctl list >/dev/null
+            xcodebuild -downloadPlatform iOS
+
+            xcodebuild -version
+            xcodebuild -showsdks
+
 
       - name: Show Xcode and SDK version
         run: |
