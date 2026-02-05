@@ -50,9 +50,4 @@ if (getRNMinorVersion() < 75) {
 
 include ':app'
 
-def rnGradlePlugin = new File(["node", "--print", "require.resolve('@react-native/gradle-plugin/package.json')"].execute(null, rootDir).text.trim())
-if (rnGradlePlugin.exists()) {
-  includeBuild(rnGradlePlugin.getParentFile().toString())
-} else {
-  println("warning: @react-native/gradle-plugin not found, skipping includeBuild to avoid /null path")
-}
+includeBuild(new File(["node", "--print", "require.resolve('@react-native/gradle-plugin/package.json')"].execute(null, rootDir).text.trim()).getParentFile().toString())
