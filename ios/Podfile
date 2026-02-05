@@ -4,6 +4,9 @@ $RNFirebaseAsStaticFramework = true
 # Pin Firebase to compatible version to avoid GoogleUtilities conflict
 $FirebaseSDKVersion = '10.29.0'
 
+# Enable modular headers globally for Swift pods
+use_modular_headers!
+
 require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
 
@@ -91,5 +94,9 @@ target 'RadarTinder' do
   pod 'GoogleUtilities', '~> 7.13', :modular_headers => true
   pod 'FirebaseCore', '~> 10.29.0', :modular_headers => true
   pod 'FirebaseCoreInternal', '~> 10.0', :modular_headers => true
+  pod 'FirebaseInstallations', '~> 10.29.0', :modular_headers => true
+  pod 'GoogleDataTransport', '~> 9.4', :modular_headers => true
+  pod 'nanopb', :modular_headers => true
+  pod 'FirebaseCoreExtension', '~> 10.29.0', :modular_headers => true
 
 end
