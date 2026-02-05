@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@dataconnect/generated': link:src/dataconnect-generated
-
 patchedDependencies:
   react-native-screens:
     hash: 226a3511b4b40158f3d1be5c1a18b2eb0717d5b8c9f0bed3ad22d5b3d32fc96d
