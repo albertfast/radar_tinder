@@ -19,9 +19,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode 16.1 (iOS 18.1 SDK)
+      - name: Select Xcode 16.0 (iOS 18.0 SDK)
         run: |
-          sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
+          sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
           xcodebuild -version
           xcodebuild -showsdks | grep iOS
 
