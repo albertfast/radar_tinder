@@ -27,7 +27,8 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.radartinder.app",
-      buildNumber: "44",
+      // Use the same dynamic logic as Android for auto-incrementing build numbers
+      buildNumber: getVersionCode().toString(),
       googleServicesFile: "./GoogleService-Info.plist",
       config: {
         googleMapsApiKey: "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
