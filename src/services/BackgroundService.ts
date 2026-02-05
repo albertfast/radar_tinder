@@ -76,7 +76,7 @@ export class BackgroundService {
       // Service ready - logging disabled to reduce noise
     } catch (error) {
       console.error('Error initializing background service:', error);
-      // Don't rethrow - background service failure should not crash the app
+      // Error is logged but not rethrown - allows app to continue without background features
     }
   }
 
