@@ -38,7 +38,7 @@
     "testflight": {
       "credentialsSource": "local",
       "distribution": "store",
-      "autoIncrement": "buildNumber",
+      "autoIncrement": true,
       "developmentClient": false,
       "ios": {
         "simulator": false,
