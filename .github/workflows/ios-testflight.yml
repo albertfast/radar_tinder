@@ -59,7 +59,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/Library/Caches/ccache
-          # Use weekly rotating key to balance cache reuse and freshness
+          # Sequential run_number key allows ccache to accumulate across builds
+          # restore-keys ensures we get the most recent cache from any previous run
           key: ${{ runner.os }}-ccache-${{ github.run_number }}
           restore-keys: |
             ${{ runner.os }}-ccache-
@@ -140,10 +141,8 @@ jobs:
           rm -rf ios
           npx expo prebuild --platform ios --clean
           cd ios
-          # Create .xcode.env.local for Node binary path
-          cat > .xcode.env.local << 'EOF'
-export NODE_BINARY=$(command -v node)
-EOF
+          # Create .xcode.env.local for Node binary path (required by Expo)
+          echo "export NODE_BINARY=$(command -v node)" > .xcode.env.local
           # Only do full clean if cache miss or Podfile changed
           if [ ! -d "Pods" ]; then
             echo "No Pods cache found, doing fresh install"
