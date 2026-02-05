@@ -42,6 +42,13 @@ jobs:
           xcodebuild -showsdks
           xcrun --sdk iphoneos --show-sdk-path || true
 
+      - name: Setup ccache for faster Xcode builds
+        run: |
+          brew install ccache
+          ccache --set-config=max_size=2G
+          ccache --set-config=compression=true
+          ccache -z
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -52,11 +59,35 @@ jobs:
         with:
           version: 8
 
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
+
+      - name: Setup CocoaPods cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+            ~/.cocoapods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
 
       - name: Create App Store Connect API key file
         env:
@@ -94,9 +125,14 @@ jobs:
           rm -rf ios
           npx expo prebuild --platform ios --clean
           cd ios
-          pod deintegrate || true
-          rm -rf Pods Podfile.lock
-          pod install --repo-update --verbose
+          # Only do full clean if cache miss or Podfile changed
+          if [ ! -d "Pods" ]; then
+            echo "No Pods cache found, doing fresh install"
+            pod install --repo-update --verbose
+          else
+            echo "Using cached Pods, running install"
+            pod install --verbose
+          fi
 
       - name: Build iOS LOCAL (TestFlight)
         run: |
