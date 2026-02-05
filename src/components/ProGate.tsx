@@ -11,7 +11,7 @@ interface ProGateProps {
 }
 
 const ProGate: React.FC<ProGateProps> = ({
-  title = 'Pro Fature',
+  title = 'Pro Feature',
   subtitle = 'Upgrade to unlock this feature.',
   onUpgrade,
 }) => {
