@@ -37,13 +37,17 @@
       "distribution": "store",
       "autoIncrement": true,
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "image": "macos-sequoia-15.1-xcode-16.0"
       }
     },
     "production": {
       "credentialsSource": "local",
       "distribution": "store",
       "autoIncrement": true,
+      "ios": {
+        "image": "macos-sequoia-15.1-xcode-16.0"
+      },
       "android": {
         "buildType": "app-bundle"
       }
