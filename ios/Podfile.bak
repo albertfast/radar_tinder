@@ -4,6 +4,9 @@ $RNFirebaseAsStaticFramework = true
 # Pin Firebase to compatible version to avoid GoogleUtilities conflict
 $FirebaseSDKVersion = '10.29.0'
 
+# Enable modular headers globally for Swift pods
+# use_modular_headers!
+
 require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
 
@@ -42,6 +45,9 @@ prepare_react_native_project!
 
 target 'RadarTinder' do
   use_expo_modules!
+# @generated begin react-native-maps - expo prebuild (DO NOT MODIFY) sync-e9cc66c360abe50bc66d89fffb3c55b034d7d369
+  pod 'react-native-google-maps', path: File.dirname(`node --print "require.resolve('react-native-maps/package.json')"`)
+# @generated end react-native-maps
   config = use_native_modules!
 
   use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
@@ -50,6 +56,7 @@ target 'RadarTinder' do
   use_react_native!(
     :path => config[:reactNativePath],
     :hermes_enabled => podfile_properties['expo.jsEngine'] == nil || podfile_properties['expo.jsEngine'] == 'hermes',
+    # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/..",
     :privacy_file_aggregation_enabled => podfile_properties['apple.privacyManifestAggregationEnabled'] != 'false',
   )
@@ -80,8 +87,9 @@ target 'RadarTinder' do
         config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
         config.build_settings['SWIFT_VERSION'] = '5.0'
         
-        # Method 1 for Xcode 26 non-modular header fix
+        # Fix Xcode 26 module resolution issues - critical fixes
         config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        # config.build_settings['DEFINES_MODULE'] = 'YES'
         
         # Disable strict warnings that cause build failures in Xcode 26
         config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
@@ -89,8 +97,10 @@ target 'RadarTinder' do
         
         # Fix module map issues - allow implicit imports
         config.build_settings['CLANG_WARN_IMPLICIT_MODULES'] = 'NO'
+        config.build_settings['CLANG_ENABLE_MODULE_DEBUGGING'] = 'NO'
         
-        # Disable index store for CI builds
+        # Disable index store for CI builds (this setting only affects CI, not local dev)
+        # Local developers won't have this in their Pods since they build locally
         config.build_settings['COMPILER_INDEX_STORE_ENABLE'] = 'NO'
       end
     end
