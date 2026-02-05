@@ -42,14 +42,6 @@ jobs:
           xcodebuild -showsdks
           xcrun --sdk iphoneos --show-sdk-path || true
 
-      - name: Install iOS 18 Simulator Runtime (if needed)
-        run: |
-          # List available runtimes
-          xcrun simctl list runtimes || true
-          # The build uses generic destination, so simulator runtime is not strictly needed
-          # But we ensure the iOS platform is available
-          xcodebuild -downloadPlatform iOS || echo "iOS platform already installed or download not needed"
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
