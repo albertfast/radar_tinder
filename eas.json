@@ -11,7 +11,8 @@
         "YARN_IGNORE_ENGINES": "1"
       },
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "image": "macos-sonoma-14.5-xcode-16.0"
       },
       "android": {
         "buildType": "apk"
@@ -22,23 +23,26 @@
       "credentialsSource": "local",
       "distribution": "internal",
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "image": "macos-sonoma-14.5-xcode-16.0"
       }
     },
     "preview": {
       "credentialsSource": "remote",
       "distribution": "internal",
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "image": "macos-sonoma-14.5-xcode-16.0"
       }
     },
     "testflight": {
       "credentialsSource": "local",
       "distribution": "store",
-      "autoIncrement": true,
+      "autoIncrement": "buildNumber",
       "developmentClient": false,
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "image": "macos-sonoma-14.5-xcode-16.0"
       }
     },
     "production": {
@@ -47,7 +51,8 @@
       "autoIncrement": true,
       "developmentClient": false,
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "image": "macos-sonoma-14.5-xcode-16.0"
       },
       "android": {
         "buildType": "app-bundle"
