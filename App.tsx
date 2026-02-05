@@ -10,7 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppState, View, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons, FontAwesome, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 
 import MainDrawerNavigator from './src/navigation/MainDrawerNavigator';
 import ReportRadarScreen from './src/screens/ReportRadarScreen';
@@ -51,9 +51,13 @@ export default function App() {
   useEffect(() => {
     async function prepare() {
       try {
-        // Load MaterialCommunityIcons font explicitly
+        // Load all icon fonts explicitly for production builds
         await Font.loadAsync({
           ...MaterialCommunityIcons.font,
+          ...Ionicons.font,
+          ...FontAwesome.font,
+          ...FontAwesome5.font,
+          ...MaterialIcons.font,
         });
       } catch (e) {
         console.warn('Font loading error:', e);

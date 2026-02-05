@@ -10,16 +10,23 @@ def versionProps = new Properties()
 if (versionPropsFile.exists()) {
     versionProps.load(new FileInputStream(versionPropsFile))
 }
-def vCode = (versionProps['VERSION_CODE'] ?: '42').toInteger()
+def vCode = (versionProps['VERSION_CODE'] ?: '44').toInteger()
 
-// Increment version on release builds
-tasks.configureEach { task ->
-    if (task.name == 'bundleRelease' || task.name == 'assembleRelease') {
-        task.doFirst {
+// Track if we've already incremented in this build
+def hasIncremented = false
+
+// Increment version ONCE on release builds
+gradle.taskGraph.whenReady { taskGraph ->
+    if (!hasIncremented) {
+        def isReleaseBuild = taskGraph.allTasks.any { task -> 
+            task.name == 'bundleRelease' || task.name == 'assembleRelease'
+        }
+        if (isReleaseBuild) {
+            hasIncremented = true
             def newCode = vCode + 1
             versionProps['VERSION_CODE'] = newCode.toString()
             versionProps.store(versionPropsFile.newWriter(), null)
-            println "Auto-incremented VERSION_CODE to ${newCode}"
+            println "\\n>>> Auto-incremented VERSION_CODE: ${vCode} -> ${newCode}\\n"
         }
     }
 }

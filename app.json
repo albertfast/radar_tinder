@@ -8,12 +8,14 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": [
-      "**/*"
+      "**/*",
+      "assets/**/*",
+      "node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/*"
     ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.radartinder.app",
-      "buildNumber": "42",
+      "buildNumber": "43",
       "googleServicesFile": "./GoogleService-Info.plist",
       "config": {
         "googleMapsApiKey": "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
