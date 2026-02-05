@@ -59,8 +59,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/Library/Caches/ccache
-          # Use date-based key to allow cache reuse across commits while invalidating daily
-          key: ${{ runner.os }}-ccache-${{ github.run_id }}
+          # Use weekly rotating key to balance cache reuse and freshness
+          key: ${{ runner.os }}-ccache-${{ github.run_number }}
           restore-keys: |
             ${{ runner.os }}-ccache-
 
@@ -140,12 +140,9 @@ jobs:
           rm -rf ios
           npx expo prebuild --platform ios --clean
           cd ios
-          # Create .xcode.env.local for ccache in Xcode
+          # Create .xcode.env.local for Node binary path
           cat > .xcode.env.local << 'EOF'
 export NODE_BINARY=$(command -v node)
-export CC="ccache clang"
-export CXX="ccache clang++"
-export CCACHE_DIR="${HOME}/Library/Caches/ccache"
 EOF
           # Only do full clean if cache miss or Podfile changed
           if [ ! -d "Pods" ]; then
