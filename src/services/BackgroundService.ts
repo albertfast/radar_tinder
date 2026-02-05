@@ -5,6 +5,7 @@ import Constants from 'expo-constants';
 import { NotificationService } from './NotificationService';
 import { LocationService } from './LocationService';
 import { RadarService } from './RadarService';
+import { GoogleMapsService } from './GoogleMapsService';
 import { OfflineService } from './OfflineService';
 import { DatabaseService } from './DatabaseService';
 import { useAuthStore } from '../store/authStore';
@@ -18,6 +19,7 @@ export class BackgroundService {
   private static appStateSubscription: any = null;
   private static notificationSubscription: any = null;
   private static isRunning = false;
+  private static radarLocationNameCache: Record<string, string> = {};
   private static lastLocationUpdate: { latitude: number; longitude: number; timestamp: number } | null = null;
   private static lastRadarFetch:
     | { latitude: number; longitude: number; timestamp: number; radius: number }
@@ -322,6 +324,11 @@ export class BackgroundService {
       else if (speedKph > 60) baseThreshold = 1.2;
       else if (speedKph < 30) baseThreshold = 0.5;
 
+      const radarById = new Map<string, (RadarLocation & { distance: number })>();
+      for (const radar of nearbyRadars) {
+        if (radar?.id) radarById.set(radar.id, radar);
+      }
+
       const alerts = [];
       for (const radar of nearbyRadars) {
         const distance = radar.distance || 0;
@@ -368,7 +375,24 @@ export class BackgroundService {
       for (const alert of alerts) {
         const lastSent = this.lastAlertSent[alert.radarId] || 0;
         if (alert.severity === 'high' && nowMs - lastSent > this.ALERT_THROTTLE_MS) {
-          await NotificationService.sendRadarAlert(alert as any);
+          let locationName: string | undefined;
+          const cachedName = this.radarLocationNameCache[alert.radarId];
+          if (cachedName) {
+            locationName = cachedName;
+          } else {
+            const radar = radarById.get(alert.radarId);
+            if (radar) {
+              try {
+                const resolved = await GoogleMapsService.getReverseGeocoding(radar.latitude, radar.longitude);
+                if (resolved) {
+                  this.radarLocationNameCache[alert.radarId] = resolved;
+                  locationName = resolved;
+                }
+              } catch (error) {}
+            }
+          }
+
+          await NotificationService.sendRadarAlert(alert as any, locationName);
           this.lastAlertSent[alert.radarId] = nowMs;
         }
 

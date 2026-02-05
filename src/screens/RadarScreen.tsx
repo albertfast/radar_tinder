@@ -22,6 +22,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
 import { useRadarStore } from '../store/radarStore';
 import { useAuthStore } from '../store/authStore';
 import { RadarService } from '../services/RadarService';
@@ -32,6 +34,7 @@ import { SupabaseService } from '../services/SupabaseService';
 import { RadarLocation } from '../types';
 import { BlurView } from 'expo-blur';
 import { useSettingsStore } from '../store/settingsStore';
+import { useUiStore } from '../store/uiStore';
 import { formatDistance, formatSpeed } from '../utils/format';
 import { hasProAccess } from '../utils/access';
 import AdBanner from '../components/AdBanner';
@@ -71,6 +74,8 @@ const PRO_FEATURES = [
     { title: 'AI Diagnostics', subtitle: 'Unlimited dashboard scans', icon: 'car-cog', color: '#4ECDC4' },
     { title: 'No Ads', subtitle: 'Distraction free driving', icon: 'block-helper', color: '#FF5252' },
 ];
+
+const RECENT_DESTINATIONS_KEY = 'recent_destinations_v1';
 
 // OPTIMIZED MARKER COMPONENT
 const OptimizedMarker = React.memo(({ coordinate, type, speedLimit }: any) => {
@@ -127,7 +132,8 @@ const RadarScreen = ({ navigation, route }: any) => {
   const [destinationCoord, setDestinationCoord] = useState<{ latitude: number; longitude: number } | null>(null);
   const [navSteps, setNavSteps] = useState<NavStep[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [recentDestinations, setRecentDestinations] = useState<string[]>([]);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [drivingStartTime, setDrivingStartTime] = useState<Date | null>(null);
   const [totalDistance, setTotalDistance] = useState<number>(0);
@@ -138,7 +144,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const nearbyRadarsRef = useRef<any[]>([]);
   const isInteractingRef = useRef(false);
   const lastCameraUpdateRef = useRef(0);
-  const autocompleteTimer = useRef<NodeJS.Timeout | null>(null);
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const proSliderRef = useRef<FlatList>(null);
   const [proSliderIndex, setProSliderIndex] = useState(0);
   const hasCenteredMapRef = useRef(false);
@@ -149,6 +155,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const totalDistanceRef = useRef(totalDistance);
   const drivingStartTimeRef = useRef<Date | null>(drivingStartTime);
   const destinationInputRef = useRef<TextInput>(null);
+  const setTabBarHidden = useUiStore((state) => state.setTabBarHidden);
 
   // Refs for cleanup
   const lastPositionRef = useRef<any>(null);
@@ -214,6 +221,48 @@ const RadarScreen = ({ navigation, route }: any) => {
     }, 4000);
     return () => clearInterval(interval);
   }, [proSliderIndex, isDriving]);
+
+  // Keep screen awake during driving mode
+  useEffect(() => {
+    if (isDriving) {
+      activateKeepAwake();
+    } else {
+      deactivateKeepAwake();
+    }
+    return () => deactivateKeepAwake();
+  }, [isDriving]);
+
+  // Hide bottom tab bar in driving mode
+  useEffect(() => {
+    setTabBarHidden(isDriving);
+    return () => setTabBarHidden(false);
+  }, [isDriving, setTabBarHidden]);
+
+  // Load recent destinations for local suggestions
+  useEffect(() => {
+    let isMounted = true;
+    AsyncStorage.getItem(RECENT_DESTINATIONS_KEY)
+      .then((raw) => {
+        if (!isMounted) return;
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setRecentDestinations(parsed.filter((item) => typeof item === 'string'));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, []);
 
   // General Location Tracking
   useEffect(() => {
@@ -496,23 +545,43 @@ const RadarScreen = ({ navigation, route }: any) => {
     }
   };
 
+  const persistRecentDestination = useCallback(async (label: string) => {
+    const cleaned = label.trim();
+    if (!cleaned) return;
+    setRecentDestinations((prev) => {
+      const deduped = [cleaned, ...prev.filter((item) => item.toLowerCase() !== cleaned.toLowerCase())];
+      const next = deduped.slice(0, 8);
+      AsyncStorage.setItem(RECENT_DESTINATIONS_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
   const handleTextChange = (text: string) => {
-      setDestination(text);
-      if (autocompleteTimer.current) clearTimeout(autocompleteTimer.current);
-      
-      if (text.length === 0) {
-          setSuggestions([]);
-          return;
+    setDestination(text);
+
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+
+    const query = text.trim().toLowerCase();
+    if (!query) {
+      setSuggestions([]);
+      return;
+    }
+
+    const localMatches = recentDestinations
+      .filter((item) => item.toLowerCase().includes(query))
+      .slice(0, 6);
+    setSuggestions(localMatches);
+
+    if (query.length < 3) return;
+
+    searchTimerRef.current = setTimeout(async () => {
+      const results = await GoogleMapsService.getGeocodeSuggestions(text);
+      if (results.length > 0) {
+        setSuggestions(results);
       }
-      
-      autocompleteTimer.current = setTimeout(async () => {
-          if (text.length > 2) {
-              const results = await GoogleMapsService.getPlaceAutocomplete(text);
-              setSuggestions(results);
-          } else {
-              setSuggestions([]);
-          }
-      }, 500);
+    }, 450);
   };
 
   const handleSelectSuggestion = (desc: string) => {
@@ -591,6 +660,30 @@ const RadarScreen = ({ navigation, route }: any) => {
     tripStartRef.current = null;
     tripStartLabelRef.current = null;
   }, [currentLocation, user]);
+
+  const resetRoute = useCallback(async () => {
+    try {
+      await saveTripIfNeeded();
+    } catch (error) {}
+    setDestination('');
+    setSuggestions([]);
+    setRouteCoords([]);
+    setRouteMeta(null);
+    setDestinationCoord(null);
+    setNavSteps([]);
+    setCurrentStepIndex(0);
+    setIsDriving(false);
+    setActiveTab('Basic');
+    setNearbyRadars([]);
+    if (currentLocation) {
+      RadarService.getNearbyRadars(currentLocation.latitude, currentLocation.longitude, 10).then(setNearbyRadars);
+    }
+  }, [currentLocation, saveTripIfNeeded]);
+
+  const exitDrivingToHome = useCallback(async () => {
+    await resetRoute();
+    navigation.getParent?.()?.navigate('Home');
+  }, [navigation, resetRoute]);
 
   const markInteracting = useCallback(() => {
     isInteractingRef.current = true;
@@ -682,7 +775,8 @@ const RadarScreen = ({ navigation, route }: any) => {
         }
 
         const res = await GoogleMapsService.getDirections(
-            loc.latitude, loc.longitude, finalDest
+            loc.latitude, loc.longitude, finalDest,
+            { alternatives: true, prefer: 'duration' }
         );
         
         // Handle error responses
@@ -710,6 +804,7 @@ const RadarScreen = ({ navigation, route }: any) => {
               setRouteMeta(null);
               setDestinationCoord(null);
             }
+            persistRecentDestination(primaryLeg?.end_address || finalDest);
             setIsDriving(true);
             setActiveTab('Map');
             const steps = primaryLeg?.steps || [];
@@ -896,7 +991,7 @@ const RadarScreen = ({ navigation, route }: any) => {
               
               {/* Driving Header */}
               <View style={styles.drivingHeader}>
-                  <IconButton icon="chevron-down" iconColor="#fff" size={32} onPress={toggleDrivingMode} />
+                  <IconButton icon="home-variant" iconColor="#fff" size={28} onPress={exitDrivingToHome} />
                   <View style={{alignItems: 'center'}}>
                       <Text style={styles.drivingModeTitle}>DRIVING MODE</Text>
                       <Text style={styles.drivingModeSub}>MAP</Text>
@@ -1001,152 +1096,146 @@ const RadarScreen = ({ navigation, route }: any) => {
                               style={[styles.mapOverlay, { top: mapOverlayTop, left: mapOverlayInset, right: mapOverlayInset }]}
                               pointerEvents="box-none"
                             >
-                                   <View style={{flexDirection: 'row', alignItems: 'center', gap: mapControlGap}}>
-                                       <TouchableOpacity
-                                         style={{flex: 1}}
-                                         activeOpacity={1}
-                                         onPress={() => {
-                                           setTimeout(() => {
-                                             destinationInputRef.current?.focus();
-                                           }, 100);
-                                         }}
-                                       >
-                                         <View>
-                                            <TextInput 
-                                                ref={destinationInputRef}
-                                                placeholder="Go somewhere..." 
-                                                placeholderTextColor="#aaa"
-                                                style={[
-                                                  styles.mapInput,
-                                                  {
-                                                    paddingVertical: Math.round(10 * uiScale),
-                                                    paddingHorizontal: Math.round(12 * uiScale),
-                                                    fontSize: Math.round(15 * uiScale),
-                                                  },
-                                                ]}
-                                                value={destination}
-                                                onChangeText={handleTextChange}
-                                                onSubmitEditing={() => {
-                                                  Keyboard.dismiss();
-                                                  handleNavigate();
-                                                }}
-                                                returnKeyType="search"
-                                                blurOnSubmit={true}
-                                                autoCorrect={false}
-                                                autoCapitalize="none"
-                                                keyboardType="default"
-                                                onFocus={() => {
-                                                  isTypingRef.current = true;
-                                                  isInteractingRef.current = true;
-                                                }}
-                                                onBlur={() => {
-                                                  isTypingRef.current = false;
-                                                  setTimeout(() => {
-                                                    endInteracting();
-                                                  }, 100);
-                                                }}
-                                            />
-                                         </View>
-                                       </TouchableOpacity>
-                                       
-                                       <TouchableOpacity 
-                                            style={[styles.iconBtn, { backgroundColor: '#4ECDC4', padding: 12 }]} 
-                                            onPress={() => handleNavigate()}
-                                       >
-                                           <Text style={{color: 'black', fontWeight: 'bold'}}>GO</Text>
-                                       </TouchableOpacity>
+                                   {routeCoords.length === 0 ? (
+                                     <>
+                                       <View style={{flexDirection: 'row', alignItems: 'center', gap: mapControlGap}}>
+                                           <TouchableOpacity
+                                             style={{flex: 1}}
+                                             activeOpacity={1}
+                                             onPress={() => {
+                                               setTimeout(() => {
+                                                 destinationInputRef.current?.focus();
+                                               }, 100);
+                                             }}
+                                           >
+                                             <View>
+                                                <TextInput 
+                                                    ref={destinationInputRef}
+                                                    placeholder="Enter destination" 
+                                                    placeholderTextColor="#aaa"
+                                                    style={[
+                                                      styles.mapInput,
+                                                      {
+                                                        paddingVertical: Math.round(10 * uiScale),
+                                                        paddingHorizontal: Math.round(12 * uiScale),
+                                                        fontSize: Math.round(15 * uiScale),
+                                                      },
+                                                    ]}
+                                                    value={destination}
+                                                    onChangeText={handleTextChange}
+                                                    onSubmitEditing={() => {
+                                                      Keyboard.dismiss();
+                                                      handleNavigate();
+                                                    }}
+                                                    returnKeyType="search"
+                                                    blurOnSubmit={true}
+                                                    autoCorrect={false}
+                                                    autoCapitalize="none"
+                                                    keyboardType="default"
+                                                    onFocus={() => {
+                                                      isTypingRef.current = true;
+                                                      isInteractingRef.current = true;
+                                                      if (!destination.trim() && recentDestinations.length > 0) {
+                                                        setSuggestions(recentDestinations.slice(0, 6));
+                                                      }
+                                                    }}
+                                                    onBlur={() => {
+                                                      isTypingRef.current = false;
+                                                      setSuggestions([]);
+                                                      setTimeout(() => {
+                                                        endInteracting();
+                                                      }, 100);
+                                                    }}
+                                                />
+                                             </View>
+                                           </TouchableOpacity>
+                                           
+                                           <TouchableOpacity 
+                                                style={[styles.iconBtn, { backgroundColor: '#4ECDC4', padding: 12 }]} 
+                                                onPress={() => handleNavigate()}
+                                           >
+                                               <Text style={{color: 'black', fontWeight: 'bold'}}>GO</Text>
+                                           </TouchableOpacity>
 
-                                      {(destination.length > 0 || isDriving) && (
-                                            <TouchableOpacity 
-                                                style={[styles.iconBtn, { backgroundColor: '#FF5252', padding: 12 }]} 
-                                                onPress={async () => {
-                                                    try {
-                                                      await saveTripIfNeeded();
-                                                    } catch (error) {}
-                                                    setDestination('');
-                                                    setSuggestions([]);
-                                                    setRouteCoords([]);
-                                                    setRouteMeta(null);
-                                                    setDestinationCoord(null);
-                                                    setNavSteps([]);
-                                                    setCurrentStepIndex(0);
-                                                    setIsDriving(false);
-                                                    setActiveTab('Basic');
-                                                    setNearbyRadars([]); 
-                                                    if (currentLocation) {
-                                                      RadarService.getNearbyRadars(currentLocation.latitude, currentLocation.longitude, 10).then(setNearbyRadars);
-                                                    }
-                                                }}
-                                            >
-                                                <MaterialCommunityIcons name="close" size={24} color="white" />
-                                            </TouchableOpacity>
-                                       )}
+                                          {destination.length > 0 && (
+                                                <TouchableOpacity 
+                                                    style={[styles.iconBtn, { backgroundColor: '#FF5252', padding: 12 }]} 
+                                                    onPress={() => {
+                                                      setDestination('');
+                                                      setSuggestions([]);
+                                                    }}
+                                                >
+                                                    <MaterialCommunityIcons name="close" size={24} color="white" />
+                                                </TouchableOpacity>
+                                           )}
 
-                                       <TouchableOpacity 
-                                            style={[styles.iconBtn, { backgroundColor: 'rgba(0,0,0,0.8)', padding: 12 }]} 
-                                            onPress={centerMap}
-                                       >
-                                           <MaterialCommunityIcons name="crosshairs-gps" size={24} color="#4ECDC4" />
-                                       </TouchableOpacity>
-                                   </View>
-                                   
-                                   {suggestions.length > 0 && (
-                                       <View style={styles.suggestionsContainer}>
-                                           {suggestions.map((item) => (
-                                               <TouchableOpacity 
-                                                   key={item.place_id} 
-                                                   style={styles.suggestionItem}
-                                                   onPress={() => handleSelectSuggestion(item.description)}
-                                               >
-                                                   <MaterialCommunityIcons name="map-marker-outline" size={20} color="#94A3B8" />
-                                                   <Text style={styles.suggestionText} numberOfLines={1}>{item.description}</Text>
-                                               </TouchableOpacity>
-                                           ))}
+                                           <TouchableOpacity 
+                                                style={[styles.iconBtn, { backgroundColor: 'rgba(0,0,0,0.8)', padding: 12 }]} 
+                                                onPress={centerMap}
+                                           >
+                                               <MaterialCommunityIcons name="crosshairs-gps" size={24} color="#4ECDC4" />
+                                           </TouchableOpacity>
                                        </View>
+                                       
+                                       {suggestions.length > 0 && (
+                                           <View style={styles.suggestionsContainer}>
+                                               {suggestions.map((item, index) => (
+                                                   <TouchableOpacity 
+                                                       key={`${item}-${index}`} 
+                                                       style={styles.suggestionItem}
+                                                       onPress={() => handleSelectSuggestion(item)}
+                                                   >
+                                                       <MaterialCommunityIcons name="map-marker-outline" size={20} color="#94A3B8" />
+                                                       <Text style={styles.suggestionText} numberOfLines={1}>{item}</Text>
+                                                   </TouchableOpacity>
+                                               ))}
+                                           </View>
+                                       )}
+                                     </>
+                                   ) : (
+                                     <>
+                                       <View style={styles.navCompactRow}>
+                                         <View style={styles.navCompactInfo}>
+                                           <Text style={styles.navCompactTitle} numberOfLines={1}>
+                                             {routeMeta?.destinationLabel || destination || 'Destination'}
+                                           </Text>
+                                           <Text style={styles.navCompactMeta}>
+                                             {routeMeta?.distanceText || '—'} • ETA {routeMeta?.etaText || '—'} • {nearbyRadars.length} radars
+                                           </Text>
+                                         </View>
+                                         <TouchableOpacity
+                                           style={styles.navCompactButton}
+                                           onPress={centerMap}
+                                         >
+                                           <MaterialCommunityIcons name="crosshairs-gps" size={20} color="#4ECDC4" />
+                                         </TouchableOpacity>
+                                         <TouchableOpacity
+                                           style={[styles.navCompactButton, styles.navCompactButtonDanger]}
+                                           onPress={resetRoute}
+                                         >
+                                           <MaterialCommunityIcons name="close" size={20} color="#F8FAFC" />
+                                         </TouchableOpacity>
+                                       </View>
+
+                                       {routeCoords.length > 0 && (
+                                           <View style={[styles.navInstructionBox, { padding: Math.round(10 * uiScale) }]}>
+                                                <MaterialCommunityIcons
+                                                  name={getManeuverIcon(navSteps[currentStepIndex]?.maneuver)}
+                                                  size={24}
+                                                  color="white"
+                                                />
+                                                <View style={{marginLeft: 12, flex: 1}}>
+                                                    <Text style={{color:'white', fontSize: Math.round(14 * uiScale), fontWeight: 'bold'}}>
+                                                      {formatStepDistance(getStepDistanceMeters(navSteps[currentStepIndex])) || '...'}
+                                                    </Text>
+                                                    <Text style={{color:'#cbd5f5', fontSize: Math.round(11 * uiScale)}} numberOfLines={2}>
+                                                      {navSteps[currentStepIndex]?.instruction || 'Follow the highlighted route'}
+                                                    </Text>
+                                                </View>
+                                           </View>
+                                       )}
+                                     </>
                                    )}
-                                  
-                                  {routeMeta && (
-                                      <TouchableOpacity activeOpacity={0.9} onPress={centerMap}>
-                                        <LinearGradient
-                                          colors={['rgba(14,23,42,0.95)', 'rgba(12,20,33,0.85)']}
-                                          start={{ x: 0, y: 0 }}
-                                          end={{ x: 1, y: 1 }}
-                                          style={[styles.routeSummaryCard, { padding: Math.round(12 * uiScale) }]}
-                                        >
-                                          <View style={styles.routeSummaryRow}>
-                                            <View style={styles.routeIconBubble}>
-                                              <MaterialCommunityIcons name="steering" size={18} color="#4ECDC4" />
-                                            </View>
-                                            <View style={{flex: 1}}>
-                                              <Text style={[styles.routeSummaryTitle, { fontSize: Math.round(15 * uiScale) }]} numberOfLines={1}>{routeMeta.destinationLabel}</Text>
-                                              <Text style={[styles.routeSummaryMeta, { fontSize: Math.round(12 * uiScale) }]}>{routeMeta.distanceText} • ETA {routeMeta.etaText}</Text>
-                                            </View>
-                                            <View style={styles.routeBadge}>
-                                              <MaterialCommunityIcons name="radar" size={14} color="#0B1424" />
-                                              <Text style={[styles.routeBadgeText, { fontSize: Math.round(12 * uiScale) }]}>{nearbyRadars.length}</Text>
-                                            </View>
-                                          </View>
-                                        </LinearGradient>
-                                      </TouchableOpacity>
-                                  )}
-                                    
-                                    {routeCoords.length > 0 && (
-                                        <View style={[styles.navInstructionBox, { padding: Math.round(12 * uiScale) }]}>
-                                             <MaterialCommunityIcons
-                                              name={getManeuverIcon(navSteps[currentStepIndex]?.maneuver)}
-                                              size={32}
-                                              color="white"
-                                            />
-                                            <View style={{marginLeft: 15}}>
-                                                <Text style={{color:'white', fontSize: Math.round(16 * uiScale), fontWeight: 'bold'}}>
-                                                  {formatStepDistance(getStepDistanceMeters(navSteps[currentStepIndex])) || '...'}
-                                                </Text>
-                                                <Text style={{color:'#ccc', fontSize: Math.round(12 * uiScale)}} numberOfLines={2}>
-                                                  {navSteps[currentStepIndex]?.instruction || 'Follow the highlighted route'}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    )}
                            </View>
                            <View style={styles.mapAdContainer}>
                              <AdBanner />
@@ -1518,16 +1607,45 @@ const styles = StyleSheet.create({
   mapControlButtonActive: { backgroundColor: '#4ECDC4', borderColor: '#4ECDC4' },
   mapAdContainer: { position: 'absolute', left: 0, right: 0, bottom: 10, alignItems: 'center' },
 
+  navCompactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(9,15,28,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(78,205,196,0.25)',
+  },
+  navCompactInfo: { flex: 1 },
+  navCompactTitle: { color: '#F8FAFC', fontWeight: '800', fontSize: 14 },
+  navCompactMeta: { color: '#94A3B8', marginTop: 2, fontSize: 11 },
+  navCompactButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  navCompactButtonDanger: {
+    backgroundColor: 'rgba(255,82,82,0.9)',
+    borderColor: 'rgba(255,82,82,0.9)',
+  },
+
   fab: { position: 'absolute', left: 20, bottom: 85, backgroundColor: '#FF5252', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 10, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity:0.3, shadowRadius:4 },
   reportSheet: { backgroundColor: '#1E293B', padding: 30, borderTopLeftRadius: 30, borderTopRightRadius: 30 },
   sheetTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
   reportIconBig: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center' },
 
-  suggestionsContainer: { backgroundColor: '#1E293B', borderRadius: 12, marginTop: 5, paddingVertical: 5, maxHeight: 200 },
+  suggestionsContainer: { backgroundColor: '#0F172A', borderRadius: 12, marginTop: 6, paddingVertical: 5, maxHeight: 220, borderWidth: 1, borderColor: 'rgba(148,163,184,0.2)', zIndex: 20, elevation: 8 },
   suggestionItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   suggestionText: { color: '#F8FAFC', marginLeft: 10, flex: 1 },
   
-  navInstructionBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0F172A', padding: 15, borderRadius: 16, marginTop: 15, borderWidth: 1, borderColor: '#4ECDC4' },
+  navInstructionBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0B1220', padding: 12, borderRadius: 14, marginTop: 8, borderWidth: 1, borderColor: 'rgba(78,205,196,0.35)' },
 });
 
 export default RadarScreen;
