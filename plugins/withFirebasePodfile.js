@@ -23,21 +23,32 @@ $RNFirebaseAsStaticFramework = true
 
 ` + podfileContent;
       }
+
+      // Ensure we enable modular headers globally so Swift pods can be imported from static libs
+      if (!podfileContent.includes('use_modular_headers!')) {
+        // Insert after $FirebaseSDKVersion declaration if present, otherwise at top
+        if (podfileContent.includes("$FirebaseSDKVersion")) {
+          podfileContent = podfileContent.replace(/(\$FirebaseSDKVersion\s*=\s*[^\n]*\n)/, `$1use_modular_headers!\n`);
+        } else {
+          podfileContent = `use_modular_headers!\n\n` + podfileContent;
+        }
+      }
       
-      // Add modular_headers for GoogleUtilities specifically (main culprit)
-      // This is added after use_react_native but before the target closes
+      // Add modular_headers for specific Firebase-related dependencies
+      // This is added before the target's closing 'end'
       const modularHeadersPods = `
   # Fix Firebase Swift pods - add modular headers to specific dependencies
-  pod 'GoogleUtilities', :modular_headers => true
-  pod 'FirebaseCore', :modular_headers => true
+  pod 'GoogleUtilities', '~> 7.13', :modular_headers => true
+  pod 'FirebaseCore', '~> 10.29.0', :modular_headers => true
   pod 'FirebaseCoreInternal', :modular_headers => true
+  pod 'FirebaseInstallations', '~> 10.29.0', :modular_headers => true
+  pod 'GoogleDataTransport', :modular_headers => true
+  pod 'nanopb', :modular_headers => true
+  pod 'FirebaseCoreExtension', '~> 10.29.0', :modular_headers => true
 `;
 
-      // Find the main target block and add our pods
-      // Look for the pattern "use_react_native!(" and add after its closing block
-      if (!podfileContent.includes("pod 'GoogleUtilities', :modular_headers => true")) {
-        // Add before the first "end" that closes the target block
-        // Find "target 'RadarTinder' do" and add before its closing "end"
+      // Find the main target block and add our pods if not already present
+      if (!podfileContent.includes("pod 'GoogleUtilities', '~> 7.13', :modular_headers => true")) {
         podfileContent = podfileContent.replace(
           /(target\s+['"]RadarTinder['"]\s+do[\s\S]*?)(^end)/m,
           `$1${modularHeadersPods}\n$2`
