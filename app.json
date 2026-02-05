@@ -56,7 +56,7 @@
     },
     "android": {
       "package": "com.radartinder.app",
-      "versionCode": 2100000042,
+      "versionCode": 2000000042,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
