@@ -98,7 +98,7 @@ jobs:
 
       - name: Build iOS LOCAL (TestFlight)
         run: |
-          eas build --platform ios --profile testflight --store --non-interactive --output ./RadarTinder.ipa
+          eas build --platform ios --profile testflight --local --non-interactive --output ./RadarTinder.ipa
         env:
           EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH: ${{ github.workspace }}/credentials/AuthKey_${{ secrets.ASC_API_KEY_ID }}.p8
 
