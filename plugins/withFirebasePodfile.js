@@ -25,6 +25,7 @@ $RNFirebaseAsStaticFramework = true
       }
 
       // Ensure we enable modular headers globally so Swift pods can be imported from static libs
+      /*
       if (!podfileContent.includes('use_modular_headers!')) {
         // Insert after $FirebaseSDKVersion declaration if present, otherwise at top
         if (podfileContent.includes("$FirebaseSDKVersion")) {
@@ -33,6 +34,7 @@ $RNFirebaseAsStaticFramework = true
           podfileContent = `use_modular_headers!\n\n` + podfileContent;
         }
       }
+      */
       
       // Add modular_headers for specific Firebase-related dependencies
       // This is added before the target's closing 'end'
