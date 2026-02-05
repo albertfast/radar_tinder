@@ -2,6 +2,8 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+import groovy.json.JsonSlurper
+
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 static def versionToNumber(major, minor, patch) {
@@ -124,6 +126,43 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            def getSigningProp = { name ->
+                return project.hasProperty(name) ? project.property(name) : null
+            }
+
+            def storeFilePath = getSigningProp('android.injected.signing.store.file') ?: getSigningProp('MYAPP_UPLOAD_STORE_FILE')
+            def storePasswordValue = getSigningProp('android.injected.signing.store.password') ?: getSigningProp('MYAPP_UPLOAD_STORE_PASSWORD')
+            def keyAliasValue = getSigningProp('android.injected.signing.key.alias') ?: getSigningProp('MYAPP_UPLOAD_KEY_ALIAS')
+            def keyPasswordValue = getSigningProp('android.injected.signing.key.password') ?: getSigningProp('MYAPP_UPLOAD_KEY_PASSWORD')
+
+            // Local Gradle builds (without EAS injected signing) should still use the project's
+            // upload keystore so Play Console fingerprints match.
+            if (!(storeFilePath && storePasswordValue && keyAliasValue && keyPasswordValue)) {
+                def credFile = file("${projectRoot}/credentials.json")
+                if (credFile.exists()) {
+                    try {
+                        def cred = new JsonSlurper().parse(credFile)
+                        def ks = cred?.android?.keystore
+                        if (ks?.keystorePath && ks?.keystorePassword && ks?.keyAlias && ks?.keyPassword) {
+                            storeFilePath = file("${projectRoot}/${ks.keystorePath}").absolutePath
+                            storePasswordValue = ks.keystorePassword
+                            keyAliasValue = ks.keyAlias
+                            keyPasswordValue = ks.keyPassword
+                        }
+                    } catch (ignored) {
+                        // If parsing fails, we'll fall back to debug signing (and Play upload will fail).
+                    }
+                }
+            }
+
+            if (storeFilePath && storePasswordValue && keyAliasValue && keyPasswordValue) {
+                storeFile file(storeFilePath)
+                storePassword storePasswordValue
+                keyAlias keyAliasValue
+                keyPassword keyPasswordValue
+            }
+        }
     }
     buildTypes {
         debug {
@@ -132,7 +171,8 @@ android {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            def hasReleaseSigning = signingConfigs.release.storeFile != null
+            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
