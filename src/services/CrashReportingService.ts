@@ -29,37 +29,26 @@ export class CrashReportingService {
   }
 
   private static setupErrorHandlers(): void {
-    // Handle unhandled promise rejections
-    process.on?.('unhandledRejection', (reason, promise) => {
-      this.reportError(new Error(`Unhandled Promise Rejection: ${reason}`), {
-        type: 'unhandled_rejection',
-        promise: promise.toString(),
-      });
-    });
+    // Only set up handlers that work in React Native environment
+    try {
+      // Handle JavaScript errors in React Native
+      if (typeof ErrorUtils !== 'undefined' && ErrorUtils.setGlobalHandler) {
+        const originalHandler = ErrorUtils.getGlobalHandler?.();
+        
+        ErrorUtils.setGlobalHandler((error, isFatal) => {
+          this.reportError(error, {
+            type: 'javascript_error',
+            fatal: isFatal,
+          });
 
-    // Handle uncaught exceptions
-    process.on?.('uncaughtException', (error) => {
-      this.reportError(error, {
-        type: 'uncaught_exception',
-        fatal: true,
-      });
-    });
-
-    // Handle JavaScript errors in React Native
-    if (typeof ErrorUtils !== 'undefined' && ErrorUtils.setGlobalHandler) {
-      const originalHandler = ErrorUtils.getGlobalHandler?.();
-      
-      ErrorUtils.setGlobalHandler((error, isFatal) => {
-        this.reportError(error, {
-          type: 'javascript_error',
-          fatal: isFatal,
+          // Call original handler if it exists
+          if (originalHandler) {
+            originalHandler(error, isFatal);
+          }
         });
-
-        // Call original handler if it exists
-        if (originalHandler) {
-          originalHandler(error, isFatal);
-        }
-      });
+      }
+    } catch (error) {
+      console.warn('Could not set up error handlers:', error);
     }
   }
 
