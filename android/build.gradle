@@ -2,16 +2,13 @@
 
 buildscript {
     ext {
-        buildToolsVersion = findProperty('android.buildToolsVersion') ?: '35.0.0'
+        buildToolsVersion = findProperty('android.buildToolsVersion') ?: '34.0.0'
         minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '23')
-        compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '35')
-        targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '35')
-        kotlinVersion = findProperty('android.kotlinVersion') ?: '1.9.24'
+        compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '34')
+        targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '34')
+        kotlinVersion = findProperty('android.kotlinVersion') ?: '1.9.23'
 
         ndkVersion = "26.1.10909125"
-        
-        // Pin onnxruntime version to avoid dynamic resolution
-        onnxruntimeVersion = "1.23.0"
     }
     repositories {
         google()
@@ -20,8 +17,8 @@ buildscript {
     dependencies {
         classpath 'com.google.gms:google-services:4.4.1'
         classpath('com.android.tools.build:gradle:8.2.1')
-        classpath('com.facebook.react:react-native-gradle-plugin:0.74.5')
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
+        classpath('com.facebook.react:react-native-gradle-plugin')
+        classpath('org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22')
     }
 }
 
@@ -41,20 +38,6 @@ allprojects {
         google()
         mavenCentral()
         maven { url 'https://www.jitpack.io' }
-    }
-}
-
-// Force onnxruntime version to avoid dynamic resolution (latest.integration)
-// Also force Kotlin stdlib to match our Kotlin version
-subprojects {
-    configurations.all {
-        resolutionStrategy {
-            force "com.microsoft.onnxruntime:onnxruntime-android:${rootProject.ext.onnxruntimeVersion}"
-            // Force Kotlin stdlib to match project Kotlin version
-            force "org.jetbrains.kotlin:kotlin-stdlib:${rootProject.ext.kotlinVersion}"
-            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${rootProject.ext.kotlinVersion}"
-            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${rootProject.ext.kotlinVersion}"
-        }
     }
 }
 // @generated begin expo-camera-import - expo prebuild (DO NOT MODIFY) sync-f244f4f3d8bf7229102e8f992b525b8602c74770

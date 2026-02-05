@@ -214,6 +214,25 @@ const RadarScreen = ({ navigation, route }: any) => {
     return () => clearInterval(interval);
   }, [proSliderIndex, isDriving]);
 
+  // Android keyboard fix for driving mode
+  useEffect(() => {
+    if (isDriving && activeTab === 'Map') {
+      // Dismiss keyboard when entering driving mode
+      Keyboard.dismiss();
+      
+      // Prevent keyboard from auto-showing
+      const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+        if (!isTypingRef.current && destinationInputRef.current?.isFocused()) {
+          destinationInputRef.current?.blur();
+        }
+      });
+      
+      return () => {
+        keyboardDidShowListener.remove();
+      };
+    }
+  }, [isDriving, activeTab]);
+
   // General Location Tracking
   useEffect(() => {
     const unsubscribe = useRadarStore.subscribe((state) => {
@@ -1015,9 +1034,12 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                 onChangeText={handleTextChange}
                                                 onSubmitEditing={() => handleNavigate()}
                                                 returnKeyType="search"
-                                                blurOnSubmit={false}
+                                                blurOnSubmit={true}
                                                 autoCorrect={false}
                                                 autoCapitalize="none"
+                                                autoFocus={false}
+                                                keyboardType="default"
+                                                showSoftInputOnFocus={true}
                                                 onFocus={() => {
                                                   isTypingRef.current = true;
                                                   isInteractingRef.current = true;
