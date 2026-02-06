@@ -112,6 +112,7 @@ module.exports = {
       "expo-secure-store",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
+      "@react-native-firebase/crashlytics",
       "./plugins/withFirebasePodfile.js",
       [
         "expo-build-properties",
@@ -136,7 +137,6 @@ module.exports = {
           resizeMode: "contain"
         }
       ],
-      "./plugins/withReactNativeGradlePluginFix.js",
       "./plugins/withSettingsGradleFix.js"
     ],
     extra: {
@@ -145,9 +145,7 @@ module.exports = {
       }
     },
     owner: "albertfast",
-    runtimeVersion: {
-      policy: "appVersion"
-    },
+    runtimeVersion: "1.0.4",
     updates: {
       enabled: true,
       url: "https://u.expo.dev/62bbc6f8-257a-48e8-adb8-0b80558e3e92",

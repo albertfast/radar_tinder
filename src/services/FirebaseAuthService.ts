@@ -16,7 +16,7 @@ function getFirebaseAuthModular(): any | null {
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    cachedFirebaseAuthModular = require('@react-native-firebase/auth/lib/modular');
+    cachedFirebaseAuthModular = require('@react-native-firebase/auth');
   } catch (error) {
     cachedFirebaseAuthModular = null;
   }

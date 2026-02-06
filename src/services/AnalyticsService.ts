@@ -14,7 +14,7 @@ function getAnalyticsBindings(): AnalyticsBindings | null {
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require('@react-native-firebase/analytics/lib/modular');
+    const mod = require('@react-native-firebase/analytics');
     const analytics = mod.getAnalytics();
     cachedAnalyticsBindings = { mod, analytics };
   } catch (error) {

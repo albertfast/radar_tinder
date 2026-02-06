@@ -47,6 +47,7 @@ export class SubscriptionService {
   }
 
   static async getOfferings() {
+    if (!this.hasValidConfig() || !this.isInitialized) return null;
     try {
       const offerings = await Purchases.getOfferings();
       return offerings.current;

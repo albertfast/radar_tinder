@@ -6,11 +6,11 @@ on:
     branches:
       - master
     paths:
-      - 'android/**'
-      - 'src/**'
-      - 'package.json'
-      - 'app.json'
-      - 'eas.json'
+      - "android/**"
+      - "src/**"
+      - "package.json"
+      - "app.json"
+      - "eas.json"
 
 jobs:
   build-android:
