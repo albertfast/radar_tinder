@@ -68,12 +68,12 @@ target 'RadarTinder' do
   end
 
   # Fix Firebase Swift pods - add modular headers to specific dependencies
-  pod 'GoogleUtilities', '~> 7.13', :modular_headers => true
-  pod 'FirebaseCore', '~> 10.29.0', :modular_headers => true
+  pod 'GoogleUtilities', '~> 8.0', :modular_headers => true
+  pod 'FirebaseCore', '~> 11.0', :modular_headers => true
   pod 'FirebaseCoreInternal', :modular_headers => true
-  pod 'FirebaseInstallations', '~> 10.29.0', :modular_headers => true
+  pod 'FirebaseInstallations', '~> 11.0', :modular_headers => true
   pod 'GoogleDataTransport', :modular_headers => true
   pod 'nanopb', :modular_headers => true
-  pod 'FirebaseCoreExtension', '~> 10.29.0', :modular_headers => true
+  pod 'FirebaseCoreExtension', '~> 11.0', :modular_headers => true
 
 end
