@@ -1,6 +1,8 @@
-import crashlytics from '@react-native-firebase/crashlytics';
+import { getCrashlytics } from '@react-native-firebase/crashlytics';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+
+const crashlytics = getCrashlytics;
 
 export class CrashReportingService {
   private static isInitialized = false;

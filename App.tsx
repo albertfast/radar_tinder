@@ -8,8 +8,34 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppState, View, ActivityIndicator } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
+
+// Reanimated 4 removed useAnimatedGestureHandler. Polyfill for legacy Drawer v6 compatibility.
+if (!(Reanimated as any).useAnimatedGestureHandler) {
+  (Reanimated as any).useAnimatedGestureHandler = (handlers: any) => {
+    const { useEvent, runOnJS } = Reanimated;
+    const context = React.useRef({}).current;
+
+    return useEvent(
+      (event: any) => {
+        'worklet';
+        const { state } = event;
+        
+        if (state === 2 && handlers.onStart) runOnJS(handlers.onStart)(event, context);
+        if (state === 4 && handlers.onActive) runOnJS(handlers.onActive)(event, context);
+        if (state === 5 && handlers.onEnd) runOnJS(handlers.onEnd)(event, context);
+        if (state === 1 && handlers.onFail) runOnJS(handlers.onFail)(event, context);
+        if (state === 3 && handlers.onCancel) runOnJS(handlers.onCancel)(event, context);
+        if (handlers.onFinish) {
+          runOnJS(handlers.onFinish)(event, context, state === 5 || state === 1 || state === 3);
+        }
+      },
+      ['onGestureHandlerEvent', 'onGestureHandlerStateChange']
+    );
+  };
+}
 import { 
   MaterialCommunityIcons, 
   Ionicons, 
