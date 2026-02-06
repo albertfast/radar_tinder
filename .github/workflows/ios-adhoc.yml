@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       DEVELOPER_DIR: /Applications/Xcode_15.4.app/Contents/Developer
@@ -48,20 +48,15 @@ jobs:
           IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
           IOS_DIST_P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
         run: |
-          mkdir -p credentials
-          echo "$IOS_DIST_P12_BASE64" | base64 -D > credentials/dist-cert.p12
-          echo "$IOS_PROFILE_BASE64" | base64 -D > credentials/profile.mobileprovision
-          ls -la credentials/
+          mkdir -p credentials/ios
+          echo "$IOS_DIST_P12_BASE64" | base64 -D > credentials/ios/dist-cert.p12
+          echo "$IOS_PROFILE_BASE64" | base64 -D > credentials/ios/profile.mobileprovision
+          ls -la credentials/ios
 
       - name: Generate iOS native code
         run: |
           rm -rf ios
-          npx expo prebuild --platform ios --clean
-          
-          # Debug: Show Podfile content after prebuild
-          echo "=== Podfile after prebuild ==="
-          head -50 ios/Podfile
-          echo "=== End Podfile ==="
+          npx expo prebuild --platform ios --clean         
           
           cd ios
           pod install --repo-update
@@ -74,9 +69,9 @@ jobs:
           cat > credentials.json <<EOF
           {
             "ios": {
-              "provisioningProfilePath": "credentials/profile.mobileprovision",
+              "provisioningProfilePath": "credentials/ios/profile.mobileprovision",
               "distributionCertificate": {
-                "path": "credentials/dist-cert.p12",
+                "path": "credentials/ios/dist-cert.p12",
                 "password": "$IOS_DIST_P12_PASSWORD"
               }
             }
