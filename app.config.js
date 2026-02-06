@@ -136,7 +136,8 @@ module.exports = {
           resizeMode: "contain"
         }
       ],
-      "./plugins/withReactNativeGradlePluginFix.js"
+      "./plugins/withReactNativeGradlePluginFix.js",
+      "./plugins/withSettingsGradleFix.js"
     ],
     extra: {
       eas: {

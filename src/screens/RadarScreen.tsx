@@ -574,14 +574,18 @@ const RadarScreen = ({ navigation, route }: any) => {
       .slice(0, 6);
     setSuggestions(localMatches);
 
-    if (query.length < 3) return;
+    // Start fetching suggestions after 2 characters
+    if (query.length < 2) return;
 
+    // Debounce 600ms to account for Nominatim rate limiting (1 req/sec)
     searchTimerRef.current = setTimeout(async () => {
+      console.log('[RadarScreen] Fetching suggestions for:', text);
       const results = await GoogleMapsService.getGeocodeSuggestions(text);
+      console.log('[RadarScreen] Got suggestions:', results.length);
       if (results.length > 0) {
         setSuggestions(results);
       }
-    }, 450);
+    }, 600);
   };
 
   const handleSelectSuggestion = (desc: string) => {
