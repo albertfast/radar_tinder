@@ -40,13 +40,13 @@ $RNFirebaseAsStaticFramework = true
       // This is added before the target's closing 'end'
       const modularHeadersPods = `
   # Fix Firebase Swift pods - add modular headers to specific dependencies
-  pod 'GoogleUtilities', '~> 7.13', :modular_headers => true
-  pod 'FirebaseCore', '~> 10.29.0', :modular_headers => true
+  pod 'GoogleUtilities', '~> 8.0', :modular_headers => true
+  pod 'FirebaseCore', '~> 11.0', :modular_headers => true
   pod 'FirebaseCoreInternal', :modular_headers => true
-  pod 'FirebaseInstallations', '~> 10.29.0', :modular_headers => true
+  pod 'FirebaseInstallations', '~> 11.0', :modular_headers => true
   pod 'GoogleDataTransport', :modular_headers => true
   pod 'nanopb', :modular_headers => true
-  pod 'FirebaseCoreExtension', '~> 10.29.0', :modular_headers => true
+  pod 'FirebaseCoreExtension', '~> 11.0', :modular_headers => true
 `;
 
       // Find the main target block and add our pods if not already present
