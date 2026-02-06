@@ -1,0 +1,79 @@
+﻿2026-02-06T01:05:40.6819170Z ##[group]Run actions/checkout@v4
+2026-02-06T01:05:40.6821050Z with:
+2026-02-06T01:05:40.6822050Z   repository: albertfast/radar_tinder
+2026-02-06T01:05:40.6823760Z   token: ***
+2026-02-06T01:05:40.6824670Z   ssh-strict: true
+2026-02-06T01:05:40.6831500Z   ssh-user: git
+2026-02-06T01:05:40.6831910Z   persist-credentials: true
+2026-02-06T01:05:40.6832280Z   clean: true
+2026-02-06T01:05:40.6832590Z   sparse-checkout-cone-mode: true
+2026-02-06T01:05:40.6832950Z   fetch-depth: 1
+2026-02-06T01:05:40.6833400Z   fetch-tags: false
+2026-02-06T01:05:40.6833780Z   show-progress: true
+2026-02-06T01:05:40.6834130Z   lfs: false
+2026-02-06T01:05:40.6834430Z   submodules: false
+2026-02-06T01:05:40.6834760Z   set-safe-directory: true
+2026-02-06T01:05:40.6835750Z env:
+2026-02-06T01:05:40.6836270Z   EXPO_TOKEN: ***
+2026-02-06T01:05:40.6836690Z   EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ***
+2026-02-06T01:05:40.6838480Z   EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ***
+2026-02-06T01:05:40.6842500Z   EAS_NO_VCS: 1
+2026-02-06T01:05:40.6842960Z   SKIP_BUNDLING: 1
+2026-02-06T01:05:40.6843280Z ##[endgroup]
+2026-02-06T01:05:41.2972290Z Syncing repository: albertfast/radar_tinder
+2026-02-06T01:05:41.2974100Z ##[group]Getting Git version info
+2026-02-06T01:05:41.2974880Z Working directory is '/Users/runner/work/radar_tinder/radar_tinder'
+2026-02-06T01:05:41.2997470Z [command]/opt/homebrew/bin/git version
+2026-02-06T01:05:41.3794910Z git version 2.52.0
+2026-02-06T01:05:41.3854510Z ##[endgroup]
+2026-02-06T01:05:41.3878850Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/b658759a-e123-4e89-a775-c1c6f12fedd5/.gitconfig'
+2026-02-06T01:05:41.3882150Z Temporarily overriding HOME='/Users/runner/work/_temp/b658759a-e123-4e89-a775-c1c6f12fedd5' before making global git config changes
+2026-02-06T01:05:41.3897010Z Adding repository directory to the temporary git global config as a safe directory
+2026-02-06T01:05:41.3906900Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/radar_tinder/radar_tinder
+2026-02-06T01:05:41.4118200Z Deleting the contents of '/Users/runner/work/radar_tinder/radar_tinder'
+2026-02-06T01:05:41.4127010Z ##[group]Initializing the repository
+2026-02-06T01:05:41.4129000Z [command]/opt/homebrew/bin/git init /Users/runner/work/radar_tinder/radar_tinder
+2026-02-06T01:05:41.4430220Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-02-06T01:05:41.4436410Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-02-06T01:05:41.4444770Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-02-06T01:05:41.4450910Z hint: call:
+2026-02-06T01:05:41.4459820Z hint:
+2026-02-06T01:05:41.4525610Z hint: 	git config --global init.defaultBranch <name>
+2026-02-06T01:05:41.4551550Z hint:
+2026-02-06T01:05:41.4553090Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-02-06T01:05:41.4569890Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-02-06T01:05:41.4579090Z hint:
+2026-02-06T01:05:41.4582440Z hint: 	git branch -m <name>
+2026-02-06T01:05:41.4583440Z hint:
+2026-02-06T01:05:41.4585570Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-02-06T01:05:41.4587770Z Initialized empty Git repository in /Users/runner/work/radar_tinder/radar_tinder/.git/
+2026-02-06T01:05:41.4604070Z [command]/opt/homebrew/bin/git remote add origin https://github.com/albertfast/radar_tinder
+2026-02-06T01:05:41.4608810Z ##[endgroup]
+2026-02-06T01:05:41.4610230Z ##[group]Disabling automatic garbage collection
+2026-02-06T01:05:41.4611580Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+2026-02-06T01:05:41.4696750Z ##[endgroup]
+2026-02-06T01:05:41.4788840Z ##[group]Setting up auth
+2026-02-06T01:05:41.4817020Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-02-06T01:05:41.4847950Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-02-06T01:05:41.7389770Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-02-06T01:05:41.7535890Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-02-06T01:05:41.8911160Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-02-06T01:05:41.9051780Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-02-06T01:05:42.0761590Z [command]/opt/homebrew/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-02-06T01:05:42.0859040Z ##[endgroup]
+2026-02-06T01:05:42.0862570Z ##[group]Fetching the repository
+2026-02-06T01:05:42.0868570Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +1a1113be2331588097c91da416ddb2365ca96435:refs/remotes/origin/master
+2026-02-06T01:05:44.7004690Z From https://github.com/albertfast/radar_tinder
+2026-02-06T01:05:44.7120970Z  * [new ref]         1a1113be2331588097c91da416ddb2365ca96435 -> origin/master
+2026-02-06T01:05:44.7554160Z ##[endgroup]
+2026-02-06T01:05:44.7654920Z ##[group]Determining the checkout info
+2026-02-06T01:05:44.7715490Z ##[endgroup]
+2026-02-06T01:05:44.7719580Z [command]/opt/homebrew/bin/git sparse-checkout disable
+2026-02-06T01:05:44.7930690Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+2026-02-06T01:05:44.7935660Z ##[group]Checking out the ref
+2026-02-06T01:05:44.7936720Z [command]/opt/homebrew/bin/git checkout --progress --force -B master refs/remotes/origin/master
+2026-02-06T01:05:45.5634390Z Reset branch 'master'
+2026-02-06T01:05:45.5736630Z branch 'master' set up to track 'origin/master'.
+2026-02-06T01:05:45.6011140Z ##[endgroup]
+2026-02-06T01:05:45.6272350Z [command]/opt/homebrew/bin/git log -1 --format=%H
+2026-02-06T01:05:45.6373790Z 1a1113be2331588097c91da416ddb2365ca96435

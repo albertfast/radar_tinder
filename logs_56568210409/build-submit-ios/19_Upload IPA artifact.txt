@@ -1,0 +1,33 @@
+﻿2026-02-06T01:40:32.3165250Z ##[group]Run actions/upload-artifact@v4
+2026-02-06T01:40:32.3166080Z with:
+2026-02-06T01:40:32.3166600Z   name: RadarTinder-iOS
+2026-02-06T01:40:32.3167050Z   path: ./RadarTinder.ipa
+2026-02-06T01:40:32.3167550Z   if-no-files-found: warn
+2026-02-06T01:40:32.3167870Z   compression-level: 6
+2026-02-06T01:40:32.3168320Z   overwrite: false
+2026-02-06T01:40:32.3168750Z   include-hidden-files: false
+2026-02-06T01:40:32.3169120Z env:
+2026-02-06T01:40:32.3171030Z   EXPO_TOKEN: ***
+2026-02-06T01:40:32.3171490Z   EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ***
+2026-02-06T01:40:32.3172070Z   EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ***
+2026-02-06T01:40:32.3172470Z   EAS_NO_VCS: 1
+2026-02-06T01:40:32.3172990Z   SKIP_BUNDLING: 1
+2026-02-06T01:40:32.3173750Z   MD_APPLE_SDK_ROOT: /Applications/Xcode_26.0.1.app
+2026-02-06T01:40:32.3174270Z   PNPM_HOME: /Users/runner/setup-pnpm/node_modules/.bin
+2026-02-06T01:40:32.3174800Z   STORE_PATH: /Users/runner/setup-pnpm/node_modules/.bin/store/v3
+2026-02-06T01:40:32.3175400Z ##[endgroup]
+2026-02-06T01:40:33.5712220Z With the provided path, there will be 1 file uploaded
+2026-02-06T01:40:33.5929120Z Artifact name is valid!
+2026-02-06T01:40:33.6037400Z Root directory input is valid!
+2026-02-06T01:40:33.7970440Z Beginning upload of artifact content to blob storage
+2026-02-06T01:40:34.7051300Z Uploaded bytes 8388608
+2026-02-06T01:40:35.0256810Z Uploaded bytes 16777216
+2026-02-06T01:40:35.1272970Z Uploaded bytes 25165824
+2026-02-06T01:40:35.4857670Z Uploaded bytes 33554432
+2026-02-06T01:40:35.8406060Z Uploaded bytes 35906228
+2026-02-06T01:40:35.8816650Z Finished uploading artifact content to blob storage!
+2026-02-06T01:40:35.8918170Z SHA256 digest of uploaded artifact zip is dbaf60d3210367e3a3d2ff0c6565a1264102eaf1f78b1a1852bc2c71b99457fa
+2026-02-06T01:40:35.9019220Z Finalizing artifact upload
+2026-02-06T01:40:36.0306590Z Artifact RadarTinder-iOS.zip successfully finalized. Artifact ID 5399999787
+2026-02-06T01:40:36.0416560Z Artifact RadarTinder-iOS has been successfully uploaded! Final size is 35906228 bytes. Artifact ID is 5399999787
+2026-02-06T01:40:36.0524080Z Artifact download URL: https://github.com/albertfast/radar_tinder/actions/runs/21734769450/artifacts/5399999787
