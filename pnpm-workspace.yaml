@@ -3,6 +3,3 @@ packages:
 
 ignoredBuiltDependencies:
   - protobufjs
-
-patchedDependencies:
-  react-native-screens: pnpm-patches/react-native-screens.patch

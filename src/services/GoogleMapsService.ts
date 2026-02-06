@@ -1,4 +1,6 @@
 import { Platform } from 'react-native';
+import { OSRMService } from './OSRMService';
+import { NominatimService } from './NominatimService';
 
 // Fallback to hardcoded key if environment variable is not set
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ';
@@ -109,7 +111,8 @@ export class GoogleMapsService {
   }
 
   /**
-   * Get accurate distance and duration using Distance Matrix API
+   * Get accurate distance and duration
+   * Uses OSRM (free) first, falls back to Google Distance Matrix API
    */
   static async getDistance(
     originLat: number,
@@ -117,6 +120,30 @@ export class GoogleMapsService {
     destLat: number,
     destLng: number
   ): Promise<DistanceResult | null> {
+    // Try free OSRM first
+    try {
+      const osrmResult = await OSRMService.getDistance(originLat, originLng, destLat, destLng);
+      if (osrmResult) {
+        return {
+          distance: {
+            text: osrmResult.distance < 1000 
+              ? `${Math.round(osrmResult.distance)} m` 
+              : `${(osrmResult.distance / 1000).toFixed(1)} km`,
+            value: osrmResult.distance,
+          },
+          duration: {
+            text: osrmResult.duration < 60 
+              ? `${Math.round(osrmResult.duration)} sec` 
+              : `${Math.round(osrmResult.duration / 60)} min`,
+            value: osrmResult.duration,
+          },
+        };
+      }
+    } catch (osrmError) {
+      console.warn('[GoogleMapsService] OSRM failed, trying Google:', osrmError);
+    }
+
+    // Fallback to Google Distance Matrix
     try {
       const origins = `${originLat},${originLng}`;
       const destinations = `${destLat},${destLng}`;
@@ -169,7 +196,7 @@ export class GoogleMapsService {
         });
 
         const prefer = options?.prefer === 'distance' ? 'distance' : 'duration';
-        scoredRoutes.sort((a, b) => {
+        scoredRoutes.sort((a: { route: any; duration: number; distance: number }, b: { route: any; duration: number; distance: number }) => {
           if (prefer === 'distance') {
             return a.distance - b.distance || a.duration - b.duration;
           }
@@ -261,12 +288,25 @@ export class GoogleMapsService {
   }
 
   /**
-   * Get address suggestions using Geocoding API (Places disabled).
+   * Get address suggestions
+   * Uses Nominatim (free) first, falls back to Google Geocoding API
    */
   static async getGeocodeSuggestions(input: string): Promise<string[]> {
+    const query = input.trim();
+    if (!query) return [];
+
+    // Try free Nominatim first
     try {
-      const query = input.trim();
-      if (!query) return [];
+      const nominatimResults = await NominatimService.getSuggestions(query, { limit: 6 });
+      if (nominatimResults.length > 0) {
+        return nominatimResults;
+      }
+    } catch (nominatimError) {
+      console.warn('[GoogleMapsService] Nominatim failed, trying Google:', nominatimError);
+    }
+
+    // Fallback to Google Geocoding
+    try {
       if (!GOOGLE_MAPS_API_KEY) return [];
       const url = `${this.BASE_URL}/geocode/json?address=${encodeURIComponent(query)}&language=en&key=${GOOGLE_MAPS_API_KEY}`;
       const response = await fetch(url);
