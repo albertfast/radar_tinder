@@ -104,6 +104,8 @@ module.exports = {
       favicon: "./assets/favicon.png"
     },
     plugins: [
+      "expo-asset",
+      "expo-font",
       "expo-location",
       "expo-notifications",
       "expo-task-manager",
