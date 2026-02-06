@@ -14,8 +14,6 @@ jobs:
       EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
       EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
       EAS_NO_VCS: 1
-      # Skip Metro bundling during build (bundle is created by EAS)
-      SKIP_BUNDLING: 1
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,13 +28,12 @@ jobs:
 
       - name: Install iOS platform (required for generic iOS device archive)
         run: |
-            sudo xcodebuild -runFirstLaunch
-            xcrun simctl list >/dev/null
-            xcodebuild -downloadPlatform iOS
+          sudo xcodebuild -runFirstLaunch
+          xcrun simctl list >/dev/null
+          xcodebuild -downloadPlatform iOS
 
-            xcodebuild -version
-            xcodebuild -showsdks
-
+          xcodebuild -version
+          xcodebuild -showsdks
 
       - name: Show Xcode and SDK version
         run: |

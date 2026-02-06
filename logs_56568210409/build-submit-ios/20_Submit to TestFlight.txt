@@ -1,0 +1,46 @@
+﻿2026-02-06T01:40:36.0666800Z ##[group]Run export EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH="$(pwd)/credentials/AuthKey_***.p8"
+2026-02-06T01:40:36.0667680Z [36;1mexport EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH="$(pwd)/credentials/AuthKey_***.p8"[0m
+2026-02-06T01:40:36.0668290Z [36;1mecho "API Key Path: $EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH"[0m
+2026-02-06T01:40:36.0668920Z [36;1mls -la "$EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH"[0m
+2026-02-06T01:40:36.0669550Z [36;1meas submit --platform ios --profile testflight --non-interactive --path ./RadarTinder.ipa[0m
+2026-02-06T01:40:36.4367380Z shell: /bin/bash -e {0}
+2026-02-06T01:40:36.4367730Z env:
+2026-02-06T01:40:36.4368100Z   EXPO_TOKEN: ***
+2026-02-06T01:40:36.4368380Z   EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ***
+2026-02-06T01:40:36.4368870Z   EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ***
+2026-02-06T01:40:36.4369180Z   EAS_NO_VCS: 1
+2026-02-06T01:40:36.4369440Z   SKIP_BUNDLING: 1
+2026-02-06T01:40:36.4369760Z   MD_APPLE_SDK_ROOT: /Applications/Xcode_26.0.1.app
+2026-02-06T01:40:36.4370270Z   PNPM_HOME: /Users/runner/setup-pnpm/node_modules/.bin
+2026-02-06T01:40:36.4370760Z   STORE_PATH: /Users/runner/setup-pnpm/node_modules/.bin/store/v3
+2026-02-06T01:40:36.4371380Z   EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH: /Users/runner/work/radar_tinder/radar_tinder/credentials/AuthKey_***.p8
+2026-02-06T01:40:36.4371940Z ##[endgroup]
+2026-02-06T01:40:36.5258790Z API Key Path: /Users/runner/work/radar_tinder/radar_tinder/credentials/AuthKey_***.p8
+2026-02-06T01:40:36.5567530Z -rw-r--r--  1 runner  staff  257 Feb  6 01:16 /Users/runner/work/radar_tinder/radar_tinder/credentials/AuthKey_***.p8
+2026-02-06T01:40:39.6076260Z Using EAS CLI without version control system is not recommended, use this mode only if you know what you are doing.
+2026-02-06T01:40:44.3343100Z 
+2026-02-06T01:40:44.3447920Z Uploading your app archive to EAS Submit
+2026-02-06T01:40:44.4353410Z - Uploading to EAS Submit 0%
+2026-02-06T01:40:56.2430430Z ✔ Uploaded to EAS Submit 11s
+2026-02-06T01:40:56.2529810Z 
+2026-02-06T01:40:56.2630990Z ASC App ID:                 6758140652
+2026-02-06T01:40:56.2731750Z Project ID:                 62bbc6f8-257a-48e8-adb8-0b80558e3e92
+2026-02-06T01:40:56.2832670Z App Store Connect API Key:  
+2026-02-06T01:40:56.2935150Z     Key ID    :  ***
+2026-02-06T01:40:56.3034410Z     Key Source:  local
+2026-02-06T01:40:56.3137100Z     Key Path  :  /Users/runner/work/radar_tinder/radar_tinder/credentials/AuthKey_***.p8
+2026-02-06T01:40:56.3190730Z Archive Path:               ./RadarTinder.ipa
+2026-02-06T01:40:56.3292050Z 
+2026-02-06T01:40:56.3372980Z - Scheduling iOS submission
+2026-02-06T01:40:56.4964710Z ✔ Scheduled iOS submission
+2026-02-06T01:40:56.5069200Z 
+2026-02-06T01:40:56.5181360Z Submission details: https://expo.dev/accounts/albertfast/projects/radar-tinder/submissions/0c12cbe8-3cc6-4b3f-9dc5-2a7df6151819
+2026-02-06T01:40:56.5282920Z 
+2026-02-06T01:40:56.5384400Z Waiting for submission to complete. You can press Ctrl+C to exit.
+2026-02-06T01:40:56.5486310Z - Submitting
+2026-02-06T01:43:15.2627810Z ✔ Submitted your app to Apple App Store Connect!
+2026-02-06T01:43:15.2630610Z 
+2026-02-06T01:43:15.2631870Z Your binary has been successfully uploaded to App Store Connect!
+2026-02-06T01:43:15.2635770Z - It is now being processed by Apple - you will receive an email when the processing finishes.
+2026-02-06T01:43:15.2637350Z - It usually takes about 5-10 minutes depending on how busy Apple servers are.
+2026-02-06T01:43:15.2639620Z - When it's done, you can see your build here: https://appstoreconnect.apple.com/apps/6758140652/testflight/ios
