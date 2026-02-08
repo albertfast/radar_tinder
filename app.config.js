@@ -124,7 +124,8 @@ module.exports = {
             compileSdkVersion: 35
           },
           ios: {
-            deploymentTarget: "16.1"
+            deploymentTarget: "16.1",
+            useFrameworks: "static"
           }
         }
       ],
