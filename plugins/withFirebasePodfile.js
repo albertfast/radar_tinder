@@ -23,9 +23,37 @@ $RNFirebaseAsStaticFramework = true
 ` + podfileContent;
       }
 
+      if (!podfileContent.includes('CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES')) {
+        const mapsWorkaround = `
+    # Workaround: react-native-maps with use_frameworks! :linkage => :static
+    installer.pods_project.targets.each do |target|
+      if ['react-native-google-maps', 'react-native-maps'].include?(target.name)
+        target.build_configurations.each do |build_config|
+          build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        end
+      end
+    end
+`;
+
+        let nextContent = podfileContent.replace(
+          /\n  end\s*\nend\s*$/,
+          `${mapsWorkaround}\n  end\nend\n`
+        );
+
+        // Fallback in case Podfile shape changes in a future Expo template.
+        if (nextContent === podfileContent) {
+          nextContent = podfileContent.replace(
+            /(post_install do \|installer\|[\s\S]*?)\n  end/m,
+            `$1${mapsWorkaround}\n  end`
+          );
+        }
+
+        podfileContent = nextContent;
+      }
+
       fs.writeFileSync(podfilePath, podfileContent);
 
-      console.log('✅ Firebase Podfile static framework flag applied');
+      console.log('✅ Firebase + iOS Podfile workarounds applied');
 
       return config;
     },
