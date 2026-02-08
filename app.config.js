@@ -123,7 +123,7 @@ module.exports = {
             compileSdkVersion: 35
           },
           ios: {
-            deploymentTarget: "15.1"
+            deploymentTarget: "16.1"
           }
         }
       ],
