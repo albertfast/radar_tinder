@@ -1,5 +1,6 @@
 # Firebase Static Framework - fixes Swift module issues
 $RNFirebaseAsStaticFramework = true
+use_modular_headers!
 
 require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
@@ -82,5 +83,10 @@ target 'RadarTinder' do
   pod 'GoogleDataTransport', :modular_headers => true
   pod 'nanopb', :modular_headers => true
   pod 'FirebaseCoreExtension', '~> 12.9.0', :modular_headers => true
+
+  # Firebase Auth interop pods for static frameworks
+  pod 'FirebaseAuthInterop', :modular_headers => true
+  pod 'FirebaseAppCheckInterop', :modular_headers => true
+  pod 'RecaptchaInterop', :modular_headers => true
 
 end
