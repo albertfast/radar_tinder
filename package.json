@@ -85,5 +85,25 @@
     "react-native-svg-transformer": "^1.5.2",
     "typescript": "~5.9.3"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "metroConfig": {
+        "resolver": {
+          "unstable_enableSymlinks": true
+        }
+      },
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "onnxruntime-react-native",
+          "expo-modules-core",
+          "expo-image-loader",
+          "unimodules-app-loader",
+          "expo-av",
+          "react-native-fs"
+        ],
+        "listUnknownPackages": false
+      }
+    }
+  }
 }
