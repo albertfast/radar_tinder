@@ -65,6 +65,13 @@ target 'RadarTinder' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+
+    # Force minimum deployment target for pods to avoid incompatible versions
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.1'
+      end
+    end
   end
 
   # Fix Firebase Swift pods - add modular headers to specific dependencies
