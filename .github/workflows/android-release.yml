@@ -89,11 +89,11 @@ jobs:
           rm -rf android
           npx expo prebuild --platform android --clean
           if [ -f android/gradle.properties ]; then
-            cat >> android/gradle.properties <<'EOF'
-org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dkotlin.daemon.jvm.options=-Xmx2g
-android.lint.abortOnError=false
-android.lint.checkReleaseBuilds=false
-EOF
+            {
+              echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dkotlin.daemon.jvm.options=-Xmx2g"
+              echo "android.lint.abortOnError=false"
+              echo "android.lint.checkReleaseBuilds=false"
+            } >> android/gradle.properties
           fi
 
       - name: Build AAB for Play Store
