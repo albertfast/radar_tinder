@@ -131,6 +131,7 @@ jobs:
           const path = 'ios/Podfile.properties.json';
           const data = fs.existsSync(path) ? JSON.parse(fs.readFileSync(path, 'utf8')) : {};
           data['ios.deploymentTarget'] = '16.1';
+          data['ios.useFrameworks'] = 'static';
           data['newArchEnabled'] = 'true';
           fs.writeFileSync(path, JSON.stringify(data, null, 2));
           NODE
