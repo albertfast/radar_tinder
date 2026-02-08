@@ -14,7 +14,6 @@ jobs:
       EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
       EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
       EAS_NO_VCS: 1
-      NODE_ENV: production
       RCT_NEW_ARCH_ENABLED: "1"
       IPHONEOS_DEPLOYMENT_TARGET: "16.1"
     steps:
@@ -69,6 +68,13 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
+
+      - name: Ensure Expo gitignore
+        run: |
+          touch .gitignore
+          if ! grep -qxF ".expo/" .gitignore; then
+            echo ".expo/" >> .gitignore
+          fi
 
       - name: Install EAS CLI
         run: npm install -g eas-cli

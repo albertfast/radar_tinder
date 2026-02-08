@@ -11,7 +11,6 @@ jobs:
     runs-on: macos-15
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-      NODE_ENV: production
       RCT_NEW_ARCH_ENABLED: "1"
       IPHONEOS_DEPLOYMENT_TARGET: "16.1"
       EAS_NO_VCS: 1
@@ -67,6 +66,13 @@ jobs:
         run: |
           rm -f pnpm-lock.yaml
           pnpm install
+
+      - name: Ensure Expo gitignore
+        run: |
+          touch .gitignore
+          if ! grep -qxF ".expo/" .gitignore; then
+            echo ".expo/" >> .gitignore
+          fi
 
       - name: Setup credentials from secrets
         env:
