@@ -135,12 +135,13 @@ jobs:
           fs.writeFileSync(path, JSON.stringify(data, null, 2));
           NODE
 
-          # Note: Firebase pod configuration is now committed in ios/Podfile
-          # No runtime patching needed anymore
-
           cd ios
           # Create .xcode.env.local for Node binary path (required by Expo)
           echo "export NODE_BINARY=$(command -v node)" > .xcode.env.local
+          
+          # Always remove Podfile.lock to ensure fresh dependency resolution
+          rm -f Podfile.lock
+          
           # Only do full clean if cache miss or Podfile changed
           if [ ! -d "Pods" ]; then
             echo "No Pods cache found, doing fresh install"
