@@ -90,9 +90,10 @@ jobs:
           npx expo prebuild --platform android --clean
           if [ -f android/gradle.properties ]; then
             {
-              echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dkotlin.daemon.jvm.options=-Xmx2g"
+              echo "org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g -Dkotlin.daemon.jvm.options=-Xmx3g"
               echo "android.lint.abortOnError=false"
               echo "android.lint.checkReleaseBuilds=false"
+              echo "org.gradle.daemon=false"
             } >> android/gradle.properties
           fi
 
