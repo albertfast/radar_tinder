@@ -19,7 +19,7 @@ module.exports = {
     icon: "./assets/icon.png",
     orientation: "portrait",
     userInterfaceStyle: "light",
-    newArchEnabled: false,
+    newArchEnabled: true,
     assetBundlePatterns: [
       "**/*",
       "assets/**/*",
