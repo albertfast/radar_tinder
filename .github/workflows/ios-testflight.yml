@@ -141,6 +141,15 @@ jobs:
           let content = fs.readFileSync(path, 'utf8');
           let next = content.replace(/~> 11\.0/g, '~> 12.8.0').replace(/~> 8\.0/g, '~> 8.1');
 
+          if (!next.includes('use_modular_headers!')) {
+            const marker = '$RNFirebaseAsStaticFramework = true';
+            if (next.includes(marker)) {
+              next = next.replace(marker, `${marker}\nuse_modular_headers!`);
+            } else {
+              next = `use_modular_headers!\n\n${next}`;
+            }
+          }
+
           if (!next.includes("FirebaseAuthInterop")) {
             const interopPods = [
               "  # Firebase Auth interop pods for static frameworks",
@@ -148,10 +157,12 @@ jobs:
               "  pod 'FirebaseAppCheckInterop', :modular_headers => true",
               "  pod 'RecaptchaInterop', :modular_headers => true"
             ].join("\\n") + "\\n";
-            next = next.replace(
-              /(target\s+['"]RadarTinder['"]\s+do[\s\S]*?)(\nend\s*$)/m,
-              `$1${interopPods}$2`
-            );
+            const targetRegex = /(target\s+['"]RadarTinder['"]\s+do[\s\S]*?)(\nend\s*)$/;
+            if (targetRegex.test(next)) {
+              next = next.replace(targetRegex, `$1${interopPods}$2`);
+            } else {
+              next = `${next}\n${interopPods}`;
+            }
           }
 
           if (next !== content) {
