@@ -40,21 +40,29 @@ $RNFirebaseAsStaticFramework = true
       // This is added before the target's closing 'end'
       const modularHeadersPods = `
   # Fix Firebase Swift pods - add modular headers to specific dependencies
-  pod 'GoogleUtilities', '~> 8.0', :modular_headers => true
-  pod 'FirebaseCore', '~> 11.0', :modular_headers => true
-  pod 'FirebaseCoreInternal', :modular_headers => true
-  pod 'FirebaseInstallations', '~> 11.0', :modular_headers => true
+  pod 'GoogleUtilities', '~> 8.1', :modular_headers => true
+  pod 'FirebaseCore', '~> 12.8.0', :modular_headers => true
+  pod 'FirebaseCoreInternal', '~> 12.8.0', :modular_headers => true
+  pod 'FirebaseInstallations', '~> 12.8.0', :modular_headers => true
   pod 'GoogleDataTransport', :modular_headers => true
   pod 'nanopb', :modular_headers => true
-  pod 'FirebaseCoreExtension', '~> 11.0', :modular_headers => true
+  pod 'FirebaseCoreExtension', '~> 12.8.0', :modular_headers => true
+  pod 'FirebaseAuthInterop', :modular_headers => true
+  pod 'FirebaseAppCheckInterop', :modular_headers => true
+  pod 'RecaptchaInterop', :modular_headers => true
 `;
 
       // Find the main target block and add our pods if not already present
-      if (!podfileContent.includes("pod 'GoogleUtilities', '~> 7.13', :modular_headers => true")) {
-        podfileContent = podfileContent.replace(
-          /(target\s+['"]RadarTinder['"]\s+do[\s\S]*?)(^end)/m,
-          `$1${modularHeadersPods}\n$2`
-        );
+      if (!podfileContent.includes("# Fix Firebase Swift pods - add modular headers to specific dependencies")) {
+        const endIndex = podfileContent.lastIndexOf('\nend');
+        if (endIndex !== -1) {
+          podfileContent =
+            podfileContent.slice(0, endIndex) +
+            modularHeadersPods +
+            podfileContent.slice(endIndex);
+        } else {
+          podfileContent += modularHeadersPods;
+        }
       }
       
       fs.writeFileSync(podfilePath, podfileContent);
