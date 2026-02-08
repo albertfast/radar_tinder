@@ -27,6 +27,13 @@ $RNFirebaseAsStaticFramework = true
         const mapsWorkaround = `
     # Workaround: react-native-maps with use_frameworks! :linkage => :static
     installer.pods_project.targets.each do |target|
+      if target.name.start_with?('RNFB')
+        target.build_configurations.each do |build_config|
+          # RNFirebase headers import React headers that are treated as non-modular under frameworks.
+          build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        end
+      end
+
       if ['react-native-google-maps', 'react-native-maps'].include?(target.name)
         target.build_configurations.each do |build_config|
           # Keep modules enabled for Google-Maps-iOS-Utils (@import GoogleMaps).
