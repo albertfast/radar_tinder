@@ -1,4 +1,4 @@
-const { withSettingsGradle } = require('@expo/config-plugins');
+const { withSettingsGradle } = require('expo/config-plugins');
 
 /**
  * Plugin to fix settings.gradle missing commandLine
