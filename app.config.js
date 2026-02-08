@@ -114,7 +114,6 @@ module.exports = {
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "@react-native-firebase/crashlytics",
-      "./plugins/withFirebasePodfile.js",
       [
         "expo-build-properties",
         {
@@ -139,6 +138,7 @@ module.exports = {
           resizeMode: "contain"
         }
       ],
+      "./plugins/withFirebasePodfile.js",
       "./plugins/withSettingsGradleFix.js"
     ],
     extra: {
