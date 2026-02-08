@@ -11,9 +11,7 @@ module.exports = (() => {
     babelTransformerPath: require.resolve('react-native-svg-transformer'),
   };
 
-  // pnpm uses symlinks under node_modules/.pnpm; Metro needs explicit support.
-  // This fixes resolution failures like:
-  // "Unable to resolve @react-native-firebase/app/lib/common ..."
+  // pnpm uses a nested node_modules layout. These settings help Metro resolve packages correctly.
   config.watchFolders = Array.from(
     new Set([...(config.watchFolders || []), path.join(__dirname, 'node_modules', '.pnpm')])
   );
@@ -22,7 +20,6 @@ module.exports = (() => {
     ...resolver,
     assetExts: [...resolver.assetExts.filter((ext) => ext !== 'svg'), 'onnx', 'data', 'bin'],
     sourceExts: [...resolver.sourceExts, 'svg'],
-    unstable_enableSymlinks: true,
     nodeModulesPaths: [
       path.join(__dirname, 'node_modules'),
       path.join(__dirname, 'node_modules', '.pnpm', 'node_modules'),

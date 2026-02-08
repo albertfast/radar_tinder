@@ -7,6 +7,7 @@ import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Buffer } from 'buffer';
+import { Platform } from 'react-native';
 import { InferenceSession, Tensor } from 'onnxruntime-react-native';
 import ocrClasses from '../../assets/models/digital_ocr_classes.json';
 import dashboardMetadata from '../../assets/models/dashboard_classes.json';
@@ -253,12 +254,22 @@ export class AIService {
         throw new Error('Dashboard model asset URI missing');
       }
 
-      // Prefer the downloaded local asset path directly. Copying 90MB+ files on Android is flaky and can
-      // result in truncated/corrupt models (ORT_INVALID_PROTOBUF).
+      // On iOS, copy the model to a writable cache directory so the .onnx.data sidecar
+      // can live next to the model file. On Android, keep the bundled path to avoid
+      // large-file copy flakiness.
+      const cachePath = `${FileSystem.cacheDirectory}dashboard_net.onnx`;
       let modelPath = candidateUri;
-      if (!String(candidateUri).startsWith('file://')) {
-        modelPath = `${FileSystem.cacheDirectory}dashboard_net.onnx`;
-        await FileSystem.downloadAsync(candidateUri, modelPath);
+      const shouldUseCache = Platform.OS === 'ios' || !String(candidateUri).startsWith('file://');
+      if (shouldUseCache) {
+        const cachedInfo = await FileSystem.getInfoAsync(cachePath);
+        if (!cachedInfo.exists || cachedInfo.size === 0) {
+          if (String(candidateUri).startsWith('file://')) {
+            await FileSystem.copyAsync({ from: candidateUri, to: cachePath });
+          } else {
+            await FileSystem.downloadAsync(candidateUri, cachePath);
+          }
+        }
+        modelPath = cachePath;
       }
 
       try {
@@ -898,7 +909,12 @@ export class AIService {
 
   static async preloadModels(): Promise<boolean> {
     try {
-      await Promise.all([this.loadDashboardModel(), this.loadOcrModel()]);
+      if (Platform.OS === 'ios') {
+        await this.loadDashboardModel();
+        await this.loadOcrModel();
+      } else {
+        await Promise.all([this.loadDashboardModel(), this.loadOcrModel()]);
+      }
       return true;
     } catch (error) {
       console.error('Model preload failed:', error);
