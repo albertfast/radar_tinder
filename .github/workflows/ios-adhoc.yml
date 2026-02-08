@@ -11,6 +11,10 @@ jobs:
     runs-on: macos-15
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      NODE_ENV: production
+      RCT_NEW_ARCH_ENABLED: "1"
+      IPHONEOS_DEPLOYMENT_TARGET: "16.1"
+      EAS_NO_VCS: 1
 
     steps:
       - name: Checkout repository
@@ -78,10 +82,33 @@ jobs:
       - name: Generate iOS native code
         run: |
           rm -rf ios
-          npx expo prebuild --platform ios --clean         
-          
+          npx expo prebuild --platform ios --clean
+
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = 'ios/Podfile.properties.json';
+          const data = fs.existsSync(path) ? JSON.parse(fs.readFileSync(path, 'utf8')) : {};
+          data['ios.deploymentTarget'] = '16.1';
+          data['newArchEnabled'] = 'true';
+          fs.writeFileSync(path, JSON.stringify(data, null, 2));
+          NODE
+
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = 'ios/Podfile';
+          let content = fs.readFileSync(path, 'utf8');
+          const next = content.replace(/~> 11\.0/g, '~> 12.8.0').replace(/~> 8\.0/g, '~> 8.1');
+          if (next !== content) {
+            fs.writeFileSync(path, next);
+            console.log('Patched Firebase pod versions in Podfile.');
+          } else {
+            console.log('No Firebase pod versions to patch.');
+          }
+          NODE
+
           cd ios
-          pod install --repo-update
+          echo "export NODE_BINARY=$(command -v node)" > .xcode.env.local
+          pod install --repo-update --verbose
           cd ..
 
       - name: Create credentials.json
