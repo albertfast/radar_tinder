@@ -29,8 +29,8 @@ $RNFirebaseAsStaticFramework = true
     installer.pods_project.targets.each do |target|
       if ['react-native-google-maps', 'react-native-maps'].include?(target.name)
         target.build_configurations.each do |build_config|
+          # Keep modules enabled for Google-Maps-iOS-Utils (@import GoogleMaps).
           build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-          build_config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'
           build_config.build_settings['DEFINES_MODULE'] = 'NO'
         end
       end
