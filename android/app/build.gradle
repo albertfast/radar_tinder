@@ -183,3 +183,25 @@ dependencies {
 
 apply plugin: 'com.google.gms.google-services'
 apply plugin: 'com.google.firebase.crashlytics'
+
+afterEvaluate {
+    def autolinkCmake = file("$buildDir/generated/autolinking/src/main/jni/Android-autolinking.cmake")
+    tasks.matching { it.name.startsWith("externalNativeBuildClean") }.configureEach {
+        onlyIf {
+            if (!autolinkCmake.exists()) {
+                return false
+            }
+            def missingDir = false
+            autolinkCmake.eachLine { line ->
+                def matcher = (line =~ /add_subdirectory\(\"([^\"]+)\"/)
+                if (matcher.find()) {
+                    def dir = file(matcher.group(1))
+                    if (!dir.exists()) {
+                        missingDir = true
+                    }
+                }
+            }
+            return !missingDir
+        }
+    }
+}
