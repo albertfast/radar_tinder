@@ -32,6 +32,7 @@ $RNFirebaseAsStaticFramework = true
         build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
         # Ensure @import-based pods (e.g. Google-Maps-iOS-Utils) keep modules enabled.
         build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
+        build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
       end
     end
 `;

@@ -23,14 +23,61 @@ const findInPnpm = (pkg) => {
   return null;
 };
 
+const resolvePackageDir = (pkg) => {
+  try {
+    return path.dirname(require.resolve(`${pkg}/package.json`, { paths: extraPaths }));
+  } catch {
+    return findInPnpm(pkg);
+  }
+};
+
+const patchReactNativeMapsForXcode26 = () => {
+  const pkg = 'react-native-maps';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const markerManagerHeaderPath = path.join(
+    resolvedDir,
+    'ios',
+    'AirGoogleMaps',
+    'AIRGoogleMapMarkerManager.h'
+  );
+  if (!fs.existsSync(markerManagerHeaderPath)) {
+    console.warn(`prepare-patches: missing file ${markerManagerHeaderPath}`);
+    return;
+  }
+
+  const fromImport = '#import <React/RCTViewManager.h>';
+  const toImport = '#import "AIRMapCalloutManager.h"';
+  let markerManagerHeader = fs.readFileSync(markerManagerHeaderPath, 'utf8');
+
+  if (markerManagerHeader.includes(fromImport)) {
+    markerManagerHeader = markerManagerHeader.replace(fromImport, toImport);
+    fs.writeFileSync(markerManagerHeaderPath, markerManagerHeader);
+    console.log('Patched react-native-maps AIRGoogleMapMarkerManager.h for Xcode 26 modules');
+  }
+
+  // AIRGoogleMapPolyline does not use AIRGoogleMapMarkerManager and this import can
+  // trigger strict module resolution failures under Xcode 26.
+  const polylinePath = path.join(resolvedDir, 'ios', 'AirGoogleMaps', 'AIRGoogleMapPolyline.m');
+  if (!fs.existsSync(polylinePath)) {
+    return;
+  }
+  let polylineContent = fs.readFileSync(polylinePath, 'utf8');
+  const unusedImport = '#import "AIRGoogleMapMarkerManager.h"\n';
+  if (polylineContent.includes(unusedImport)) {
+    polylineContent = polylineContent.replace(unusedImport, '');
+    fs.writeFileSync(polylinePath, polylineContent);
+    console.log('Patched react-native-maps AIRGoogleMapPolyline.m to remove unused import');
+  }
+};
+
 for (const pkg of packages) {
   try {
-    let resolvedDir;
-    try {
-      resolvedDir = path.dirname(require.resolve(`${pkg}/package.json`, { paths: extraPaths }));
-    } catch {
-      resolvedDir = findInPnpm(pkg);
-    }
+    const resolvedDir = resolvePackageDir(pkg);
     if (!resolvedDir) {
       throw new Error(`unable to resolve path`);
     }
@@ -43,3 +90,5 @@ for (const pkg of packages) {
     console.warn(`prepare-patches: could not resolve ${pkg}: ${error.message}`);
   }
 }
+
+patchReactNativeMapsForXcode26();
