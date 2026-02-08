@@ -97,12 +97,26 @@ jobs:
           const fs = require('fs');
           const path = 'ios/Podfile';
           let content = fs.readFileSync(path, 'utf8');
-          const next = content.replace(/~> 11\.0/g, '~> 12.8.0').replace(/~> 8\.0/g, '~> 8.1');
+          let next = content.replace(/~> 11\.0/g, '~> 12.8.0').replace(/~> 8\.0/g, '~> 8.1');
+
+          if (!next.includes("FirebaseAuthInterop")) {
+            const interopPods = [
+              "  # Firebase Auth interop pods for static frameworks",
+              "  pod 'FirebaseAuthInterop', :modular_headers => true",
+              "  pod 'FirebaseAppCheckInterop', :modular_headers => true",
+              "  pod 'RecaptchaInterop', :modular_headers => true"
+            ].join("\\n") + "\\n";
+            next = next.replace(
+              /(target\s+['"]RadarTinder['"]\s+do[\s\S]*?)(\nend\s*$)/m,
+              `$1${interopPods}$2`
+            );
+          }
+
           if (next !== content) {
             fs.writeFileSync(path, next);
-            console.log('Patched Firebase pod versions in Podfile.');
+            console.log('Patched Firebase pods in Podfile.');
           } else {
-            console.log('No Firebase pod versions to patch.');
+            console.log('No Firebase Podfile changes needed.');
           }
           NODE
 
