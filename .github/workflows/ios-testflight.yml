@@ -142,31 +142,35 @@ jobs:
           let podfile = fs.readFileSync(path, 'utf8');
 
           if (!podfile.includes('$RNFirebaseAsStaticFramework')) {
-            podfile = `# Firebase Static Framework - fixes Swift module issues
-$RNFirebaseAsStaticFramework = true
-
-` + podfile;
+            podfile = [
+              '# Firebase Static Framework - fixes Swift module issues',
+              '$RNFirebaseAsStaticFramework = true',
+              '',
+              podfile,
+            ].join('\n');
           }
 
           const markerBegin = '  # BEGIN CI_IOS_POD_WORKAROUNDS';
           const markerEnd = '  # END CI_IOS_POD_WORKAROUNDS';
-          const workaround = `${markerBegin}
-  installer.pods_project.targets.each do |target|
-    if target.name.start_with?('RNFB')
-      target.build_configurations.each do |build_config|
-        build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-      end
-    end
-
-    if ['react-native-google-maps', 'react-native-maps'].include?(target.name)
-      target.build_configurations.each do |build_config|
-        # Keep modules enabled for Google-Maps-iOS-Utils (@import GoogleMaps).
-        build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-        build_config.build_settings['DEFINES_MODULE'] = 'NO'
-      end
-    end
-  end
-${markerEnd}`;
+          const workaround = [
+            markerBegin,
+            '  installer.pods_project.targets.each do |target|',
+            "    if target.name.start_with?('RNFB')",
+            '      target.build_configurations.each do |build_config|',
+            "        build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'",
+            '      end',
+            '    end',
+            '',
+            "    if ['react-native-google-maps', 'react-native-maps'].include?(target.name)",
+            '      target.build_configurations.each do |build_config|',
+            '        # Keep modules enabled for Google-Maps-iOS-Utils (@import GoogleMaps).',
+            "        build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'",
+            "        build_config.build_settings['DEFINES_MODULE'] = 'NO'",
+            '      end',
+            '    end',
+            '  end',
+            markerEnd,
+          ].join('\\n');
 
           const escaped = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const blockRegex = new RegExp(`${escaped(markerBegin)}[\\s\\S]*?${escaped(markerEnd)}\\n?`, 'm');
