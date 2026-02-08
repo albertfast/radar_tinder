@@ -83,6 +83,7 @@ target 'RadarTinder' do
   pod 'GoogleDataTransport', :modular_headers => true
   pod 'nanopb', :modular_headers => true
   pod 'FirebaseCoreExtension', '~> 12.9.0', :modular_headers => true
+  pod 'FirebaseAuth', '~> 12.9.0', :modular_headers => true
 
   # Firebase Auth interop pods for static frameworks
   pod 'FirebaseAuthInterop', :modular_headers => true
