@@ -30,9 +30,23 @@ $RNFirebaseAsStaticFramework = true
       target.build_configurations.each do |build_config|
         # Some pods (RNFirebase, etc.) import React headers and fail under framework modular checks.
         build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-        # Ensure @import-based pods (e.g. Google-Maps-iOS-Utils) keep modules enabled.
-        build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
         build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
+      end
+
+      if ['react-native-google-maps', 'react-native-maps'].include?(target.name)
+        target.build_configurations.each do |build_config|
+          # Avoid strict module-import-order errors in react-native-maps headers.
+          build_config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'
+          build_config.build_settings['DEFINES_MODULE'] = 'NO'
+        end
+      end
+
+      if ['Google-Maps-iOS-Utils', 'GoogleMapsUtils'].include?(target.name)
+        target.build_configurations.each do |build_config|
+          # Keep modules enabled for @import GoogleMaps used by Google-Maps-iOS-Utils.
+          build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
+          build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
+        end
       end
     end
 `;
