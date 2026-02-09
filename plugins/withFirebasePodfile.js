@@ -35,9 +35,9 @@ $RNFirebaseAsStaticFramework = true
 
       if ['react-native-google-maps', 'react-native-maps'].include?(target.name)
         target.build_configurations.each do |build_config|
-          # Avoid strict module-import-order errors in react-native-maps headers.
-          build_config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'
-          build_config.build_settings['DEFINES_MODULE'] = 'NO'
+          # Keep modules enabled for Google Maps related headers used by this target.
+          build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
+          build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
         end
       end
 
@@ -48,6 +48,21 @@ $RNFirebaseAsStaticFramework = true
           build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
         end
       end
+    end
+
+    # Safety patch: avoid @import failure if a future config disables modules.
+    gmu_header = File.join(
+      installer.sandbox.root.to_s,
+      'Google-Maps-iOS-Utils',
+      'Sources',
+      'GoogleMapsUtilsObjC',
+      'include',
+      'GMUWeightedLatLng.h'
+    )
+    if File.exist?(gmu_header)
+      gmu_content = File.read(gmu_header)
+      patched = gmu_content.gsub('@import GoogleMaps;', '#import <GoogleMaps/GoogleMaps.h>')
+      File.write(gmu_header, patched) if patched != gmu_content
     end
 `;
 
