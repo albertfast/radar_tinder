@@ -67,6 +67,35 @@ jobs:
           rm -f pnpm-lock.yaml
           pnpm install
 
+      - name: Apply dependency patches
+        run: |
+          node scripts/prepare-patches.js
+          node - <<'NODE'
+          const fs = require('fs');
+          const checks = [
+            ['node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMapMarkerManager.h', '#import "AIRMapCalloutManager.h"'],
+            ['node_modules/react-native-maps/ios/AirGoogleMaps/AIRGMSMarker.h', '#import "AIRMap.h"'],
+            ['node_modules/react-native-maps/ios/AirGoogleMaps/AIRGMSPolyline.h', '#import "AIRMap.h"'],
+            ['node_modules/react-native-maps/ios/AirGoogleMaps/AIRGMSPolygon.h', '#import "AIRMap.h"'],
+          ];
+          for (const [filePath, expected] of checks) {
+            if (!fs.existsSync(filePath)) continue;
+            const content = fs.readFileSync(filePath, 'utf8');
+            if (!content.includes(expected)) {
+              throw new Error(`react-native-maps patch missing: ${filePath} does not include ${expected}`);
+            }
+          }
+
+          const polylinePath = 'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMapPolyline.m';
+          if (fs.existsSync(polylinePath)) {
+            const polylineContent = fs.readFileSync(polylinePath, 'utf8');
+            if (polylineContent.includes('#import "AIRGoogleMapMarkerManager.h"')) {
+              throw new Error('react-native-maps patch missing: AIRGoogleMapPolyline.m still imports AIRGoogleMapMarkerManager.h');
+            }
+          }
+          console.log('react-native-maps patch verification passed');
+          NODE
+
       - name: Ensure Expo gitignore
         run: |
           touch .gitignore
@@ -121,8 +150,21 @@ jobs:
             '  installer.pods_project.targets.each do |target|',
             '    target.build_configurations.each do |build_config|',
             "      build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'",
-            "      build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'",
             "      build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'",
+            '    end',
+            '',
+            "    if ['react-native-google-maps', 'react-native-maps'].include?(target.name)",
+            '      target.build_configurations.each do |build_config|',
+            "        build_config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'",
+            "        build_config.build_settings['DEFINES_MODULE'] = 'NO'",
+            '      end',
+            '    end',
+            '',
+            "    if ['Google-Maps-iOS-Utils', 'GoogleMapsUtils'].include?(target.name)",
+            '      target.build_configurations.each do |build_config|',
+            "        build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'",
+            "        build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'",
+            '      end',
             '    end',
             '  end',
             markerEnd,

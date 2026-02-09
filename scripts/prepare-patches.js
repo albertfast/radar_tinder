@@ -60,27 +60,30 @@ const patchReactNativeMapsForXcode26 = () => {
     console.log('Patched react-native-maps AIRGoogleMapMarkerManager.h for Xcode 26 modules');
   }
 
-  const gmsMarkerHeaderPath = path.join(resolvedDir, 'ios', 'AirGoogleMaps', 'AIRGMSMarker.h');
-  if (fs.existsSync(gmsMarkerHeaderPath)) {
-    let gmsMarkerHeader = fs.readFileSync(gmsMarkerHeaderPath, 'utf8');
+  const ensureAirMapImport = (relativeHeaderPath) => {
+    const headerPath = path.join(resolvedDir, 'ios', 'AirGoogleMaps', relativeHeaderPath);
+    if (!fs.existsSync(headerPath)) return;
+
+    let headerContent = fs.readFileSync(headerPath, 'utf8');
     const missingImport = '#import "AIRMap.h"';
-    if (!gmsMarkerHeader.includes(missingImport)) {
-      const anchorImport = '#import <React/UIView+React.h>';
-      if (gmsMarkerHeader.includes(anchorImport)) {
-        gmsMarkerHeader = gmsMarkerHeader.replace(
-          anchorImport,
-          `${anchorImport}\n${missingImport}`
-        );
-      } else {
-        gmsMarkerHeader = gmsMarkerHeader.replace(
-          '#import <GoogleMaps/GoogleMaps.h>',
-          '#import <GoogleMaps/GoogleMaps.h>\n' + missingImport
-        );
-      }
-      fs.writeFileSync(gmsMarkerHeaderPath, gmsMarkerHeader);
-      console.log('Patched react-native-maps AIRGMSMarker.h to import AIRMap.h');
+    if (headerContent.includes(missingImport)) return;
+
+    const anchorImport = '#import <React/UIView+React.h>';
+    if (headerContent.includes(anchorImport)) {
+      headerContent = headerContent.replace(anchorImport, `${anchorImport}\n${missingImport}`);
+    } else {
+      headerContent = headerContent.replace(
+        '#import <GoogleMaps/GoogleMaps.h>',
+        '#import <GoogleMaps/GoogleMaps.h>\n' + missingImport
+      );
     }
-  }
+    fs.writeFileSync(headerPath, headerContent);
+    console.log(`Patched react-native-maps ${relativeHeaderPath} to import AIRMap.h`);
+  };
+
+  ensureAirMapImport('AIRGMSMarker.h');
+  ensureAirMapImport('AIRGMSPolyline.h');
+  ensureAirMapImport('AIRGMSPolygon.h');
 
   // AIRGoogleMapPolyline does not use AIRGoogleMapMarkerManager and this import can
   // trigger strict module resolution failures under Xcode 26.
