@@ -19,13 +19,6 @@ react {
     // works correctly with Expo projects.
     cliFile = new File(["node", "--print", "require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })"].execute(null, rootDir).text.trim())
     bundleCommand = "export:embed"
-    
-    // Reanimated compatibility fixes for Android (removed unsupported properties)
-    // The React Gradle plugin version in use no longer supports setting
-    // 'enableHermes' or 'flipperEnabled' directly on the 'react' extension.
-    // Manage Hermes and Flipper using supported Gradle properties or plugin settings.
-    hermesEnabled = true
-    newArchEnabled = true
 
     /* Folders */
      //   The root of your project, i.e. where "package.json" lives. Default is '../..'
@@ -99,7 +92,7 @@ android {
         applicationId 'com.radartinder.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2070721591
+        versionCode 2070729765
         versionName "1.0.4"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
@@ -133,11 +126,6 @@ android {
             def enableLegacyPackaging = findProperty('expo.useLegacyPackaging') ?: 'false'
             useLegacyPackaging enableLegacyPackaging.toBoolean()
         }
-        
-        // Reanimated compatibility fixes for Android
-        pickFirst '**/libjsc.so'
-        pickFirst '**/libc++_shared.so'
-        pickFirst '**/libhermes.so'
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
