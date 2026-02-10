@@ -147,8 +147,7 @@ module.exports = {
         }
       ],
       "./plugins/withFirebasePodfile.js",
-      "./plugins/withSettingsGradleFix.js",
-      "./plugins/withAndroidBridgelessFix.js"
+      "./plugins/withSettingsGradleFix.js"
     ],
     extra: {
       eas: {
