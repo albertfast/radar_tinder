@@ -101,7 +101,7 @@ android {
     lint {
         checkReleaseBuilds false
         abortOnError false
-        // Disable specific lint checks that cause crashes
+        // Disable lint checks that crash with OutOfMemoryError in ONNX/Expo modules
         disable 'InvalidPackage'
     }
     
