@@ -12,6 +12,18 @@ import * as Reanimated from 'react-native-reanimated';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 
+// Reanimated 4 compatibility - add missing useAnimatedGestureHandler (was removed in Reanimated 4)
+if (!Reanimated.useAnimatedGestureHandler) {
+  (Reanimated as any).useAnimatedGestureHandler = (config: any) => {
+    return {
+      onStart: config?.onStart || (() => {}),
+      onActive: config?.onActive || (() => {}),
+      onEnd: config?.onEnd || (() => {}),
+      onFinalize: config?.onFinalize || (() => {}),
+    };
+  };
+}
+
 // Reanimated version check
 const reanimatedVersion = (Reanimated as any).version || 'unknown';
 console.log('Reanimated version:', reanimatedVersion);
