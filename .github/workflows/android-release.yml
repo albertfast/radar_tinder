@@ -59,10 +59,22 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           missing=0
-          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then echo "Missing ANDROID_KEYSTORE_BASE64 secret"; missing=1; fi
-          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then echo "Missing ANDROID_KEYSTORE_PASSWORD secret"; missing=1; fi
-          if [ -z "$ANDROID_KEY_ALIAS" ]; then echo "Missing ANDROID_KEY_ALIAS secret"; missing=1; fi
-          if [ -z "$ANDROID_KEY_PASSWORD" ]; then echo "Missing ANDROID_KEY_PASSWORD secret"; missing=1; fi
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "Missing ANDROID_KEYSTORE_BASE64 secret"
+            missing=1
+          fi
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then
+            echo "Missing ANDROID_KEYSTORE_PASSWORD secret"
+            missing=1
+          fi
+          if [ -z "$ANDROID_KEY_ALIAS" ]; then
+            echo "Missing ANDROID_KEY_ALIAS secret"
+            missing=1
+          fi
+          if [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "Missing ANDROID_KEY_PASSWORD secret"
+            missing=1
+          fi
           if [ "$missing" -ne 0 ]; then
             echo "Android signing secrets are required for local EAS build."
             exit 1
@@ -90,7 +102,8 @@ jobs:
           npx expo prebuild --platform android --clean
           if [ -f android/gradle.properties ]; then
             {
-              echo "org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g -Dkotlin.daemon.jvm.options=-Xmx3g"
+              echo "org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g"
+              echo "org.gradle.jvmargs+=-Dkotlin.daemon.jvm.options=-Xmx3g"
               echo "android.lint.abortOnError=false"
               echo "android.lint.checkReleaseBuilds=false"
               echo "org.gradle.daemon=false"
@@ -99,11 +112,17 @@ jobs:
 
       - name: Build AAB for Play Store
         run: |
-          eas build --platform android --profile production --local --non-interactive --output ./RadarTinder.aab
+          eas build \
+            --platform android \
+            --profile production \
+            --local \
+            --non-interactive \
+            --output ./RadarTinder.aab
 
       - name: Submit to Google Play
         env:
-          GOOGLE_SERVICE_ACCOUNT_KEY_JSON_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_JSON_BASE64 }}
+          GOOGLE_SERVICE_ACCOUNT_KEY_JSON_BASE64: >-
+            ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_JSON_BASE64 }}
         run: |
           echo "$GOOGLE_SERVICE_ACCOUNT_KEY_JSON_BASE64" | base64 -d > google-service-account.json
           eas submit -p android --profile production --non-interactive --path ./RadarTinder.aab
