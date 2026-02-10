@@ -82,8 +82,8 @@ if (reanimatedVersion.startsWith('4.')) {
 }
 
 // Comprehensive Reanimated compatibility fixes
-if (!(Reanimated as any).useAnimatedGestureHandler) {
-  console.warn('Reanimated useAnimatedGestureHandler not found, using polyfill');
+if (typeof (Reanimated as any).useAnimatedGestureHandler !== 'function') {
+  console.warn('Reanimated useAnimatedGestureHandler not found or invalid, using polyfill');
   (Reanimated as any).useAnimatedGestureHandler = (handlers: any) => {
     const { useEvent, runOnJS } = Reanimated;
     const context = React.useRef({}).current;
@@ -126,8 +126,10 @@ if (!reanimatedVersion || reanimatedVersion.startsWith('4.')) {
     (Reanimated as any).runOnJS = (fn: any) => fn;
   }
   
-  if (!(Reanimated as any).useSharedValue) {
-    (Reanimated as any).useSharedValue = (initial: any) => React.useState(initial)[0];
+  if (!(Reanimated as any).useSharedValue || reanimatedVersion.startsWith('4.')) {
+    (Reanimated as any).useSharedValue = function useSharedValue(initial: any) {
+      return React.useMemo(() => ({ value: initial }), []);
+    };
   }
   
   if (!(Reanimated as any).useAnimatedStyle) {

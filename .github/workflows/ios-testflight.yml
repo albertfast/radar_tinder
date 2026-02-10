@@ -152,7 +152,6 @@ jobs:
 
       - name: Install CocoaPods
         run: |
-          rm -rf ios
           npx expo prebuild --platform ios --clean
 
           node - <<'NODE'
@@ -235,7 +234,6 @@ jobs:
           echo "export NODE_BINARY=$(command -v node)" > .xcode.env.local
           
           # Always remove Podfile.lock to ensure fresh dependency resolution
-          rm -f Podfile.lock
           
           # Only do full clean if cache miss or Podfile changed
           if [ ! -d "Pods" ]; then

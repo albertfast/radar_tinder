@@ -209,23 +209,14 @@ packagingOptions {
 }
 ```
 
-4. **android/settings.gradle - Gradle Configuration:**
+4. **android/settings.gradle - Gradle Configuration (removed)**:
 ```gradle
-extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
-  if (System.getenv('EXPO_USE_COMMUNITY_AUTOLINKING') == '1') {
-    ex.autolinkLibrariesFromCommand()
-  } else {
-    ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)
-  }
-  
-  // Reanimated compatibility fixes for Android
-  ex.gradleConfiguration {
-    resolutionStrategy {
-      force 'com.facebook.react:react-native:0.76.6'
-      force 'com.facebook.react:react-native-hermes:0.76.6'
-    }
-  }
-}
+# Note: The project previously attempted to use `ex.gradleConfiguration { ... }`
+# on `ReactSettingsExtension`. That API is not available on the installed
+# React Gradle plugin and caused builds to fail. The block was removed; if
+# you need to force dependency versions, add a resolution strategy using a
+# supported Gradle mechanism (for example, `dependencyResolutionManagement`)
+# or configure it in a plugin-friendly place.
 ```
 
 **Test Edilecek:**
