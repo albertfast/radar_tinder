@@ -2,12 +2,17 @@ const fs = require('fs');
 const path = require('path');
 
 const getVersionCode = () => {
-  // Current timestamp logic
-  const now = Math.floor(Date.now() / 1000);
-  // Offset to ensure unique version code > 2000000042
-  // We use 300,000,000 offset. Current TS ~ 1.74B + 0.3B = 2.04B
-  // This will be valid for ~3 years before hitting Int32 limit (2.14B)
-  return now + 300000000;
+  try {
+    // Current timestamp logic
+    const now = Math.floor(Date.now() / 1000);
+    // Offset to ensure unique version code > 2000000042
+    // We use 300,000,000 offset. Current TS ~ 1.74B + 0.3B = 2.04B
+    // This will be valid for ~3 years before hitting Int32 limit (2.14B)
+    return now + 300000000;
+  } catch (e) {
+    console.warn('Version code generation failed, using fallback:', e);
+    return 2100000000;
+  }
 };
 
 module.exports = {
