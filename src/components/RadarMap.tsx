@@ -3,7 +3,7 @@ import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { View, StyleSheet, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { modernMapStyle, modernRouteStyle } from '../utils/modernMapStyle';
-import { getResponsiveWidth, getResponsiveHeight, getResponsiveMargin } from '../constants/layout';
+import { getResponsiveWidth, getResponsiveHeight, getResponsiveMargin, getResponsivePadding } from '../constants/layout';
 
 // Optimized Marker (moved here or kept in same file)
 const OptimizedMarker = React.memo(({ coordinate, type, speedLimit, onPress }: any) => {
