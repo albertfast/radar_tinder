@@ -1519,3 +1519,48 @@ For CI servers and headless environments, generate a new token with firebase log
 [error] [Firebase Plugin] requireAuth error: Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
 
 For CI servers and headless environments, generate a new token with firebase login:ci
+[debug] [2026-02-10T06:52:37.818Z] [Firebase Plugin] Activating Firebase extension.
+[debug] [2026-02-10T06:52:44.148Z] [Firebase Plugin] requireAuthWrapper
+[debug] [2026-02-10T06:52:44.149Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-10T06:52:44.150Z] > authorizing via signed-in user (ahmetsahinersf@gmail.com)
+[debug] [2026-02-10T06:52:44.154Z] Checked if tokens are valid: false, expires at: 1770574367379
+[debug] [2026-02-10T06:52:44.155Z] Checked if tokens are valid: false, expires at: 1770574367379
+[debug] [2026-02-10T06:52:44.155Z] > refreshing access token with scopes: []
+[debug] [2026-02-10T06:52:44.157Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-02-10T06:52:44.158Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-02-10T06:52:44.170Z] [Firebase Plugin] VSCode notification server listening on port 40001
+[info] [Firebase Plugin] Starting Data Connect toolkit (version 3.1.1) on port 50001
+[debug] [2026-02-10T06:52:44.715Z] I0209 22:52:44.691531  103351 control.go:100] [/emulator/radartinder 01f7] UpdateResources(): done
+Main schema: sources: schema/schema.gql [882B] 
+Connector "example": sources: example/queries.gql [1257B] 
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0209 22:52:44.691531  103351 control.go:100] [/emulator/radartinder 01f7] UpdateResources(): done\nMain schema: sources: schema/schema.gql [882B] \nConnector \"example\": sources: example/queries.gql [1257B] \n"}}
+[debug] [2026-02-10T06:52:44.716Z] Ignoring unsupported arg: auto_download {"metadata":{"emulator":{"name":"dataconnect"},"message":"Ignoring unsupported arg: auto_download"}}
+[debug] [2026-02-10T06:52:44.716Z] Ignoring unsupported arg: port {"metadata":{"emulator":{"name":"dataconnect"},"message":"Ignoring unsupported arg: port"}}
+[debug] [2026-02-10T06:52:44.717Z] Starting Data Connect Emulator with command {"binary":"/home/asahiner/.cache/firebase/emulators/dataconnect-emulator-3.1.1","args":["--logtostderr","-v=2","dev","--listen=localhost:50001","--config_dir=/data/projects/radar_tinder/dataconnect","--enable_output_schema_extensions=true","--enable_output_generated_sdk=true"],"optionalArgs":["listen","config_dir","enable_output_schema_extensions","enable_output_generated_sdk"],"joinArgs":true,"shell":false,"port":9399} {"metadata":{"emulator":{"name":"dataconnect"},"message":"Starting Data Connect Emulator with command {\"binary\":\"/home/asahiner/.cache/firebase/emulators/dataconnect-emulator-3.1.1\",\"args\":[\"--logtostderr\",\"-v=2\",\"dev\",\"--listen=localhost:50001\",\"--config_dir=/data/projects/radar_tinder/dataconnect\",\"--enable_output_schema_extensions=true\",\"--enable_output_generated_sdk=true\"],\"optionalArgs\":[\"listen\",\"config_dir\",\"enable_output_schema_extensions\",\"enable_output_generated_sdk\"],\"joinArgs\":true,\"shell\":false,\"port\":9399}"}}
+[info] i  dataconnect: Data Connect Emulator logging to dataconnect-debug.log {"metadata":{"emulator":{"name":"dataconnect"},"message":"Data Connect Emulator logging to dataconnect-debug.log"}}
+[debug] [2026-02-10T06:52:44.747Z] I0209 22:52:44.739515  103366 load.go:31] Reloading schema and connectors...
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0209 22:52:44.739515  103366 load.go:31] Reloading schema and connectors...\n"}}
+[debug] [2026-02-10T06:52:44.812Z] I0209 22:52:44.796390  103366 control.go:100] [/emulator/radartinder a3cc] UpdateResources(): done
+Main schema: sources: schema/schema.gql [882B] 
+Connector "example": sources: example/queries.gql [1257B] 
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0209 22:52:44.796390  103366 control.go:100] [/emulator/radartinder a3cc] UpdateResources(): done\nMain schema: sources: schema/schema.gql [882B] \nConnector \"example\": sources: example/queries.gql [1257B] \n"}}
+[debug] [2026-02-10T06:52:44.871Z] I0209 22:52:44.864147  103366 codegen.go:80] [connector "example" javascriptSdk] Generating sources into "/data/projects/radar_tinder/src/dataconnect-generated"
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0209 22:52:44.864147  103366 codegen.go:80] [connector \"example\" javascriptSdk] Generating sources into \"/data/projects/radar_tinder/src/dataconnect-generated\"\n"}}
+[debug] [2026-02-10T06:52:45.017Z] I0209 22:52:44.876957  103366 collector.go:107] schema extensions wrote into "/data/projects/radar_tinder/dataconnect/.dataconnect/schema"
+Generated sources: main/input.gql [54645B] main/relation.gql [32391B] prelude.gql [73281B] main/query.gql [7338B] main/mutation.gql [19867B] main/implicit.gql [3225B] 
+I0209 22:52:44.877975  103366 collector.go:107] connector "example" javascriptSdk wrote into "/data/projects/radar_tinder/src/dataconnect-generated"
+Generated sources: esm/package.json [17B] index.cjs.js [2178B] README.md [23749B] react/package.json [460B] react/index.cjs.js [1815B] .guides/usage.md [2526B] .guides/config.json [236B] react/esm/package.json [17B] react/README.md [29440B] .guides/setup.md [1682B] esm/index.esm.js [1893B] package.json [863B] index.d.ts [4916B] react/index.d.ts [2289B] react/esm/index.esm.js [1720B] 
+I0209 22:52:44.879388  103366 installsdk.go:55] Package @dataconnect/generated is already installed. Skipping installation
+I0209 22:52:44.879441  103366 load.go:109] Finished reloading
+I0209 22:52:44.880882  103366 dev.go:104] Listening on address (HTTP + gRPC): 127.0.0.1:50001
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0209 22:52:44.876957  103366 collector.go:107] schema extensions wrote into \"/data/projects/radar_tinder/dataconnect/.dataconnect/schema\"\nGenerated sources: main/input.gql [54645B] main/relation.gql [32391B] prelude.gql [73281B] main/query.gql [7338B] main/mutation.gql [19867B] main/implicit.gql [3225B] \nI0209 22:52:44.877975  103366 collector.go:107] connector \"example\" javascriptSdk wrote into \"/data/projects/radar_tinder/src/dataconnect-generated\"\nGenerated sources: esm/package.json [17B] index.cjs.js [2178B] README.md [23749B] react/package.json [460B] react/index.cjs.js [1815B] .guides/usage.md [2526B] .guides/config.json [236B] react/esm/package.json [17B] react/README.md [29440B] .guides/setup.md [1682B] esm/index.esm.js [1893B] package.json [863B] index.d.ts [4916B] react/index.d.ts [2289B] react/esm/index.esm.js [1720B] \nI0209 22:52:44.879388  103366 installsdk.go:55] Package @dataconnect/generated is already installed. Skipping installation\nI0209 22:52:44.879441  103366 load.go:109] Finished reloading\nI0209 22:52:44.880882  103366 dev.go:104] Listening on address (HTTP + gRPC): 127.0.0.1:50001\n"}}
+[debug] [2026-02-10T06:52:45.166Z] I0209 22:52:45.158243  103366 engine.go:205] [/emulator/radartinder a3cc] ExecuteGraphqlRead IntrospectionQuery: succeeded. 
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0209 22:52:45.158243  103366 engine.go:205] [/emulator/radartinder a3cc] ExecuteGraphqlRead IntrospectionQuery: succeeded. \n"}}
+[debug] [2026-02-10T06:52:45.245Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-02-10T06:52:45.246Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-02-10T06:52:45.264Z] [Firebase Plugin] User found:  ahmetsahinersf@gmail.com
+[info] [Firebase Plugin] (Core:Project) New user detected, fetching projects
+[debug] [2026-02-10T06:52:45.270Z] Checked if tokens are valid: true, expires at: 1770709964246
+[debug] [2026-02-10T06:52:45.271Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects pageSize=1000
+[debug] [2026-02-10T06:52:47.904Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 200
+[debug] [2026-02-10T06:52:47.904Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects [omitted]

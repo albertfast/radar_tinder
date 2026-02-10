@@ -64,14 +64,6 @@
 #
 ##############################################################################
 
-# Ensure NODE_BINARY is available for settings.gradle provider exec calls.
-if [ -z "$NODE_BINARY" ]; then
-    if command -v node >/dev/null 2>&1; then
-        NODE_BINARY="$(command -v node)"
-        export NODE_BINARY
-    fi
-fi
-
 # Attempt to set APP_HOME
 
 # Resolve links: $0 may be a link
