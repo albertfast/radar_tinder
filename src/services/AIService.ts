@@ -1,13 +1,12 @@
 /**
  * AI Diagnosis Service
- * Performs on-device AI inference using PyTorch Mobile
+ * Performs on-device AI inference using ONNX Runtime React Native
  */
 
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { Buffer } from 'buffer';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import { InferenceSession, Tensor } from 'onnxruntime-react-native';
 import ocrClasses from '../../assets/models/digital_ocr_classes.json';
 import dashboardMetadata from '../../assets/models/dashboard_classes.json';
@@ -26,6 +25,8 @@ let dashboardSession: InferenceSession | null = null;
 let dashboardSessionPromise: Promise<InferenceSession> | null = null;
 let dashboardModelFailed: boolean = false;
 let dashboardAnalysisErrorLogged: boolean = false;
+let isModelLoading = false;
+let modelLoadError: string | null = null;
 
 // Fallback base URL for remote-hosted models. You can override by setting
 // `MODEL_BASE_URL` at build-time or replacing this string with your CDN URL.
@@ -177,7 +178,7 @@ export class AIService {
       const asset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx'));
       await asset.downloadAsync();
 
-      const modelPath = `${FileSystem.cacheDirectory}digital_ocr_net.onnx`;
+      const modelPath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx`;
       await FileSystem.copyAsync({
         from: asset.localUri || asset.uri,
         to: modelPath
@@ -186,7 +187,7 @@ export class AIService {
       try {
         const dataAsset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx.data'));
         await dataAsset.downloadAsync();
-        const dataPath = `${FileSystem.cacheDirectory}digital_ocr_net.onnx.data`;
+        const dataPath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx.data`;
         await FileSystem.copyAsync({
           from: dataAsset.localUri || dataAsset.uri,
           to: dataPath
@@ -202,7 +203,7 @@ export class AIService {
       // Attempt fallback to remote model URL
       try {
         const remoteUrl = `${REMOTE_MODEL_BASE}/digital_ocr_net.onnx`;
-        const remotePath = `${FileSystem.cacheDirectory}digital_ocr_net.onnx`;
+        const remotePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx`;
         console.warn('Attempting to download OCR model from remote URL:', remoteUrl);
         await FileSystem.downloadAsync(remoteUrl, remotePath);
         ocrSession = await InferenceSession.create(remotePath);
@@ -216,20 +217,30 @@ export class AIService {
 
   private static async ensureDashboardSidecar(modelPath: string) {
     try {
+      console.log('Ensuring dashboard model sidecar file...');
       const dataAsset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx.data'));
       await dataAsset.downloadAsync();
+      console.log('Dashboard model data asset downloaded');
 
       const targetPath = modelPath.endsWith('.onnx')
         ? modelPath.replace(/dashboard_net\.onnx$/, 'dashboard_net.onnx.data')
         : `${modelPath}.data`;
 
       const existing = await FileSystem.getInfoAsync(targetPath);
-      if (existing.exists) return targetPath;
+      if (existing.exists) {
+        console.log('Dashboard model sidecar already exists');
+        return targetPath;
+      }
 
       const source = dataAsset.localUri || dataAsset.uri;
-      if (!source) return null;
+      if (!source) {
+        console.warn('Dashboard model data source not available');
+        return null;
+      }
 
+      console.log('Copying dashboard model sidecar to:', targetPath);
       await FileSystem.copyAsync({ from: source, to: targetPath });
+      console.log('Dashboard model sidecar copied successfully');
       return targetPath;
     } catch (error) {
       console.warn('Dashboard model sidecar copy failed:', error);
@@ -244,69 +255,89 @@ export class AIService {
       dashboardModelFailed = false;
     }
     if (dashboardSessionPromise) return dashboardSessionPromise;
+    if (isModelLoading) {
+      throw new Error('Model is already loading');
+    }
 
     dashboardSessionPromise = (async () => {
-      const asset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx'));
-      await asset.downloadAsync();
-
-      const candidateUri = asset.localUri || asset.uri;
-      if (!candidateUri) {
-        throw new Error('Dashboard model asset URI missing');
-      }
-
-      // On iOS, copy the model to a writable cache directory so the .onnx.data sidecar
-      // can live next to the model file. On Android, keep the bundled path to avoid
-      // large-file copy flakiness.
-      const cachePath = `${FileSystem.cacheDirectory}dashboard_net.onnx`;
-      let modelPath = candidateUri;
-      const shouldUseCache = Platform.OS === 'ios' || !String(candidateUri).startsWith('file://');
-      if (shouldUseCache) {
-        const cachedInfo = await FileSystem.getInfoAsync(cachePath);
-        if (!cachedInfo.exists || cachedInfo.size === 0) {
-          if (String(candidateUri).startsWith('file://')) {
-            await FileSystem.copyAsync({ from: candidateUri, to: cachePath });
-          } else {
-            await FileSystem.downloadAsync(candidateUri, cachePath);
-          }
-        }
-        modelPath = cachePath;
-      }
-
       try {
+        isModelLoading = true;
+        console.log('Loading Dashboard model...');
+        
+        const asset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx'));
+        await asset.downloadAsync();
+        console.log('Dashboard model asset downloaded');
+
+        const candidateUri = asset.localUri || asset.uri;
+        if (!candidateUri) {
+          throw new Error('Dashboard model asset URI missing');
+        }
+
+        // On iOS, copy the model to a writable cache directory so the .onnx.data sidecar
+        // can live next to the model file. On Android, keep the bundled path to avoid
+        // large-file copy flakiness.
+        const cachePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/dashboard_net.onnx`;
+        let modelPath = candidateUri;
+        const shouldUseCache = Platform.OS === 'ios' || !String(candidateUri).startsWith('file://');
+        
+        if (shouldUseCache) {
+          const cachedInfo = await FileSystem.getInfoAsync(cachePath);
+          if (!cachedInfo.exists || cachedInfo.size === 0) {
+            console.log('Copying dashboard model to cache directory');
+            if (String(candidateUri).startsWith('file://')) {
+              await FileSystem.copyAsync({ from: candidateUri, to: cachePath });
+            } else {
+              await FileSystem.downloadAsync(candidateUri, cachePath);
+            }
+            console.log('Dashboard model copied to cache');
+          }
+          modelPath = cachePath;
+        }
+
+        console.log('Ensuring dashboard model sidecar...');
         await this.ensureDashboardSidecar(modelPath);
+        
+        console.log('Creating dashboard inference session...');
         dashboardSession = await InferenceSession.create(modelPath);
+        console.log('Dashboard model loaded successfully');
         dashboardModelFailed = false;
+        modelLoadError = null;
         return dashboardSession;
       } catch (error) {
-        console.error('Dashboard model load failed from bundled asset:', error);
+        console.error('Dashboard model load failed:', error);
+        dashboardModelFailed = true;
+        modelLoadError = error instanceof Error ? error.message : 'Unknown error';
+        
         // If the cached file is corrupted/truncated, delete it once and let the next run re-download.
         try {
-          await FileSystem.deleteAsync(modelPath, { idempotent: true });
-        } catch (e) {}
+          const cachePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/dashboard_net.onnx`;
+          await FileSystem.deleteAsync(cachePath, { idempotent: true });
+          console.log('Deleted corrupted cached model file');
+        } catch (e) {
+          console.warn('Failed to delete cached model file:', e);
+        }
 
         // Try remote fallback
         try {
+          console.log('Attempting to download dashboard model from remote URL...');
           const remoteUrl = `${REMOTE_MODEL_BASE}/dashboard_net.onnx`;
-          const remotePath = `${FileSystem.cacheDirectory}dashboard_net.onnx`;
-          console.warn('Attempting to download dashboard model from remote URL:', remoteUrl);
+          const remotePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/dashboard_net.onnx`;
           await FileSystem.downloadAsync(remoteUrl, remotePath);
+          console.log('Dashboard model downloaded from remote URL');
           await this.ensureDashboardSidecar(remotePath);
           dashboardSession = await InferenceSession.create(remotePath);
           dashboardModelFailed = false;
+          modelLoadError = null;
           return dashboardSession;
         } catch (remoteErr) {
           console.error('Dashboard model load failed from remote URL:', remoteErr);
-          throw new Error('Failed to load dashboard model');
+          throw new Error(`Failed to load dashboard model: ${modelLoadError}`);
         }
-      }
-    })()
-      .catch((error) => {
-        dashboardModelFailed = true;
-        throw error;
-      })
-      .finally(() => {
+      } finally {
+        isModelLoading = false;
         dashboardSessionPromise = null;
-      });
+      }
+    })();
 
     return dashboardSessionPromise;
   }
@@ -339,7 +370,7 @@ export class AIService {
     if (!resized.base64) return [];
 
     const jpeg = require('jpeg-js');
-    const jpegData = Buffer.from(resized.base64, 'base64');
+    const jpegData = require('buffer').Buffer.from(resized.base64 || '', 'base64');
     const decoded = jpeg.decode(jpegData, { useTArray: true });
     const width = decoded.width;
     const height = decoded.height;
@@ -459,20 +490,31 @@ export class AIService {
    */
   static async analyzeCarImage(imageUri: string): Promise<DiagnosisResult> {
     try {
+      console.log('Starting OCR analysis...');
+      
+      if (isModelLoading) {
+        throw new Error('Model is currently loading, please wait...');
+      }
+      
       const loadedSession = await this.loadOcrModel();
+      console.log('OCR model loaded successfully');
       
       // 1. Resize image to model input size (32x32)
+      console.log('Processing image...');
       const manipResult = await ImageManipulator.manipulateAsync(
         imageUri,
         [{ resize: { width: 32, height: 32 } }],
         { format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
+      console.log('Image resized and processed');
 
       // 2. Convert base64 image data to Float32 tensor
+      console.log('Converting image to tensor...');
       const tensorData = this.imageToFloat32Array(manipResult.base64!, 32, 32, true);
       const inputTensor = new Tensor('float32', tensorData, [1, 1, 32, 32]);
       
-      // 2. Run Inference
+      // 3. Run Inference
+      console.log('Running ONNX inference...');
       const feeds: Record<string, Tensor> = {};
       const inputNames = loadedSession.inputNames;
       feeds[inputNames[0]] = inputTensor;
@@ -480,8 +522,9 @@ export class AIService {
       const outputMap = await loadedSession.run(feeds);
       const outputTensor = outputMap[loadedSession.outputNames[0]];
       const outputData = outputTensor.data as Float32Array;
+      console.log('Inference completed');
       
-      // 3. Postprocess (Argmax + Softmax confidence)
+      // 4. Postprocess (Argmax + Softmax confidence)
       let maxVal = -Infinity;
       let maxIdx = 0;
       for (let i = 0; i < outputData.length; i++) {
@@ -499,10 +542,11 @@ export class AIService {
       }
       const confidence = Math.max(0.01, expValues[maxIdx] / sumExp);
       
-      // 4. Map Result
+      // 5. Map Result
       const char = (ocrClasses as any)[maxIdx.toString()] || "?";
+      console.log(`Detected character: ${char} with confidence: ${confidence}`);
       
-      // 5. Enrich with Diagnostic Info
+      // 6. Enrich with Diagnostic Info
       const diagInfo = (diagnosticKb as any)[char] || {
         name: `Digital Display: ${char}`,
         severity: "Info",
@@ -518,12 +562,41 @@ export class AIService {
       };
     } catch (error) {
       console.error('On-Device AI Analysis Error:', error);
-      return {
-        issue: "Analysis Error",
-        confidence: 0,
-        recommendations: ["Could not perform on-device analysis. Please check app permissions."],
-        category: "Error"
-      };
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Provide more helpful error messages
+      if (errorMessage.includes('Failed to load')) {
+        return {
+          issue: "Model Loading Error",
+          confidence: 0,
+          recommendations: [
+            "Could not load AI model. Please check your internet connection and try again.",
+            "Restart the app if the problem persists."
+          ],
+          category: "Error",
+          details: { error: errorMessage }
+        };
+      } else if (errorMessage.includes('already loading')) {
+        return {
+          issue: "Model Loading",
+          confidence: 0,
+          recommendations: [
+            "AI model is currently loading. Please wait a moment and try again."
+          ],
+          category: "Info"
+        };
+      } else {
+        return {
+          issue: "Analysis Error",
+          confidence: 0,
+          recommendations: [
+            "Could not perform on-device analysis. Please try again.",
+            "Make sure the image is clear and well-lit."
+          ],
+          category: "Error",
+          details: { error: errorMessage }
+        };
+      }
     }
   }
 
@@ -532,7 +605,14 @@ export class AIService {
    */
   static async analyzeDashboardLight(imageUri: string): Promise<DiagnosisResult> {
     try {
+      console.log('Starting dashboard light analysis...');
+      
+      if (isModelLoading) {
+        throw new Error('Model is currently loading, please wait...');
+      }
+      
       const onnxSession = await this.loadDashboardModel();
+      console.log('Dashboard model loaded successfully');
       
       const meta = dashboardMetadata as any;
       const inputSize = Array.isArray(meta.input_size) && meta.input_size.length === 2
@@ -552,6 +632,7 @@ export class AIService {
             .sort((a, b) => Number(a) - Number(b))
             .map((key) => meta[key]);
 
+      console.log('Processing image...');
       const baseInfo = await ImageManipulator.manipulateAsync(
         imageUri,
         [],
@@ -560,6 +641,7 @@ export class AIService {
       const baseUri = baseInfo.uri;
       const originalWidth = baseInfo.width || inputSize[0];
       const originalHeight = baseInfo.height || inputSize[1];
+      console.log(`Image processed: ${originalWidth}x${originalHeight}`);
 
       const runInference = async (crop?: ImageManipulator.ActionCrop['crop']) => {
         const actions: ImageManipulator.Action[] = [];
@@ -798,7 +880,7 @@ export class AIService {
     // Actually, properly decoding JPEG in pure JS without a library is complex.
     // Let's use 'jpeg-js' which I installed.
     const jpeg = require('jpeg-js');
-    const jpegData = Buffer.from(base64, 'base64');
+    const jpegData = require('buffer').Buffer.from(base64 || '', 'base64');
     const decoded = jpeg.decode(jpegData, { useTArray: true }); // returns { width, height, data } (RGBA)
     
     let pixelIndex = 0;
@@ -842,7 +924,7 @@ export class AIService {
       // Try jpeg-js first
       try {
         const jpeg = require('jpeg-js');
-        const buffer = Buffer.from(base64, 'base64');
+        const buffer = require('buffer').Buffer.from(base64 || '', 'base64');
         const decoded = jpeg.decode(buffer, { useTArray: true });
         
         if (decoded && decoded.data && decoded.data.length > 0) {
@@ -876,7 +958,7 @@ export class AIService {
       // Fallback: Use a simple normalization pattern for grayscale estimation
       // This creates a tensor where we normalize the base64 string bytes directly
       // It's not perfect, but prevents the model from crashing
-      const bytes = Buffer.from(base64, 'base64');
+      const bytes = require('buffer').Buffer.from(base64 || '', 'base64');
       const channelSize = width * height;
       const meanVals = mean.length === 3 ? mean : [0.485, 0.456, 0.406];
       const stdVals = std.length === 3 ? std : [0.229, 0.224, 0.225];
@@ -909,16 +991,86 @@ export class AIService {
 
   static async preloadModels(): Promise<boolean> {
     try {
+      console.log('Preloading AI models...');
       if (Platform.OS === 'ios') {
+        // iOS'ta sırayla yükleme daha stabil
         await this.loadDashboardModel();
         await this.loadOcrModel();
       } else {
+        // Android'te paralel yükleme daha hızlı
         await Promise.all([this.loadDashboardModel(), this.loadOcrModel()]);
       }
+      console.log('Models preloaded successfully');
       return true;
     } catch (error) {
       console.error('Model preload failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // iOS için daha iyi hata yönetimi
+      if (Platform.OS === 'ios' && errorMessage.includes('Failed to load')) {
+        console.log('iOS model loading failed, will retry on demand');
+        return false;
+      }
+      
       return false;
+    }
+  }
+
+  /**
+   * Get model status and error information
+   */
+  static getModelStatus() {
+    return {
+      ocrLoaded: !!ocrSession,
+      dashboardLoaded: !!dashboardSession,
+      isLoading: isModelLoading,
+      error: modelLoadError,
+      models: {
+        ocr: ocrSession ? "Loaded" : "Not Loaded",
+        dashboard: dashboardSession ? "Loaded" : "Not Loaded"
+      }
+    };
+  }
+
+  /**
+   * Reset model loading state (for recovery)
+   */
+  static async resetModelState(): Promise<void> {
+    try {
+      console.log('Resetting model state...');
+      
+      // Clear sessions
+      ocrSession = null;
+      dashboardSession = null;
+      dashboardSessionPromise = null;
+      
+      // Reset flags
+      dashboardModelFailed = false;
+      dashboardAnalysisErrorLogged = false;
+      isModelLoading = false;
+      modelLoadError = null;
+      
+      // Clear cache files
+      try {
+        // Model dosyalarını sil
+        try {
+          const dir = (FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './';
+          await FileSystem.deleteAsync(`${dir}dashboard_net.onnx`, { idempotent: true });
+          await FileSystem.deleteAsync(`${dir}dashboard_net.onnx.data`, { idempotent: true });
+          await FileSystem.deleteAsync(`${dir}digital_ocr_net.onnx`, { idempotent: true });
+          await FileSystem.deleteAsync(`${dir}digital_ocr_net.onnx.data`, { idempotent: true });
+        } catch (e) {
+          console.warn('Could not delete cached model files:', e);
+        }
+        console.log('Model cache files cleared');
+      } catch (cacheError) {
+        console.warn('Failed to clear cache files:', cacheError);
+      }
+      
+      console.log('Model state reset completed');
+    } catch (error) {
+      console.error('Error resetting model state:', error);
+      throw error;
     }
   }
 

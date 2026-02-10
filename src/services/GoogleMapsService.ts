@@ -188,46 +188,118 @@ export class GoogleMapsService {
 
       if (data.status === 'OK') {
         const routes = Array.isArray(data.routes) ? data.routes : [];
+        
+        // Enhanced route scoring with traffic awareness and road quality
         const scoredRoutes = routes.map((route: any) => {
           const leg = route?.legs?.[0];
           const duration = leg?.duration?.value ?? Number.MAX_SAFE_INTEGER;
           const distance = leg?.distance?.value ?? Number.MAX_SAFE_INTEGER;
-          return { route, duration, distance };
+          const trafficDuration = leg?.duration_in_traffic?.value ?? duration;
+          const hasHighways = route?.overview_polyline?.points?.includes('highway') || false;
+          
+          // Prefer routes with less traffic and better road quality
+          const trafficScore = duration / trafficDuration; // Lower is better
+          const roadQualityScore = hasHighways ? 0.9 : 1.0; // Slight preference for highways
+          
+          return {
+            route,
+            duration,
+            distance,
+            trafficScore,
+            roadQualityScore,
+            score: trafficScore * roadQualityScore
+          };
         });
 
-        const prefer = options?.prefer === 'distance' ? 'distance' : 'duration';
-        scoredRoutes.sort((a: { route: any; duration: number; distance: number }, b: { route: any; duration: number; distance: number }) => {
-          if (prefer === 'distance') {
-            return a.distance - b.distance || a.duration - b.duration;
-          }
-          return a.duration - b.duration || a.distance - b.distance;
-        });
+        // Sort by best score (lower is better)
+        scoredRoutes.sort((a: any, b: any) => a.score - b.score);
 
         const selectedRoute = scoredRoutes[0]?.route ?? routes[0];
         const points = this.decodePolyline(selectedRoute.overview_polyline.points);
-        console.log('[GoogleMapsService] Route found with', points.length, 'points');
-        return {
-          ...selectedRoute,
+        
+        // Extract detailed route information
+        const leg = selectedRoute.legs[0];
+        const routeInfo = {
           coordinates: points,
-          routes
+          legs: [{
+            distance: leg.distance,
+            duration: leg.duration,
+            duration_in_traffic: leg.duration_in_traffic,
+            end_address: leg.end_address,
+            start_address: leg.start_address,
+            steps: leg.steps,
+            end_location: leg.end_location,
+            start_location: leg.start_location
+          }],
+          overview_polyline: selectedRoute.overview_polyline,
+          copyrights: selectedRoute.copyrights,
+          waypoint_order: selectedRoute.waypoint_order
         };
+        
+        console.log('[GoogleMapsService] Best route selected with', points.length, 'points, traffic score:', scoredRoutes[0]?.trafficScore);
+        return routeInfo;
       }
       
       console.warn('Directions API Error:', data.status, data.error_message);
       
       // Return error information for better user feedback
       if (data.status === 'ZERO_RESULTS') {
-        return { error: 'ZERO_RESULTS', message: 'No route found to this destination' };
+        return { error: 'ZERO_RESULTS', message: 'No route found to this destination. Please try a different destination.' };
       } else if (data.status === 'NOT_FOUND') {
-        return { error: 'NOT_FOUND', message: 'Location not found' };
+        return { error: 'NOT_FOUND', message: 'Location not found. Please check the address and try again.' };
       } else if (data.status === 'REQUEST_DENIED') {
-        return { error: 'REQUEST_DENIED', message: 'API request denied. Please check your API key.' };
+        return { error: 'REQUEST_DENIED', message: 'API request denied. Please check your API key and internet connection.' };
       }
       
       return null;
     } catch (error) {
       console.error('Error getting directions:', error);
-      return { error: 'NETWORK_ERROR', message: 'Network error. Please check your internet connection.' };
+      return { error: 'NETWORK_ERROR', message: 'Network error. Please check your internet connection and try again.' };
+    }
+  }
+
+  /**
+   * Recalculate route from current location to destination when user deviates from planned route
+   */
+  static async recalculateRoute(
+    currentLat: number,
+    currentLng: number,
+    destination: string,
+    originalRoute?: any
+  ): Promise<any> {
+    try {
+      console.log('[GoogleMapsService] Recalculating route from current position');
+      
+      // Get new directions from current location
+      const newRoute = await this.getDirections(currentLat, currentLng, destination, {
+        alternatives: true,
+        prefer: 'duration'
+      });
+
+      if (newRoute && !newRoute.error) {
+        // Compare with original route to determine if significant deviation
+        if (originalRoute && originalRoute.legs) {
+          const originalDistance = originalRoute.legs[0].distance.value;
+          const newDistance = newRoute.legs[0].distance.value;
+          const deviationPercentage = Math.abs((newDistance - originalDistance) / originalDistance) * 100;
+          
+          console.log(`[GoogleMapsService] Route deviation: ${deviationPercentage.toFixed(1)}%`);
+          
+          // Only return new route if deviation is significant (> 15%)
+          if (deviationPercentage < 15) {
+            console.log('[GoogleMapsService] Deviation minor, keeping original route');
+            return originalRoute;
+          }
+        }
+        
+        console.log('[GoogleMapsService] New route calculated due to significant deviation');
+        return newRoute;
+      }
+      
+      return newRoute;
+    } catch (error) {
+      console.error('Error recalculating route:', error);
+      return { error: 'RECALCULATION_ERROR', message: 'Could not recalculate route. Please try again.' };
     }
   }
 

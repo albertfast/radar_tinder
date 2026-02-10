@@ -19,6 +19,10 @@ ENV['RCT_NEW_ARCH_ENABLED'] ||= '0' if podfile_properties['newArchEnabled'] == '
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] ||= podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
 ENV['RCT_USE_RN_DEP'] ||= '1' if podfile_properties['ios.buildReactNativeFromSource'] != 'true' && podfile_properties['newArchEnabled'] != 'false'
 ENV['RCT_USE_PREBUILT_RNCORE'] ||= '1' if podfile_properties['ios.buildReactNativeFromSource'] != 'true' && podfile_properties['newArchEnabled'] != 'false'
+
+# Disable Reanimated 4 new architecture compatibility issues
+ENV['RCT_NEW_ARCH_ENABLED'] = '0'
+
 platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 
 prepare_react_native_project!
@@ -44,6 +48,7 @@ target 'RadarTinder' do
 
 # @generated begin react-native-maps - expo prebuild (DO NOT MODIFY) sync-e9cc66c360abe50bc66d89fffb3c55b034d7d369
   pod 'react-native-google-maps', path: File.dirname(`node --print "require.resolve('react-native-maps/package.json')"`)
+  pod 'Google-Maps-iOS-Utils', '~> 7.0'
 # @generated end react-native-maps
   config = use_native_modules!(config_command)
 
@@ -70,6 +75,20 @@ target 'RadarTinder' do
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
         config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.1'
+        
+        # Fix for ReactAppDependencyProvider issue
+        if target.name == 'React-Core' || target.name.include?('React')
+          config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)', 'FB_SONARKIT_ENABLED=1']
+        end
+      end
+    end
+    
+    # Fix for Reanimated compatibility
+    installer.pods_project.targets.each do |target|
+      if target.name == 'ReactNativeReanimated'
+        target.build_configurations.each do |config|
+          config.build_settings['HEADER_SEARCH_PATHS'] ||= ['$(inherited)', '**']
+        end
       end
     end
   end

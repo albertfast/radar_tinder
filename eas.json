@@ -46,11 +46,24 @@
       "distribution": "store",
       "developmentClient": false,
       "env": {
-        "EXPO_SKIP_DOCTOR_CHECK": "1"
+        "EXPO_SKIP_DOCTOR_CHECK": "1",
+        "RCT_NEW_ARCH_ENABLED": "0"
       },
       "ios": {
         "simulator": false,
-        "image": "auto"
+        "image": "auto",
+        "buildConfiguration": "Release",
+        "teamId": "${EXPO_IOS_TEAM_ID}",
+        "appleId": "${EXPO_APPLE_ID}",
+        "ascAppId": "6758140652",
+        "exportOptions": {
+          "method": "app-store",
+          "uploadSymbols": true,
+          "uploadBitcode": false,
+          "provisioningProfiles": {
+            "com.radartinder.app": "ExpoDev"
+          }
+        }
       }
     },
     "production": {
@@ -58,11 +71,24 @@
       "distribution": "store",
       "developmentClient": false,
       "env": {
-        "EXPO_SKIP_DOCTOR_CHECK": "1"
+        "EXPO_SKIP_DOCTOR_CHECK": "1",
+        "RCT_NEW_ARCH_ENABLED": "0"
       },
       "ios": {
         "simulator": false,
-        "image": "auto"
+        "image": "auto",
+        "buildConfiguration": "Release",
+        "teamId": "${EXPO_IOS_TEAM_ID}",
+        "appleId": "${EXPO_APPLE_ID}",
+        "ascAppId": "6758140652",
+        "exportOptions": {
+          "method": "app-store",
+          "uploadSymbols": true,
+          "uploadBitcode": false,
+          "provisioningProfiles": {
+            "com.radartinder.app": "ExpoDev"
+          }
+        }
       },
       "android": {
         "buildType": "app-bundle"
