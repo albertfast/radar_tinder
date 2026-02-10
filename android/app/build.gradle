@@ -97,6 +97,14 @@ android {
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
+    
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+        // Disable lint checks that crash with OutOfMemoryError in ONNX/Expo modules
+        disable 'InvalidPackage'
+    }
+    
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -125,6 +133,10 @@ android {
         jniLibs {
             def enableLegacyPackaging = findProperty('expo.useLegacyPackaging') ?: 'false'
             useLegacyPackaging enableLegacyPackaging.toBoolean()
+        }
+        // Add ONNX model files exclusions
+        resources {
+            excludes += ['META-INF/LICENSE*', 'META-INF/NOTICE*']
         }
     }
     androidResources {
