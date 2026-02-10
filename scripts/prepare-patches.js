@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const packages = ['expo', 'expo-modules-core', 'expo-dev-menu'];
+const packages = ['expo', 'expo-modules-core', 'expo-dev-menu', 'react-native-maps'];
 const root = process.cwd();
 const nodeModules = path.join(root, 'node_modules');
 const extraPaths = [
