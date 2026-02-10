@@ -72,8 +72,7 @@ target 'RadarTinder' do
 
   # PNPM-compatible react-native-maps pods
   maps_path = resolve_pnpm_path('react-native-maps')
-  pod 'react-native-maps', :path => maps_path
-  pod 'react-native-google-maps', :path => maps_path
+  pod 'react-native-maps', :path => maps_path, :subspecs => ['Maps', 'Google']
   
   config = use_native_modules!(config_command)
 
@@ -103,7 +102,8 @@ target 'RadarTinder' do
         build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
       end
 
-      if ['react-native-google-maps', 'react-native-maps'].include?(target.name)
+      # Match both main target and subspec targets for react-native-maps
+      if ['react-native-google-maps', 'react-native-maps', 'react-native-maps-Maps', 'react-native-maps-Google'].include?(target.name)
         target.build_configurations.each do |build_config|
           # Keep modules enabled for Google Maps related headers used by this target.
           build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
