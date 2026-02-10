@@ -24,6 +24,8 @@ react {
     // The React Gradle plugin version in use no longer supports setting
     // 'enableHermes' or 'flipperEnabled' directly on the 'react' extension.
     // Manage Hermes and Flipper using supported Gradle properties or plugin settings.
+    hermesEnabled = true
+    newArchEnabled = true
 
     /* Folders */
      //   The root of your project, i.e. where "package.json" lives. Default is '../..'
