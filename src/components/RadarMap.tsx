@@ -126,15 +126,39 @@ const RadarMap = React.memo(({
         prev.routeCoords === next.routeCoords &&
         prev.destinationPoint?.latitude === next.destinationPoint?.latitude &&
         prev.destinationPoint?.longitude === next.destinationPoint?.longitude &&
-        prev.location?.latitude === next.location?.latitude &&
-        prev.location?.longitude === next.location?.longitude &&
         prev.mapPadding === next.mapPadding
+        // Ignore location changes as MapView handles user location dot and camera is controlled via ref
     );
 });
 
 const styles = StyleSheet.create({
-  markerBadge: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'white', elevation: 5 },
-  destinationMarker: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, backgroundColor: '#FCD34D', borderWidth: 1, borderColor: '#0B1424', elevation: 6 },
+  markerBadge: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    borderWidth: 2, 
+    borderColor: 'white', 
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5 
+  },
+  destinationMarker: { 
+    paddingHorizontal: 12, 
+    paddingVertical: 8, 
+    borderRadius: 16, 
+    backgroundColor: '#FCD34D', 
+    borderWidth: 2, 
+    borderColor: '#0B1424', 
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 6 
+  },
 });
 
 export default RadarMap;

@@ -14,7 +14,6 @@ react {
     hermesCommand = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/sdks/hermesc/%OS-BIN%/hermesc"
     codegenDir = new File(["node", "--print", "require.resolve('@react-native/codegen/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
 
-    enableBundleCompression = (findProperty('android.enableBundleCompression') ?: false).toBoolean()
     // Use Expo CLI to bundle the app, this ensures the Metro config
     // works correctly with Expo projects.
     cliFile = new File(["node", "--print", "require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })"].execute(null, rootDir).text.trim())
@@ -92,7 +91,7 @@ android {
         applicationId 'com.radartinder.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2070361420
+        versionCode 2070707626
         versionName "1.0.4"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
@@ -183,25 +182,3 @@ dependencies {
 
 apply plugin: 'com.google.gms.google-services'
 apply plugin: 'com.google.firebase.crashlytics'
-
-afterEvaluate {
-    def autolinkCmake = file("$buildDir/generated/autolinking/src/main/jni/Android-autolinking.cmake")
-    tasks.matching { it.name.startsWith("externalNativeBuildClean") }.configureEach {
-        onlyIf {
-            if (!autolinkCmake.exists()) {
-                return false
-            }
-            def missingDir = false
-            autolinkCmake.eachLine { line ->
-                def matcher = (line =~ /add_subdirectory\(\"([^\"]+)\"/)
-                if (matcher.find()) {
-                    def dir = file(matcher.group(1))
-                    if (!dir.exists()) {
-                        missingDir = true
-                    }
-                }
-            }
-            return !missingDir
-        }
-    }
-}

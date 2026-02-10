@@ -37,7 +37,15 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     if (!canUse) return () => { isMounted = false; };
     (async () => {
       try {
-        const { AIService } = await import('../services/AIService');
+        let AIService;
+        try {
+            const module = await import('../services/AIService');
+            AIService = module.AIService;
+        } catch (e) {
+            console.error("AIService import failed:", e);
+            throw new Error("AI Module not available");
+        }
+        
         const ok = await AIService.preloadModels();
         if (isMounted) {
           setModelReady(ok);
@@ -158,7 +166,14 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       await new Promise(r => setTimeout(r, 1500));
 
       // Lazy-load AI service to avoid native module crashes at app startup.
-      const { AIService } = await import('../services/AIService');
+      let AIService;
+      try {
+          const module = await import('../services/AIService');
+          AIService = module.AIService;
+      } catch (e) {
+          throw new Error("AI Module failed to load. Please rebuild the app.");
+      }
+      
       const result = await AIService.analyzeDashboardLight(selectedImage);
 
       const issueLabel = (result.issue || '').toLowerCase();

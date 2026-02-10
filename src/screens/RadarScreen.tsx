@@ -48,18 +48,7 @@ import { ANIMATION_TIMING } from '../utils/animationConstants';
 
 const { width, height } = Dimensions.get('window');
 
-const darkMapStyle = [
-  { "elementType": "geometry", "stylers": [{ "color": "#171717" }] },
-  { "elementType": "labels.text.fill", "stylers": [{ "color": "#8f8f8f" }] },
-  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#171717" }] },
-  { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [{ "color": "#bdbdbd" }] },
-  { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#8f8f8f" }] },
-  { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#2c2c2c" }] },
-  { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#1c1c1c" }] },
-  { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#3c3c3c" }] },
-  { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{ "color": "#2c2c2c" }] },
-  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#000000" }] }
-];
+import { darkMapStyle } from '../utils/mapStyle';
 
 type TabType = 'Basic' | 'Map' | 'Graphic';
 type NavStep = {
@@ -354,10 +343,71 @@ const RadarScreen = ({ navigation, route }: any) => {
             lastPositionRef.current = currentLocationRef.current;
         }
         
-        // Alerts check could go here...
+        // Rerouting Logic
+        if (routeCoords.length > 0 && currentLocationRef.current && destination) {
+            const loc = currentLocationRef.current;
+            // Check distance to nearest point on route (simplified: check distance to current step end)
+            // A better approach is point-to-line distance, but for now check if we are far from the next few steps
+            const currentStep = navSteps[currentStepIndex];
+            if (currentStep && currentStep.endLocation) {
+                 const distToStep = LocationService.calculateDistanceSync(
+                    loc.latitude, loc.longitude,
+                    currentStep.endLocation.latitude,
+                    currentStep.endLocation.longitude
+                 );
+                 // If we are close to the step end, we are fine. 
+                 // If we are getting FARTHER from the step end and also far from the route line...
+                 // Simple off-route: Am I > 50m away from the nearest point on the polyline?
+                 // Since polyline calculation is expensive, let's just use a simple heuristic:
+                 // If distance to current step > 100m AND distance to next step > 100m (if exists), might be off route.
+                 // Ideally we'd use a geospatial library.
+                 
+                 // Let's rely on Google Service re-fetch if we are "lost"
+                 // For this MVP: If we are > 80 meters from the *nearest* route node in a window.
+            }
+            
+            // Re-calculate route if off-track (Basic implementation)
+            // We really need a "distanceToPolyline" function.
+            // For now, let's just trigger a re-calc if we haven't updated in a while and are moving.
+        }
     }, 2000);
     return () => clearInterval(interval);
-  }, [isDriving]);
+  }, [isDriving, routeCoords, destination, navSteps, currentStepIndex]);
+  
+  // Rerouting Check Effect
+  useEffect(() => {
+    if (!isDriving || routeCoords.length === 0 || !destination) return;
+    
+    const checkReroute = async () => {
+        const loc = currentLocationRef.current;
+        if (!loc) return;
+        
+        // Check if we are close to ANY point on the route
+        // This is O(N) but N is usually small (< 500) for local routes.
+        // We can optimize by only checking points near the current step index.
+        const searchWindow = 20; // check 20 points ahead/behind current index estimate
+        // Actually, let's just check the whole route for now, it's fast enough in JS for < 1000 points.
+        
+        let minDistance = 100000;
+        for (const coord of routeCoords) {
+            // fast euclidean approximation for lat/lng (rough)
+            const dLat = (coord.latitude - loc.latitude) * 111000;
+            const dLng = (coord.longitude - loc.longitude) * 111000 * Math.cos(loc.latitude * (Math.PI/180));
+            const distMeters = Math.sqrt(dLat*dLat + dLng*dLng);
+            if (distMeters < minDistance) minDistance = distMeters;
+            if (minDistance < 30) break; // We are on route
+        }
+        
+        if (minDistance > 60) { // Off route threshold (40m is standard, using 60m to be safe)
+            console.log('Off route detected! Distance:', minDistance);
+            // Trigger Reroute
+            await handleNavigate(destination);
+        }
+    };
+
+    const rerouteInterval = setInterval(checkReroute, 5000); // Check every 5s
+    return () => clearInterval(rerouteInterval);
+  }, [isDriving, routeCoords, destination]);
 
   // Turn-by-turn step progression
   useEffect(() => {
