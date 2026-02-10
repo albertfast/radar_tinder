@@ -15,17 +15,6 @@ pluginManagement {
     "../android/expo-gradle-plugin"
   ).absolutePath
   includeBuild(expoPluginsPath)
-
-  resolutionStrategy {
-    eachPlugin {
-        if (requested.id.id == "org.jetbrains.kotlin.android") {
-            useVersion("2.0.21")
-        }
-        if (requested.id.id == "org.jetbrains.kotlin.jvm") {
-            useVersion("2.0.21")
-        }
-    }
-  }
 }
 
 plugins {
@@ -39,6 +28,12 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   } else {
     ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)
   }
+  
+  // Reanimated compatibility fixes for Android (removed incompatible API)
+  // The previous use of ex.gradleConfiguration() is unsupported by the installed
+  // React Gradle plugin. If dependency forcing is required, add a resolution
+  // strategy in a supported place (e.g. in Gradle's dependencyResolutionManagement).
+  // See BUILD_FIXES.md for historical context.
 }
 expoAutolinking.useExpoModules()
 

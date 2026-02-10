@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, Image, TouchableOpacity, ScrollView, Alert, Platform, LogBox } from 'react-native';
 import { Text, Surface, ActivityIndicator, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -8,6 +8,14 @@ import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { useAuthStore } from '../store/authStore';
 import { hasProAccess } from '../utils/access';
 import ProGate from '../components/ProGate';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+
+// Suppress specific warnings that might cause crashes
+LogBox.ignoreLogs([
+  'Non-serializable values were found in the navigation state',
+  'AsyncStorage has been extracted from react-native core',
+  'Remote debugger is in a background tab',
+]);
 
 const AIDiagnoseScreen = ({ navigation }: any) => {
   const { user } = useAuthStore();
@@ -21,11 +29,15 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
   const [voiceDescription, setVoiceDescription] = useState<string | null>(null);
   const [modelReady, setModelReady] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
+  const [isModelLoading, setIsModelLoading] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
+  const isMounted = useRef(true);
 
 
   useEffect(() => {
     return () => {
+      isMounted.current = false;
       if (recording) {
         recording.stopAndUnloadAsync();
       }
@@ -33,33 +45,71 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
   }, [recording]);
 
   useEffect(() => {
-    let isMounted = true;
-    if (!canUse) return () => { isMounted = false; };
-    (async () => {
+    if (!canUse) return;
+    
+    // iOS için gecikmeli model yükleme
+    const loadTimeout = setTimeout(() => {
+      loadModels();
+    }, Platform.OS === 'ios' ? 2000 : 500);
+    
+    return () => clearTimeout(loadTimeout);
+  }, [canUse]);
+
+  const loadModels = async () => {
+    if (!isMounted.current || isModelLoading) return;
+    
+    setIsModelLoading(true);
+    setModelError(null);
+    
+    try {
+      let AIService;
       try {
-        let AIService;
-        try {
-            const module = await import('../services/AIService');
-            AIService = module.AIService;
-        } catch (e) {
-            console.error("AIService import failed:", e);
-            throw new Error("AI Module not available");
-        }
-        
-        const ok = await AIService.preloadModels();
-        if (isMounted) {
-          setModelReady(ok);
-          setModelError(ok ? null : 'AI model could not be downloaded. Check your internet connection and try again.');
-        }
-      } catch (error) {
-        console.error('AI preload failed', error);
-        if (isMounted) {
-          setModelError('AI model could not be prepared. Please restart the app and try again.');
+        const module = await import('../services/AIService');
+        AIService = module.AIService;
+      } catch (e) {
+        console.error("AIService import failed:", e);
+        throw new Error("AI Module not available");
+      }
+      
+      console.log('Loading AI models...');
+      const ok = await AIService.preloadModels();
+      
+      if (isMounted.current) {
+        setModelReady(ok);
+        setModelError(ok ? null : 'AI model could not be downloaded. Check your internet connection and try again.');
+      }
+    } catch (error) {
+      console.error('AI preload failed', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (isMounted.current) {
+        // iOS için daha iyi hata yönetimi
+        if (Platform.OS === 'ios' && errorMessage.includes('Failed to load')) {
+          setModelError('Model loading on iOS. This may take a moment. Please try again.');
+        } else {
+          setModelError(`AI model could not be prepared: ${errorMessage}`);
         }
       }
-    })();
-    return () => { isMounted = false; };
-  }, []);
+    } finally {
+      if (isMounted.current) {
+        setIsModelLoading(false);
+      }
+    }
+  };
+
+  const retryLoading = async () => {
+    if (retryCount >= 3) {
+      Alert.alert(
+        'Model Loading Failed',
+        'The AI model could not be loaded after multiple attempts. Please restart the app or contact support.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+      return;
+    }
+    
+    setRetryCount(prev => prev + 1);
+    await loadModels();
+  };
 
   const startRecording = async () => {
     try {
@@ -168,12 +218,26 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       // Lazy-load AI service to avoid native module crashes at app startup.
       let AIService;
       try {
-          const module = await import('../services/AIService');
-          AIService = module.AIService;
+        const module = await import('../services/AIService');
+        AIService = module.AIService;
       } catch (e) {
-          throw new Error("AI Module failed to load. Please rebuild the app.");
+        throw new Error("AI Module failed to load. Please rebuild the app.");
       }
       
+      // Model durumunu kontrol et - iOS için daha güvenli kontrol
+      let modelStatus;
+      try {
+        modelStatus = AIService.getModelStatus();
+      } catch (statusError) {
+        console.warn('Could not get model status, proceeding with analysis:', statusError);
+        modelStatus = { ocrLoaded: true, dashboardLoaded: true };
+      }
+      
+      if (!modelStatus.ocrLoaded || !modelStatus.dashboardLoaded) {
+        throw new Error('AI models are not ready. Please wait and try again.');
+      }
+      
+      console.log('Starting analysis...');
       const result = await AIService.analyzeDashboardLight(selectedImage);
 
       const issueLabel = (result.issue || '').toLowerCase();
@@ -200,9 +264,27 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
       speakDiagnosis(`I've analyzed your car issue. It looks like ${result.issue} with ${confidencePct} percent confidence.`);
     } catch (error) {
       console.error('Analysis error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Daha iyi hata yönetimi
+      if (errorMessage.includes('already loading')) {
+        setModelError('AI model is currently loading. Please wait a moment and try again.');
+      } else if (errorMessage.includes('Failed to load')) {
+        setModelError('Model loading failed. Please check your internet connection and try again.');
+      } else {
+        setModelError(`Analysis failed: ${errorMessage}`);
+      }
+      
+      // iOS için daha az agresif hata gösterimi
+      if (Platform.OS === 'ios') {
+        console.log('iOS analysis error handled gracefully:', errorMessage);
+      }
+      
       Alert.alert(
-        'Error',
-        'Failed to analyze image on-device. If this is your first run, rebuild the dev client so the AI module is included.'
+        'Analysis Failed',
+        errorMessage.includes('already loading')
+          ? 'AI model is currently loading. Please wait and try again.'
+          : 'Failed to analyze image. Please try again.'
       );
     } finally {
       setIsAnalyzing(false);
@@ -221,7 +303,8 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
   }
 
   return (
-    <View style={styles.container}>
+    <ErrorBoundary>
+      <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -245,14 +328,19 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
       >
         <View style={{ marginBottom: 12 }}>
           <Text style={styles.subtitle}>Upload a photo and describe the issue</Text>
-          <Text style={[styles.modelStatus, { color: modelReady ? '#22c55e' : '#94A3B8' }]}>
-            {modelReady ? 'On-device model ready' : 'Preparing on-device model...'}
+          <Text style={[styles.modelStatus, { color: modelReady ? '#22c55e' : (isModelLoading ? '#F59E0B' : '#94A3B8') }]}>
+            {modelReady ? '✓ On-device model ready' :
+             isModelLoading ? '⏳ Loading AI models...' :
+             '⏳ Preparing on-device model...'}
           </Text>
         </View>
         {modelError && (
           <Surface style={[styles.infoBox, { borderColor: '#FF6B6B', marginBottom: 14 }]} elevation={1}>
             <MaterialCommunityIcons name="alert" size={24} color="#FF6B6B" />
             <Text style={[styles.infoText, { color: '#FCA5A5' }]}>{modelError}</Text>
+            <TouchableOpacity onPress={retryLoading} style={{ marginTop: 10 }}>
+              <Text style={{ color: '#2196F3', fontWeight: '600' }}>Try Again</Text>
+            </TouchableOpacity>
           </Surface>
         )}
 
@@ -299,10 +387,10 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
 
         {/* Analyze Button */}
         {selectedImage && !diagnosis && (
-          <TouchableOpacity 
-            style={styles.analyzeButton} 
+          <TouchableOpacity
+            style={[styles.analyzeButton, (isAnalyzing || !modelReady) && styles.analyzeButtonDisabled]}
             onPress={analyzeImage}
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || !modelReady}
           >
             {isAnalyzing ? (
               <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
@@ -316,7 +404,9 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
             ) : (
               <>
                 <MaterialCommunityIcons name="brain" size={24} color="white" />
-                <Text style={styles.analyzeButtonText}>Analyze with AI</Text>
+                <Text style={styles.analyzeButtonText}>
+                  {modelReady ? "Analyze with AI" : "Loading AI..."}
+                </Text>
               </>
             )}
           </TouchableOpacity>
@@ -343,6 +433,7 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
         </Surface>
       </ScrollView>
     </View>
+    </ErrorBoundary>
   );
 };
 
@@ -364,6 +455,7 @@ const styles = StyleSheet.create({
   imageContainer: { backgroundColor: '#1C1C1E', borderRadius: 16, padding: 10, marginBottom: 20, borderWidth: 1, borderColor: '#333', minHeight: 320 },
   image: { width: '100%', height: 300, borderRadius: 12 },
   analyzeButton: { backgroundColor: '#2196F3', borderRadius: 16, padding: 18, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20, minHeight: 56 },
+  analyzeButtonDisabled: { backgroundColor: '#666', opacity: 0.7 },
   analyzeButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold', marginLeft: 10 },
   diagnosisContainer: { backgroundColor: '#1C1C1E', borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#4CAF50', minHeight: 150 },
   diagnosisHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },

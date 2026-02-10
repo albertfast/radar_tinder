@@ -120,7 +120,10 @@ module.exports = {
           android: {
             minSdkVersion: 24,
             targetSdkVersion: 35,
-            compileSdkVersion: 35
+            compileSdkVersion: 35,
+            packagingOptions: {
+              pickFirst: ["**/libreactnative.so"]
+            }
           },
           ios: {
             deploymentTarget: "16.1",

@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { View, StyleSheet, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { darkMapStyle } from '../utils/mapStyle';
+import { modernMapStyle, modernRouteStyle } from '../utils/modernMapStyle';
+import { getResponsiveWidth, getResponsiveHeight, getResponsiveMargin } from '../constants/layout';
 
 // Optimized Marker (moved here or kept in same file)
 const OptimizedMarker = React.memo(({ coordinate, type, speedLimit, onPress }: any) => {
@@ -62,7 +63,7 @@ const RadarMap = React.memo(({
         <MapView
             ref={mapRef}
             style={StyleSheet.absoluteFill}
-            customMapStyle={darkMapStyle}
+            customMapStyle={modernMapStyle}
             provider={PROVIDER_GOOGLE}
             initialRegion={initialRegion}
             showsUserLocation={showsUserLocation}
@@ -82,12 +83,13 @@ const RadarMap = React.memo(({
             onRegionChangeComplete={() => onMapTouchEnd?.()}
         >
             {routeCoords.length > 0 && (
-                <Polyline 
-                  coordinates={routeCoords} 
-                  strokeWidth={6} 
-                  strokeColor="#4ECDC4" 
+                <Polyline
+                  coordinates={routeCoords}
+                  strokeWidth={getResponsiveWidth(6)}
+                  strokeColor="#4ECDC4"
                   lineCap="round"
                   lineJoin="round"
+                  zIndex={10}
                 />
             )}
             {finalDestination && (
@@ -132,32 +134,32 @@ const RadarMap = React.memo(({
 });
 
 const styles = StyleSheet.create({
-  markerBadge: { 
-    width: 36, 
-    height: 36, 
-    borderRadius: 18, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    borderWidth: 2, 
-    borderColor: 'white', 
+  markerBadge: {
+    width: getResponsiveWidth(36),
+    height: getResponsiveHeight(36),
+    borderRadius: getResponsiveMargin(18),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5 
+    elevation: 5
   },
-  destinationMarker: { 
-    paddingHorizontal: 12, 
-    paddingVertical: 8, 
-    borderRadius: 16, 
-    backgroundColor: '#FCD34D', 
-    borderWidth: 2, 
-    borderColor: '#0B1424', 
+  destinationMarker: {
+    paddingHorizontal: getResponsivePadding(12),
+    paddingVertical: getResponsivePadding(8),
+    borderRadius: getResponsiveMargin(16),
+    backgroundColor: '#FCD34D',
+    borderWidth: 2,
+    borderColor: '#0B1424',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 6 
+    elevation: 6
   },
 });
 

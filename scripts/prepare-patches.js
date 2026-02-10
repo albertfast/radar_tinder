@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const packages = ['expo-modules-core', 'expo-dev-menu'];
+const packages = ['expo', 'expo-modules-core', 'expo-dev-menu'];
 const root = process.cwd();
 const nodeModules = path.join(root, 'node_modules');
 const extraPaths = [
@@ -29,6 +29,98 @@ const resolvePackageDir = (pkg) => {
   } catch {
     return findInPnpm(pkg);
   }
+};
+
+const patchExpoModulesCoreForRN81 = () => {
+  const pkg = 'expo-modules-core';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const cssPropsPath = path.join(
+    resolvedDir,
+    'android',
+    'src',
+    'main',
+    'java',
+    'expo',
+    'modules',
+    'kotlin',
+    'views',
+    'decorators',
+    'CSSProps.kt'
+  );
+
+  if (!fs.existsSync(cssPropsPath)) {
+    console.warn(`prepare-patches: missing file ${cssPropsPath}`);
+    return;
+  }
+
+  let cssPropsContent = fs.readFileSync(cssPropsPath, 'utf8');
+  const fromCall = 'BoxShadow.parse(shadows.getMap(i))';
+  const toCall = 'BoxShadow.parse(shadows.getMap(i), view.context)';
+
+  if (cssPropsContent.includes(fromCall)) {
+    cssPropsContent = cssPropsContent.replace(fromCall, toCall);
+    fs.writeFileSync(cssPropsPath, cssPropsContent);
+    console.log('Patched expo-modules-core CSSProps.kt for React Native 0.81 BoxShadow.parse signature');
+  }
+};
+
+const patchExpoReactActivityDelegateWrapperForRN81 = () => {
+  const pkg = 'expo';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const wrapperPath = path.join(
+    resolvedDir,
+    'android',
+    'src',
+    'main',
+    'java',
+    'expo',
+    'modules',
+    'ReactActivityDelegateWrapper.kt'
+  );
+
+  if (!fs.existsSync(wrapperPath)) {
+    console.warn(`prepare-patches: missing file ${wrapperPath}`);
+    return;
+  }
+
+  let wrapperContent = fs.readFileSync(wrapperPath, 'utf8');
+
+  const importFrom = 'import com.facebook.react.bridge.ReactContext';
+  const importTo = `${importFrom}\nimport com.facebook.react.internal.featureflags.ReactNativeNewArchitectureFeatureFlags`;
+  if (wrapperContent.includes(importFrom) && !wrapperContent.includes('ReactNativeNewArchitectureFeatureFlags')) {
+    wrapperContent = wrapperContent.replace(importFrom, importTo);
+  }
+
+  const oldCondition = 'if (ReactNativeFeatureFlags.enableBridgelessArchitecture) {';
+  const newCondition = [
+    'if (',
+    '          ReactNativeFeatureFlags.enableBridgelessArchitecture ||',
+    '          ReactNativeNewArchitectureFeatureFlags.enableBridgelessArchitecture()',
+    '        ) {'
+  ].join('\n');
+
+  if (wrapperContent.includes(oldCondition)) {
+    wrapperContent = wrapperContent.replace(oldCondition, newCondition);
+    fs.writeFileSync(wrapperPath, wrapperContent);
+    console.log('Patched expo ReactActivityDelegateWrapper.kt for RN 0.81 bridgeless constructor selection');
+    return;
+  }
+
+  if (wrapperContent.includes(newCondition)) {
+    return;
+  }
+
+  fs.writeFileSync(wrapperPath, wrapperContent);
 };
 
 const patchReactNativeMapsForXcode26 = () => {
@@ -117,3 +209,5 @@ for (const pkg of packages) {
 }
 
 patchReactNativeMapsForXcode26();
+patchExpoModulesCoreForRN81();
+patchExpoReactActivityDelegateWrapperForRN81();

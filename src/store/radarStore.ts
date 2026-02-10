@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { RadarLocation, RadarAlert } from '../types';
+import { subscribeWithSelector } from 'zustand/middleware';
 
 interface RadarState {
   radarLocations: RadarLocation[];
@@ -29,55 +30,57 @@ interface RadarState {
   clearAlerts: () => void;
 }
 
-export const useRadarStore = create<RadarState>((set, get) => ({
-  radarLocations: [],
-  activeAlerts: [],
-  isDetecting: false,
-  currentLocation: null,
+export const useRadarStore = create<RadarState>()(
+  subscribeWithSelector((set, get) => ({
+    radarLocations: [],
+    activeAlerts: [],
+    isDetecting: false,
+    currentLocation: null,
 
-  setRadarLocations: (locations) => {
-    set({ radarLocations: locations });
-  },
+    setRadarLocations: (locations) => {
+      set({ radarLocations: locations });
+    },
 
-  addRadarLocation: (location) => {
-    set((state) => ({
-      radarLocations: [...state.radarLocations, location],
-    }));
-  },
+    addRadarLocation: (location) => {
+      set((state) => ({
+        radarLocations: [...state.radarLocations, location],
+      }));
+    },
 
-  removeRadarLocation: (id) => {
-    set((state) => ({
-      radarLocations: state.radarLocations.filter((loc) => loc.id !== id),
-    }));
-  },
+    removeRadarLocation: (id) => {
+      set((state) => ({
+        radarLocations: state.radarLocations.filter((loc) => loc.id !== id),
+      }));
+    },
 
-  setActiveAlerts: (alerts) => {
-    set({ activeAlerts: alerts });
-  },
+    setActiveAlerts: (alerts) => {
+      set({ activeAlerts: alerts });
+    },
 
-  addAlert: (alert) => {
-    set((state) => ({
-      activeAlerts: [...state.activeAlerts, alert],
-    }));
-  },
+    addAlert: (alert) => {
+      set((state) => ({
+        activeAlerts: [...state.activeAlerts, alert],
+      }));
+    },
 
-  acknowledgeAlert: (id) => {
-    set((state) => ({
-      activeAlerts: state.activeAlerts.map((alert) =>
-        alert.id === id ? { ...alert, acknowledged: true } : alert
-      ),
-    }));
-  },
+    acknowledgeAlert: (id) => {
+      set((state) => ({
+        activeAlerts: state.activeAlerts.map((alert) =>
+          alert.id === id ? { ...alert, acknowledged: true } : alert
+        ),
+      }));
+    },
 
-  setDetecting: (detecting) => {
-    set({ isDetecting: detecting });
-  },
+    setDetecting: (detecting) => {
+      set({ isDetecting: detecting });
+    },
 
-  setCurrentLocation: (location) => {
-    set({ currentLocation: location });
-  },
+    setCurrentLocation: (location) => {
+      set({ currentLocation: location });
+    },
 
-  clearAlerts: () => {
-    set({ activeAlerts: [] });
-  },
-}));
+    clearAlerts: () => {
+      set({ activeAlerts: [] });
+    },
+  }))
+);

@@ -45,6 +45,7 @@ import { RadarAnimation } from '../components/RadarAnimation';
 import RadarMap from '../components/RadarMap';
 import { RadarGraphicView } from './components/RadarGraphicView';
 import { ANIMATION_TIMING } from '../utils/animationConstants';
+import { getResponsivePadding, getResponsiveFontSize, getResponsiveMargin, getResponsiveWidth, getResponsiveHeight, getUIScale } from '../constants/layout';
 
 const { width, height } = Dimensions.get('window');
 
@@ -149,15 +150,15 @@ const RadarScreen = ({ navigation, route }: any) => {
   // Refs for cleanup
   const lastPositionRef = useRef<any>(null);
 
-  const uiScale = Math.min(width / 375, 1.15);
-  const mapOverlayInset = Math.max(12, Math.round(width * 0.04));
-  const mapOverlayTop = Math.max(12, Math.round(height * 0.03));
-  const mapControlSize = Math.max(38, Math.round(42 * uiScale));
-  const mapControlGap = Math.max(8, Math.round(8 * uiScale));
+  const uiScale = getUIScale();
+  const mapOverlayInset = getResponsiveMargin(12);
+  const mapOverlayTop = getResponsiveMargin(12);
+  const mapControlSize = getResponsiveWidth(38);
+  const mapControlGap = getResponsiveMargin(8);
   const mapPadding = {
-    top: Math.max(160, Math.round(height * 0.22)),
+    top: getResponsiveHeight(160),
     right: mapOverlayInset,
-    bottom: Math.max(220, Math.round(height * 0.34)),
+    bottom: getResponsiveHeight(220),
     left: mapOverlayInset,
   };
 
@@ -343,32 +344,80 @@ const RadarScreen = ({ navigation, route }: any) => {
             lastPositionRef.current = currentLocationRef.current;
         }
         
-        // Rerouting Logic
+        // Enhanced Rerouting Logic
         if (routeCoords.length > 0 && currentLocationRef.current && destination) {
             const loc = currentLocationRef.current;
-            // Check distance to nearest point on route (simplified: check distance to current step end)
-            // A better approach is point-to-line distance, but for now check if we are far from the next few steps
             const currentStep = navSteps[currentStepIndex];
+            
+            // Check if we're off route
             if (currentStep && currentStep.endLocation) {
-                 const distToStep = LocationService.calculateDistanceSync(
+                const distToStep = LocationService.calculateDistanceSync(
                     loc.latitude, loc.longitude,
                     currentStep.endLocation.latitude,
                     currentStep.endLocation.longitude
-                 );
-                 // If we are close to the step end, we are fine. 
-                 // If we are getting FARTHER from the step end and also far from the route line...
-                 // Simple off-route: Am I > 50m away from the nearest point on the polyline?
-                 // Since polyline calculation is expensive, let's just use a simple heuristic:
-                 // If distance to current step > 100m AND distance to next step > 100m (if exists), might be off route.
-                 // Ideally we'd use a geospatial library.
-                 
-                 // Let's rely on Google Service re-fetch if we are "lost"
-                 // For this MVP: If we are > 80 meters from the *nearest* route node in a window.
+                );
+                
+                // If we're far from current step and moving away, trigger reroute
+                if (distToStep > 100) {
+                    console.log(`[RadarScreen] Off route detected: ${distToStep.toFixed(1)}m from step`);
+                    // Trigger reroute through Google Maps Service
+                    GoogleMapsService.recalculateRoute(
+                        loc.latitude, loc.longitude, destination,
+                        {
+                            legs: [{
+                                distance: routeMeta?.distanceText,
+                                duration: routeMeta?.etaText,
+                                end_address: routeMeta?.destinationLabel,
+                                steps: navSteps,
+                                end_location: destinationCoord,
+                                start_location: currentLocation
+                            }],
+                            coordinates: routeCoords
+                        }
+                    ).then(newRoute => {
+                        if (newRoute && !newRoute.error && newRoute.coordinates) {
+                            console.log('[RadarScreen] Route recalculated successfully');
+                            setRouteCoords(newRoute.coordinates);
+                            
+                            // Update route metadata
+                            if (newRoute.legs && newRoute.legs[0]) {
+                                const leg = newRoute.legs[0];
+                                setRouteMeta({
+                                    etaText: leg.duration?.text || routeMeta?.etaText,
+                                    distanceText: leg.distance?.text || routeMeta?.distanceText,
+                                    destinationLabel: leg.end_address || routeMeta?.destinationLabel
+                                });
+                                
+                                // Update navigation steps
+                                if (leg.steps) {
+                                    const parsedSteps: NavStep[] = leg.steps.map((step: any) => ({
+                                        instruction: stripHtml(step.html_instructions || step.instructions || ''),
+                                        distanceMeters: step.distance?.value ?? null,
+                                        maneuver: step.maneuver,
+                                        endLocation: step.end_location
+                                            ? { latitude: step.end_location.lat, longitude: step.end_location.lng }
+                                            : undefined
+                                    }));
+                                    setNavSteps(parsedSteps);
+                                    setCurrentStepIndex(0);
+                                }
+                                
+                                // Update destination coordinate
+                                if (leg.end_location?.lat && leg.end_location?.lng) {
+                                    setDestinationCoord({
+                                        latitude: leg.end_location.lat,
+                                        longitude: leg.end_location.lng
+                                    });
+                                }
+                            }
+                        } else {
+                            console.warn('[RadarScreen] Route recalculation failed:', newRoute?.message);
+                        }
+                    }).catch(error => {
+                        console.error('[RadarScreen] Error during route recalculation:', error);
+                    });
+                }
             }
-            
-            // Re-calculate route if off-track (Basic implementation)
-            // We really need a "distanceToPolyline" function.
-            // For now, let's just trigger a re-calc if we haven't updated in a while and are moving.
         }
     }, 2000);
     return () => clearInterval(interval);
@@ -1053,8 +1102,14 @@ const RadarScreen = ({ navigation, route }: any) => {
                   <IconButton icon="cog" iconColor="#fff" onPress={() => navigation.navigate('RadarSettings')} />
               </View>
 
+              {/* Enhanced Navigation Alerts */}
               {activeAlert ? (
-                  <View style={styles.liveAlertBanner}>
+                  <Animated.View
+                    style={[styles.liveAlertBanner, {
+                      transform: [{ translateY: activeAlert ? 0 : -100 }]
+                    }]}
+                    entering={FadeInUp.duration(300)}
+                  >
                       <View style={styles.liveAlertIcon}>
                           <MaterialCommunityIcons name="alert" size={18} color="#FF5252" />
                       </View>
@@ -1069,8 +1124,35 @@ const RadarScreen = ({ navigation, route }: any) => {
                       <TouchableOpacity onPress={() => acknowledgeAlert(activeAlert.id)} style={styles.liveAlertDismiss}>
                           <MaterialCommunityIcons name="close" size={16} color="#94A3B8" />
                       </TouchableOpacity>
-                  </View>
-              ) : null}
+                  </Animated.View>
+              ) : (
+                // Navigation Progress Alert
+                routeCoords.length > 0 && (
+                  <Animated.View
+                    style={[styles.navigationProgress, {
+                      transform: [{ translateY: 0 }]
+                    }]}
+                    entering={FadeInUp.duration(300)}
+                  >
+                      <View style={styles.progressIcon}>
+                          <MaterialCommunityIcons name="navigation" size={18} color="#4ECDC4" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                          <Text style={styles.progressTitle}>
+                            {routeMeta?.destinationLabel || 'Navigation Active'}
+                          </Text>
+                          <Text style={styles.progressSubtitle}>
+                            {navSteps[currentStepIndex]?.instruction || 'Following route...'}
+                          </Text>
+                      </View>
+                      <View style={styles.progressDistance}>
+                          <Text style={styles.progressDistanceText}>
+                            {formatStepDistance(getStepDistanceMeters(navSteps[currentStepIndex]))}
+                          </Text>
+                      </View>
+                  </Animated.View>
+                )
+              )}
 
               {/* Tabs */}
               <View style={styles.tabBar}>
@@ -1170,9 +1252,9 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                     style={[
                                                       styles.mapInput,
                                                       {
-                                                        paddingVertical: Math.round(10 * uiScale),
-                                                        paddingHorizontal: Math.round(12 * uiScale),
-                                                        fontSize: Math.round(15 * uiScale),
+                                                        paddingVertical: getResponsivePadding(10),
+                                                        paddingHorizontal: getResponsivePadding(12),
+                                                        fontSize: getResponsiveFontSize(15),
                                                       },
                                                     ]}
                                                     value={destination}
@@ -1311,7 +1393,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                ]}
                                onPress={() => zoomMap(1)}
                              >
-                               <MaterialCommunityIcons name="plus" size={Math.round(20 * uiScale)} color="white" />
+                               <MaterialCommunityIcons name="plus" size={getResponsiveFontSize(20)} color="white" />
                              </TouchableOpacity>
                              <TouchableOpacity
                                style={[
@@ -1320,7 +1402,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                ]}
                                onPress={() => zoomMap(-1)}
                              >
-                               <MaterialCommunityIcons name="minus" size={Math.round(20 * uiScale)} color="white" />
+                               <MaterialCommunityIcons name="minus" size={getResponsiveFontSize(20)} color="white" />
                              </TouchableOpacity>
                              <TouchableOpacity
                                style={[
@@ -1333,7 +1415,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                <View style={{ transform: [{ rotate: compassRotation }] }}>
                                  <MaterialCommunityIcons
                                    name="navigation"
-                                   size={Math.round(20 * uiScale)}
+                                   size={getResponsiveFontSize(20)}
                                    color={followHeading ? '#0B1424' : 'white'}
                                  />
                                </View>
@@ -1632,6 +1714,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(148,163,184,0.1)',
   },
+  
+  // Navigation Progress Styles
+  navigationProgress: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: 'rgba(78,205,196,0.35)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  progressIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: 'rgba(78,205,196,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressTitle: { color: 'white', fontWeight: '700', fontSize: 13 },
+  progressSubtitle: { color: '#94A3B8', fontSize: 11, marginTop: 2, flex: 1 },
+  progressDistance: { alignItems: 'center', justifyContent: 'center' },
+  progressDistanceText: { color: '#4ECDC4', fontWeight: 'bold', fontSize: 12 },
   
   basicContainer: { alignItems: 'center', paddingTop: 20 },
   hudCircle: { width: 220, height: 220, borderRadius: 110, justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: '#222', backgroundColor: '#111' },
