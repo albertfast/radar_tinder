@@ -98,7 +98,7 @@ android {
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
     
-    lintOptions {
+    lint {
         checkReleaseBuilds false
         abortOnError false
         // Disable specific lint checks that cause crashes
