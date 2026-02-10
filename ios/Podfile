@@ -28,11 +28,15 @@ def resolve_pnpm_path(package_name)
   # Check PNPM nested structure first
   pnpm_dir = File.join(__dir__, '..', 'node_modules', '.pnpm')
   if Dir.exist?(pnpm_dir)
-    # Find the versioned package directory
-    matching_dirs = Dir.glob(File.join(pnpm_dir, "#{package_name}@*"))
+    # Find the versioned package directory - matches exact package name followed by @version
+    # Pattern ensures we match 'package-name@version' and not 'package-name-something@version'
+    matching_dirs = Dir.glob(File.join(pnpm_dir, "#{package_name}@*")).select do |dir|
+      File.basename(dir).start_with?("#{package_name}@")
+    end
+    
     if matching_dirs.any?
-      # Return the actual package location inside .pnpm structure
-      package_path = File.join(matching_dirs.first, 'node_modules', package_name)
+      # Sort to get consistent results, use first match (typically only one due to lockfile)
+      package_path = File.join(matching_dirs.sort.first, 'node_modules', package_name)
       return package_path if Dir.exist?(package_path)
     end
   end
