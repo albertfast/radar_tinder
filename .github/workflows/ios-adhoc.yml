@@ -73,10 +73,22 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const checks = [
-            ['node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMapMarkerManager.h', '#import "AIRMapCalloutManager.h"'],
-            ['node_modules/react-native-maps/ios/AirGoogleMaps/AIRGMSMarker.h', '#import "AIRMap.h"'],
-            ['node_modules/react-native-maps/ios/AirGoogleMaps/AIRGMSPolyline.h', '#import "AIRMap.h"'],
-            ['node_modules/react-native-maps/ios/AirGoogleMaps/AIRGMSPolygon.h', '#import "AIRMap.h"'],
+            [
+              'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMapMarkerManager.h',
+              '#import "AIRMapCalloutManager.h"'
+            ],
+            [
+              'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGMSMarker.h',
+              '#import "AIRMap.h"'
+            ],
+            [
+              'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGMSPolyline.h',
+              '#import "AIRMap.h"'
+            ],
+            [
+              'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGMSPolygon.h',
+              '#import "AIRMap.h"'
+            ],
           ];
           for (const [filePath, expected] of checks) {
             if (!fs.existsSync(filePath)) continue;
@@ -90,7 +102,9 @@ jobs:
           if (fs.existsSync(polylinePath)) {
             const polylineContent = fs.readFileSync(polylinePath, 'utf8');
             if (polylineContent.includes('#import "AIRGoogleMapMarkerManager.h"')) {
-              throw new Error('react-native-maps patch missing: AIRGoogleMapPolyline.m still imports AIRGoogleMapMarkerManager.h');
+              throw new Error(
+                'react-native-maps patch missing: AIRGoogleMapPolyline.m still imports AIRGoogleMapMarkerManager.h'
+              );
             }
           }
           console.log('react-native-maps patch verification passed');
@@ -166,7 +180,14 @@ jobs:
             '      end',
             '    end',
             '',
-            "    gmu_header = File.join(installer.sandbox.root.to_s, 'Google-Maps-iOS-Utils', 'Sources', 'GoogleMapsUtilsObjC', 'include', 'GMUWeightedLatLng.h')",
+            "    gmu_header = File.join(",
+            "      installer.sandbox.root.to_s,",
+            "      'Google-Maps-iOS-Utils',",
+            "      'Sources',",
+            "      'GoogleMapsUtilsObjC',",
+            "      'include',",
+            "      'GMUWeightedLatLng.h'",
+            "    )",
             '    if File.exist?(gmu_header)',
             '      gmu_content = File.read(gmu_header)',
             "      patched = gmu_content.gsub('@import GoogleMaps;', '#import <GoogleMaps/GoogleMaps.h>')",
