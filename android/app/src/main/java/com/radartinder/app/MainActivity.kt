@@ -37,11 +37,12 @@ class MainActivity : ReactActivity() {
     return ReactActivityDelegateWrapper(
           this,
           BuildConfig.IS_NEW_ARCHITECTURE_ENABLED,
-          object : DefaultReactActivityDelegate(
+          DefaultReactActivityDelegate(
               this,
               mainComponentName,
-              fabricEnabled
-          ){})
+              BuildConfig.IS_NEW_ARCHITECTURE_ENABLED
+          )
+      )
   }
 
   /**
