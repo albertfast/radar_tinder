@@ -192,6 +192,47 @@ const patchReactNativeMapsForXcode26 = () => {
   }
 };
 
+const patchRNFBCrashlyticsForModules = () => {
+  const pkg = '@react-native-firebase/crashlytics';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const headerPath = path.join(resolvedDir, 'ios', 'RNFBCrashlytics', 'RNFBCrashlyticsModule.h');
+  if (fs.existsSync(headerPath)) {
+    let header = fs.readFileSync(headerPath, 'utf8');
+    const importLine = '#import <RNFBApp/RNFBAppModule.h>';
+    if (!header.includes(importLine)) {
+      header = header.replace(
+        '#import <React/RCTBridgeModule.h>',
+        `#import <React/RCTBridgeModule.h>\n${importLine}`
+      );
+      fs.writeFileSync(headerPath, header);
+      console.log('Patched RNFBCrashlyticsModule.h to import RNFBAppModule for module-safe RCTBridgeModule');
+    }
+  } else {
+    console.warn(`prepare-patches: missing file ${headerPath}`);
+  }
+
+  const implPath = path.join(resolvedDir, 'ios', 'RNFBCrashlytics', 'RNFBCrashlyticsModule.m');
+  if (fs.existsSync(implPath)) {
+    let impl = fs.readFileSync(implPath, 'utf8');
+    const importLine = '#import <RNFBApp/RNFBAppModule.h>';
+    if (!impl.includes(importLine)) {
+      impl = impl.replace(
+        '#import "RNFBCrashlyticsModule.h"',
+        `#import "RNFBCrashlyticsModule.h"\n${importLine}`
+      );
+      fs.writeFileSync(implPath, impl);
+      console.log('Patched RNFBCrashlyticsModule.m to import RNFBAppModule for module-safe RCT_EXPORT_METHOD');
+    }
+  } else {
+    console.warn(`prepare-patches: missing file ${implPath}`);
+  }
+};
+
 for (const pkg of packages) {
   try {
     const resolvedDir = resolvePackageDir(pkg);
@@ -211,3 +252,4 @@ for (const pkg of packages) {
 patchReactNativeMapsForXcode26();
 patchExpoModulesCoreForRN81();
 patchExpoReactActivityDelegateWrapperForRN81();
+patchRNFBCrashlyticsForModules();
