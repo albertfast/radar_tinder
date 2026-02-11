@@ -128,7 +128,10 @@ module.exports = {
             compileSdkVersion: 35,
             packagingOptions: {
               pickFirst: ["**/libreactnative.so"]
-            }
+            },
+            extraMavenRepos: [
+              "https://repo1.maven.org/maven2"
+            ]
           },
           ios: {
             deploymentTarget: "16.1",

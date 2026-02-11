@@ -92,19 +92,11 @@ android {
         applicationId 'com.radartinder.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2070799456
+        versionCode 2070801889
         versionName "1.0.4"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
-    
-    lint {
-        checkReleaseBuilds false
-        abortOnError false
-        // Disable lint checks that crash with OutOfMemoryError in ONNX/Expo modules
-        disable 'InvalidPackage'
-    }
-    
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -133,13 +125,6 @@ android {
         jniLibs {
             def enableLegacyPackaging = findProperty('expo.useLegacyPackaging') ?: 'false'
             useLegacyPackaging enableLegacyPackaging.toBoolean()
-        }
-        pickFirst '**/libjsc.so'
-        pickFirst '**/libc++_shared.so'
-        pickFirst '**/libhermes.so'
-        // Add ONNX model files exclusions
-        resources {
-            excludes += ['META-INF/LICENSE*', 'META-INF/NOTICE*']
         }
     }
     androidResources {
