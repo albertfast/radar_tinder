@@ -208,22 +208,56 @@ export class AIService {
     
     try {
       const asset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx'));
-      await asset.downloadAsync();
+      let candidateUri: string | null = asset.localUri || (asset as any).uri || null;
+
+      // In dev builds on a physical device, Metro may serve assets on 127.0.0.1 which
+      // isn't reachable. Skip directly to remote fallback in that case.
+      const isLoopback =
+        typeof candidateUri === 'string' &&
+        (candidateUri.includes('127.0.0.1') || candidateUri.includes('localhost'));
+
+      if (candidateUri && !isLoopback) {
+        if (!candidateUri.startsWith('file://')) {
+          await asset.downloadAsync();
+          candidateUri = asset.localUri || (asset as any).uri || null;
+        }
+      } else {
+        candidateUri = null;
+      }
+
+      if (!candidateUri) {
+        throw new Error('Bundled OCR model URI unavailable (dev server unreachable).');
+      }
 
       const modelPath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx`;
       await FileSystem.copyAsync({
-        from: asset.localUri || asset.uri,
+        from: candidateUri,
         to: modelPath
       });
 
       try {
         const dataAsset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx.data'));
-        await dataAsset.downloadAsync();
-        const dataPath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx.data`;
-        await FileSystem.copyAsync({
-          from: dataAsset.localUri || dataAsset.uri,
-          to: dataPath
-        });
+        let dataUri: string | null = dataAsset.localUri || (dataAsset as any).uri || null;
+        const dataIsLoopback =
+          typeof dataUri === 'string' &&
+          (dataUri.includes('127.0.0.1') || dataUri.includes('localhost'));
+
+        if (dataUri && !dataIsLoopback) {
+          if (!dataUri.startsWith('file://')) {
+            await dataAsset.downloadAsync();
+            dataUri = dataAsset.localUri || (dataAsset as any).uri || null;
+          }
+        } else {
+          dataUri = null;
+        }
+
+        if (dataUri) {
+          const dataPath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx.data`;
+          await FileSystem.copyAsync({
+            from: dataUri,
+            to: dataPath
+          });
+        }
       } catch (dataError) {
         // Model may be self-contained without external data.
       }
@@ -299,12 +333,22 @@ export class AIService {
         console.log('Loading Dashboard model...');
         
         const asset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx'));
-        await asset.downloadAsync();
-        console.log('Dashboard model asset downloaded');
+        let candidateUri: string | null = asset.localUri || (asset as any).uri || null;
+        const isLoopback =
+          typeof candidateUri === 'string' &&
+          (candidateUri.includes('127.0.0.1') || candidateUri.includes('localhost'));
+        if (candidateUri && !isLoopback) {
+          if (!candidateUri.startsWith('file://')) {
+            await asset.downloadAsync();
+            console.log('Dashboard model asset downloaded');
+            candidateUri = asset.localUri || (asset as any).uri || null;
+          }
+        } else {
+          candidateUri = null;
+        }
 
-        const candidateUri = asset.localUri || asset.uri;
         if (!candidateUri) {
-          throw new Error('Dashboard model asset URI missing');
+          throw new Error('Dashboard model asset URI missing or unreachable (dev server?)');
         }
 
         // On iOS, copy the model to a writable cache directory so the .onnx.data sidecar
