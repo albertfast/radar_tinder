@@ -114,12 +114,7 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Verify working directory
-        run: |
-          echo "✅ Working directory: $(pwd)"
-          echo "✅ Package.json exists: $(test -f package.json && echo 'YES' || echo 'NO')"
-          echo "✅ Node_modules exists: $(test -d node_modules && echo 'YES' || echo 'NO')"
-          ls -la node_modules/.pnpm | grep react-native-maps | head -3
+        
 
       - name: Setup CocoaPods cache
         uses: actions/cache@v4
