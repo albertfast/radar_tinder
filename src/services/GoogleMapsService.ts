@@ -2,8 +2,7 @@ import { Platform } from 'react-native';
 import { OSRMService } from './OSRMService';
 import { NominatimService } from './NominatimService';
 
-// Fallback to hardcoded key if environment variable is not set
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ';
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 interface PlaceResult {
   place_id: string;
@@ -38,6 +37,67 @@ interface DistanceResult {
 export class GoogleMapsService {
   private static BASE_URL = 'https://maps.googleapis.com/maps/api';
 
+  private static parseDestinationCoordinates(
+    destination: string
+  ): { lat: number; lon: number } | null {
+    const match = destination
+      .trim()
+      .match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+    if (!match) return null;
+    const lat = Number(match[1]);
+    const lon = Number(match[2]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    return { lat, lon };
+  }
+
+  private static async getFallbackDirections(
+    originLat: number,
+    originLng: number,
+    destination: string
+  ): Promise<any> {
+    const parsedCoords = this.parseDestinationCoordinates(destination);
+    const target = parsedCoords || (await NominatimService.geocode(destination));
+
+    if (!target) {
+      return {
+        error: 'NOT_FOUND',
+        message: 'Location not found. Please check the destination and try again.',
+      };
+    }
+
+    const osrmRoute = await OSRMService.getDirections(
+      originLat,
+      originLng,
+      target.lat,
+      target.lon
+    );
+
+    if (!osrmRoute || !osrmRoute.coordinates?.length) {
+      return {
+        error: 'ZERO_RESULTS',
+        message: 'No route found to this destination. Please try a different destination.',
+      };
+    }
+
+    const reverse = await NominatimService.reverse(target.lat, target.lon).catch(() => null);
+    const endAddress = reverse?.display_name || destination;
+    const startAddress = `${originLat.toFixed(5)}, ${originLng.toFixed(5)}`;
+
+    const leg = osrmRoute.legs?.[0];
+    return {
+      ...osrmRoute,
+      legs: [
+        {
+          ...leg,
+          start_address: leg?.start_address || startAddress,
+          end_address: leg?.end_address || endAddress,
+          end_location: leg?.end_location || { lat: target.lat, lng: target.lon },
+        },
+      ],
+    };
+  }
+
   /**
    * Search for nearby places (radars, police, etc.) using Places API
    * Expanded keywords for better detection
@@ -49,6 +109,9 @@ export class GoogleMapsService {
     keyword: string = 'traffic_camera|speed_trap|speed_camera|safety_camera|red_light_camera|traffic_enforcement'
   ): Promise<PlaceResult[]> {
     try {
+      if (!GOOGLE_MAPS_API_KEY) {
+        return [];
+      }
       const url = `${this.BASE_URL}/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&keyword=${encodeURIComponent(keyword)}&key=${GOOGLE_MAPS_API_KEY}`;
       
       const response = await fetch(url);
@@ -173,8 +236,8 @@ export class GoogleMapsService {
   ): Promise<any> {
     try {
       if (!GOOGLE_MAPS_API_KEY) {
-        console.error('Google Maps API key is not configured');
-        return { error: 'API_KEY_MISSING', message: 'Google Maps API key is not configured' };
+        console.warn('Google Maps API key is not configured. Falling back to OSRM + Nominatim.');
+        return await this.getFallbackDirections(originLat, originLng, destination);
       }
 
       const origin = `${originLat},${originLng}`;
@@ -241,6 +304,12 @@ export class GoogleMapsService {
       }
       
       console.warn('Directions API Error:', data.status, data.error_message);
+
+      const fallback = await this.getFallbackDirections(originLat, originLng, destination);
+      if (fallback && !fallback.error) {
+        console.log('[GoogleMapsService] Fallback route selected via OSRM');
+        return fallback;
+      }
       
       // Return error information for better user feedback
       if (data.status === 'ZERO_RESULTS') {
@@ -254,6 +323,11 @@ export class GoogleMapsService {
       return null;
     } catch (error) {
       console.error('Error getting directions:', error);
+      const fallback = await this.getFallbackDirections(originLat, originLng, destination);
+      if (fallback && !fallback.error) {
+        console.log('[GoogleMapsService] Network fallback route selected via OSRM');
+        return fallback;
+      }
       return { error: 'NETWORK_ERROR', message: 'Network error. Please check your internet connection and try again.' };
     }
   }

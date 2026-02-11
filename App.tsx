@@ -7,14 +7,17 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AppState, View, ActivityIndicator, Dimensions } from 'react-native';
+import { AppState, View, ActivityIndicator, Dimensions, Platform } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 
-// Reanimated 4 compatibility - add missing useAnimatedGestureHandler (was removed in Reanimated 4)
-if (!Reanimated.useAnimatedGestureHandler) {
-  (Reanimated as any).useAnimatedGestureHandler = (config: any) => {
+const reanimated = Reanimated as any;
+const reanimatedVersion = reanimated.version || 'unknown';
+
+// Reanimated 4 compatibility: add missing gesture handler polyfill and safe Android fallbacks.
+if (!reanimated.useAnimatedGestureHandler) {
+  reanimated.useAnimatedGestureHandler = (config: any) => {
     return {
       onStart: config?.onStart || (() => {}),
       onActive: config?.onActive || (() => {}),
@@ -24,8 +27,26 @@ if (!Reanimated.useAnimatedGestureHandler) {
   };
 }
 
-// Reanimated version check
-const reanimatedVersion = (Reanimated as any).version || 'unknown';
+if (Platform.OS === 'android' && typeof reanimatedVersion === 'string' && reanimatedVersion.startsWith('4.')) {
+  console.warn('Reanimated 4 detected on Android, enabling compatibility fallbacks');
+
+  if (!reanimated.runOnJS) {
+    reanimated.runOnJS = (fn: any) => fn;
+  }
+  if (!reanimated.useSharedValue) {
+    reanimated.useSharedValue = (initial: any) => ({ value: initial });
+  }
+  if (!reanimated.useAnimatedStyle) {
+    reanimated.useAnimatedStyle = () => ({});
+  }
+  if (!reanimated.withTiming) {
+    reanimated.withTiming = (value: any) => value;
+  }
+  if (!reanimated.withSpring) {
+    reanimated.withSpring = (value: any) => value;
+  }
+}
+
 console.log('Reanimated version:', reanimatedVersion);
 console.log('React Native New Architecture (Fabric):', (global as any)._IS_FABRIC ? 'Enabled' : 'Disabled');
 console.log('React Native Bridgeless Mode:', (global as any).RN$Bridgeless ? 'Enabled' : 'Disabled');
