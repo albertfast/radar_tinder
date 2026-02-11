@@ -155,10 +155,20 @@ const RadarScreen = ({ navigation, route }: any) => {
   const mapOverlayTop = getResponsiveMargin(12);
   const mapControlSize = getResponsiveWidth(38);
   const mapControlGap = getResponsiveMargin(8);
+  const isMapNavigationActive = isDriving && activeTab === 'Map' && routeCoords.length > 0;
+  const mapControlsBottom = isMapNavigationActive
+    ? Math.max(getResponsiveHeight(180), Math.round(height * 0.3))
+    : Math.max(110, Math.round(height * 0.22));
+  const mapNavDockBottom = isMapNavigationActive
+    ? Math.max(getResponsiveHeight(70), mapOverlayInset + 48)
+    : 0;
+  const floatingFabBottom = isMapNavigationActive
+    ? Math.max(getResponsiveHeight(170), mapControlsBottom - mapControlSize - mapControlGap)
+    : 85;
   const mapPadding = {
-    top: getResponsiveHeight(160),
+    top: isMapNavigationActive ? getResponsiveHeight(120) : getResponsiveHeight(160),
     right: mapOverlayInset,
-    bottom: getResponsiveHeight(220),
+    bottom: isMapNavigationActive ? getResponsiveHeight(320) : getResponsiveHeight(220),
     left: mapOverlayInset,
   };
 
@@ -1127,7 +1137,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                   </Animated.View>
               ) : (
                 // Navigation Progress Alert
-                routeCoords.length > 0 && (
+                routeCoords.length > 0 && !isMapNavigationActive && (
                   <Animated.View
                     style={[styles.navigationProgress, {
                       transform: [{ translateY: 0 }]
@@ -1155,23 +1165,25 @@ const RadarScreen = ({ navigation, route }: any) => {
               )}
 
               {/* Tabs */}
-              <View style={styles.tabBar}>
-                  {(['Basic', 'Map', 'Graphic'] as TabType[]).map(t => (
-                      <TouchableOpacity 
-                        key={t} 
-                        style={[styles.tabItem, activeTab === t && styles.activeTabItem]}
-                        onPress={() => {
-                          if (t === 'Graphic' && !canUsePro) {
-                            navigation.navigate('Subscription');
-                            return;
-                          }
-                          setActiveTab(t);
-                        }}
-                      >
-                          <Text style={[styles.tabText, activeTab === t && { color: '#FF5252' }]}>{t}</Text>
-                      </TouchableOpacity>
-                  ))}
-              </View>
+              {!isMapNavigationActive && (
+                <View style={styles.tabBar}>
+                    {(['Basic', 'Map', 'Graphic'] as TabType[]).map(t => (
+                        <TouchableOpacity 
+                          key={t} 
+                          style={[styles.tabItem, activeTab === t && styles.activeTabItem]}
+                          onPress={() => {
+                            if (t === 'Graphic' && !canUsePro) {
+                              navigation.navigate('Subscription');
+                              return;
+                            }
+                            setActiveTab(t);
+                          }}
+                        >
+                            <Text style={[styles.tabText, activeTab === t && { color: '#FF5252' }]}>{t}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+              )}
 
               <View style={{ flex: 1 }}>
                   {activeTab === 'Basic' && (
@@ -1329,50 +1341,55 @@ const RadarScreen = ({ navigation, route }: any) => {
                                        )}
                                      </>
                                    ) : (
-                                     <>
-                                       <View style={styles.navCompactRow}>
-                                         <View style={styles.navCompactInfo}>
-                                           <Text style={styles.navCompactTitle} numberOfLines={1}>
-                                             {routeMeta?.destinationLabel || destination || 'Destination'}
-                                           </Text>
-                                           <Text style={styles.navCompactMeta}>
-                                             {routeMeta?.distanceText || '—'} • ETA {routeMeta?.etaText || '—'} • {nearbyRadars.length} radars
-                                           </Text>
-                                         </View>
-                                         <TouchableOpacity
-                                           style={styles.navCompactButton}
-                                           onPress={centerMap}
-                                         >
-                                           <MaterialCommunityIcons name="crosshairs-gps" size={20} color="#4ECDC4" />
-                                         </TouchableOpacity>
-                                         <TouchableOpacity
-                                           style={[styles.navCompactButton, styles.navCompactButtonDanger]}
-                                           onPress={resetRoute}
-                                         >
-                                           <MaterialCommunityIcons name="close" size={20} color="#F8FAFC" />
-                                         </TouchableOpacity>
+                                     <View style={styles.navCompactRow}>
+                                       <View style={styles.navCompactInfo}>
+                                         <Text style={styles.navCompactTitle} numberOfLines={1}>
+                                           {routeMeta?.destinationLabel || destination || 'Destination'}
+                                         </Text>
+                                         <Text style={styles.navCompactMeta}>
+                                           {routeMeta?.distanceText || '—'} • ETA {routeMeta?.etaText || '—'} • {nearbyRadars.length} radars
+                                         </Text>
                                        </View>
-
-                                       {routeCoords.length > 0 && (
-                                           <View style={[styles.navInstructionBox, { padding: Math.round(10 * uiScale) }]}>
-                                                <MaterialCommunityIcons
-                                                  name={getManeuverIcon(navSteps[currentStepIndex]?.maneuver)}
-                                                  size={24}
-                                                  color="white"
-                                                />
-                                                <View style={{marginLeft: 12, flex: 1}}>
-                                                    <Text style={{color:'white', fontSize: Math.round(14 * uiScale), fontWeight: 'bold'}}>
-                                                      {formatStepDistance(getStepDistanceMeters(navSteps[currentStepIndex])) || '...'}
-                                                    </Text>
-                                                    <Text style={{color:'#cbd5f5', fontSize: Math.round(11 * uiScale)}} numberOfLines={2}>
-                                                      {navSteps[currentStepIndex]?.instruction || 'Follow the highlighted route'}
-                                                    </Text>
-                                                </View>
-                                           </View>
-                                       )}
-                                     </>
+                                       <TouchableOpacity
+                                         style={styles.navCompactButton}
+                                         onPress={centerMap}
+                                       >
+                                         <MaterialCommunityIcons name="crosshairs-gps" size={20} color="#4ECDC4" />
+                                       </TouchableOpacity>
+                                       <TouchableOpacity
+                                         style={[styles.navCompactButton, styles.navCompactButtonDanger]}
+                                         onPress={resetRoute}
+                                       >
+                                         <MaterialCommunityIcons name="close" size={20} color="#F8FAFC" />
+                                       </TouchableOpacity>
+                                     </View>
                                    )}
                            </View>
+                           {isMapNavigationActive && (
+                             <View
+                               style={[
+                                 styles.bottomNavDock,
+                                 { left: mapOverlayInset, right: mapOverlayInset, bottom: mapNavDockBottom },
+                               ]}
+                               pointerEvents="box-none"
+                             >
+                               <View style={[styles.navInstructionBox, styles.navInstructionDock, { padding: Math.round(10 * uiScale) }]}>
+                                 <MaterialCommunityIcons
+                                   name={getManeuverIcon(navSteps[currentStepIndex]?.maneuver)}
+                                   size={24}
+                                   color="white"
+                                 />
+                                 <View style={{ marginLeft: 12, flex: 1 }}>
+                                   <Text style={{ color: 'white', fontSize: Math.round(14 * uiScale), fontWeight: 'bold' }}>
+                                     {formatStepDistance(getStepDistanceMeters(navSteps[currentStepIndex])) || '...'}
+                                   </Text>
+                                   <Text style={{ color: '#cbd5f5', fontSize: Math.round(11 * uiScale) }} numberOfLines={2}>
+                                     {navSteps[currentStepIndex]?.instruction || 'Follow the highlighted route'}
+                                   </Text>
+                                 </View>
+                               </View>
+                             </View>
+                           )}
                            <View style={styles.mapAdContainer}>
                              <AdBanner />
                            </View>
@@ -1381,7 +1398,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                styles.mapControls,
                                {
                                  right: mapOverlayInset,
-                                 bottom: Math.max(110, Math.round(height * 0.22)),
+                                 bottom: mapControlsBottom,
                                  gap: mapControlGap,
                                },
                              ]}
@@ -1436,7 +1453,7 @@ const RadarScreen = ({ navigation, route }: any) => {
 
               {/* Floating Report Button */}
               <TouchableOpacity 
-                style={styles.fab}
+                style={[styles.fab, { bottom: floatingFabBottom }]}
                 onPress={() => setReportModalVisible(true)}
               >
                   <MaterialCommunityIcons name="plus" size={32} color="white" />
@@ -1808,7 +1825,9 @@ const styles = StyleSheet.create({
   suggestionItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   suggestionText: { color: '#F8FAFC', marginLeft: 10, flex: 1 },
   
+  bottomNavDock: { position: 'absolute', zIndex: 11 },
   navInstructionBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0B1220', padding: 12, borderRadius: 14, marginTop: 8, borderWidth: 1, borderColor: 'rgba(78,205,196,0.35)' },
+  navInstructionDock: { marginTop: 0, backgroundColor: 'rgba(11,18,32,0.96)' },
 });
 
 export default RadarScreen;

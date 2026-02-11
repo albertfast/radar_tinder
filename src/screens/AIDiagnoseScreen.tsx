@@ -75,8 +75,9 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       const ok = await AIService.preloadModels();
       
       if (isMounted.current) {
+        const status = AIService.getModelStatus();
         setModelReady(ok);
-        setModelError(ok ? null : 'AI model could not be downloaded. Check your internet connection and try again.');
+        setModelError(ok ? null : (status.error || 'AI model could not be prepared. Please rebuild the app and try again.'));
       }
     } catch (error) {
       console.error('AI preload failed', error);
@@ -166,7 +167,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,

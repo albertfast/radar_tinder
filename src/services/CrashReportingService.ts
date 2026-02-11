@@ -1,4 +1,9 @@
-import { getCrashlytics } from '@react-native-firebase/crashlytics';
+import {
+  getCrashlytics,
+  log as crashlyticsLog,
+  recordError as crashlyticsRecordError,
+  setCrashlyticsCollectionEnabled as crashlyticsSetCollectionEnabled,
+} from '@react-native-firebase/crashlytics';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 
@@ -13,7 +18,7 @@ export class CrashReportingService {
       if (this.isInitialized) return;
 
       try {
-        await crashlytics().setCrashlyticsCollectionEnabled(true);
+        await crashlyticsSetCollectionEnabled(crashlytics(), true);
       } catch (e) {}
 
       // Set up global error handlers
@@ -73,8 +78,9 @@ export class CrashReportingService {
 
       // Log to Crashlytics (native + JS)
       try {
-        crashlytics().log(JSON.stringify({ context }));
-        crashlytics().recordError(error);
+        const instance = crashlytics();
+        crashlyticsLog(instance, JSON.stringify({ context }));
+        crashlyticsRecordError(instance, error);
       } catch (e) {}
 
       // Try to send immediately

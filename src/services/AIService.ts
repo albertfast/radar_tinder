@@ -4,13 +4,15 @@
  */
 
 import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { Platform, Alert } from 'react-native';
-import { InferenceSession, Tensor } from 'onnxruntime-react-native';
+import { Platform, Alert, NativeModules } from 'react-native';
 import ocrClasses from '../../assets/models/digital_ocr_classes.json';
 import dashboardMetadata from '../../assets/models/dashboard_classes.json';
 import diagnosticKb from '../../assets/models/diagnostic_kb.json';
+
+type OrtModule = typeof import('onnxruntime-react-native');
+type OrtInferenceSession = import('onnxruntime-react-native').InferenceSession;
 
 export interface DiagnosisResult {
   issue: string;
@@ -20,19 +22,49 @@ export interface DiagnosisResult {
   details?: any;
 }
 
-let ocrSession: InferenceSession | null = null;
-let dashboardSession: InferenceSession | null = null;
-let dashboardSessionPromise: Promise<InferenceSession> | null = null;
+let ocrSession: OrtInferenceSession | null = null;
+let dashboardSession: OrtInferenceSession | null = null;
+let dashboardSessionPromise: Promise<OrtInferenceSession> | null = null;
 let dashboardModelFailed: boolean = false;
 let dashboardAnalysisErrorLogged: boolean = false;
 let isModelLoading = false;
 let modelLoadError: string | null = null;
+let ortModuleCache: OrtModule | null | undefined;
 
 // Fallback base URL for remote-hosted models. You can override by setting
 // `MODEL_BASE_URL` at build-time or replacing this string with your CDN URL.
 const REMOTE_MODEL_BASE = 'https://raw.githubusercontent.com/albertfast/radar_tinder/master/assets/models';
 
 export class AIService {
+  private static getOrtModule(): OrtModule {
+    if (ortModuleCache) return ortModuleCache;
+    if (ortModuleCache === null) {
+      throw new Error(modelLoadError || 'ONNX Runtime module is not available.');
+    }
+
+    const onnxNative = (NativeModules as any)?.Onnxruntime;
+    if (!onnxNative || typeof onnxNative.install !== 'function') {
+      ortModuleCache = null;
+      modelLoadError =
+        'ONNX Runtime native module is unavailable in this build. Rebuild the Android dev client and reinstall the app.';
+      throw new Error(modelLoadError);
+    }
+
+    try {
+      const ort = require('onnxruntime-react-native') as OrtModule;
+      if (!ort?.InferenceSession || typeof ort.InferenceSession.create !== 'function') {
+        throw new Error('ONNX Runtime JS bridge loaded but InferenceSession API is missing.');
+      }
+      ortModuleCache = ort;
+      return ortModuleCache;
+    } catch (error) {
+      ortModuleCache = null;
+      const message = error instanceof Error ? error.message : String(error);
+      modelLoadError = `Failed to initialize ONNX Runtime bridge: ${message}`;
+      throw new Error(modelLoadError);
+    }
+  }
+
   private static softmax(logits: Float32Array): Float32Array {
     const expValues = new Float32Array(logits.length);
     let sumExp = 0;
@@ -196,7 +228,8 @@ export class AIService {
         // Model may be self-contained without external data.
       }
 
-      ocrSession = await InferenceSession.create(modelPath);
+      const ort = this.getOrtModule();
+      ocrSession = await ort.InferenceSession.create(modelPath);
       return ocrSession;
     } catch (error) {
       console.error('Error loading OCR model from bundled asset:', error);
@@ -206,7 +239,8 @@ export class AIService {
         const remotePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx`;
         console.warn('Attempting to download OCR model from remote URL:', remoteUrl);
         await FileSystem.downloadAsync(remoteUrl, remotePath);
-        ocrSession = await InferenceSession.create(remotePath);
+        const ort = this.getOrtModule();
+        ocrSession = await ort.InferenceSession.create(remotePath);
         return ocrSession;
       } catch (remoteError) {
         console.error('Error loading OCR model from remote URL:', remoteError);
@@ -298,7 +332,8 @@ export class AIService {
         await this.ensureDashboardSidecar(modelPath);
         
         console.log('Creating dashboard inference session...');
-        dashboardSession = await InferenceSession.create(modelPath);
+        const ort = this.getOrtModule();
+        dashboardSession = await ort.InferenceSession.create(modelPath);
         console.log('Dashboard model loaded successfully');
         dashboardModelFailed = false;
         modelLoadError = null;
@@ -325,7 +360,8 @@ export class AIService {
           await FileSystem.downloadAsync(remoteUrl, remotePath);
           console.log('Dashboard model downloaded from remote URL');
           await this.ensureDashboardSidecar(remotePath);
-          dashboardSession = await InferenceSession.create(remotePath);
+          const ort = this.getOrtModule();
+          dashboardSession = await ort.InferenceSession.create(remotePath);
           dashboardModelFailed = false;
           modelLoadError = null;
           return dashboardSession;
@@ -511,11 +547,12 @@ export class AIService {
       // 2. Convert base64 image data to Float32 tensor
       console.log('Converting image to tensor...');
       const tensorData = this.imageToFloat32Array(manipResult.base64!, 32, 32, true);
-      const inputTensor = new Tensor('float32', tensorData, [1, 1, 32, 32]);
+      const ort = this.getOrtModule();
+      const inputTensor = new ort.Tensor('float32', tensorData, [1, 1, 32, 32]);
       
       // 3. Run Inference
       console.log('Running ONNX inference...');
-      const feeds: Record<string, Tensor> = {};
+      const feeds: Record<string, any> = {};
       const inputNames = loadedSession.inputNames;
       feeds[inputNames[0]] = inputTensor;
       
@@ -563,6 +600,18 @@ export class AIService {
     } catch (error) {
       console.error('On-Device AI Analysis Error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.toLowerCase().includes('onnx runtime native module is unavailable')) {
+        return {
+          issue: "AI Module Missing",
+          confidence: 0,
+          recommendations: [
+            "This build does not include ONNX Runtime native module.",
+            "Rebuild and reinstall the Android dev client, then try again."
+          ],
+          category: "Error",
+          details: { error: errorMessage }
+        };
+      }
       
       // Provide more helpful error messages
       if (errorMessage.includes('Failed to load')) {
@@ -665,8 +714,9 @@ export class AIService {
         );
         let outputData: Float32Array;
 
-        const inputTensor = new Tensor('float32', tensorData, [1, 3, inputSize[1], inputSize[0]]);
-        const feeds: Record<string, Tensor> = {};
+        const ort = this.getOrtModule();
+        const inputTensor = new ort.Tensor('float32', tensorData, [1, 3, inputSize[1], inputSize[0]]);
+        const feeds: Record<string, any> = {};
         feeds[onnxSession.inputNames[0]] = inputTensor;
 
         const outputMap = await onnxSession.run(feeds);
@@ -847,14 +897,20 @@ export class AIService {
         }
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       if (!dashboardAnalysisErrorLogged) {
+        console.error('Dashboard analysis failed:', errorMessage);
         dashboardAnalysisErrorLogged = true;
       }
       return {
         issue: "Analysis Failed",
         confidence: 0,
-        recommendations: ["Could not process image data."],
-        category: "Error"
+        recommendations: [
+          "Could not process image data.",
+          errorMessage
+        ],
+        category: "Error",
+        details: { error: errorMessage }
       };
     }
   }
@@ -1049,6 +1105,7 @@ export class AIService {
       dashboardAnalysisErrorLogged = false;
       isModelLoading = false;
       modelLoadError = null;
+      ortModuleCache = undefined;
       
       // Clear cache files
       try {
