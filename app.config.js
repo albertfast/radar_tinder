@@ -116,7 +116,6 @@ module.exports = {
       "expo-notifications",
       "expo-task-manager",
       "expo-secure-store",
-      "onnxruntime-react-native",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "@react-native-firebase/crashlytics",

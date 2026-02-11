@@ -30,14 +30,30 @@ module.exports = function withOnnxRuntime(config) {
       return config;
     }
 
-    const gradle = config.modResults.contents;
+    let gradle = config.modResults.contents;
     const depLine = "    implementation project(':onnxruntime-react-native')";
-    if (!gradle.match(/implementation project\\(':onnxruntime-react-native'\\)/)) {
-      config.modResults.contents = gradle.replace(
-        /^dependencies\s*\{\s*\n/m,
-        (match) => `${match}${depLine}\n`
-      );
+    if (!gradle.match(/implementation project\(':onnxruntime-react-native'\)/)) {
+      gradle = gradle.replace(/dependencies\s*\{\s*\n?/, (match) => {
+        // Ensure there's a newline before we insert
+        const suffix = match.endsWith('\n') ? '' : '\n';
+        return `${match}${suffix}${depLine}\n`;
+      });
     }
+    // Deduplicate in case another plugin already added it.
+    const seen = { dep: false };
+    gradle = gradle
+      .split('\n')
+      .filter((line) => {
+        const isDep = line.includes("implementation project(':onnxruntime-react-native')");
+        if (!isDep) return true;
+        if (seen.dep) return false;
+        seen.dep = true;
+        return true;
+      })
+      .join('\n');
+    // Ensure a clean newline after the dependencies { line
+    gradle = gradle.replace(/dependencies\s*\{\s*(?=\S)/, 'dependencies {\n');
+    config.modResults.contents = gradle;
     return config;
   });
 
@@ -54,10 +70,10 @@ module.exports = function withOnnxRuntime(config) {
       );
     }
 
-    if (!src.includes('OnnxRuntimePackage')) {
+    if (!src.includes('OnnxRuntimePackage()')) {
       const packageMarker = /PackageList\(this\)\.packages\.apply\s*\{\n([^}]*)\n\s*\}/m;
       src = src.replace(packageMarker, (match, inner) => {
-        const insertion = inner.includes('OnnxRuntimePackage')
+        const insertion = inner.includes('OnnxRuntimePackage()')
           ? inner
           : `${inner}\n              add(OnnxRuntimePackage())`;
         return match.replace(inner, insertion);
