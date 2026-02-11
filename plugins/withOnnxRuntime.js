@@ -62,7 +62,7 @@ module.exports = function withOnnxRuntime(config) {
     if (config.modResults.language !== 'kt') return config;
     let src = config.modResults.contents;
 
-    const importLine = 'import ai.onnxruntime.reactnative.OnnxRuntimePackage';
+    const importLine = 'import ai.onnxruntime.reactnative.OnnxruntimePackage';
     if (!src.includes(importLine)) {
       src = src.replace(
         /import com\.facebook\.react\.defaults\.DefaultReactNativeHost/,
@@ -70,12 +70,12 @@ module.exports = function withOnnxRuntime(config) {
       );
     }
 
-    if (!src.includes('OnnxRuntimePackage()')) {
+    if (!src.includes('OnnxruntimePackage()')) {
       const packageMarker = /PackageList\(this\)\.packages\.apply\s*\{\n([^}]*)\n\s*\}/m;
       src = src.replace(packageMarker, (match, inner) => {
-        const insertion = inner.includes('OnnxRuntimePackage()')
+        const insertion = inner.includes('OnnxruntimePackage()')
           ? inner
-          : `${inner}\n              add(OnnxRuntimePackage())`;
+          : `${inner}\n              add(OnnxruntimePackage())`;
         return match.replace(inner, insertion);
       });
     }
