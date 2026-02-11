@@ -130,8 +130,7 @@ jobs:
 
       - name: Generate iOS native code
         run: |
-          
-          npx expo prebuild --platform ios --clean
+          pnpx expo prebuild --platform ios
           cd ios && pod install --repo-update
           cd ..
 
