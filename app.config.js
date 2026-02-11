@@ -151,6 +151,7 @@ module.exports = {
         }
       ],
       "./plugins/withFirebasePodfile.js",
+      "./plugins/withPodfileFix.js",
       "./plugins/withSettingsGradleFix.js"
     ],
     extra: {
