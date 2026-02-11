@@ -22,16 +22,6 @@ jobs:
         with:
           path: .
 
-      - name: Verify working directory
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "Repository root:"
-          ls -la | head -20
-          test -f package.json || (echo "ERROR: package.json not found!" && exit 1)
-          test -d node_modules || (echo "ERROR: node_modules not found!" && exit 1)
-          ls -la /Applications/ | grep Xcode
-           ls -la /Applications/ | grep Xcode
-
       - name: Select Xcode 26.0.1
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -120,6 +110,13 @@ jobs:
           }
           console.log('react-native-maps patch verification passed');
           NODE
+
+      - name: Verify working directory
+        run: |
+          echo "✅ Working directory: $(pwd)"
+          echo "✅ Package.json exists: $(test -f package.json && echo 'YES' || echo 'NO')"
+          echo "✅ Node_modules exists: $(test -d node_modules && echo 'YES' || echo 'NO')"
+          ls -la node_modules/.pnpm | grep react-native-maps | head -3
 
       - name: Ensure Expo gitignore
         run: |
