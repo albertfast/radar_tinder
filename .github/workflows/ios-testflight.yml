@@ -166,7 +166,7 @@ jobs:
 
       - name: Install CocoaPods
         run: |
-          rm -rf ios/Pods
+         
           npx expo prebuild --platform ios --clean
           cd ios && pod install --repo-update
           cd ..
