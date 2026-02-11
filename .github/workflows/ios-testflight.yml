@@ -165,61 +165,19 @@ jobs:
           ls -la node_modules/.pnpm/react-native-maps* | head -3
           rm -rf ios/Pods ios/Podfile.lock
           npx expo prebuild --platform ios --clean
-
-          # Normalize Podfile maps block (safety net on top of the config plugin)
-          node - <<'NODE'
-          const fs = require('fs');
-          const path = require('path');
-          const podfile = path.join('ios', 'Podfile');
-          let content = fs.readFileSync(podfile, 'utf8');
-          let changed = false;
-
-          // Rewrite generated react-native-maps block to use the supported Google subspec.
-          content = content.replace(
-            /(#[ \t]*@generated begin react-native-maps[^\n]*\n)([\s\S]*?)(#[ \t]*@generated end react-native-maps)/,
-            (_match, begin, _body, end) => {
-              changed = true;
-              const body = [
-                "  rn_maps_path = File.dirname(`node --print \\\"require.resolve('react-native-maps/package.json')\\\"`)",
-                "  pod 'react-native-maps', :path => rn_maps_path, :subspecs => ['Maps', 'Google']",
-                ""
-              ].join("\\n");
-              return `${begin}${body}${end}`;
-            }
-          );
-
-          // Remove any lingering deprecated react-native-google-maps pod lines.
-          const afterRemoval = content.replace(
-            /\s*pod\s+['"]react-native-google-maps['"]\s*,\s*[^\n]*\n/g,
-            ''
-          );
-          if (afterRemoval !== content) {
-            content = afterRemoval;
-            changed = true;
-          }
-
-          // Ensure at least one react-native-maps pod declaration exists.
-          if (!/pod\s+['"]react-native-maps['"]/.test(content)) {
-            const anchor = /use_expo_modules!\n/;
-            if (anchor.test(content)) {
-              content = content.replace(anchor, [
-                'use_expo_modules!',
-                "  rn_maps_path = File.dirname(`node --print \\\"require.resolve('react-native-maps/package.json')\\\"`)",
-                "  pod 'react-native-maps', :path => rn_maps_path, :subspecs => ['Maps', 'Google']",
-                ''
-              ].join("\n"));
-              changed = true;
-            }
-          }
-
-          if (changed) {
-            fs.writeFileSync(podfile, content);
-            console.log('✅ Podfile maps block normalized for Google Maps + pnpm');
-          } else {
-            console.log('ℹ️ Podfile maps block already normalized');
-          }
-          NODE
-
+          
+          # Fix Podfile: remove react-native-google-maps references if present
+          if grep -q "pod 'react-native-google-maps'" ios/Podfile; then
+            echo "Removing react-native-google-maps from Podfile..."
+            sed -i.bak "/pod 'react-native-google-maps'/d" ios/Podfile
+          fi
+          
+          # Ensure react-native-maps has proper subspecs
+          if grep -q "react-native-maps" ios/Podfile && ! grep -q "subspecs.*Maps.*Google" ios/Podfile; then
+            echo "Adding subspecs to react-native-maps..."
+            sed -i.bak "s/pod 'react-native-maps'/pod 'react-native-maps', :subspecs => ['Maps', 'Google']/g" ios/Podfile
+          fi
+          
           cd ios
           pod install --repo-update --verbose
           cd ..
