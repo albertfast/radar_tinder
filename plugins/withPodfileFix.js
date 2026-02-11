@@ -1,6 +1,4 @@
-const { withDangerousMod } = require('expo/config-plugins');
-const fs = require('fs');
-const path = require('path');
+const { withPodfile } = require('expo/config-plugins');
 
 /**
  * Fixes the Podfile after Expo generates it.
@@ -12,45 +10,37 @@ const path = require('path');
  * - It also strips any lingering `react-native-google-maps` lines for safety.
  */
 module.exports = function withPodfileFix(config) {
-  return withDangerousMod(config, [
-    'ios',
-    async (config) => {
-      const podfilePath = path.join(config.modRequest.platformProjectRoot, 'Podfile');
+  return withPodfile(config, (config) => {
+    let content = config.modResults.contents;
+    const original = content;
 
-      if (!fs.existsSync(podfilePath)) {
-        console.log('⚠️ Podfile not found');
-        return config;
-      }
+    // Rewrite the generated react-native-maps block to the correct pod.
+    // We preserve the begin/end markers (and the sync hash) so future prebuilds stay idempotent.
+    const mapsBlockRegex =
+      /(#[ \t]*@generated begin react-native-maps[^\n]*\n)([\s\S]*?)(#[ \t]*@generated end react-native-maps)/;
 
-      let content = fs.readFileSync(podfilePath, 'utf8');
-      const original = content;
+    content = content.replace(mapsBlockRegex, (_match, begin, _body, end) => {
+      const fixedBody = [
+        "  rn_maps_path = File.dirname(`node --print \"require.resolve('react-native-maps/package.json')\"`)",
+        "  pod 'react-native-maps', :path => rn_maps_path, :subspecs => ['Maps', 'Google']",
+        '',
+      ].join('\n');
+      return `${begin}${fixedBody}${end}`;
+    });
 
-      // Rewrite the generated react-native-maps block to the correct pod.
-      // We preserve the begin/end markers (and the sync hash) so future prebuilds stay idempotent.
-      const mapsBlockRegex =
-        /(#[ \t]*@generated begin react-native-maps[^\n]*\n)([\s\S]*?)(#[ \t]*@generated end react-native-maps)/;
+    // Remove any standalone react-native-google-maps pod declarations that may remain.
+    content = content.replace(
+      /\s*pod\s+['"]react-native-google-maps['"]\s*,\s*[^\n]*\n/g,
+      ''
+    );
 
-      content = content.replace(mapsBlockRegex, (match, begin, _body, end) => {
-        const fixedBody = [
-          "  rn_maps_path = File.dirname(`node --print \"require.resolve('react-native-maps/package.json')\"`)",
-          "  pod 'react-native-maps', :path => rn_maps_path, :subspecs => ['Maps', 'Google']",
-          '',
-        ].join('\n');
-        return `${begin}${fixedBody}${end}`;
-      });
-
-      // Remove any standalone react-native-google-maps pod declarations that may remain.
-      content = content.replace(
-        /\s*pod\s+['"]react-native-google-maps['"]\s*,\s*[^\n]*\n/g,
-        ''
+    if (content !== original) {
+      config.modResults.contents = content;
+      console.log(
+        '✅ Fixed Podfile: using react-native-maps (Google subspec) instead of deprecated react-native-google-maps'
       );
+    }
 
-      if (content !== original) {
-        fs.writeFileSync(podfilePath, content);
-        console.log('✅ Fixed Podfile: using react-native-maps (Google subspec) instead of deprecated react-native-google-maps');
-      }
-
-      return config;
-    },
-  ]);
+    return config;
+  });
 };
