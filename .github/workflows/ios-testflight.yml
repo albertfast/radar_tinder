@@ -166,8 +166,25 @@ jobs:
 
       - name: Install CocoaPods
         run: |
-          pnx expo prebuild --platform ios
-          cd ios && pod install --repo-update
+          pwd
+          ls -la node_modules/.pnpm/react-native-maps* | head -3
+          rm -rf ios/Pods ios/Podfile.lock
+          npx expo prebuild --platform ios --clean
+          
+          # Fix Podfile: remove react-native-google-maps references if present
+          if grep -q "pod 'react-native-google-maps'" ios/Podfile; then
+            echo "Removing react-native-google-maps from Podfile..."
+            sed -i.bak "/pod 'react-native-google-maps'/d" ios/Podfile
+          fi
+          
+          # Ensure react-native-maps has proper subspecs
+          if grep -q "react-native-maps" ios/Podfile && ! grep -q "subspecs.*Maps.*Google" ios/Podfile; then
+            echo "Adding subspecs to react-native-maps..."
+            sed -i.bak "s/pod 'react-native-maps'/pod 'react-native-maps', :subspecs => ['Maps', 'Google']/g" ios/Podfile
+          fi
+          
+          cd ios
+          pod install --repo-update --verbose
           cd ..
           
       - name: Build iOS LOCAL (TestFlight)
