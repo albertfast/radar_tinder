@@ -152,7 +152,8 @@ module.exports = {
       ],
       "./plugins/withFirebasePodfile.js",
       "./plugins/withPodfileFix.js",
-      "./plugins/withSettingsGradleFix.js"
+      "./plugins/withSettingsGradleFix.js",
+      "./plugins/withOnnxRuntime.js"
     ],
     extra: {
       eas: {
