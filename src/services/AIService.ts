@@ -31,9 +31,9 @@ let isModelLoading = false;
 let modelLoadError: string | null = null;
 let ortModuleCache: OrtModule | null | undefined;
 
-// Fallback base URL for remote-hosted models. You can override by setting
-// `MODEL_BASE_URL` at build-time or replacing this string with your CDN URL.
-const REMOTE_MODEL_BASE = 'https://raw.githubusercontent.com/albertfast/radar_tinder/master/assets/models';
+// Optional fallback base URL for remote-hosted models.
+// Leave empty to force loading only from bundled assets.
+const REMOTE_MODEL_BASE = '';
 
 export class AIService {
   private static getOrtModule(): OrtModule {
@@ -43,7 +43,8 @@ export class AIService {
     }
 
     const onnxNative = (NativeModules as any)?.Onnxruntime;
-    if (!onnxNative || typeof onnxNative.install !== 'function') {
+    const onnxJsiHelper = (NativeModules as any)?.OnnxruntimeJSIHelper;
+    if (!onnxNative || !onnxJsiHelper || typeof onnxJsiHelper.install !== 'function') {
       ortModuleCache = null;
       modelLoadError =
         'ONNX Runtime native module is unavailable in this build. Rebuild the Android dev client and reinstall the app.';
@@ -63,6 +64,18 @@ export class AIService {
       modelLoadError = `Failed to initialize ONNX Runtime bridge: ${message}`;
       throw new Error(modelLoadError);
     }
+  }
+
+  private static buildRemoteModelUrl(fileName: string): string | null {
+    const base = (REMOTE_MODEL_BASE || '').trim().replace(/\/+$/, '');
+    if (!base) return null;
+    if (!/^https?:\/\//i.test(base)) {
+      console.warn(
+        `Skipping remote model fallback because REMOTE_MODEL_BASE is not an absolute URL: ${base}`
+      );
+      return null;
+    }
+    return `${base}/${fileName}`;
   }
 
   private static softmax(logits: Float32Array): Float32Array {
@@ -267,12 +280,15 @@ export class AIService {
       return ocrSession;
     } catch (error) {
       console.error('Error loading OCR model from bundled asset:', error);
+      const fallbackUrl = this.buildRemoteModelUrl('digital_ocr_net.onnx');
+      if (!fallbackUrl) {
+        throw error instanceof Error ? error : new Error('Failed to load OCR model');
+      }
       // Attempt fallback to remote model URL
       try {
-        const remoteUrl = `${REMOTE_MODEL_BASE}/digital_ocr_net.onnx`;
         const remotePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx`;
-        console.warn('Attempting to download OCR model from remote URL:', remoteUrl);
-        await FileSystem.downloadAsync(remoteUrl, remotePath);
+        console.warn('Attempting to download OCR model from remote URL:', fallbackUrl);
+        await FileSystem.downloadAsync(fallbackUrl, remotePath);
         const ort = this.getOrtModule();
         ocrSession = await ort.InferenceSession.create(remotePath);
         return ocrSession;
@@ -397,11 +413,14 @@ export class AIService {
         }
 
         // Try remote fallback
+        const fallbackUrl = this.buildRemoteModelUrl('dashboard_net.onnx');
+        if (!fallbackUrl) {
+          throw new Error(`Failed to load dashboard model: ${modelLoadError}`);
+        }
         try {
           console.log('Attempting to download dashboard model from remote URL...');
-          const remoteUrl = `${REMOTE_MODEL_BASE}/dashboard_net.onnx`;
           const remotePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/dashboard_net.onnx`;
-          await FileSystem.downloadAsync(remoteUrl, remotePath);
+          await FileSystem.downloadAsync(fallbackUrl, remotePath);
           console.log('Dashboard model downloaded from remote URL');
           await this.ensureDashboardSidecar(remotePath);
           const ort = this.getOrtModule();
