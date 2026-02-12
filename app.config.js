@@ -20,7 +20,7 @@ module.exports = {
     name: "Radar Tinder",
     scheme: "radartinder",
     slug: "radar-tinder",
-    version: "1.0.4",
+    version: "1.0.5",
     icon: "./assets/icon.png",
     orientation: "portrait",
     userInterfaceStyle: "light",
@@ -81,6 +81,7 @@ module.exports = {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#0B0F1A"
       },
+      jsEngine: "jsc",
       permissions: [
         "ACCESS_BACKGROUND_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -126,6 +127,8 @@ module.exports = {
             minSdkVersion: 24,
             targetSdkVersion: 35,
             compileSdkVersion: 35,
+            gradlePluginVersion: "8.0.2",
+
             packagingOptions: {
               pickFirst: ["**/libreactnative.so"]
             },
@@ -160,7 +163,7 @@ module.exports = {
       }
     },
     owner: "albertfast",
-    runtimeVersion: "1.0.4",
+    runtimeVersion: "1.0.45",
     updates: {
       enabled: true,
       url: "https://u.expo.dev/62bbc6f8-257a-48e8-adb8-0b80558e3e92",
