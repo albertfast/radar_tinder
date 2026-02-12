@@ -11,6 +11,7 @@ import {
   FlatList,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
   Text, 
   Surface,
@@ -45,7 +46,7 @@ import { RadarAnimation } from '../components/RadarAnimation';
 import RadarMap from '../components/RadarMap';
 import { RadarGraphicView } from './components/RadarGraphicView';
 import { ANIMATION_TIMING } from '../utils/animationConstants';
-import { getResponsivePadding, getResponsiveFontSize, getResponsiveMargin, getResponsiveWidth, getResponsiveHeight, getUIScale } from '../constants/layout';
+import { TAB_BAR_HEIGHT, getResponsivePadding, getResponsiveFontSize, getResponsiveMargin, getResponsiveWidth, getResponsiveHeight, getUIScale } from '../constants/layout';
 
 const { width, height } = Dimensions.get('window');
 
@@ -172,6 +173,11 @@ const RadarScreen = ({ navigation, route }: any) => {
     left: mapOverlayInset,
   };
 
+  // Safe area & tab bar height to avoid overlaps (e.g., Start Driving button vs. pill tab)
+  const insets = useSafeAreaInsets();
+  const bottomSafe = Math.max(insets.bottom, 10);
+  const tabBarInset = TAB_BAR_HEIGHT + bottomSafe + 16;
+
   // Force tab when navigation params request it
   useEffect(() => {
     const forceTab = route?.params?.forceTab as TabType | undefined;
@@ -232,11 +238,11 @@ const RadarScreen = ({ navigation, route }: any) => {
     return () => deactivateKeepAwake();
   }, [isDriving]);
 
-  // Hide bottom tab bar in driving mode
+  // Hide bottom tab bar in driving mode or when Map tab is active
   useEffect(() => {
-    setTabBarHidden(isDriving);
+    setTabBarHidden(isDriving || activeTab === 'Map');
     return () => setTabBarHidden(false);
-  }, [isDriving, setTabBarHidden]);
+  }, [isDriving, activeTab, setTabBarHidden]);
 
   // Load recent destinations for local suggestions
   useEffect(() => {
@@ -1513,7 +1519,11 @@ const RadarScreen = ({ navigation, route }: any) => {
           </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false} scrollEnabled={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: tabBarInset + getResponsiveHeight(120) }}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={false}
+      >
           {/* Pro perks moved up */}
           <View style={styles.sliderContainer}>
               <LinearGradient
@@ -1610,7 +1620,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                   />
               </View>
 
-              <TouchableOpacity style={styles.startButton} onPress={toggleDrivingMode}>
+              <TouchableOpacity style={[styles.startButton, { marginBottom: tabBarInset - 24 }]} onPress={toggleDrivingMode}>
                   <LinearGradient
                     colors={['#FF6B6B', '#FF5252']}
                     start={{ x: 0, y: 0 }}

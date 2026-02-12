@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useCallback } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -66,7 +66,12 @@ const PillTabBar = React.memo(({ state, descriptors, navigation }: BottomTabBarP
 
   return (
     <Animated.View
-      style={[styles.tabWrapper, { paddingBottom: Math.max(insets.bottom + 8, 18) }, animatedStyle]}
+      style={[
+        styles.tabWrapper,
+        { paddingBottom: Math.max(insets.bottom + 8, 18) },
+        animatedStyle,
+        tabBarHidden && Platform.OS === 'android' ? styles.tabHidden : null,
+      ]}
       pointerEvents={tabBarHidden ? 'none' : 'auto'}
     >
       <LinearGradient
@@ -213,6 +218,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  tabHidden: {
+    // On some Android devices the translate animation isn't enough to fully hide;
+    // fall back to display: 'none' while hidden for reliability.
+    display: 'none',
   },
   tabItemCenter: {
     transform: [{ translateY: -6 }],

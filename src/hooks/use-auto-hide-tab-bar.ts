@@ -4,14 +4,17 @@ import { useUiStore } from '../store/uiStore';
 
 const SCROLL_THRESHOLD = 12;
 
+/**
+ * NOTE: On Android the Nav bar can overlap; we rely on global store state.
+ * Ensure this hook never leaves the tab bar hidden on unmount.
+ */
+
 export const useAutoHideTabBar = () => {
   const setTabBarHidden = useUiStore((state) => state.setTabBarHidden);
   const lastOffsetRef = useRef(0);
 
   useEffect(() => {
-    return () => {
-      setTabBarHidden(false);
-    };
+    return () => setTabBarHidden(false);
   }, [setTabBarHidden]);
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
