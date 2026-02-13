@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 16.30.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -46,8 +46,7 @@
       "distribution": "store",
       "developmentClient": false,
       "env": {
-        "EXPO_SKIP_DOCTOR_CHECK": "1",
-        "RCT_NEW_ARCH_ENABLED": "1"
+        "EXPO_SKIP_DOCTOR_CHECK": "1"
       },
       "ios": {
         "simulator": false,
@@ -61,8 +60,7 @@
       "developmentClient": false,
       "autoIncrement": true,
       "env": {
-        "EXPO_SKIP_DOCTOR_CHECK": "1",
-        "RCT_NEW_ARCH_ENABLED": "1"
+        "EXPO_SKIP_DOCTOR_CHECK": "1"
       },
       "ios": {
         "simulator": false,

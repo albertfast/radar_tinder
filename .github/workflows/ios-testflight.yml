@@ -14,7 +14,6 @@ jobs:
       EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
       EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
       EAS_NO_VCS: 1
-      RCT_NEW_ARCH_ENABLED: "1"
       IPHONEOS_DEPLOYMENT_TARGET: "16.1"
     steps:
       - name: Checkout repository
@@ -85,6 +84,14 @@ jobs:
             [
               'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGMSPolygon.h',
               '#import "AIRMap.h"'
+            ],
+            [
+              'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMapOverlay.m',
+              '#import <React/RCTEventDispatcherProtocol.h>'
+            ],
+            [
+              'node_modules/react-native/React/Views/RCTComponentData.h',
+              '@protocol RCTEventDispatcherProtocol;'
             ],
           ];
           for (const [filePath, expected] of checks) {
@@ -160,19 +167,7 @@ jobs:
           ls -la node_modules/.pnpm/react-native-maps* | head -3
           rm -rf ios/Pods ios/Podfile.lock
           npx expo prebuild --platform ios --clean
-          
-          # Fix Podfile: remove react-native-google-maps references if present
-          if grep -q "pod 'react-native-google-maps'" ios/Podfile; then
-            echo "Removing react-native-google-maps from Podfile..."
-            sed -i.bak "/pod 'react-native-google-maps'/d" ios/Podfile
-          fi
-          
-          # Ensure react-native-maps has proper subspecs
-          if grep -q "react-native-maps" ios/Podfile && ! grep -q "subspecs.*Maps.*Google" ios/Podfile; then
-            echo "Adding subspecs to react-native-maps..."
-            sed -i.bak "s/pod 'react-native-maps'/pod 'react-native-maps', :subspecs => ['Maps', 'Google']/g" ios/Podfile
-          fi
-          
+          # Keep generated Podfile intact; plugin logic already handles maps pod variant by package version.
           cd ios
           pod install --repo-update --verbose
           cd ..
