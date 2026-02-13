@@ -49,7 +49,7 @@ export class AIService {
     if (!onnxNative || !onnxJsiHelper || typeof onnxJsiHelper.install !== 'function') {
       ortModuleCache = null;
       modelLoadError =
-        'ONNX Runtime native module is unavailable in this build. Rebuild the Android dev client and reinstall the app.';
+        'ONNX Runtime native module is unavailable in this build. Rebuild and reinstall the app, then retry.';
       throw new Error(modelLoadError);
     }
 
@@ -327,7 +327,8 @@ export class AIService {
       console.error('Error loading OCR model from bundled asset:', error);
       const fallbackUrl = this.buildRemoteModelUrl('digital_ocr_net.onnx');
       if (!fallbackUrl) {
-        throw error instanceof Error ? error : new Error('Failed to load OCR model');
+        modelLoadError = error instanceof Error ? error.message : 'Failed to load OCR model';
+        throw new Error(modelLoadError);
       }
       // Attempt fallback to remote model URL
       try {
@@ -339,7 +340,9 @@ export class AIService {
         return ocrSession;
       } catch (remoteError) {
         console.error('Error loading OCR model from remote URL:', remoteError);
-        throw new Error('Failed to load OCR model');
+        modelLoadError =
+          remoteError instanceof Error ? remoteError.message : 'Failed to load OCR model';
+        throw new Error(modelLoadError);
       }
     }
   }
@@ -365,6 +368,21 @@ export class AIService {
       if (!source) {
         console.warn('Dashboard model data source not available');
         return null;
+      }
+
+      const sourceInfo = await FileSystem.getInfoAsync(source);
+      if (sourceInfo.exists && typeof sourceInfo.size === 'number' && sourceInfo.size <= 32) {
+        try {
+          const marker = await FileSystem.readAsStringAsync(source, {
+            encoding: FileSystem.EncodingType.UTF8
+          });
+          if (marker.trim().toUpperCase() === 'PLACEHOLDER') {
+            console.log('Dashboard sidecar is placeholder; skipping sidecar copy');
+            return null;
+          }
+        } catch {
+          // ignore marker read issues and continue regular copy flow
+        }
       }
 
       console.log('Copying dashboard model sidecar to:', targetPath);
@@ -1208,26 +1226,24 @@ export class AIService {
   static async preloadModels(): Promise<boolean> {
     try {
       console.log('Preloading AI models...');
-      if (Platform.OS === 'ios') {
-        // iOS'ta sırayla yükleme daha stabil
-        await this.loadDashboardModel();
+
+      // Dashboard model is required for AI diagnose screen.
+      await this.loadDashboardModel();
+
+      // OCR is optional for dashboard-light flow; don't block screen readiness on OCR failures.
+      try {
         await this.loadOcrModel();
-      } else {
-        // Android'te paralel yükleme daha hızlı
-        await Promise.all([this.loadDashboardModel(), this.loadOcrModel()]);
+      } catch (ocrError) {
+        const ocrMessage = ocrError instanceof Error ? ocrError.message : String(ocrError);
+        console.warn('OCR model preload failed (continuing with dashboard model):', ocrMessage);
       }
-      console.log('Models preloaded successfully');
+
+      console.log('Required models preloaded successfully');
       return true;
     } catch (error) {
       console.error('Model preload failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      // iOS için daha iyi hata yönetimi
-      if (Platform.OS === 'ios' && errorMessage.includes('Failed to load')) {
-        console.log('iOS model loading failed, will retry on demand');
-        return false;
-      }
-      
+      modelLoadError = errorMessage;
       return false;
     }
   }

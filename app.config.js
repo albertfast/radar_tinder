@@ -81,7 +81,7 @@ module.exports = {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#0B0F1A"
       },
-      jsEngine: "jsc",
+      jsEngine: "hermes",
       permissions: [
         "ACCESS_BACKGROUND_LOCATION",
         "ACCESS_COARSE_LOCATION",
