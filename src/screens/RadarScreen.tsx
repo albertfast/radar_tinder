@@ -1245,51 +1245,48 @@ const RadarScreen = ({ navigation, route }: any) => {
 
               <View style={{ flex: 1 }}>
                   {activeTab === 'Basic' && (
-                      <View style={styles.basicContainer}>
-                          <View style={styles.basicTopAdContainer}>
-                              <AdBanner />
-                          </View>
+                      <ScrollView
+                        style={styles.basicScroll}
+                        contentContainerStyle={[styles.basicContainer, { paddingBottom: tabBarInset + 22 }]}
+                        showsVerticalScrollIndicator={false}
+                        scrollEnabled
+                      >
+                        <View style={styles.basicTopAdContainer}>
+                          <AdBanner size="LARGE_BANNER" />
+                        </View>
 
-                          <View style={styles.hudCircle}>
-                              <Text style={styles.speedText}>{formatSpeed(currentSpeed, unitSystem).split(' ')[0]}</Text>
-                              <Text style={styles.unitText}>{formatSpeed(currentSpeed, unitSystem).split(' ')[1]}</Text>
-                              <View style={[styles.ring, { borderColor: '#4ECDC4' }]} />
-                              <View style={[styles.ring, { width: 230, height: 230, borderColor: 'rgba(78,205,196,0.3)', borderWidth: 1 }]} />
-                          </View>
+                        <View style={styles.hudCircle}>
+                          <Text style={styles.speedText}>{formatSpeed(currentSpeed, unitSystem).split(' ')[0]}</Text>
+                          <Text style={styles.unitText}>{formatSpeed(currentSpeed, unitSystem).split(' ')[1]}</Text>
+                          <View style={[styles.ring, { borderColor: '#4ECDC4' }]} />
+                          <View style={[styles.ring, { width: 230, height: 230, borderColor: 'rgba(78,205,196,0.3)', borderWidth: 1 }]} />
+                        </View>
 
-                          <View style={styles.alertsList}>
-                              <Text style={styles.sectionHeader}>NEARBY RADARS</Text>
-                              {nearbyRadars.length > 0 ? (
-                                  nearbyRadars.slice(0, 10).map((r, i) => (
-                                      <View key={i} style={styles.alertItem}>
-                                          <MaterialCommunityIcons 
-                                            name={r.type === 'police' ? 'alarm-light' : 'camera'} 
-                                            size={24} 
-                                            color={r.type === 'police' ? '#FF5252' : '#4ECDC4'} 
-                                          />
-                                          <Text style={styles.alertText}>
-                                              {r.type === 'police' ? 'Police Spotted' : 'Speed Camera'}
-                                          </Text>
-                                          <Text style={styles.alertDist}>{formatDistance(r.distance, unitSystem)}</Text>
-                                      </View>
-                                  ))
-                              ) : (
-                                  <Text style={{color: '#666', marginTop: 10, textAlign: 'center'}}>Scanning area...</Text>
-                              )}
-                          </View>
+                        <View style={styles.alertsList}>
+                          <Text style={styles.sectionHeader}>NEARBY RADARS</Text>
+                          {nearbyRadars.length > 0 ? (
+                            nearbyRadars.slice(0, 20).map((r, i) => (
+                              <View key={i} style={styles.alertItem}>
+                                <MaterialCommunityIcons
+                                  name={r.type === 'police' ? 'alarm-light' : 'camera'}
+                                  size={24}
+                                  color={r.type === 'police' ? '#FF5252' : '#4ECDC4'}
+                                />
+                                <Text style={styles.alertText}>
+                                  {r.type === 'police' ? 'Police Spotted' : 'Speed Camera'}
+                                </Text>
+                                <Text style={styles.alertDist}>{formatDistance(r.distance, unitSystem)}</Text>
+                              </View>
+                            ))
+                          ) : (
+                            <Text style={{ color: '#666', marginTop: 10, textAlign: 'center' }}>Scanning area...</Text>
+                          )}
+                        </View>
 
-                          <View
-                            style={{
-                              marginTop: 'auto',
-                              paddingTop: 15,
-                              paddingBottom: tabBarInset + 8,
-                              alignItems: 'center',
-                              width: '100%',
-                            }}
-                          >
-                               <AdBanner />
-                          </View>
-                      </View>
+                        <View style={styles.basicBottomAdContainer}>
+                          <AdBanner size="MEDIUM_RECTANGLE" />
+                        </View>
+                      </ScrollView>
                   )}
 
                   {activeTab === 'Map' && (
@@ -1863,11 +1860,18 @@ const styles = StyleSheet.create({
   progressDistance: { alignItems: 'center', justifyContent: 'center' },
   progressDistanceText: { color: '#4ECDC4', fontWeight: 'bold', fontSize: 12 },
   
+  basicScroll: { flex: 1 },
   basicContainer: { alignItems: 'center', paddingTop: 20 },
   basicTopAdContainer: {
     width: '100%',
     alignItems: 'center',
     marginBottom: 14,
+    paddingHorizontal: 12,
+  },
+  basicBottomAdContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 8,
     paddingHorizontal: 12,
   },
   hudCircle: { width: 220, height: 220, borderRadius: 110, justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: '#222', backgroundColor: '#111' },
