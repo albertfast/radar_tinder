@@ -13,6 +13,11 @@ jobs:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
       EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_KEY }}
+      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+      EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID }}
+      EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID }}
       EAS_NO_VCS: 1
       IPHONEOS_DEPLOYMENT_TARGET: "16.1"
     steps:
@@ -62,6 +67,20 @@ jobs:
             ${{ runner.os }}-pnpm-store-
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
+
+      - name: Validate required public envs
+        run: |
+          missing=0
+          for key in EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_KEY; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required secret/env: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Required EXPO_PUBLIC_* variables are missing. Aborting build early."
+            exit 1
+          fi
 
       - name: Apply dependency patches
         run: |
