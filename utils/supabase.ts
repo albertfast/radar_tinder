@@ -36,6 +36,8 @@ const createMissingEnvError = () => new Error(MISSING_ENV_MESSAGE);
 
 const createUnavailableSupabaseClient = () => {
   const fail = async () => ({ data: null, error: createMissingEnvError() });
+  const noop = () => {};
+  const emptySubscription = { unsubscribe: noop };
 
   const channelRef: any = {
     on: () => channelRef,
@@ -65,6 +67,11 @@ const createUnavailableSupabaseClient = () => {
       signUp: fail,
       signInAnonymously: fail,
       signOut: async () => ({ error: null }),
+      onAuthStateChange: (_callback: any) => ({
+        data: { subscription: emptySubscription },
+      }),
+      startAutoRefresh: noop,
+      stopAutoRefresh: noop,
       getSession: async () => ({
         data: { session: null },
         error: createMissingEnvError(),
