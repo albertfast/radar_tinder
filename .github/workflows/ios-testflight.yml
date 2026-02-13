@@ -71,7 +71,7 @@ jobs:
           const checks = [
             [
               'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMapMarkerManager.h',
-              '#import <React/RCTViewManager.h>'
+              '#import "AIRMapCalloutManager.h"'
             ],
             [
               'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGMSMarker.h',
@@ -184,7 +184,7 @@ jobs:
                    
       - name: Build iOS LOCAL (TestFlight)
         run: |
-          eas build --platform ios --profile testflight --local --non-interactive --output ./RadarTinder.ipa
+          eas build --platform ios --profile testflight --local --non-interactive --clear-cache --output ./RadarTinder.ipa
         env:
           EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH: >-
             ${{ github.workspace }}/credentials/AuthKey_${{ secrets.ASC_API_KEY_ID }}.p8

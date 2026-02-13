@@ -64,6 +64,26 @@ $RNFirebaseAsStaticFramework = true
       patched = gmu_content.gsub('@import GoogleMaps;', '#import <GoogleMaps/GoogleMaps.h>')
       File.write(gmu_header, patched) if patched != gmu_content
     end
+
+    # Xcode 26 strict module checks: keep this header chained through
+    # AIRMapCalloutManager instead of direct React/RCTViewManager import.
+    rn_maps_marker_header = File.join(
+      __dir__,
+      '..',
+      'node_modules',
+      'react-native-maps',
+      'ios',
+      'AirGoogleMaps',
+      'AIRGoogleMapMarkerManager.h'
+    )
+    if File.exist?(rn_maps_marker_header)
+      marker_content = File.read(rn_maps_marker_header)
+      marker_patched = marker_content.gsub(
+        '#import <React/RCTViewManager.h>',
+        '#import "AIRMapCalloutManager.h"'
+      )
+      File.write(rn_maps_marker_header, marker_patched) if marker_patched != marker_content
+    end
 `;
 
         let nextContent = podfileContent.replace(
