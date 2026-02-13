@@ -33,9 +33,9 @@ let modelLoadError: string | null = null;
 let ortModuleCache: OrtModule | null | undefined;
 let dashboardKbValidated = false;
 
-// Optional fallback base URL for remote-hosted models.
-// Leave empty to force loading only from bundled assets.
-const REMOTE_MODEL_BASE = '';
+// Emergency fallback base URL for remote-hosted models.
+// Primary source is always embedded app assets; this is used only if local loading fails.
+const REMOTE_MODEL_BASE = 'https://raw.githubusercontent.com/albertfast/radar_tinder/master/assets/models';
 
 export class AIService {
   private static getOrtModule(): OrtModule {
@@ -69,7 +69,7 @@ export class AIService {
   }
 
   private static buildRemoteModelUrl(fileName: string): string | null {
-    const base = (REMOTE_MODEL_BASE || '').trim().replace(/\/+$/, '');
+    let base = (REMOTE_MODEL_BASE || '').trim().replace(/\/+$/, '');
     if (!base) return null;
     if (!/^https?:\/\//i.test(base)) {
       console.warn(
@@ -77,7 +77,69 @@ export class AIService {
       );
       return null;
     }
+
+    // Convert GitHub blob URLs to raw URLs (downloadable binary).
+    const blobMatch = base.match(
+      /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/i
+    );
+    if (blobMatch) {
+      const [, owner, repo, branch, restPath] = blobMatch;
+      base = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${restPath}`;
+    }
+
+    try {
+      const parsed = new URL(base);
+      const pathParts = parsed.pathname.split('/').filter(Boolean);
+      const looksLikeFile = pathParts.length > 0 && /\.[a-z0-9]+$/i.test(pathParts[pathParts.length - 1]);
+      if (looksLikeFile) {
+        pathParts[pathParts.length - 1] = fileName;
+        parsed.pathname = `/${pathParts.join('/')}`;
+        return parsed.toString();
+      }
+    } catch {
+      // Fallback to simple concatenation below.
+    }
+
     return `${base}/${fileName}`;
+  }
+
+  private static isLoopbackAssetUri(uri: string): boolean {
+    return /(^|\/\/)(127\.0\.0\.1|localhost)(:|\/|$)/i.test(uri);
+  }
+
+  private static isRemoteHttpUri(uri: string): boolean {
+    return /^https?:\/\//i.test(uri);
+  }
+
+  private static resolveBundledAssetUri(asset: Asset, label: string): string {
+    const candidates = [asset.localUri, (asset as any).uri, asset.uri].filter(
+      (v): v is string => typeof v === 'string' && v.length > 0
+    );
+    const local = candidates.find((uri) => !this.isRemoteHttpUri(uri));
+    if (local) return local;
+
+    const loopback = candidates.find((uri) => this.isLoopbackAssetUri(uri));
+    if (loopback) {
+      throw new Error(
+        `${label} is resolving to Metro localhost (${loopback}). This build must load models from embedded app assets only.`
+      );
+    }
+
+    if (candidates.length > 0) {
+      throw new Error(`${label} is not an embedded local asset: ${candidates[0]}`);
+    }
+
+    throw new Error(`${label} asset URI not found in app bundle.`);
+  }
+
+  private static isEmbeddedAssetErrorMessage(message: string): boolean {
+    const text = (message || '').toLowerCase();
+    return (
+      text.includes('metro localhost') ||
+      text.includes('embedded app assets only') ||
+      text.includes('not an embedded local asset') ||
+      text.includes('asset uri not found in app bundle')
+    );
   }
 
   private static softmax(logits: Float32Array): Float32Array {
@@ -266,18 +328,7 @@ export class AIService {
     
     try {
       const asset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx'));
-      await asset.downloadAsync();
-      let candidateUri: string | null = asset.localUri || (asset as any).uri || null;
-      const isLoopback =
-        typeof candidateUri === 'string' &&
-        (candidateUri.includes('127.0.0.1') || candidateUri.includes('localhost'));
-      if (isLoopback) {
-        candidateUri = null;
-      }
-
-      if (!candidateUri) {
-        throw new Error('Bundled OCR model URI unavailable (dev server unreachable).');
-      }
+      const candidateUri = this.resolveBundledAssetUri(asset, 'Bundled OCR model');
 
       const modelPath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx`;
       await FileSystem.copyAsync({
@@ -287,23 +338,12 @@ export class AIService {
 
       try {
         const dataAsset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx.data'));
-        await dataAsset.downloadAsync();
-        let dataUri: string | null = dataAsset.localUri || (dataAsset as any).uri || null;
-        const dataIsLoopback =
-          typeof dataUri === 'string' &&
-          (dataUri.includes('127.0.0.1') || dataUri.includes('localhost'));
-
-        if (dataIsLoopback) {
-          dataUri = null;
-        }
-
-        if (dataUri) {
-          const dataPath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx.data`;
-          await FileSystem.copyAsync({
-            from: dataUri,
-            to: dataPath
-          });
-        }
+        const dataUri = this.resolveBundledAssetUri(dataAsset, 'Bundled OCR sidecar');
+        const dataPath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx.data`;
+        await FileSystem.copyAsync({
+          from: dataUri,
+          to: dataPath
+        });
       } catch (dataError) {
         // Model may be self-contained without external data.
       }
@@ -339,7 +379,6 @@ export class AIService {
     try {
       console.log('Ensuring dashboard model sidecar file...');
       const dataAsset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx.data'));
-      await dataAsset.downloadAsync();
       console.log('Dashboard model data asset downloaded');
 
       const targetPath = modelPath.endsWith('.onnx')
@@ -352,11 +391,7 @@ export class AIService {
         return targetPath;
       }
 
-      const source = dataAsset.localUri || dataAsset.uri;
-      if (!source) {
-        console.warn('Dashboard model data source not available');
-        return null;
-      }
+      const source = this.resolveBundledAssetUri(dataAsset, 'Bundled dashboard sidecar');
 
       const sourceInfo = await FileSystem.getInfoAsync(source);
       if (sourceInfo.exists && typeof sourceInfo.size === 'number' && sourceInfo.size <= 32) {
@@ -400,18 +435,7 @@ export class AIService {
         console.log('Loading Dashboard model...');
         
         const asset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx'));
-        await asset.downloadAsync();
-        let candidateUri: string | null = asset.localUri || (asset as any).uri || null;
-        const isLoopback =
-          typeof candidateUri === 'string' &&
-          (candidateUri.includes('127.0.0.1') || candidateUri.includes('localhost'));
-        if (isLoopback) {
-          candidateUri = null;
-        }
-
-        if (!candidateUri) {
-          throw new Error('Dashboard model asset URI missing or unreachable (dev server?)');
-        }
+        const candidateUri = this.resolveBundledAssetUri(asset, 'Bundled dashboard model');
         console.log('Dashboard model asset downloaded');
 
         const cachePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/dashboard_net.onnx`;
@@ -433,16 +457,10 @@ export class AIService {
 
             if (shouldRefreshCache) {
               console.log('Copying dashboard model to cache directory');
-              if (String(candidateUri).startsWith('file://')) {
+              if (String(candidateUri).startsWith('file://') || String(candidateUri).startsWith('content://')) {
                 await FileSystem.copyAsync({ from: candidateUri, to: cachePath });
-              } else if (/^https?:\/\//i.test(String(candidateUri))) {
-                await FileSystem.downloadAsync(candidateUri, cachePath);
               } else {
-                try {
-                  await FileSystem.copyAsync({ from: candidateUri, to: cachePath });
-                } catch {
-                  await FileSystem.downloadAsync(candidateUri, cachePath);
-                }
+                await FileSystem.copyAsync({ from: candidateUri, to: cachePath });
               }
               console.log('Dashboard model copied to cache');
             }
@@ -732,6 +750,18 @@ export class AIService {
     } catch (error) {
       console.error('On-Device AI Analysis Error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (this.isEmbeddedAssetErrorMessage(errorMessage)) {
+        return {
+          issue: "Embedded Model Missing",
+          confidence: 0,
+          recommendations: [
+            "AI model must be loaded from bundled app assets, not Metro localhost.",
+            "Install/run a build that embeds model files (internal/release APK), then retry."
+          ],
+          category: "Error",
+          details: { error: errorMessage }
+        };
+      }
       if (errorMessage.toLowerCase().includes('onnx runtime native module is unavailable')) {
         return {
           issue: "AI Module Missing",
@@ -1085,6 +1115,18 @@ export class AIService {
       if (!dashboardAnalysisErrorLogged) {
         console.error('Dashboard analysis failed:', errorMessage);
         dashboardAnalysisErrorLogged = true;
+      }
+      if (this.isEmbeddedAssetErrorMessage(errorMessage)) {
+        return {
+          issue: "Embedded Model Missing",
+          confidence: 0,
+          recommendations: [
+            "Dashboard model must load from bundled app assets (no localhost/Metro).",
+            "Install/run an internal or release build that embeds the ONNX files."
+          ],
+          category: "Error",
+          details: { error: errorMessage }
+        };
       }
       return {
         issue: "Analysis Failed",
