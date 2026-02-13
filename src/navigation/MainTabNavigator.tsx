@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 import RadarNavigator from './RadarNavigator';
 import ProfileNavigator from './ProfileNavigator';
@@ -57,19 +58,32 @@ const PillTabBar = React.memo(({ state, descriptors, navigation }: BottomTabBarP
     opacity: opacity.value,
   }));
 
-  const handleTabPress = useCallback((routeName: string, isFocused: boolean) => {
-    if (isFocused) return;
-    
-    const event = navigation.emit({
-      type: 'tabPress',
-      target: routeName,
-      canPreventDefault: true,
-    });
+  const handleTabPress = useCallback(
+    (route: (typeof state.routes)[number], isFocused: boolean) => {
+      const isCenter = route.name === 'Drive';
+      if (isFocused && !isCenter) return;
 
-    if (!event.defaultPrevented) {
-      navigation.navigate(routeName as never);
-    }
-  }, [navigation]);
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: route.key,
+        canPreventDefault: true,
+      });
+
+      if (event.defaultPrevented) return;
+
+      if (isCenter) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+        (navigation as any).navigate('Drive', {
+          screen: 'RadarMain',
+          params: { forceTab: 'Map' },
+        });
+        return;
+      }
+
+      navigation.navigate(route.name as never);
+    },
+    [navigation, state.routes]
+  );
 
   return (
     <Animated.View
@@ -106,7 +120,7 @@ const PillTabBar = React.memo(({ state, descriptors, navigation }: BottomTabBarP
               key={route.key}
               accessibilityRole="button"
               accessibilityState={isFocused ? { selected: true } : {}}
-              onPress={() => handleTabPress(route.name, isFocused)}
+              onPress={() => handleTabPress(route, isFocused)}
               style={[
                 styles.tabItem,
                 isCenter && styles.tabItemCenter,
@@ -186,7 +200,7 @@ const MainTabNavigator = () => {
       <Tab.Screen
         name="Drive"
         component={RadarNavigator}
-        initialParams={{ forceTab: 'Graphic' }}
+        initialParams={{ forceTab: 'Map' }}
         options={{
           lazy: true,
           unmountOnBlur: false

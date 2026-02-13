@@ -650,7 +650,7 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   const toggleDrivingMode = async () => {
     if (!isDriving) {
-        setActiveTab('Basic');
+        setActiveTab('Map');
         const startTime = new Date();
         setDrivingStartTime(startTime);
         drivingStartTimeRef.current = startTime;
@@ -907,10 +907,8 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, [currentLocation, markInteracting]);
 
   const handleNavigate = async (targetDest?: string) => {
-      if (!canUsePro) {
-        alert('Navigation is a Pro feature. Upgrade to unlock turn-by-turn guidance.');
-        navigation.navigate('Subscription');
-        return;
+      if (!canUsePro && AdService.shouldShowAds()) {
+        await AdService.showInterstitial();
       }
       const finalDest = targetDest || destination;
       // Simplified navigate logic
@@ -1248,6 +1246,10 @@ const RadarScreen = ({ navigation, route }: any) => {
               <View style={{ flex: 1 }}>
                   {activeTab === 'Basic' && (
                       <View style={styles.basicContainer}>
+                          <View style={styles.basicTopAdContainer}>
+                              <AdBanner />
+                          </View>
+
                           <View style={styles.hudCircle}>
                               <Text style={styles.speedText}>{formatSpeed(currentSpeed, unitSystem).split(' ')[0]}</Text>
                               <Text style={styles.unitText}>{formatSpeed(currentSpeed, unitSystem).split(' ')[1]}</Text>
@@ -1862,6 +1864,12 @@ const styles = StyleSheet.create({
   progressDistanceText: { color: '#4ECDC4', fontWeight: 'bold', fontSize: 12 },
   
   basicContainer: { alignItems: 'center', paddingTop: 20 },
+  basicTopAdContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 14,
+    paddingHorizontal: 12,
+  },
   hudCircle: { width: 220, height: 220, borderRadius: 110, justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: '#222', backgroundColor: '#111' },
   ring: { position: 'absolute', width: 200, height: 200, borderRadius: 100, borderWidth: 4, borderColor: '#333' },
   speedText: { color: 'white', fontSize: 72, fontWeight: '900' },
