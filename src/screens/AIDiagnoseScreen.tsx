@@ -20,6 +20,7 @@ import { hasProAccess } from '../utils/access';
 import ProGate from '../components/ProGate';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AdBanner from '../components/AdBanner';
 
 // Suppress specific warnings that might cause crashes
 LogBox.ignoreLogs([
@@ -510,6 +511,10 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
             For best results, take clear photos in good lighting.
           </Text>
         </Surface>
+
+        <View style={styles.adContainer}>
+          <AdBanner />
+        </View>
       </ScrollView>
     </View>
     </ErrorBoundary>
@@ -544,7 +549,12 @@ const styles = StyleSheet.create({
   resultBlockTitle: { color: '#F8FAFC', fontWeight: '700', marginBottom: 4 },
   resultLine: { color: '#CBD5E1', fontSize: 14, lineHeight: 21 },
   infoBox: { backgroundColor: '#1C1C1E', borderRadius: 16, padding: 15, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: '#333', minHeight: 80 },
-  infoText: { color: '#8E8E93', fontSize: 14, flex: 1, marginLeft: 10, lineHeight: 20 }
+  infoText: { color: '#8E8E93', fontSize: 14, flex: 1, marginLeft: 10, lineHeight: 20 },
+  adContainer: {
+    marginTop: 14,
+    marginBottom: 4,
+    alignItems: 'center',
+  },
 });
 
 export default AIDiagnoseScreen;

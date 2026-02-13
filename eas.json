@@ -47,7 +47,9 @@
       "distribution": "store",
       "developmentClient": false,
       "env": {
-        "EXPO_SKIP_DOCTOR_CHECK": "1"
+        "EXPO_SKIP_DOCTOR_CHECK": "1",
+        "EXPO_PUBLIC_AD_DEBUG": "1",
+        "EXPO_PUBLIC_ADMOB_FORCE_TEST_IDS": "1"
       },
       "ios": {
         "simulator": false,
