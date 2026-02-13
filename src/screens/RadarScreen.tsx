@@ -1276,7 +1276,15 @@ const RadarScreen = ({ navigation, route }: any) => {
                               )}
                           </View>
 
-                          <View style={{ marginTop: 'auto', paddingVertical: 15, alignItems: 'center', width: '100%' }}>
+                          <View
+                            style={{
+                              marginTop: 'auto',
+                              paddingTop: 15,
+                              paddingBottom: tabBarInset + 8,
+                              alignItems: 'center',
+                              width: '100%',
+                            }}
+                          >
                                <AdBanner />
                           </View>
                       </View>
@@ -1450,7 +1458,21 @@ const RadarScreen = ({ navigation, route }: any) => {
                                </View>
                              </View>
                            )}
-                           <View style={styles.mapAdContainer}>
+                           <View
+                             style={[
+                               styles.mapAdContainer,
+                               {
+                                 left: mapOverlayInset,
+                                 right: mapOverlayInset,
+                                 bottom: Math.max(
+                                   tabBarInset + 8,
+                                   isMapNavigationActive
+                                     ? mapNavDockBottom + getResponsiveHeight(84)
+                                     : tabBarInset + 8
+                                 ),
+                               },
+                             ]}
+                           >
                              <AdBanner />
                            </View>
                            <View
@@ -1611,6 +1633,10 @@ const RadarScreen = ({ navigation, route }: any) => {
                       ))}
                   </View>
               </LinearGradient>
+          </View>
+
+          <View style={styles.homeAdContainer}>
+              <AdBanner />
           </View>
 
           <View style={[styles.heroCard, { marginTop: 6, paddingVertical: 14 }]}>
@@ -1861,7 +1887,12 @@ const styles = StyleSheet.create({
   mapControls: { position: 'absolute', alignItems: 'center', zIndex: 10 },
   mapControlButton: { borderRadius: 16, backgroundColor: 'rgba(15,23,42,0.95)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   mapControlButtonActive: { backgroundColor: '#4ECDC4', borderColor: '#4ECDC4' },
-  mapAdContainer: { position: 'absolute', left: 0, right: 0, bottom: 10, alignItems: 'center' },
+  mapAdContainer: { position: 'absolute', alignItems: 'center' },
+  homeAdContainer: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
 
   navCompactRow: {
     flexDirection: 'row',

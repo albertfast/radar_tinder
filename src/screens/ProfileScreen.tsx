@@ -13,6 +13,7 @@ import { SupabaseService } from '../services/SupabaseService';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import AdBanner from '../components/AdBanner';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -65,6 +66,8 @@ const ProfileScreen = ({ navigation }: any) => {
   const { user, logout, updateUser } = useAuthStore();
   const { unitSystem } = useSettingsStore();
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
+  const insets = useSafeAreaInsets();
+  const tabBarInset = TAB_BAR_HEIGHT + Math.max(insets.bottom, 10) + 16;
   const [isEditing, setIsEditing] = useState(false);
   const [username, setUsername] = useState(user?.username || user?.name || '');
   
@@ -147,7 +150,7 @@ const ProfileScreen = ({ navigation }: any) => {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarInset + 24 }]}
         showsVerticalScrollIndicator={false}
         onScroll={onScroll}
         onScrollBeginDrag={onScrollBeginDrag}
@@ -352,7 +355,6 @@ const ProfileScreen = ({ navigation }: any) => {
         </View>
 
         <Text style={styles.version}>v1.0.2 (Beta)</Text>
-        <View style={{height: 100}} /> 
       </ScrollView>
     </Animated.View>
   );

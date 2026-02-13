@@ -12,8 +12,8 @@ import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
 import { HapticPatterns } from '../utils/hapticFeedback';
 import { supabase } from '../../utils/supabase';
 import Radar3DView from '../components/Radar3DView';
-import { hasProAccess } from '../utils/access';
-import ProGate from '../components/ProGate';
+import AdBanner from '../components/AdBanner';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 interface LeaderboardUser {
   id: string;
@@ -28,7 +28,6 @@ type Tone = { bg: string; text: string; border: string };
 
 const LeaderboardScreen = ({ navigation }: NavProps) => {
   const { user } = useAuthStore();
-  const canUse = hasProAccess(user);
   const { unitSystem } = useSettingsStore();
   const [leaders, setLeaders] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,9 +45,8 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   );
 
   useEffect(() => {
-    if (!canUse) return;
     loadLeaderboard(false);
-  }, [canUse]);
+  }, []);
 
   useEffect(() => {
     pulse.value = withRepeat(withTiming(1, { duration: 1200 }), -1, true);
@@ -61,7 +59,6 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   }, []);
 
   useEffect(() => {
-    if (!canUse) return;
     const channel = supabase
       .channel('leaderboard-live')
       .on(
@@ -79,11 +76,6 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   }, []);
 
   const loadLeaderboard = async (silent = false) => {
-    if (!canUse) {
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
     try {
       if (!silent && leaders.length === 0) {
         setLoading(true);
@@ -99,7 +91,6 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   };
 
   const handleRefresh = async () => {
-    if (!canUse) return;
     setRefreshing(true);
     await loadLeaderboard(true);
   };
@@ -289,16 +280,6 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
     );
   };
 
-  if (!canUse) {
-    return (
-      <ProGate
-        title="Leaderboard"
-        subtitle="Upgrade to Pro to compete on the leaderboard."
-        onUpgrade={() => navigation.navigate('Home', { screen: 'Subscription' })}
-      />
-    );
-  }
-
   return (
     <Animated.View 
       style={styles.container}
@@ -396,6 +377,10 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
               </View>
 
               {renderPodium()}
+
+              <View style={styles.adContainer}>
+                <AdBanner />
+              </View>
 
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionLabel}>YOUR IMPACT</Text>
@@ -498,7 +483,7 @@ const styles = StyleSheet.create({
   liveText: { color: '#F87171', fontWeight: 'bold', fontSize: 11, letterSpacing: 1 },
 
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { paddingHorizontal: 20, paddingBottom: 30 },
+  listContent: { paddingHorizontal: 20, paddingBottom: TAB_BAR_HEIGHT + 24 },
   emptyState: { alignItems: 'center', paddingVertical: 60 },
   emptyTitle: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   emptySubtitle: { color: '#94A3B8', marginTop: 6 },
@@ -542,6 +527,11 @@ const styles = StyleSheet.create({
   podiumName: { color: 'white', fontWeight: 'bold', fontSize: 12, marginTop: 8 },
   podiumPoints: { color: 'white', fontWeight: 'bold', marginTop: 6, fontSize: 14 },
   podiumPtsLabel: { color: '#8E8E93', fontSize: 9 },
+  adContainer: {
+    marginTop: 4,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
 
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   sectionLabel: { color: '#64748B', fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
