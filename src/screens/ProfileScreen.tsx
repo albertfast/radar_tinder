@@ -12,6 +12,7 @@ import { HapticPatterns } from '../utils/hapticFeedback';
 import { SupabaseService } from '../services/SupabaseService';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
+import AdBanner from '../components/AdBanner';
 
 const { width } = Dimensions.get('window');
 
@@ -343,8 +344,12 @@ const ProfileScreen = ({ navigation }: any) => {
           accessibilityLabel="Privacy Policy"
           accessibilityRole="link"
         >
-            <Text style={styles.legalText}>Privacy Policy</Text>
+          <Text style={styles.legalText}>Privacy Policy</Text>
         </TouchableOpacity>
+
+        <View style={styles.adContainer}>
+          <AdBanner />
+        </View>
 
         <Text style={styles.version}>v1.0.2 (Beta)</Text>
         <View style={{height: 100}} /> 
@@ -425,6 +430,11 @@ const styles = StyleSheet.create({
 
   legalLink: { alignSelf: 'center', padding: 10 },
   legalText: { color: '#475569', fontSize: 12 },
+  adContainer: {
+    marginTop: 8,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
   version: { textAlign: 'center', color: '#334155', marginTop: 20, fontSize: 10 },
 });
 

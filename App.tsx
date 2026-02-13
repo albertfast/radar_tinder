@@ -76,6 +76,9 @@ import { FirebaseAuthService } from './src/services/FirebaseAuthService';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { supabase } from './utils/supabase';
 
+const isTruthyFlag = (value?: string) => value === '1' || value === 'true' || value === 'yes';
+const isAdDebugEnabled = () => __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG);
+
 const Stack = createNativeStackNavigator();
 
 // Optimized QueryClient with caching strategies
@@ -173,6 +176,9 @@ export default function App() {
 
       try {
         await AdService.init();
+        if (isAdDebugEnabled()) {
+          console.log('[ADS] init state', AdService.getAdsDebugState());
+        }
       } catch (error) {
         console.error('Error initializing ad service:', error);
       }
