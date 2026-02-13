@@ -86,10 +86,6 @@ jobs:
               '#import "AIRMap.h"'
             ],
             [
-              'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMapOverlay.m',
-              '#import <React/RCTEventDispatcherProtocol.h>'
-            ],
-            [
               'node_modules/react-native/React/Views/RCTComponentData.h',
               '@protocol RCTEventDispatcherProtocol;'
             ],
@@ -99,6 +95,20 @@ jobs:
             const content = fs.readFileSync(filePath, 'utf8');
             if (!content.includes(expected)) {
               throw new Error(`react-native-maps patch missing: ${filePath} does not include ${expected}`);
+            }
+          }
+          const overlayPath = 'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMapOverlay.m';
+          if (fs.existsSync(overlayPath)) {
+            const overlayContent = fs.readFileSync(overlayPath, 'utf8');
+            if (overlayContent.includes('#import <React/RCTEventDispatcherProtocol.h>')) {
+              throw new Error(
+                'react-native-maps patch missing: AIRGoogleMapOverlay.m still imports RCTEventDispatcherProtocol.h'
+              );
+            }
+            if (overlayContent.includes('#import <React/RCTEventDispatcher.h>')) {
+              throw new Error(
+                'react-native-maps patch missing: AIRGoogleMapOverlay.m still imports RCTEventDispatcher.h'
+              );
             }
           }
           const polylinePath = 'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMapPolyline.m';
