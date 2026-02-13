@@ -142,14 +142,21 @@ const patchReactNativeMapsForXcode26 = () => {
     return;
   }
 
-  const fromImport = '#import <React/RCTViewManager.h>';
-  const toImport = '#import "AIRMapCalloutManager.h"';
+  const fromImport = '#import "AIRMapCalloutManager.h"';
+  const toImport = '#import <React/RCTViewManager.h>';
   let markerManagerHeader = fs.readFileSync(markerManagerHeaderPath, 'utf8');
 
   if (markerManagerHeader.includes(fromImport)) {
     markerManagerHeader = markerManagerHeader.replace(fromImport, toImport);
     fs.writeFileSync(markerManagerHeaderPath, markerManagerHeader);
-    console.log('Patched react-native-maps AIRGoogleMapMarkerManager.h for Xcode 26 modules');
+    console.log('Patched react-native-maps AIRGoogleMapMarkerManager.h to use React/RCTViewManager.h');
+  } else if (!markerManagerHeader.includes(toImport)) {
+    markerManagerHeader = markerManagerHeader.replace(
+      /#ifdef HAVE_GOOGLE_MAPS\s*\n+/,
+      (match) => `${match}${toImport}\n\n`
+    );
+    fs.writeFileSync(markerManagerHeaderPath, markerManagerHeader);
+    console.log('Patched react-native-maps AIRGoogleMapMarkerManager.h missing RCTViewManager import');
   }
 
   const ensureAirMapImport = (relativeHeaderPath) => {

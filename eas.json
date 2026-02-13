@@ -1,6 +1,6 @@
 {
   "cli": {
-    "version": ">= 16.30.0",
+    "version": ">= 18.0.1",
     "appVersionSource": "local"
   },
   "build": {
@@ -58,7 +58,6 @@
       "credentialsSource": "local",
       "distribution": "store",
       "developmentClient": false,
-      "autoIncrement": true,
       "env": {
         "EXPO_SKIP_DOCTOR_CHECK": "1"
       },
