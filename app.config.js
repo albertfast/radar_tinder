@@ -15,12 +15,15 @@ const getVersionCode = () => {
   }
 };
 
+const APP_VERSION = "1.0.5";
+const RUNTIME_VERSION = process.env.EXPO_RUNTIME_VERSION || APP_VERSION;
+
 module.exports = {
   expo: {
     name: "Radar Tinder",
     scheme: "radartinder",
     slug: "radar-tinder",
-    version: "1.0.5",
+    version: APP_VERSION,
     icon: "./assets/icon.png",
     orientation: "portrait",
     userInterfaceStyle: "light",
@@ -164,9 +167,7 @@ module.exports = {
       }
     },
     owner: "albertfast",
-    runtimeVersion: {
-      policy: "nativeVersion"
-    },
+    runtimeVersion: RUNTIME_VERSION,
     updates: {
       enabled: true,
       url: "https://u.expo.dev/62bbc6f8-257a-48e8-adb8-0b80558e3e92",
