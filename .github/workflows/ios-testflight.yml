@@ -18,6 +18,8 @@ jobs:
       EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || vars.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
       EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID || vars.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID }}
       EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID || vars.EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID }}
+      EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: ${{ secrets.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || vars.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY }}
+      EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY: ${{ secrets.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || vars.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY }}
       EAS_NO_VCS: 1
       IPHONEOS_DEPLOYMENT_TARGET: "16.1"
     steps:
@@ -81,6 +83,11 @@ jobs:
             echo "Required EXPO_PUBLIC_* variables are missing. Aborting iOS build."
             exit 1
           fi
+          for key in EXPO_PUBLIC_REVENUECAT_IOS_API_KEY EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY; do
+            if [ -z "${!key}" ]; then
+              echo "::warning::RevenueCat key missing: $key (in-app payments will be disabled in this build)"
+            fi
+          done
 
       - name: Apply dependency patches
         run: |

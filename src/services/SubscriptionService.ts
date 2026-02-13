@@ -3,10 +3,10 @@ import type { PurchasesPackage, CustomerInfo } from 'react-native-purchases';
 import { useAuthStore } from '../store/authStore';
 import { AnalyticsService } from './AnalyticsService';
 
-// Public SDK keys for RevenueCat (Test keys/Placeholders)
+// Public SDK keys for RevenueCat (safe to ship in client apps)
 const REVENUECAT_API_KEY = Platform.select({
-  ios: 'goog_placeholder_ios',
-  android: 'goog_placeholder_android',
+  ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
+  android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY,
 }) || '';
 
 type PurchasesBindings = {
@@ -39,6 +39,7 @@ const getPurchasesBindings = (): PurchasesBindings | null => {
 
 export class SubscriptionService {
   private static isInitialized = false;
+  private static loggedMissingConfig = false;
 
   private static hasValidConfig(): boolean {
     return Boolean(REVENUECAT_API_KEY) && !REVENUECAT_API_KEY.includes('placeholder');
@@ -63,10 +64,13 @@ export class SubscriptionService {
         }
       }
       
-      if (REVENUECAT_API_KEY.includes('placeholder')) {
+      if (!this.hasValidConfig()) {
         this.isInitialized = true;
-        if (__DEV__) {
-          console.log('RevenueCat: Placeholder key detected. Skipping network configuration.');
+        if (!this.loggedMissingConfig) {
+          this.loggedMissingConfig = true;
+          console.warn(
+            'RevenueCat is not configured. Set EXPO_PUBLIC_REVENUECAT_IOS_API_KEY and EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY.'
+          );
         }
         return;
       }
@@ -75,7 +79,15 @@ export class SubscriptionService {
       
       const user = useAuthStore.getState().user;
       if (user) {
-        await bindings.Purchases.logIn(user.id);
+        const loginResult = await bindings.Purchases.logIn(user.id);
+        if (loginResult?.customerInfo) {
+          await this.updateUserSubscriptionStatus(loginResult.customerInfo);
+        }
+      } else {
+        const customerInfo = await bindings.Purchases.getCustomerInfo();
+        if (customerInfo) {
+          await this.updateUserSubscriptionStatus(customerInfo);
+        }
       }
       
       this.isInitialized = true;
@@ -86,6 +98,9 @@ export class SubscriptionService {
   }
 
   static async getOfferings() {
+    if (!this.isInitialized) {
+      await this.init();
+    }
     if (!this.hasValidConfig() || !this.isInitialized) return null;
     try {
       const bindings = getPurchasesBindings();
@@ -101,6 +116,13 @@ export class SubscriptionService {
 
   static async purchasePackage(pack: PurchasesPackage): Promise<boolean> {
     try {
+      if (!this.isInitialized) {
+        await this.init();
+      }
+      if (!this.hasValidConfig()) {
+        console.warn('RevenueCat purchase skipped: missing SDK key configuration.');
+        return false;
+      }
       const bindings = getPurchasesBindings();
       if (!bindings?.Purchases) return false;
 
@@ -124,6 +146,13 @@ export class SubscriptionService {
 
   static async restorePurchases(): Promise<boolean> {
     try {
+      if (!this.isInitialized) {
+        await this.init();
+      }
+      if (!this.hasValidConfig()) {
+        console.warn('RevenueCat restore skipped: missing SDK key configuration.');
+        return false;
+      }
       const bindings = getPurchasesBindings();
       if (!bindings?.Purchases) return false;
 
@@ -155,13 +184,23 @@ export class SubscriptionService {
 
   static async setUserId(userId: string): Promise<void> {
     try {
+      if (!this.isInitialized) {
+        await this.init();
+      }
       if (!this.isInitialized) return;
       if (!this.hasValidConfig()) return;
       const bindings = getPurchasesBindings();
       if (!bindings?.Purchases) return;
-      await bindings.Purchases.logIn(userId);
+      const loginResult = await bindings.Purchases.logIn(userId);
+      if (loginResult?.customerInfo) {
+        await this.updateUserSubscriptionStatus(loginResult.customerInfo);
+      }
     } catch (error) {
       console.error('Error setting RevenueCat user ID:', error);
     }
+  }
+
+  static isConfigured(): boolean {
+    return this.hasValidConfig();
   }
 }

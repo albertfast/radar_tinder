@@ -1,0 +1,36 @@
+﻿2026-02-13T11:03:26.6516340Z ##[group]Run ls -la /Applications/ | grep Xcode
+2026-02-13T11:03:26.6516840Z [36;1mls -la /Applications/ | grep Xcode[0m
+2026-02-13T11:03:26.6563130Z shell: /bin/bash -e {0}
+2026-02-13T11:03:26.6563580Z env:
+2026-02-13T11:03:26.6564230Z   EXPO_TOKEN: ***
+2026-02-13T11:03:26.6564570Z   EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ***
+2026-02-13T11:03:26.6565170Z   EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ***
+2026-02-13T11:03:26.6565610Z   EXPO_PUBLIC_SUPABASE_URL: ***
+2026-02-13T11:03:26.6565950Z   EXPO_PUBLIC_SUPABASE_KEY: ***
+2026-02-13T11:03:26.6566190Z   EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: 
+2026-02-13T11:03:26.6566430Z   EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID: 
+2026-02-13T11:03:26.6566660Z   EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID: 
+2026-02-13T11:03:26.6566890Z   EAS_NO_VCS: 1
+2026-02-13T11:03:26.6567060Z   IPHONEOS_DEPLOYMENT_TARGET: 16.1
+2026-02-13T11:03:26.6567310Z ##[endgroup]
+2026-02-13T11:03:26.7167310Z lrwxr-xr-x   1 runner  admin    26 Feb  9 11:52 Xcode_16.0.0.app -> /Applications/Xcode_16.app
+2026-02-13T11:03:26.7168820Z lrwxr-xr-x   1 runner  admin    26 Feb  9 11:52 Xcode_16.0.app -> /Applications/Xcode_16.app
+2026-02-13T11:03:26.7169550Z lrwxr-xr-x   1 runner  admin    28 Feb  9 11:52 Xcode_16.1.0.app -> /Applications/Xcode_16.1.app
+2026-02-13T11:03:26.7170050Z drwxr-xr-x   3 runner  staff    96 Feb  9 10:25 Xcode_16.1.app
+2026-02-13T11:03:26.7170560Z lrwxr-xr-x   1 runner  admin    28 Feb  9 11:52 Xcode_16.2.0.app -> /Applications/Xcode_16.2.app
+2026-02-13T11:03:26.7171060Z drwxr-xr-x   3 runner  staff    96 Feb  9 10:25 Xcode_16.2.app
+2026-02-13T11:03:26.7171520Z lrwxr-xr-x   1 runner  admin    28 Feb  9 11:52 Xcode_16.3.0.app -> /Applications/Xcode_16.3.app
+2026-02-13T11:03:26.7172110Z drwxr-xr-x   3 runner  staff    96 Feb  9 10:25 Xcode_16.3.app
+2026-02-13T11:03:26.7172670Z lrwxr-xr-x   1 runner  admin    28 Feb  9 11:52 Xcode_16.4.0.app -> /Applications/Xcode_16.4.app
+2026-02-13T11:03:26.7173190Z drwxr-xr-x   3 runner  staff    96 Feb  9 10:25 Xcode_16.4.app
+2026-02-13T11:03:26.7173570Z drwxr-xr-x   3 runner  staff    96 Feb  9 10:25 Xcode_16.app
+2026-02-13T11:03:26.7173920Z drwxr-xr-x   3 runner  staff    96 Feb  9 10:30 Xcode_26.0.1.app
+2026-02-13T11:03:26.7174360Z lrwxr-xr-x   1 runner  admin    30 Feb  9 11:52 Xcode_26.0.app -> /Applications/Xcode_26.0.1.app
+2026-02-13T11:03:26.7174850Z drwxr-xr-x   3 runner  staff    96 Feb  9 10:30 Xcode_26.1.1.app
+2026-02-13T11:03:26.7175360Z lrwxr-xr-x   1 runner  admin    30 Feb  9 11:52 Xcode_26.1.app -> /Applications/Xcode_26.1.1.app
+2026-02-13T11:03:26.7175900Z lrwxr-xr-x   1 runner  admin    28 Feb  9 11:52 Xcode_26.2.0.app -> /Applications/Xcode_26.2.app
+2026-02-13T11:03:26.7176390Z drwxr-xr-x   3 runner  staff    96 Feb  9 10:30 Xcode_26.2.app
+2026-02-13T11:03:26.7176880Z drwxr-xr-x   3 runner  staff    96 Feb  9 10:30 Xcode_26.3_Release_Candidate.app
+2026-02-13T11:03:26.7177430Z lrwxr-xr-x   1 runner  admin    46 Feb  9 11:52 Xcode_26.3.0.app -> /Applications/Xcode_26.3_Release_Candidate.app
+2026-02-13T11:03:26.7178090Z lrwxr-xr-x   1 runner  admin    46 Feb  9 11:52 Xcode_26.3.app -> /Applications/Xcode_26.3_Release_Candidate.app
+2026-02-13T11:03:26.7182340Z lrwxr-xr-x   1 runner  admin    28 Feb  9 11:53 Xcode.app -> /Applications/Xcode_16.4.app

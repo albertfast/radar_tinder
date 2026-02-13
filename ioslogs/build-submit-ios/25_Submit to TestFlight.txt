@@ -1,0 +1,55 @@
+﻿2026-02-13T11:23:27.3000540Z ##[group]Run export EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH="$(pwd)/credentials/AuthKey_***.p8"
+2026-02-13T11:23:27.3002350Z [36;1mexport EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH="$(pwd)/credentials/AuthKey_***.p8"[0m
+2026-02-13T11:23:27.3003730Z [36;1mecho "API Key Path: $EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH"[0m
+2026-02-13T11:23:27.3004880Z [36;1mls -la "$EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH"[0m
+2026-02-13T11:23:27.3006230Z [36;1meas submit --platform ios --profile testflight --non-interactive --path ./RadarTinder.ipa[0m
+2026-02-13T11:23:27.3177490Z shell: /bin/bash -e {0}
+2026-02-13T11:23:27.3177970Z env:
+2026-02-13T11:23:27.3178510Z   EXPO_TOKEN: ***
+2026-02-13T11:23:27.3179020Z   EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ID: ***
+2026-02-13T11:23:27.3180260Z   EXPO_APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID: ***
+2026-02-13T11:23:27.3181030Z   EXPO_PUBLIC_SUPABASE_URL: ***
+2026-02-13T11:23:27.3181700Z   EXPO_PUBLIC_SUPABASE_KEY: ***
+2026-02-13T11:23:27.3182200Z   EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: 
+2026-02-13T11:23:27.3182870Z   EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID: 
+2026-02-13T11:23:27.3183400Z   EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID: 
+2026-02-13T11:23:27.3183900Z   EAS_NO_VCS: 1
+2026-02-13T11:23:27.3184300Z   IPHONEOS_DEPLOYMENT_TARGET: 16.1
+2026-02-13T11:23:27.3184890Z   MD_APPLE_SDK_ROOT: /Applications/Xcode_26.0.1.app
+2026-02-13T11:23:27.3185580Z   PNPM_HOME: /Users/runner/setup-pnpm/node_modules/.bin
+2026-02-13T11:23:27.3186320Z   STORE_PATH: /Users/runner/setup-pnpm/node_modules/.bin/store/v3
+2026-02-13T11:23:27.3187460Z   EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH: /Users/runner/work/radar_tinder/radar_tinder/credentials/AuthKey_***.p8
+2026-02-13T11:23:27.3188370Z ##[endgroup]
+2026-02-13T11:23:27.3571330Z API Key Path: /Users/runner/work/radar_tinder/radar_tinder/credentials/AuthKey_***.p8
+2026-02-13T11:23:27.3616040Z -rw-r--r--  1 runner  staff  257 Feb 13 11:05 /Users/runner/work/radar_tinder/radar_tinder/credentials/AuthKey_***.p8
+2026-02-13T11:23:28.3033160Z Using EAS CLI without version control system is not recommended, use this mode only if you know what you are doing.
+2026-02-13T11:23:28.3378860Z Found eas-cli in your project dependencies.
+2026-02-13T11:23:28.3394900Z It's recommended to use the "cli.version" field in eas.json to enforce the eas-cli version for your project.
+2026-02-13T11:23:28.3395810Z Learn more: https://github.com/expo/eas-cli#enforcing-eas-cli-version-for-your-project
+2026-02-13T11:23:28.3396160Z 
+2026-02-13T11:23:30.1897330Z 
+2026-02-13T11:23:30.1898160Z Uploading your app archive to EAS Submit
+2026-02-13T11:23:30.3347910Z - Uploading to EAS Submit 0%
+2026-02-13T11:23:32.4841880Z ✔ Uploaded to EAS Submit 2s
+2026-02-13T11:23:32.4933090Z 
+2026-02-13T11:23:32.4937480Z ASC App ID:                 6758140652
+2026-02-13T11:23:32.4939080Z Project ID:                 62bbc6f8-257a-48e8-adb8-0b80558e3e92
+2026-02-13T11:23:32.4940200Z App Store Connect API Key:  
+2026-02-13T11:23:32.4941260Z     Key ID    :  ***
+2026-02-13T11:23:32.4941980Z     Key Source:  local
+2026-02-13T11:23:32.4943580Z     Key Path  :  /Users/runner/work/radar_tinder/radar_tinder/credentials/AuthKey_***.p8
+2026-02-13T11:23:32.4945160Z Archive Path:               ./RadarTinder.ipa
+2026-02-13T11:23:32.4945780Z 
+2026-02-13T11:23:32.4955070Z - Scheduling iOS submission
+2026-02-13T11:23:32.7200190Z ✔ Scheduled iOS submission
+2026-02-13T11:23:32.7204390Z 
+2026-02-13T11:23:32.7214400Z Submission details: https://expo.dev/accounts/albertfast/projects/radar-tinder/submissions/7e83401c-3865-444f-98d7-7e1ad4457276
+2026-02-13T11:23:32.7216260Z 
+2026-02-13T11:23:32.7217830Z Waiting for submission to complete. You can press Ctrl+C to exit.
+2026-02-13T11:23:32.7219260Z - Submitting
+2026-02-13T11:28:44.8931240Z ✔ Submitted your app to Apple App Store Connect!
+2026-02-13T11:28:44.8932670Z 
+2026-02-13T11:28:44.8934480Z Your binary has been successfully uploaded to App Store Connect!
+2026-02-13T11:28:44.8935470Z - It is now being processed by Apple - you will receive an email when the processing finishes.
+2026-02-13T11:28:44.8941190Z - It usually takes about 5-10 minutes depending on how busy Apple servers are.
+2026-02-13T11:28:44.8942160Z - When it's done, you can see your build here: https://appstoreconnect.apple.com/apps/6758140652/testflight/ios

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Platform, Alert } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,9 +8,11 @@ import { SubscriptionService } from '../services/SubscriptionService';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
+import type { PurchasesPackage } from 'react-native-purchases';
 
 const TITLE_FONT = Platform.select({ ios: 'Georgia', android: 'serif' });
 const DISPLAY_FONT = Platform.select({ ios: 'AvenirNext-Heavy', android: 'sans-serif-condensed' });
+type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 const SubscriptionScreen = ({ navigation }: any) => {
   const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'yearly' | 'adfree'>('yearly');
@@ -53,11 +55,54 @@ const SubscriptionScreen = ({ navigation }: any) => {
     },
   };
 
-  const { updateUser } = useAuthStore();
+  const getProductHints = (plan: 'weekly' | 'yearly' | 'adfree'): string[] => {
+    const fromEnv = {
+      weekly: process.env.EXPO_PUBLIC_RC_PRODUCT_WEEKLY,
+      yearly: process.env.EXPO_PUBLIC_RC_PRODUCT_YEARLY,
+      adfree: process.env.EXPO_PUBLIC_RC_PRODUCT_ADFREE,
+    }[plan];
+    const fromPlan = plans[plan]?.id;
+    return [fromEnv, fromPlan]
+      .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+      .map((v) => v.toLowerCase());
+  };
+
+  const packageMatchesPlan = (pkg: PurchasesPackage, plan: 'weekly' | 'yearly' | 'adfree') => {
+    const id = String(pkg?.identifier || '').toLowerCase();
+    const productId = String(pkg?.product?.identifier || '').toLowerCase();
+    const hints = getProductHints(plan);
+    if (hints.some((hint) => id === hint || productId === hint || id.includes(hint) || productId.includes(hint))) {
+      return true;
+    }
+
+    if (plan === 'yearly') {
+      return /annual|year|yearly/.test(id) || /annual|year|yearly/.test(productId);
+    }
+    if (plan === 'weekly') {
+      return /week|weekly/.test(id) || /week|weekly/.test(productId);
+    }
+    return /lifetime|one[_-]?time|remove[_-]?ads|ad[_-]?free/.test(id) ||
+      /lifetime|one[_-]?time|remove[_-]?ads|ad[_-]?free/.test(productId);
+  };
+
+  const findPackageForPlan = (
+    availablePackages: PurchasesPackage[],
+    plan: 'weekly' | 'yearly' | 'adfree'
+  ): PurchasesPackage | null => {
+    return availablePackages.find((pkg) => packageMatchesPlan(pkg, plan)) || null;
+  };
 
   const handleSubscribe = async () => {
     setLoading(true);
     try {
+      if (!SubscriptionService.isConfigured()) {
+        Alert.alert(
+          'Payments Not Configured',
+          'RevenueCat API key is missing. Configure EXPO_PUBLIC_REVENUECAT_IOS_API_KEY and EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY.'
+        );
+        return;
+      }
+
       const planToPurchase = trialActive ? 'yearly' : selectedPlan;
 
       await AnalyticsService.trackEvent('subscription_attempt', {
@@ -65,14 +110,39 @@ const SubscriptionScreen = ({ navigation }: any) => {
         trial: trialActive,
       });
 
-      if (planToPurchase === 'adfree') {
-        updateUser({ subscriptionType: 'free', adsRemoved: true });
-      } else {
-        updateUser({ subscriptionType: 'pro', adsRemoved: false });
+      const offering = await SubscriptionService.getOfferings();
+      const availablePackages: PurchasesPackage[] = offering?.availablePackages || [];
+      if (availablePackages.length === 0) {
+        Alert.alert(
+          'No Packages Available',
+          'No purchasable package was found. Check RevenueCat Offering and App Store / Play products.'
+        );
+        return;
       }
+
+      const targetPackage = findPackageForPlan(availablePackages, planToPurchase);
+      if (!targetPackage) {
+        const packageDebug = availablePackages
+          .map((p) => `${p.identifier} (${p.product?.identifier || 'no-product-id'})`)
+          .join('\n');
+        Alert.alert(
+          'Package Mapping Missing',
+          `No package mapped for "${planToPurchase}".\n\nAvailable packages:\n${packageDebug}`
+        );
+        return;
+      }
+
+      const purchased = await SubscriptionService.purchasePackage(targetPackage);
+      if (!purchased) {
+        Alert.alert('Payment Failed', 'Purchase could not be completed. Please try again.');
+        return;
+      }
+
+      Alert.alert('Success', 'Your subscription is active.');
       navigation.goBack();
     } catch (err) {
-      console.error(err);
+      console.error('Subscription purchase error:', err);
+      Alert.alert('Payment Error', 'An unexpected error occurred during payment.');
     } finally {
       setLoading(false);
     }
@@ -80,9 +150,14 @@ const SubscriptionScreen = ({ navigation }: any) => {
 
   const handleRestore = async () => {
     setLoading(true);
-    await SubscriptionService.restorePurchases();
+    const restored = await SubscriptionService.restorePurchases();
     setLoading(false);
-    navigation.goBack();
+    if (restored) {
+      Alert.alert('Restored', 'Your purchases have been restored.');
+      navigation.goBack();
+      return;
+    }
+    Alert.alert('Restore Failed', 'No purchases were restored.');
   };
 
   return (
@@ -214,7 +289,7 @@ const SubscriptionScreen = ({ navigation }: any) => {
   );
 };
 
-const FeatureTile = ({ icon, text, tone }: { icon: string; text: string; tone: string }) => (
+const FeatureTile = ({ icon, text, tone }: { icon: MaterialIconName; text: string; tone: string }) => (
   <View style={[styles.featureTile, { borderColor: `${tone}40` }]}>
     <View style={[styles.featureIcon, { backgroundColor: `${tone}20` }]}>
       <MaterialCommunityIcons name={icon} size={18} color={tone} />
