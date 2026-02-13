@@ -3,7 +3,7 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  Dimensions,
+  useWindowDimensions,
   TextInput,
   Keyboard,
   Modal,
@@ -47,8 +47,6 @@ import RadarMap from '../components/RadarMap';
 import { RadarGraphicView } from './components/RadarGraphicView';
 import { ANIMATION_TIMING } from '../utils/animationConstants';
 import { TAB_BAR_HEIGHT, getResponsivePadding, getResponsiveFontSize, getResponsiveMargin, getResponsiveWidth, getResponsiveHeight, getUIScale } from '../constants/layout';
-
-const { width, height } = Dimensions.get('window');
 
 import { darkMapStyle } from '../utils/mapStyle';
 
@@ -109,6 +107,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
   const acknowledgeAlert = useRadarStore((state) => state.acknowledgeAlert);
   const mapRef = useRef<MapView>(null);
+  const { width, height } = useWindowDimensions();
 
   // Stats & States
   const [activeTab, setActiveTab] = useState<TabType>('Basic');
@@ -177,6 +176,8 @@ const RadarScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
   const bottomSafe = Math.max(insets.bottom, 10);
   const tabBarInset = TAB_BAR_HEIGHT + bottomSafe + 16;
+  const radarAnimationSize = Math.max(220, Math.min(Math.round(width * 0.76), 360));
+  const radarAuraSize = Math.round(radarAnimationSize * 0.8);
 
   // Force tab when navigation params request it
   useEffect(() => {
@@ -1109,7 +1110,7 @@ const RadarScreen = ({ navigation, route }: any) => {
               <LinearGradient colors={['#000000', '#1A1A1A']} style={StyleSheet.absoluteFill} />
               
               {/* Driving Header */}
-              <View style={styles.drivingHeader}>
+              <View style={[styles.drivingHeader, { paddingTop: insets.top + 8 }]}>
                   <IconButton icon="home-variant" iconColor="#fff" size={28} onPress={exitDrivingToHome} />
                   <View style={{alignItems: 'center'}}>
                       <Text style={styles.drivingModeTitle}>DRIVING MODE</Text>
@@ -1500,7 +1501,7 @@ const RadarScreen = ({ navigation, route }: any) => {
       />
       
       {/* Custom Header with Menu Trigger */}
-      <View style={styles.mainHeader}>
+      <View style={[styles.mainHeader, { paddingTop: insets.top + 10 }]}>
           <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.iconBtn}>
               <MaterialCommunityIcons name="menu" size={28} color="#F8FAFC" />
           </TouchableOpacity>
@@ -1522,7 +1523,7 @@ const RadarScreen = ({ navigation, route }: any) => {
       <ScrollView
         contentContainerStyle={{ paddingBottom: tabBarInset + getResponsiveHeight(120) }}
         showsVerticalScrollIndicator={false}
-        scrollEnabled={false}
+        scrollEnabled
       >
           {/* Pro perks moved up */}
           <View style={styles.sliderContainer}>
@@ -1581,8 +1582,17 @@ const RadarScreen = ({ navigation, route }: any) => {
               </View>
 
               <View style={styles.radarShell}>
-                  <View style={styles.radarAura} />
-                  <RadarAnimation />
+                  <View
+                    style={[
+                      styles.radarAura,
+                      {
+                        width: radarAuraSize,
+                        height: radarAuraSize,
+                        borderRadius: radarAuraSize / 2
+                      }
+                    ]}
+                  />
+                  <RadarAnimation size={radarAnimationSize} />
                   <View style={[styles.radarChip, styles.radarChipLeft]}>
                       <MaterialCommunityIcons name="radar" size={18} color="#4ECDC4" />
                       <Text style={styles.radarChipText}>Live sweep</Text>
@@ -1620,7 +1630,10 @@ const RadarScreen = ({ navigation, route }: any) => {
                   />
               </View>
 
-              <TouchableOpacity style={[styles.startButton, { marginBottom: tabBarInset - 24 }]} onPress={toggleDrivingMode}>
+              <TouchableOpacity
+                style={[styles.startButton, { marginBottom: Math.max(tabBarInset + 8, 88) }]}
+                onPress={toggleDrivingMode}
+              >
                   <LinearGradient
                     colors={['#FF6B6B', '#FF5252']}
                     start={{ x: 0, y: 0 }}
@@ -1647,7 +1660,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#020617' },
   
   // Header
-  mainHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 50, paddingBottom: 20 },
+  mainHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 20 },
   appName: { color: '#F8FAFC', fontSize: 22, fontWeight: '900', letterSpacing: 1 },
   headerRight: { flexDirection: 'row', gap: 10 },
   iconBtn: { padding: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
@@ -1662,7 +1675,7 @@ const styles = StyleSheet.create({
   heroBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#4ECDC4', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, gap: 6, shadowColor: '#4ECDC4', shadowOpacity: 0.4, shadowRadius: 10, elevation: 4 },
   heroBadgeText: { color: '#0B1424', fontWeight: '900', letterSpacing: 0.5 },
   radarShell: { alignItems: 'center', justifyContent: 'center', marginTop: -4, marginBottom: 4 },
-  radarAura: { position: 'absolute', width: width * 0.64, height: width * 0.64, borderRadius: width * 0.32, backgroundColor: 'rgba(78,205,196,0.05)' },
+  radarAura: { position: 'absolute', backgroundColor: 'rgba(78,205,196,0.05)' },
   radarChip: { position: 'absolute', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: 'rgba(2,6,23,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   radarChipLeft: { top: 22, left: 22 },
   radarChipRight: { top: 22, right: 22 },
@@ -1702,7 +1715,7 @@ const styles = StyleSheet.create({
   vehicleSubtitle: { color: '#94A3B8', fontSize: 12 },
 
   // Driving Mode
-  drivingHeader: { paddingTop: 50, paddingBottom: 10, paddingHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#000' },
+  drivingHeader: { paddingBottom: 10, paddingHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#000' },
   drivingModeTitle: { color: 'white', fontWeight: '900', fontSize: 16 },
   drivingModeSub: { color: '#4ECDC4', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
   tabBar: { flexDirection: 'row', justifyContent: 'center', backgroundColor: '#111', marginHorizontal: 20, borderRadius: 12, padding: 4, marginBottom: 10 },

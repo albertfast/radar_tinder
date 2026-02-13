@@ -6,10 +6,11 @@
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { Platform, Alert, NativeModules } from 'react-native';
+import { Platform, NativeModules } from 'react-native';
 import ocrClasses from '../../assets/models/digital_ocr_classes.json';
 import dashboardMetadata from '../../assets/models/dashboard_classes.json';
 import diagnosticKb from '../../assets/models/diagnostic_kb.json';
+import dashboardKbMap from '../../assets/models/dashboard_kb_map.json';
 
 type OrtModule = typeof import('onnxruntime-react-native');
 type OrtInferenceSession = import('onnxruntime-react-native').InferenceSession;
@@ -30,6 +31,7 @@ let dashboardAnalysisErrorLogged: boolean = false;
 let isModelLoading = false;
 let modelLoadError: string | null = null;
 let ortModuleCache: OrtModule | null | undefined;
+let dashboardKbValidated = false;
 
 // Optional fallback base URL for remote-hosted models.
 // Leave empty to force loading only from bundled assets.
@@ -147,27 +149,44 @@ export class AIService {
       .join(' ');
   }
 
-  private static resolveDashboardKbKey(label: string): string | null {
-    const normalized = label.toLowerCase();
-    const aliases: Record<string, string> = {
-      abs: 'ABS',
-      airbag: 'Airbag',
-      battery: 'Battery',
-      brake: 'Brake',
-      check_engine: 'Check Engine',
-      coolant: 'Coolant Temp',
-      engine_temperature: 'Coolant Temp',
-      fuel: 'Low Fuel',
-      seatbelt: 'Seatbelt',
-      tire_pressure: 'Tire Pressure',
-      traction_control: 'Traction Control',
-      stability_control: 'Traction Control',
-      slip: 'Traction Control',
-      esp: 'Traction Control',
-      electronic_stability: 'Traction Control'
-    };
+  private static resolveDashboardKbKey(rawLabel: string): string {
+    const map = dashboardKbMap as Record<string, string>;
+    return map[rawLabel] || this.formatDashboardLabel(rawLabel);
+  }
 
-    return aliases[normalized] || null;
+  private static getDashboardKbEntry(rawLabel: string): { kbKey: string; entry: any; displayLabel: string } {
+    const kbKey = this.resolveDashboardKbKey(rawLabel);
+    const entry = (diagnosticKb as any)[kbKey] || null;
+    return {
+      kbKey,
+      entry,
+      displayLabel: entry?.name || this.formatDashboardLabel(rawLabel)
+    };
+  }
+
+  private static validateDashboardKnowledgeBase(classes: string[]): void {
+    if (dashboardKbValidated) return;
+    dashboardKbValidated = true;
+
+    const map = dashboardKbMap as Record<string, string>;
+    const missingMap = classes.filter((raw) => !map[raw]);
+    const missingKb = classes.filter((raw) => {
+      const mapped = map[raw];
+      return !mapped || !(diagnosticKb as any)[mapped];
+    });
+
+    if (missingMap.length || missingKb.length) {
+      console.warn(
+        `[AIService] Dashboard KB coverage warning. Missing map: ${missingMap.length}, missing KB: ${missingKb.length}`,
+        {
+          missingMap: missingMap.slice(0, 12),
+          missingKb: missingKb.slice(0, 12)
+        }
+      );
+      return;
+    }
+
+    console.log(`[AIService] Dashboard KB map validated (${classes.length} classes covered).`);
   }
 
   private static getKbDetails(entry: any): {
@@ -194,9 +213,9 @@ export class AIService {
     entry: any;
     lines: string[];
   } {
+    const kb = this.getDashboardKbEntry(rawLabel);
     const label = this.formatDashboardLabel(rawLabel);
-    const kbKey = this.resolveDashboardKbKey(rawLabel);
-    const entry = (diagnosticKb as any)[kbKey || label];
+    const entry = kb.entry;
     const details = this.getKbDetails(entry);
     const lines = [`${label} (${(confidence * 100).toFixed(1)}%)`];
 
@@ -211,6 +230,32 @@ export class AIService {
     }
 
     return { label, entry, lines };
+  }
+
+  private static buildFallbackDashboardCrops(
+    originalWidth: number,
+    originalHeight: number
+  ): ImageManipulator.ActionCrop['crop'][] {
+    if (!originalWidth || !originalHeight) return [];
+
+    const minSide = Math.min(originalWidth, originalHeight);
+    const cropSize = Math.max(64, Math.floor(minSide * 0.58));
+    const half = cropSize / 2;
+    const clamp = (value: number, min: number, max: number) =>
+      Math.max(min, Math.min(value, max));
+    const makeCrop = (cx: number, cy: number) => {
+      const maxX = Math.max(0, originalWidth - cropSize);
+      const maxY = Math.max(0, originalHeight - cropSize);
+      const originX = Math.round(clamp(cx - half, 0, maxX));
+      const originY = Math.round(clamp(cy - half, 0, maxY));
+      return { originX, originY, width: cropSize, height: cropSize };
+    };
+
+    return [
+      makeCrop(originalWidth / 2, originalHeight / 2),
+      makeCrop(originalWidth * 0.28, originalHeight * 0.28),
+      makeCrop(originalWidth * 0.72, originalHeight * 0.28)
+    ];
   }
 
   /**
@@ -743,6 +788,7 @@ export class AIService {
             .filter((key) => /^\d+$/.test(key))
             .sort((a, b) => Number(a) - Number(b))
             .map((key) => meta[key]);
+      this.validateDashboardKnowledgeBase(classes);
 
       console.log('Processing image...');
       const baseInfo = await ImageManipulator.manipulateAsync(
@@ -799,36 +845,27 @@ export class AIService {
         return { probabilities, topIndex, confidence: Math.max(0.01, topProb) };
       };
 
-      const candidates: Array<{ probabilities: Float32Array; topIndex: number; confidence: number }> = [];
+      const candidates: Array<{
+        probabilities: Float32Array;
+        topIndex: number;
+        confidence: number;
+      }> = [];
       candidates.push(await runInference());
 
-      if (candidates[0].confidence < 0.35 && originalWidth > 0 && originalHeight > 0) {
-        const detectedCrops = await this.detectWarningLightCrops(baseUri, originalWidth, originalHeight);
-        for (const crop of detectedCrops) {
-          candidates.push(await runInference(crop));
-        }
+      if (originalWidth > 0 && originalHeight > 0) {
+        const detectedCrops = (
+          await this.detectWarningLightCrops(baseUri, originalWidth, originalHeight)
+        ).slice(0, 4);
 
-        const minSide = Math.min(originalWidth, originalHeight);
-        const cropSize = Math.max(64, Math.floor(minSide * 0.6));
-        const half = cropSize / 2;
-        const clamp = (value: number, min: number, max: number) =>
-          Math.max(min, Math.min(value, max));
-        const makeCrop = (cx: number, cy: number) => {
-          const originX = Math.round(clamp(cx - half, 0, originalWidth - cropSize));
-          const originY = Math.round(clamp(cy - half, 0, originalHeight - cropSize));
-          return { originX, originY, width: cropSize, height: cropSize };
-        };
-
-        const centers = [
-          [originalWidth / 2, originalHeight / 2],
-          [half, half],
-          [originalWidth - half, half],
-          [half, originalHeight - half],
-          [originalWidth - half, originalHeight - half]
-        ];
-
-        for (const [cx, cy] of centers) {
-          candidates.push(await runInference(makeCrop(cx, cy)));
+        if (detectedCrops.length > 0) {
+          for (const crop of detectedCrops) {
+            candidates.push(await runInference(crop));
+          }
+        } else {
+          const fallbackCrops = this.buildFallbackDashboardCrops(originalWidth, originalHeight).slice(0, 2);
+          for (const crop of fallbackCrops) {
+            candidates.push(await runInference(crop));
+          }
         }
       }
 
@@ -836,56 +873,96 @@ export class AIService {
         candidate.confidence > current.confidence ? candidate : current
       );
 
-      const confidence = best.confidence;
-      const maxIdx = best.topIndex;
-      const topPredictions = this.getTopPredictions(best.probabilities, classes, 3);
-      const aggregateMinConfidence = 0.25;
-      const multiDetectThreshold = 0.3;
-      const aggregatedMap = new Map<string, { rawLabel: string; label: string; confidence: number }>();
-
+      const classBest = new Map<string, { rawLabel: string; label: string; confidence: number }>();
       for (const candidate of candidates) {
-        const candidateTop = this.getTopPredictions(candidate.probabilities, classes, 3);
-        for (const prediction of candidateTop) {
-          if (prediction.confidence < aggregateMinConfidence) continue;
-          const existing = aggregatedMap.get(prediction.rawLabel);
+        const top = this.getTopPredictions(candidate.probabilities, classes, 3);
+        for (const prediction of top) {
+          const existing = classBest.get(prediction.rawLabel);
           if (!existing || prediction.confidence > existing.confidence) {
-            aggregatedMap.set(prediction.rawLabel, prediction);
+            classBest.set(prediction.rawLabel, prediction);
           }
         }
       }
 
-      const aggregatedPredictions = Array.from(aggregatedMap.values()).sort(
-        (a, b) => b.confidence - a.confidence
-      );
-      const detectedLights = aggregatedPredictions
-        .filter((item) => item.confidence >= multiDetectThreshold)
+      const aggregatedPredictions = Array.from(classBest.values())
+        .map((item) => ({
+          rawLabel: item.rawLabel,
+          label: item.label,
+          confidence: item.confidence,
+          score: item.confidence
+        }))
+        .sort((a, b) => b.confidence - a.confidence);
+
+      if (aggregatedPredictions.length === 0) {
+        const fallbackClass = classes[best.topIndex] || `class_${best.topIndex}`;
+        aggregatedPredictions.push({
+          rawLabel: fallbackClass,
+          label: this.formatDashboardLabel(fallbackClass),
+          confidence: best.confidence,
+          score: best.confidence
+        });
+      }
+
+      const topScore = aggregatedPredictions[0]?.confidence ?? 0;
+      const multiDetectThreshold = 0.26;
+      const nearScoreDelta = 0.10;
+      const overheatingGuardDelta = 0.10;
+
+      const detectedMap = new Map<string, (typeof aggregatedPredictions)[number]>();
+      for (const item of aggregatedPredictions) {
+        if (item.confidence >= multiDetectThreshold || topScore - item.confidence <= nearScoreDelta) {
+          detectedMap.set(item.rawLabel, item);
+        }
+        if (detectedMap.size >= 4) break;
+      }
+
+      const topItem = aggregatedPredictions[0];
+      const topKbKey = topItem ? this.resolveDashboardKbKey(topItem.rawLabel) : null;
+      if (topItem && topKbKey === 'Coolant Temp') {
+        const batteryCandidate = aggregatedPredictions.find((item) => item.rawLabel === 'Battery');
+        const tireCandidate = aggregatedPredictions.find((item) => item.rawLabel === 'tire_pressure');
+        if (batteryCandidate && topItem.confidence - batteryCandidate.confidence <= overheatingGuardDelta) {
+          detectedMap.set(batteryCandidate.rawLabel, batteryCandidate);
+        }
+        if (tireCandidate && topItem.confidence - tireCandidate.confidence <= overheatingGuardDelta) {
+          detectedMap.set(tireCandidate.rawLabel, tireCandidate);
+        }
+      }
+
+      const detectedLights = Array.from(detectedMap.values())
+        .sort((a, b) => b.confidence - a.confidence)
         .slice(0, 4);
       const isMulti = detectedLights.length >= 2;
-      
-      // Map to class label
-      const detectedClass = classes[maxIdx] || `class_${maxIdx}`;
+
+      const topPredictions = aggregatedPredictions.slice(0, 5).map((item) => {
+        const kb = this.getDashboardKbEntry(item.rawLabel);
+        return {
+          rawLabel: item.rawLabel,
+          label: item.label,
+          confidence: item.confidence,
+          score: item.score,
+          kb_key: kb.kbKey,
+          kb_name: kb.entry?.name || item.label
+        };
+      });
+
+      const winner = aggregatedPredictions[0];
+      const detectedClass = winner.rawLabel || `class_${best.topIndex}`;
       const friendlyLabel = this.formatDashboardLabel(detectedClass);
-      const kbKey = this.resolveDashboardKbKey(detectedClass);
-      const kbEntry = (diagnosticKb as any)[kbKey || friendlyLabel || detectedClass];
+      const winnerKb = this.getDashboardKbEntry(detectedClass);
+      const kbEntry = winnerKb.entry;
+      const confidence = Math.max(0.01, winner.confidence || best.confidence);
       const lowConfidence = confidence < 0.35;
       
-      // Get diagnostic information
       const diagInfo = kbEntry || {
         name: friendlyLabel,
-        severity: lowConfidence ? "Low" : "Warning",
+        severity: lowConfidence ? 'Low' : 'Warning',
         action: lowConfidence
-          ? "Low confidence result. Try focusing on a single warning icon."
+          ? 'Low confidence result. Try focusing on a single warning icon.'
           : `Detected warning light: ${friendlyLabel}. Check the vehicle manual for details.`
       };
 
       const recommendationExtras: string[] = [];
-      if (lowConfidence && topPredictions.length > 1) {
-        const topList = topPredictions
-          .map((item) => `${item.label} (${(item.confidence * 100).toFixed(1)}%)`)
-          .join(', ');
-        recommendationExtras.push(`Top guesses: ${topList}`);
-      }
-
       if (kbEntry) {
         const kbDetails = this.getKbDetails(kbEntry);
         if (kbDetails.sensors.length) {
@@ -899,14 +976,31 @@ export class AIService {
         }
       }
 
+      const debugDetails = {
+        top_predictions: topPredictions,
+        detected_lights: detectedLights.map((item) => ({
+          rawLabel: item.rawLabel,
+          label: item.label,
+          confidence: item.confidence,
+          score: item.score
+        })),
+        candidate_count: candidates.length,
+        strategy: 'full+auto_crop_or_fallback+score_aggregation_v2'
+      };
+
       if (isMulti) {
         const recommendations = ['Detected lights:'];
-        const detailsList: Array<{ label: string; confidence: number; entry?: any }> = [];
+        const detailsList: Array<{ label: string; confidence: number; score: number; entry?: any }> = [];
 
         for (const item of detectedLights) {
           const summary = this.buildLightSummary(item.rawLabel, item.confidence);
           recommendations.push(...summary.lines);
-          detailsList.push({ label: summary.label, confidence: item.confidence, entry: summary.entry });
+          detailsList.push({
+            label: summary.label,
+            confidence: item.confidence,
+            score: item.score,
+            entry: summary.entry
+          });
         }
 
         recommendations.push('Review each warning light in the vehicle manual to confirm the cause.');
@@ -917,46 +1011,49 @@ export class AIService {
           recommendations,
           category: 'Warning',
           details: {
-            detected_lights: detailsList,
-            top_predictions: topPredictions
+            ...debugDetails,
+            detected_lights: detailsList
           }
         };
       }
 
       if (confidence < 0.2) {
         const topList = topPredictions
+          .slice(0, 3)
           .map((item) => `${item.label} (${(item.confidence * 100).toFixed(1)}%)`)
           .join(', ');
         return {
           issue: 'Warning light unclear',
-          confidence: confidence,
+          confidence,
           recommendations: [
             'Could not confidently identify a warning light from this photo.',
             `Top guesses: ${topList}`
           ],
           category: 'Low',
-          details: {
-            top_predictions: topPredictions,
-            detected_lights: detectedLights
-          }
+          details: debugDetails
         };
       }
 
+      const topList = topPredictions
+        .slice(0, 3)
+        .map((item) => `${item.label} (${(item.confidence * 100).toFixed(1)}%)`)
+        .join(', ');
+
       return {
         issue: diagInfo.name,
-        confidence: confidence,
+        confidence,
         recommendations: [
           diagInfo.action,
           `Detected Class: ${friendlyLabel}`,
+          `Top guesses: ${topList}`,
           ...recommendationExtras
         ],
         category: diagInfo.severity,
-        details: { 
+        details: {
           model_output: detectedClass,
           display_label: friendlyLabel,
           raw_confidence: confidence.toFixed(2),
-          top_predictions: topPredictions,
-          detected_lights: detectedLights
+          ...debugDetails
         }
       };
     } catch (error) {
