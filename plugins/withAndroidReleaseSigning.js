@@ -7,6 +7,25 @@ const RELEASE_SIGNING_BLOCK = `        release {
             keyPassword '933b393230dc1659891255937bea56dc'
         }`;
 
+const DYNAMIC_VERSION_CODE_BLOCK = `def resolveDynamicVersionCode = {
+    def explicitVersionCode = findProperty('android.versionCode') ?: System.getenv('ANDROID_VERSION_CODE')
+    if (explicitVersionCode != null && explicitVersionCode.toString().trim()) {
+        try {
+            return Integer.parseInt(explicitVersionCode.toString().trim())
+        } catch (ignored) {
+            println "Invalid explicit android.versionCode='\${explicitVersionCode}', falling back to timestamp-based value."
+        }
+    }
+
+    long nowSeconds = System.currentTimeMillis() / 1000L
+    long candidate = nowSeconds + 300000000L
+    long maxAllowed = Integer.MAX_VALUE - 1L
+    if (candidate > maxAllowed) {
+        return maxAllowed as int
+    }
+    return candidate as int
+}`;
+
 function findBlockRange(contents, blockName) {
   const blockStart = contents.indexOf(`${blockName} {`);
   if (blockStart === -1) return null;
@@ -29,6 +48,22 @@ function findBlockRange(contents, blockName) {
 function withAndroidReleaseSigning(config) {
   return withAppBuildGradle(config, (config) => {
     let contents = config.modResults.contents;
+
+    if (!contents.includes('def resolveDynamicVersionCode = {')) {
+      if (contents.includes("def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'")) {
+        contents = contents.replace(
+          "def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'",
+          `def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'\n\n${DYNAMIC_VERSION_CODE_BLOCK}`
+        );
+      } else if (contents.includes('android {')) {
+        contents = contents.replace('android {', `${DYNAMIC_VERSION_CODE_BLOCK}\n\nandroid {`);
+      }
+    }
+
+    contents = contents.replace(
+      /(targetSdkVersion[^\n]*\n)\s*versionCode[^\n]*\n/g,
+      '$1        versionCode resolveDynamicVersionCode()\n'
+    );
 
     const signingConfigsRange = findBlockRange(contents, 'signingConfigs');
     if (signingConfigsRange) {

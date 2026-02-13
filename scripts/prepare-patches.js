@@ -198,18 +198,41 @@ const patchReactNativeMapsForXcode26 = () => {
     console.log('Patched react-native-maps AIRGoogleMapPolyline.m to remove unused import');
   }
 
-  const ensureEventDispatcherProtocolImport = (relativeSourcePath) => {
+  const normalizeEventDispatcherImports = (relativeSourcePath) => {
     const sourcePath = path.join(resolvedDir, 'ios', relativeSourcePath);
     if (!fs.existsSync(sourcePath)) return;
 
     let source = fs.readFileSync(sourcePath, 'utf8');
-    const dispatcherImport = '#import <React/RCTEventDispatcher.h>';
-    const protocolImport = '#import <React/RCTEventDispatcherProtocol.h>';
+    const dispatcherImportLine = '#import <React/RCTEventDispatcher.h>\n';
+    const protocolImportLine = '#import <React/RCTEventDispatcherProtocol.h>\n';
+    const bridgeImportLine = '#import <React/RCTBridge.h>\n';
 
-    if (source.includes(dispatcherImport) && !source.includes(protocolImport)) {
-      source = source.replace(dispatcherImport, `${protocolImport}\n${dispatcherImport}`);
+    const hadDispatcherImport = source.includes(dispatcherImportLine);
+    const hadProtocolImport = source.includes(protocolImportLine);
+
+    if (hadProtocolImport) {
+      source = source.replace(protocolImportLine, '');
+    }
+
+    if (hadDispatcherImport) {
+      if (source.includes(bridgeImportLine)) {
+        source = source.replace(dispatcherImportLine, '');
+      } else {
+        source = source.replace(dispatcherImportLine, bridgeImportLine);
+      }
+    }
+
+    // Dedupe if multiple replacements introduced duplicate imports.
+    source = source.replace(
+      /(#import <React\/RCTBridge\.h>\n){2,}/g,
+      '#import <React/RCTBridge.h>\n'
+    );
+
+    if (source !== fs.readFileSync(sourcePath, 'utf8')) {
       fs.writeFileSync(sourcePath, source);
-      console.log(`Patched react-native-maps ${relativeSourcePath} to import RCTEventDispatcherProtocol`);
+      console.log(
+        `Patched react-native-maps ${relativeSourcePath} to avoid legacy RCTEventDispatcher imports under Xcode 26`
+      );
     }
   };
 
@@ -229,7 +252,7 @@ const patchReactNativeMapsForXcode26 = () => {
     'AirMaps/AIRMapLocalTileManager.m',
     'AirMaps/AIRMapCircleManager.m',
     'AirMaps/AIRMapPolylineManager.m',
-  ].forEach(ensureEventDispatcherProtocolImport);
+  ].forEach(normalizeEventDispatcherImports);
 };
 
 const patchReactNativeForXcode26 = () => {
