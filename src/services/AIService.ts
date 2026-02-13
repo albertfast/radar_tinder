@@ -6,7 +6,7 @@
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { Platform, NativeModules } from 'react-native';
+import { NativeModules } from 'react-native';
 import ocrClasses from '../../assets/models/digital_ocr_classes.json';
 import dashboardMetadata from '../../assets/models/dashboard_classes.json';
 import diagnosticKb from '../../assets/models/diagnostic_kb.json';
@@ -266,20 +266,12 @@ export class AIService {
     
     try {
       const asset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx'));
+      await asset.downloadAsync();
       let candidateUri: string | null = asset.localUri || (asset as any).uri || null;
-
-      // In dev builds on a physical device, Metro may serve assets on 127.0.0.1 which
-      // isn't reachable. Skip directly to remote fallback in that case.
       const isLoopback =
         typeof candidateUri === 'string' &&
         (candidateUri.includes('127.0.0.1') || candidateUri.includes('localhost'));
-
-      if (candidateUri && !isLoopback) {
-        if (!candidateUri.startsWith('file://')) {
-          await asset.downloadAsync();
-          candidateUri = asset.localUri || (asset as any).uri || null;
-        }
-      } else {
+      if (isLoopback) {
         candidateUri = null;
       }
 
@@ -295,17 +287,13 @@ export class AIService {
 
       try {
         const dataAsset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx.data'));
+        await dataAsset.downloadAsync();
         let dataUri: string | null = dataAsset.localUri || (dataAsset as any).uri || null;
         const dataIsLoopback =
           typeof dataUri === 'string' &&
           (dataUri.includes('127.0.0.1') || dataUri.includes('localhost'));
 
-        if (dataUri && !dataIsLoopback) {
-          if (!dataUri.startsWith('file://')) {
-            await dataAsset.downloadAsync();
-            dataUri = dataAsset.localUri || (dataAsset as any).uri || null;
-          }
-        } else {
+        if (dataIsLoopback) {
           dataUri = null;
         }
 
@@ -412,43 +400,61 @@ export class AIService {
         console.log('Loading Dashboard model...');
         
         const asset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx'));
+        await asset.downloadAsync();
         let candidateUri: string | null = asset.localUri || (asset as any).uri || null;
         const isLoopback =
           typeof candidateUri === 'string' &&
           (candidateUri.includes('127.0.0.1') || candidateUri.includes('localhost'));
-        if (candidateUri && !isLoopback) {
-          if (!candidateUri.startsWith('file://')) {
-            await asset.downloadAsync();
-            console.log('Dashboard model asset downloaded');
-            candidateUri = asset.localUri || (asset as any).uri || null;
-          }
-        } else {
+        if (isLoopback) {
           candidateUri = null;
         }
 
         if (!candidateUri) {
           throw new Error('Dashboard model asset URI missing or unreachable (dev server?)');
         }
+        console.log('Dashboard model asset downloaded');
 
-        // On iOS, copy the model to a writable cache directory so the .onnx.data sidecar
-        // can live next to the model file. On Android, keep the bundled path to avoid
-        // large-file copy flakiness.
         const cachePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/dashboard_net.onnx`;
         let modelPath = candidateUri;
-        const shouldUseCache = Platform.OS === 'ios' || !String(candidateUri).startsWith('file://');
-        
-        if (shouldUseCache) {
-          const cachedInfo = await FileSystem.getInfoAsync(cachePath);
-          if (!cachedInfo.exists || cachedInfo.size === 0) {
-            console.log('Copying dashboard model to cache directory');
-            if (String(candidateUri).startsWith('file://')) {
-              await FileSystem.copyAsync({ from: candidateUri, to: cachePath });
-            } else {
-              await FileSystem.downloadAsync(candidateUri, cachePath);
+        // Always prefer a writable cache path for ONNX sessions.
+        try {
+          if (candidateUri === cachePath) {
+            modelPath = cachePath;
+          } else {
+            const sourceInfo = await FileSystem.getInfoAsync(candidateUri);
+            const cachedInfo = await FileSystem.getInfoAsync(cachePath);
+            const shouldRefreshCache =
+              !cachedInfo.exists ||
+              cachedInfo.size === 0 ||
+              (sourceInfo.exists &&
+                typeof sourceInfo.size === 'number' &&
+                sourceInfo.size > 0 &&
+                cachedInfo.size !== sourceInfo.size);
+
+            if (shouldRefreshCache) {
+              console.log('Copying dashboard model to cache directory');
+              if (String(candidateUri).startsWith('file://')) {
+                await FileSystem.copyAsync({ from: candidateUri, to: cachePath });
+              } else if (/^https?:\/\//i.test(String(candidateUri))) {
+                await FileSystem.downloadAsync(candidateUri, cachePath);
+              } else {
+                try {
+                  await FileSystem.copyAsync({ from: candidateUri, to: cachePath });
+                } catch {
+                  await FileSystem.downloadAsync(candidateUri, cachePath);
+                }
+              }
+              console.log('Dashboard model copied to cache');
             }
-            console.log('Dashboard model copied to cache');
+            const verifiedCache = await FileSystem.getInfoAsync(cachePath);
+            if (verifiedCache.exists && (typeof verifiedCache.size !== 'number' || verifiedCache.size > 0)) {
+              modelPath = cachePath;
+            } else {
+              console.warn('Dashboard model cache path unavailable; using bundled URI');
+            }
           }
-          modelPath = cachePath;
+        } catch (cacheError) {
+          console.warn('Dashboard model cache preparation failed, using bundled URI:', cacheError);
         }
 
         console.log('Ensuring dashboard model sidecar...');
