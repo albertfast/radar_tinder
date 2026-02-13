@@ -28,6 +28,54 @@ const fetchWithTimeout: typeof fetch = async (input: any, init?: any) => {
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY;
+const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+const MISSING_ENV_MESSAGE =
+  'Missing Supabase env: set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_KEY in build/runtime environment.';
+
+const createMissingEnvError = () => new Error(MISSING_ENV_MESSAGE);
+
+const createUnavailableSupabaseClient = () => {
+  const fail = async () => ({ data: null, error: createMissingEnvError() });
+
+  const channelRef: any = {
+    on: () => channelRef,
+    subscribe: () => channelRef,
+  };
+
+  const query: any = {
+    select: () => query,
+    insert: () => query,
+    update: () => query,
+    upsert: () => query,
+    delete: () => query,
+    eq: () => query,
+    order: () => query,
+    limit: () => query,
+    maybeSingle: fail,
+    single: fail,
+    then: (onFulfilled: any, onRejected: any) => fail().then(onFulfilled, onRejected),
+    catch: (onRejected: any) => fail().catch(onRejected),
+    finally: (onFinally: any) => fail().finally(onFinally),
+  };
+
+  return {
+    auth: {
+      signInWithPassword: fail,
+      signInWithIdToken: fail,
+      signUp: fail,
+      signInAnonymously: fail,
+      signOut: async () => ({ error: null }),
+      getSession: async () => ({
+        data: { session: null },
+        error: createMissingEnvError(),
+      }),
+    },
+    rpc: fail,
+    from: () => query,
+    channel: () => channelRef,
+    removeChannel: () => {},
+  } as any;
+};
 
 if (__DEV__) {
   console.log('Supabase env', {
@@ -36,24 +84,27 @@ if (__DEV__) {
   });
 }
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase env: set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_KEY (anon/public key) in .env and restart Metro.'
-  );
+if (!isSupabaseConfigured) {
+  console.error(MISSING_ENV_MESSAGE);
 }
 
-export const supabase = createClient(
-  supabaseUrl,
-  supabaseAnonKey,
-  {
-    global: {
-      fetch: fetchWithTimeout,
-    },
-    auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: false,
-      persistSession: true,
-      detectSessionInUrl: false,
-      lock: lockWithoutTimeout,
-    },
-  });
+export const supabase = isSupabaseConfigured
+  ? createClient(
+      supabaseUrl!,
+      supabaseAnonKey!,
+      {
+        global: {
+          fetch: fetchWithTimeout,
+        },
+        auth: {
+          storage: AsyncStorage,
+          autoRefreshToken: false,
+          persistSession: true,
+          detectSessionInUrl: false,
+          lock: lockWithoutTimeout,
+        },
+      }
+    )
+  : createUnavailableSupabaseClient();
+
+export { isSupabaseConfigured };
