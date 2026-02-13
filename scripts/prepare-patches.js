@@ -190,6 +190,70 @@ const patchReactNativeMapsForXcode26 = () => {
     fs.writeFileSync(polylinePath, polylineContent);
     console.log('Patched react-native-maps AIRGoogleMapPolyline.m to remove unused import');
   }
+
+  const ensureEventDispatcherProtocolImport = (relativeSourcePath) => {
+    const sourcePath = path.join(resolvedDir, 'ios', relativeSourcePath);
+    if (!fs.existsSync(sourcePath)) return;
+
+    let source = fs.readFileSync(sourcePath, 'utf8');
+    const dispatcherImport = '#import <React/RCTEventDispatcher.h>';
+    const protocolImport = '#import <React/RCTEventDispatcherProtocol.h>';
+
+    if (source.includes(dispatcherImport) && !source.includes(protocolImport)) {
+      source = source.replace(dispatcherImport, `${protocolImport}\n${dispatcherImport}`);
+      fs.writeFileSync(sourcePath, source);
+      console.log(`Patched react-native-maps ${relativeSourcePath} to import RCTEventDispatcherProtocol`);
+    }
+  };
+
+  [
+    'AirMaps/AIRMapCalloutManager.m',
+    'AirGoogleMaps/AIRGoogleMapPolylineManager.m',
+    'AirGoogleMaps/AIRGoogleMapManager.m',
+    'AirMaps/AIRMapPolygonManager.m',
+    'AirMaps/AIRMapOverlay.m',
+    'AirGoogleMaps/AIRGoogleMapPolygonManager.m',
+    'AirGoogleMaps/AIRGoogleMapOverlay.m',
+    'AirMaps/AIRMapMarker.m',
+    'AirMaps/AIRMapUrlTileManager.m',
+    'AirMaps/AIRMap.m',
+    'AirMaps/AIRMapWMSTileManager.m',
+    'AirMaps/AIRMapManager.m',
+    'AirMaps/AIRMapLocalTileManager.m',
+    'AirMaps/AIRMapCircleManager.m',
+    'AirMaps/AIRMapPolylineManager.m',
+  ].forEach(ensureEventDispatcherProtocolImport);
+};
+
+const patchReactNativeForXcode26 = () => {
+  const pkg = 'react-native';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const componentDataHeaderPath = path.join(
+    resolvedDir,
+    'React',
+    'Views',
+    'RCTComponentData.h'
+  );
+
+  if (!fs.existsSync(componentDataHeaderPath)) {
+    console.warn(`prepare-patches: missing file ${componentDataHeaderPath}`);
+    return;
+  }
+
+  let componentDataHeader = fs.readFileSync(componentDataHeaderPath, 'utf8');
+  const badForwardDecl = '@class RCTEventDispatcherProtocol;';
+  const goodForwardDecl = '@protocol RCTEventDispatcherProtocol;';
+
+  if (componentDataHeader.includes(badForwardDecl)) {
+    componentDataHeader = componentDataHeader.replace(badForwardDecl, goodForwardDecl);
+    fs.writeFileSync(componentDataHeaderPath, componentDataHeader);
+    console.log('Patched react-native RCTComponentData.h protocol forward declaration for Xcode 26');
+  }
 };
 
 const patchRNFBCrashlyticsForModules = () => {
@@ -291,6 +355,7 @@ for (const pkg of packages) {
 }
 
 patchReactNativeMapsForXcode26();
+patchReactNativeForXcode26();
 patchExpoModulesCoreForRN81();
 patchExpoReactActivityDelegateWrapperForRN81();
 patchRNFBCrashlyticsForModules();
