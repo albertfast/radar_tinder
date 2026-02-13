@@ -171,7 +171,10 @@ module.exports = {
     updates: {
       enabled: true,
       url: "https://u.expo.dev/62bbc6f8-257a-48e8-adb8-0b80558e3e92",
-      fallbackToCacheTimeout: 0
+      fallbackToCacheTimeout: 0,
+      assetPatternsToBeBundled: [
+        "assets/models/**/*"
+      ]
     }
   },
   "react-native-google-mobile-ads": {

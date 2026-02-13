@@ -25,6 +25,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
+import * as Speech from 'expo-speech';
+import * as Haptics from 'expo-haptics';
 import { useRadarStore } from '../store/radarStore';
 import { useAuthStore } from '../store/authStore';
 import { RadarService } from '../services/RadarService';
@@ -102,7 +104,13 @@ const OptimizedMarker = React.memo(({ coordinate, type, speedLimit }: any) => {
 const RadarScreen = ({ navigation, route }: any) => {
   const { user, refreshProfile } = useAuthStore();
   const canUsePro = hasProAccess(user);
-  const { unitSystem } = useSettingsStore();
+  const {
+    unitSystem,
+    voiceWarningsEnabled,
+    hapticAlertsEnabled,
+    keepAwakeWhileDriving,
+    warningVolume,
+  } = useSettingsStore();
   const setRadarLocations = useRadarStore((state) => state.setRadarLocations);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
   const acknowledgeAlert = useRadarStore((state) => state.acknowledgeAlert);
@@ -146,6 +154,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const drivingStartTimeRef = useRef<Date | null>(drivingStartTime);
   const destinationInputRef = useRef<TextInput>(null);
   const setTabBarHidden = useUiStore((state) => state.setTabBarHidden);
+  const lastAnnouncedAlertIdRef = useRef<string | null>(null);
 
   // Refs for cleanup
   const lastPositionRef = useRef<any>(null);
@@ -231,13 +240,51 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   // Keep screen awake during driving mode
   useEffect(() => {
-    if (isDriving) {
+    if (isDriving && keepAwakeWhileDriving) {
       activateKeepAwake();
     } else {
       deactivateKeepAwake();
     }
-    return () => deactivateKeepAwake();
-  }, [isDriving]);
+    return () => {
+      deactivateKeepAwake();
+    };
+  }, [isDriving, keepAwakeWhileDriving]);
+
+  // Voice/haptic alert feedback for active hazards.
+  useEffect(() => {
+    if (!activeAlert) {
+      lastAnnouncedAlertIdRef.current = null;
+      return;
+    }
+    if (!isDriving) return;
+    if (lastAnnouncedAlertIdRef.current === activeAlert.id) return;
+    lastAnnouncedAlertIdRef.current = activeAlert.id;
+
+    if (hapticAlertsEnabled) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    }
+
+    if (!isMuted && voiceWarningsEnabled) {
+      const etaMinutes = Math.max(1, Math.round(activeAlert.estimatedTime * 60));
+      const distanceText = formatDistance(activeAlert.distance, unitSystem);
+      const message = `${formatRadarLabel(activeAlert.type)} ahead. ${distanceText}. Estimated ${etaMinutes} minutes.`;
+      Speech.stop();
+      Speech.speak(message, {
+        language: 'en-US',
+        pitch: 1,
+        rate: 0.95,
+        volume: Math.max(0.1, warningVolume / 100),
+      });
+    }
+  }, [
+    activeAlert,
+    hapticAlertsEnabled,
+    isDriving,
+    isMuted,
+    unitSystem,
+    voiceWarningsEnabled,
+    warningVolume,
+  ]);
 
   // Hide bottom tab bar in driving mode or when Map tab is active
   useEffect(() => {
@@ -609,7 +656,7 @@ const RadarScreen = ({ navigation, route }: any) => {
         drivingStartTimeRef.current = startTime;
         setTotalDistance(0);
         totalDistanceRef.current = 0;
-        setIsMuted(true);
+        setIsMuted(!voiceWarningsEnabled || warningVolume <= 0);
         tripStartRef.current = null;
         tripStartLabelRef.current = null;
         const startLoc = currentLocationRef.current || currentLocation;
@@ -711,7 +758,13 @@ const RadarScreen = ({ navigation, route }: any) => {
   };
 
   const formatGeocodeLabel = (
-    addr?: { name?: string; street?: string; city?: string; region?: string; country?: string },
+    addr?: {
+      name?: string | null;
+      street?: string | null;
+      city?: string | null;
+      region?: string | null;
+      country?: string | null;
+    },
     coords?: { latitude: number; longitude: number }
   ) => {
     if (addr) {

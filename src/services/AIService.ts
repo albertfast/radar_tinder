@@ -36,6 +36,9 @@ let dashboardKbValidated = false;
 // Emergency fallback base URL for remote-hosted models.
 // Primary source is always embedded app assets; this is used only if local loading fails.
 const REMOTE_MODEL_BASE = 'https://raw.githubusercontent.com/albertfast/radar_tinder/master/assets/models';
+const REMOTE_MODEL_FALLBACK_ENABLED = /^(1|true|yes)$/i.test(
+  String((process as any)?.env?.EXPO_PUBLIC_ALLOW_REMOTE_MODEL_FALLBACK || '')
+);
 
 export class AIService {
   private static getOrtModule(): OrtModule {
@@ -140,6 +143,10 @@ export class AIService {
       text.includes('not an embedded local asset') ||
       text.includes('asset uri not found in app bundle')
     );
+  }
+
+  private static canUseRemoteModelFallback(): boolean {
+    return REMOTE_MODEL_FALLBACK_ENABLED;
   }
 
   private static softmax(logits: Float32Array): Float32Array {
@@ -328,22 +335,28 @@ export class AIService {
     
     try {
       const asset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx'));
+      await asset.downloadAsync();
       const candidateUri = this.resolveBundledAssetUri(asset, 'Bundled OCR model');
 
       const modelPath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx`;
-      await FileSystem.copyAsync({
-        from: candidateUri,
-        to: modelPath
-      });
+      if (candidateUri !== modelPath) {
+        await FileSystem.copyAsync({
+          from: candidateUri,
+          to: modelPath
+        });
+      }
 
       try {
         const dataAsset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx.data'));
+        await dataAsset.downloadAsync();
         const dataUri = this.resolveBundledAssetUri(dataAsset, 'Bundled OCR sidecar');
         const dataPath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx.data`;
-        await FileSystem.copyAsync({
-          from: dataUri,
-          to: dataPath
-        });
+        if (dataUri !== dataPath) {
+          await FileSystem.copyAsync({
+            from: dataUri,
+            to: dataPath
+          });
+        }
       } catch (dataError) {
         // Model may be self-contained without external data.
       }
@@ -353,9 +366,15 @@ export class AIService {
       return ocrSession;
     } catch (error) {
       console.error('Error loading OCR model from bundled asset:', error);
+      const bundledMessage = error instanceof Error ? error.message : 'Failed to load OCR model';
+      if (!this.canUseRemoteModelFallback() || this.isEmbeddedAssetErrorMessage(bundledMessage)) {
+        modelLoadError =
+          `${bundledMessage}. Remote model fallback is disabled (embedded asset required).`;
+        throw new Error(modelLoadError);
+      }
       const fallbackUrl = this.buildRemoteModelUrl('digital_ocr_net.onnx');
       if (!fallbackUrl) {
-        modelLoadError = error instanceof Error ? error.message : 'Failed to load OCR model';
+        modelLoadError = bundledMessage;
         throw new Error(modelLoadError);
       }
       // Attempt fallback to remote model URL
@@ -379,6 +398,7 @@ export class AIService {
     try {
       console.log('Ensuring dashboard model sidecar file...');
       const dataAsset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx.data'));
+      await dataAsset.downloadAsync();
       console.log('Dashboard model data asset downloaded');
 
       const targetPath = modelPath.endsWith('.onnx')
@@ -435,6 +455,7 @@ export class AIService {
         console.log('Loading Dashboard model...');
         
         const asset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx'));
+        await asset.downloadAsync();
         const candidateUri = this.resolveBundledAssetUri(asset, 'Bundled dashboard model');
         console.log('Dashboard model asset downloaded');
 
@@ -499,7 +520,13 @@ export class AIService {
           console.warn('Failed to delete cached model file:', e);
         }
 
-        // Try remote fallback
+        // Try remote fallback only when explicitly enabled
+        if (!this.canUseRemoteModelFallback() || this.isEmbeddedAssetErrorMessage(modelLoadError || '')) {
+          throw new Error(
+            `Failed to load dashboard model: ${modelLoadError}. Remote model fallback is disabled (embedded asset required).`
+          );
+        }
+
         const fallbackUrl = this.buildRemoteModelUrl('dashboard_net.onnx');
         if (!fallbackUrl) {
           throw new Error(`Failed to load dashboard model: ${modelLoadError}`);

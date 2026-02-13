@@ -175,6 +175,7 @@ export const useAuthStore = create<AuthState>()(
             await SupabaseService.upsertProfile(supabaseUser.id, {
               email: supabaseUser.email,
               display_name: displayName,
+              unit_system: useSettingsStore.getState().unitSystem,
               stats: { reports: 0, confirmations: 0, distanceDriven: 0 },
               points: 0,
               xp: 0,
@@ -258,6 +259,7 @@ export const useAuthStore = create<AuthState>()(
               username: profile?.username,
               display_name: profile?.displayName || profile?.username,
               avatar_url: profile?.avatarUrl,
+              unit_system: useSettingsStore.getState().unitSystem,
               stats: { reports: 0, confirmations: 0, distanceDriven: 0 },
               points: 0,
               xp: 0,
@@ -301,6 +303,7 @@ export const useAuthStore = create<AuthState>()(
                 email: params.profile?.email || data.user.email,
                 display_name: displayName,
                 avatar_url: params.profile?.avatarUrl,
+                unit_system: useSettingsStore.getState().unitSystem,
                 stats: { reports: 0, confirmations: 0, distanceDriven: 0 },
                 points: 0,
                 xp: 0,
