@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 16.30.0",
-    "appVersionSource": "local"
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -59,6 +59,7 @@
       "credentialsSource": "local",
       "distribution": "store",
       "developmentClient": false,
+      "autoIncrement": true,
       "env": {
         "EXPO_SKIP_DOCTOR_CHECK": "1",
         "RCT_NEW_ARCH_ENABLED": "1"

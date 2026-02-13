@@ -155,6 +155,7 @@ module.exports = {
       "./plugins/withFirebasePodfile.js",
       "./plugins/withPodfileFix.js",
       "./plugins/withSettingsGradleFix.js",
+      "./plugins/withAndroidReleaseSigning.js",
       "./plugins/withOnnxRuntime.js"
     ],
     extra: {

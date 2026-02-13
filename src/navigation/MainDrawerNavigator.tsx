@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform, Dimensions, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform, Alert, useWindowDimensions } from 'react-native';
 import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigation/drawer';
 import { Text, Avatar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,37 +7,46 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInLeft, FadeInDown } from 'react-native-reanimated';
 import { useAuthStore } from '../store/authStore';
 import MainTabNavigator from './MainTabNavigator';
-import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Drawer = createDrawerNavigator();
-const { width } = Dimensions.get('window');
 const allowLayoutAnimations = Platform.OS !== 'android';
 
 const CustomDrawerContent = (props: any) => {
   const { user, logout } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const horizontalPadding = Math.max(20, Math.min(28, Math.round(width * 0.06)));
+  const topPadding = insets.top + Math.max(20, Math.min(36, Math.round(width * 0.04)));
 
-  const menuItems = [
+  const menuItems: Array<{ icon: string; label: string; screen: string; color: string; params?: any }> = [
     { icon: 'radar', label: 'Radar Map', screen: 'Home', color: '#FF5252' },
     { icon: 'car-cog', label: 'AI Diagnosis', screen: 'Diagnose', color: '#4ECDC4' },
-    { icon: 'book-open-variant', label: 'Permit Test', screen: 'Home', params: { screen: 'PermitTest' }, color: '#96CEB4' },
-    { icon: 'trophy-outline', label: 'Leaderboard', screen: 'Home', params: { screen: 'Leaderboard' }, color: '#FFD700' },
+    { icon: 'book-open-variant', label: 'Permit Test', screen: 'Permit', color: '#96CEB4' },
+    { icon: 'trophy-outline', label: 'Leaderboard', screen: 'Leaderboard', color: '#FFD700' },
   ];
 
   const secondaryItems = [
+    { icon: 'history', label: 'History', screen: 'History' },
     { icon: 'cog-outline', label: 'Settings', screen: 'Settings' },
     { icon: 'help-circle-outline', label: 'Support', action: () => Alert.alert('Support', 'Support is coming soon.') },
   ];
 
   const handleNavigate = (screen: string, params?: any) => {
-    // For PermitTest, navigate to Home (RadarNavigator) with screen parameter
-    if (screen === 'PermitTest') {
-      props.navigation.navigate('MainTabs', { 
-        screen: 'Home',
-        params: { screen: 'PermitTest' }
-      });
-    } else {
-      props.navigation.navigate(screen, params);
+    const tabScreens = new Set(['Home', 'Permit', 'Drive', 'Diagnose', 'Leaderboard', 'Profile']);
+
+    if (tabScreens.has(screen)) {
+      props.navigation.navigate('MainTabs', { screen, params });
+      props.navigation.closeDrawer();
+      return;
     }
+
+    // Nested stack routes in RadarNavigator.
+    props.navigation.navigate('MainTabs', {
+      screen: 'Home',
+      params: { screen, ...(params || {}) },
+    });
+    props.navigation.closeDrawer();
   };
 
   return (
@@ -49,7 +58,7 @@ const CustomDrawerContent = (props: any) => {
         />
         
         {/* Header Profile Section with Glass effect if possible, else gradient overlay */}
-        <View style={styles.profileSection}>
+        <View style={[styles.profileSection, { paddingTop: topPadding, paddingHorizontal: horizontalPadding }]}>
              <LinearGradient
                 colors={['rgba(255, 82, 82, 0.15)', 'transparent']}
                 style={StyleSheet.absoluteFillObject}
@@ -106,7 +115,7 @@ const CustomDrawerContent = (props: any) => {
                     <Animated.View key={item.label} entering={allowLayoutAnimations ? FadeInLeft.delay(400 + (index * 50)) : undefined}>
                         <TouchableOpacity 
                             style={styles.menuItem} 
-                            onPress={() => handleNavigate(item.screen)}
+                            onPress={() => handleNavigate(item.screen, item.params)}
                         >
                             <View style={[styles.menuIconBox, { backgroundColor: item.color + '20' }]}>
                                 <MaterialCommunityIcons name={item.icon as any} size={22} color={item.color} />
@@ -154,6 +163,8 @@ const CustomDrawerContent = (props: any) => {
 }
 
 const MainDrawerNavigator = () => {
+    const { width } = useWindowDimensions();
+    const drawerWidth = Math.max(280, Math.min(Math.round(width * 0.82), 380));
     return (
         <Drawer.Navigator
             drawerContent={(props) => <CustomDrawerContent {...props} />}
@@ -161,7 +172,7 @@ const MainDrawerNavigator = () => {
                 headerShown: false,
                 drawerStyle: {
                     backgroundColor: '#0F172A',
-                    width: width * 0.8,
+                    width: drawerWidth,
                 },
                 drawerType: 'slide',
                 overlayColor: 'rgba(0,0,0,0.8)',
@@ -181,7 +192,6 @@ const styles = StyleSheet.create({
   },
   profileSection: {
     padding: 24,
-    paddingTop: 60,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.05)',
   },

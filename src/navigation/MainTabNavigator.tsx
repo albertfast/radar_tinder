@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useCallback } from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,16 +9,16 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import RadarNavigator from './RadarNavigator';
 import ProfileNavigator from './ProfileNavigator';
 import AIDiagnoseScreen from '../screens/AIDiagnoseScreen';
-import HistoryScreen from '../screens/HistoryScreen';
+import LeaderboardScreen from '../screens/LeaderboardScreen';
 import { useUiStore } from '../store/uiStore';
-import { TAB_BAR_HEIGHT, getResponsivePadding, getResponsiveMargin, getResponsiveWidth, getResponsiveHeight } from '../constants/layout';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 export type MainTabParamList = {
   Home: { forceTab?: string } | undefined;
   Permit: { screen?: string } | undefined;
   Drive: { forceTab?: string } | undefined;
   Diagnose: undefined;
-  History: undefined;
+  Leaderboard: undefined;
   Profile: undefined;
 };
 
@@ -29,15 +29,22 @@ const TAB_ICONS: Record<keyof MainTabParamList, any> = {
   Permit: 'book-open-variant',
   Drive: 'radar',
   Diagnose: 'car-wrench',
-  History: 'car-multiple',
+  Leaderboard: 'trophy-outline',
   Profile: 'account-circle',
 };
 
 const PillTabBar = React.memo(({ state, descriptors, navigation }: BottomTabBarProps) => {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const tabBarHidden = useUiStore((s) => s.tabBarHidden);
   const translateY = useSharedValue(0);
   const opacity = useSharedValue(1);
+  const horizontalPadding = Math.max(12, Math.min(20, Math.round(width * 0.04)));
+  const iconShellSize = Math.max(42, Math.min(56, Math.round(width * 0.13)));
+  const centerShellSize = Math.round(iconShellSize * 1.24);
+  const centerLift = Math.max(4, Math.min(8, Math.round(width * 0.015)));
+  const iconRadius = Math.max(14, Math.round(iconShellSize * 0.36));
+  const centerRadius = Math.max(18, Math.round(centerShellSize * 0.35));
 
   useEffect(() => {
     const hideDistance = TAB_BAR_HEIGHT + Math.max(insets.bottom, 10) + 16;
@@ -68,7 +75,10 @@ const PillTabBar = React.memo(({ state, descriptors, navigation }: BottomTabBarP
     <Animated.View
       style={[
         styles.tabWrapper,
-        { paddingBottom: Math.max(insets.bottom + 8, 18) },
+        {
+          paddingBottom: Math.max(insets.bottom + 8, 18),
+          paddingHorizontal: horizontalPadding
+        },
         animatedStyle,
         tabBarHidden && Platform.OS === 'android' ? styles.tabHidden : null,
       ]}
@@ -78,7 +88,13 @@ const PillTabBar = React.memo(({ state, descriptors, navigation }: BottomTabBarP
         colors={['rgba(15,23,42,0.95)', 'rgba(2,6,23,0.9)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.tabPill}
+        style={[
+          styles.tabPill,
+          {
+            paddingHorizontal: Math.max(10, Math.min(16, Math.round(width * 0.03))),
+            paddingVertical: Math.max(6, Math.min(10, Math.round(width * 0.02)))
+          }
+        ]}
       >
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
@@ -91,19 +107,35 @@ const PillTabBar = React.memo(({ state, descriptors, navigation }: BottomTabBarP
               accessibilityRole="button"
               accessibilityState={isFocused ? { selected: true } : {}}
               onPress={() => handleTabPress(route.name, isFocused)}
-              style={[styles.tabItem, isCenter && styles.tabItemCenter]}
+              style={[
+                styles.tabItem,
+                isCenter && styles.tabItemCenter,
+                isCenter ? { transform: [{ translateY: -centerLift }] } : null
+              ]}
               activeOpacity={0.9}
             >
               <View
                 style={[
                   styles.iconShell,
+                  {
+                    width: iconShellSize,
+                    height: iconShellSize,
+                    borderRadius: iconRadius
+                  },
                   isFocused && styles.iconShellActive,
                   isCenter && styles.iconShellCenter,
+                  isCenter
+                    ? {
+                        width: centerShellSize,
+                        height: centerShellSize,
+                        borderRadius: centerRadius
+                      }
+                    : null,
                 ]}
               >
                 <MaterialCommunityIcons
                   name={iconName}
-                  size={isCenter ? 30 : isFocused ? 26 : 22}
+                  size={isCenter ? Math.round(iconShellSize * 0.54) : isFocused ? Math.round(iconShellSize * 0.5) : Math.round(iconShellSize * 0.42)}
                   color={isFocused ? '#FF6B6B' : '#94A3B8'}
                 />
               </View>
@@ -171,8 +203,8 @@ const MainTabNavigator = () => {
       />
 
       <Tab.Screen
-        name="History"
-        component={HistoryScreen}
+        name="Leaderboard"
+        component={LeaderboardScreen}
         options={{
           lazy: true,
           unmountOnBlur: false
@@ -198,13 +230,10 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     alignItems: 'center',
-    paddingHorizontal: getResponsivePadding(16),
   },
   tabPill: {
     flexDirection: 'row',
     borderRadius: 30,
-    paddingHorizontal: getResponsivePadding(12),
-    paddingVertical: getResponsivePadding(8),
     borderWidth: 1,
     borderColor: 'rgba(148,163,184,0.2)',
     shadowColor: '#000',
@@ -225,19 +254,14 @@ const styles = StyleSheet.create({
     display: 'none',
   },
   tabItemCenter: {
-    transform: [{ translateY: -6 }],
+    // center tab gets lift from runtime style based on screen width
   },
   iconShell: {
-    width: getResponsiveWidth(50),
-    height: getResponsiveHeight(50),
-    borderRadius: getResponsiveMargin(18),
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconShellCenter: {
-    width: getResponsiveWidth(64),
-    height: getResponsiveHeight(64),
-    borderRadius: getResponsiveMargin(22),
+    transform: [{ translateY: -2 }],
   },
   iconShellActive: {
     backgroundColor: 'rgba(255,107,107,0.12)',

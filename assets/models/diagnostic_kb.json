@@ -1,266 +1,1566 @@
 {
-    "ABS": {
-        "name": "Anti-lock Braking System",
-        "severity": "High",
-        "description": "There is a fault in the ABS system. Your regular brakes will still work, but emergency braking assistance is disabled.",
-        "sensors": [
-            "Wheel speed sensors",
-            "ABS control module"
-        ],
-        "faults": [
-            "Faulty wheel speed sensor",
-            "Low brake fluid",
-            "ABS module failure"
-        ],
-        "checks": [
-            "Inspect wheel speed sensor wiring",
-            "Check brake fluid level",
-            "Scan ABS module for fault codes"
-        ],
-        "causes": ["Faulty wheel speed sensor", "Low brake fluid", "ABS module failure"],
-        "action": "Drive carefully and have the system inspected as soon as possible."
-    },
-    "Airbag": {
-        "name": "Airbag / Supplemental Restraint System",
-        "severity": "Critical",
-        "description": "A fault has been detected in the airbag system. Airbags may not deploy in an accident.",
-        "sensors": [
-            "Impact sensors",
-            "Seatbelt pretensioner",
-            "Clock spring"
-        ],
-        "faults": [
-            "Faulty seatbelt pretensioner",
-            "Clock spring failure",
-            "Impact sensor issue"
-        ],
-        "checks": [
-            "Inspect seatbelt pretensioner connectors",
-            "Scan SRS for fault codes",
-            "Avoid driving until repaired"
-        ],
-        "causes": ["Faulty seatbelt pretensioner", "Clock spring failure", "Impact sensor issue"],
-        "action": "Seek immediate professional repair. Do not drive if possible."
-    },
-    "Battery": {
-        "name": "Charging System Warning",
-        "severity": "High",
-        "description": "The battery is not being charged or there is a fault in the electrical system.",
-        "sensors": [
-            "Alternator/charging system",
-            "Battery terminals"
-        ],
-        "faults": [
-            "Failing alternator",
-            "Broken serpentine belt",
-            "Loose battery terminals"
-        ],
-        "checks": [
-            "Check battery terminals for corrosion",
-            "Inspect serpentine belt",
-            "Measure charging voltage"
-        ],
-        "causes": ["Failing alternator", "Broken serpentine belt", "Loose battery terminals"],
-        "action": "Turn off unnecessary electrical items and drive to a service station immediately."
-    },
-    "Brake": {
-        "name": "Brake System Warning",
-        "severity": "Critical",
-        "description": "Serious issue with the braking system or the parking brake is engaged.",
-        "sensors": [
-            "Brake fluid level sensor",
-            "Parking brake switch"
-        ],
-        "faults": [
-            "Low brake fluid",
-            "Worn brake pads",
-            "Hydraulic pressure loss"
-        ],
-        "checks": [
-            "Check brake fluid level",
-            "Verify parking brake is fully released",
-            "Inspect brake pads and lines"
-        ],
-        "causes": ["Low brake fluid", "Worn brake pads", "Hydraulic pressure loss"],
-        "action": "Stop the vehicle safely. Check brake fluid level. Do not drive if brakes feel soft."
-    },
-    "Check Engine": {
-        "name": "Check Engine / Malfunction Indicator",
-        "severity": "Medium",
-        "description": "The engine computer has detected a fault in the emission or engine control system.",
-        "sensors": [
-            "O2 sensors",
-            "MAF sensor",
-            "EVAP system"
-        ],
-        "faults": [
-            "Loose gas cap",
-            "Faulty oxygen sensor",
-            "Catalytic converter issue"
-        ],
-        "checks": [
-            "Tighten or replace gas cap",
-            "Scan ECU for OBD-II codes",
-            "Inspect intake for leaks"
-        ],
-        "causes": ["Loose gas cap", "Faulty oxygen sensor", "Catalytic converter issue"],
-        "action": "Schedule a diagnostic scan. If flashing, reduce speed and seek immediate service."
-    },
-    "Tire Pressure": {
-        "name": "Tire Pressure Monitoring System (TPMS)",
-        "severity": "Warning",
-        "description": "One or more tires have low air pressure.",
-        "sensors": [
-            "TPMS wheel sensors",
-            "TPMS receiver"
-        ],
-        "faults": [
-            "Low tire pressure",
-            "Puncture",
-            "TPMS sensor battery low"
-        ],
-        "checks": [
-            "Measure tire pressures and inflate to spec",
-            "Inspect for punctures or leaks",
-            "Reset TPMS if required"
-        ],
-        "causes": ["Puncture", "Temperature changes", "Faulty TPMS sensor"],
-        "action": "Check tire pressures and inflate to recommended levels."
-    },
-    "Coolant Temp": {
-        "name": "Engine Overheating Warning",
-        "severity": "Critical",
-        "description": "The engine is running too hot. Continued driving will cause severe engine damage.",
-        "sensors": [
-            "Coolant temperature sensor",
-            "Radiator fan"
-        ],
-        "faults": [
-            "Coolant leak",
-            "Failing water pump",
-            "Stuck thermostat"
-        ],
-        "checks": [
-            "Pull over and let engine cool",
-            "Check coolant level after cooling",
-            "Inspect for leaks"
-        ],
-        "causes": ["Coolant leak", "Failing water pump", "Stuck thermostat"],
-        "action": "Pull over safely and turn off the engine immediately. Do not open the radiator cap while hot."
-    },
-    "Traction Control": {
-        "name": "Traction Control / Stability Control",
-        "severity": "Warning",
-        "description": "The traction control system is either active or has a fault.",
-        "sensors": [
-            "Wheel speed sensors",
-            "Yaw/steering angle sensor"
-        ],
-        "faults": [
-            "Slippery road conditions",
-            "Faulty wheel speed sensor",
-            "Steering angle sensor issue"
-        ],
-        "checks": [
-            "Drive carefully on low-traction surfaces",
-            "Scan stability control module",
-            "Inspect wheel speed sensors"
-        ],
-        "causes": ["Slippery road conditions", "Faulty wheel speed sensor", "Steering angle sensor issue"],
-        "action": "Drive cautiously on slippery surfaces. If the light stays on, have it checked."
-    },
-    "Seatbelt": {
-        "name": "Seatbelt Reminder",
-        "severity": "Warning",
-        "description": "One or more occupants do not have their seatbelts fastened.",
-        "sensors": [
-            "Seatbelt buckle switch",
-            "Seat occupancy sensor"
-        ],
-        "faults": [
-            "Unbuckled seatbelt",
-            "Heavy object on seat",
-            "Seatbelt switch fault"
-        ],
-        "checks": [
-            "Ensure all occupants buckle up",
-            "Remove heavy objects from seats",
-            "Inspect seatbelt buckle switch"
-        ],
-        "causes": ["Unbuckled seatbelt", "Heavy object on seat"],
-        "action": "Ensure all occupants are buckled up before driving."
-    },
-    "Low Fuel": {
-        "name": "Low Fuel Warning",
-        "severity": "Warning",
-        "description": "The fuel level is low.",
-        "sensors": [
-            "Fuel level sensor"
-        ],
-        "faults": [
-            "Low fuel level",
-            "Fuel level sensor drift"
-        ],
-        "checks": [
-            "Refuel as soon as possible",
-            "If light stays on, inspect fuel level sensor"
-        ],
-        "causes": ["Empty fuel tank"],
-        "action": "Refuel as soon as possible to avoid being stranded."
-    },
-    "Oil Pressure": {
-        "name": "Oil Pressure Warning",
-        "severity": "Critical",
-        "description": "Oil pressure is too low. Continued driving can damage the engine.",
-        "sensors": [
-            "Oil pressure sensor"
-        ],
-        "faults": [
-            "Low oil level",
-            "Oil pump failure",
-            "Oil leak"
-        ],
-        "checks": [
-            "Stop engine immediately",
-            "Check oil level",
-            "Inspect for leaks"
-        ],
-        "action": "Stop the engine and check oil level immediately."
-    },
-    "Transmission": {
-        "name": "Transmission Warning",
-        "severity": "High",
-        "description": "Transmission temperature or control system issue detected.",
-        "sensors": [
-            "Transmission temperature sensor",
-            "Transmission control module"
-        ],
-        "faults": [
-            "Overheating transmission fluid",
-            "Low transmission fluid",
-            "Transmission control fault"
-        ],
-        "checks": [
-            "Reduce load and drive gently",
-            "Check transmission fluid level",
-            "Scan transmission control module"
-        ],
-        "action": "Reduce speed and have the transmission inspected."
-    },
-    "Maintenance": {
-        "name": "Maintenance Reminder",
-        "severity": "Info",
-        "description": "Scheduled service is due based on mileage or time.",
-        "sensors": [
-            "Service interval monitor"
-        ],
-        "faults": [
-            "Routine service due"
-        ],
-        "checks": [
-            "Review maintenance schedule",
-            "Schedule service appointment"
-        ],
-        "action": "Plan routine service soon."
-    }
+  "ABS": {
+    "name": "Anti-lock Braking System",
+    "severity": "High",
+    "description": "There is a fault in the ABS system. Your regular brakes will still work, but emergency braking assistance is disabled.",
+    "sensors": [
+      "Wheel speed sensors",
+      "ABS control module"
+    ],
+    "faults": [
+      "Faulty wheel speed sensor",
+      "Low brake fluid",
+      "ABS module failure"
+    ],
+    "checks": [
+      "Inspect wheel speed sensor wiring",
+      "Check brake fluid level",
+      "Scan ABS module for fault codes"
+    ],
+    "causes": [
+      "Faulty wheel speed sensor",
+      "Low brake fluid",
+      "ABS module failure"
+    ],
+    "action": "Drive carefully and have the system inspected as soon as possible."
+  },
+  "Airbag": {
+    "name": "Airbag / Supplemental Restraint System",
+    "severity": "Critical",
+    "description": "A fault has been detected in the airbag system. Airbags may not deploy in an accident.",
+    "sensors": [
+      "Impact sensors",
+      "Seatbelt pretensioner",
+      "Clock spring"
+    ],
+    "faults": [
+      "Faulty seatbelt pretensioner",
+      "Clock spring failure",
+      "Impact sensor issue"
+    ],
+    "checks": [
+      "Inspect seatbelt pretensioner connectors",
+      "Scan SRS for fault codes",
+      "Avoid driving until repaired"
+    ],
+    "causes": [
+      "Faulty seatbelt pretensioner",
+      "Clock spring failure",
+      "Impact sensor issue"
+    ],
+    "action": "Seek immediate professional repair. Do not drive if possible."
+  },
+  "All Wheel": {
+    "name": "All Wheel Indicator",
+    "severity": "Warning",
+    "description": "The All Wheel dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "All Wheel indicator circuit"
+    ],
+    "faults": [
+      "All Wheel indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "All Wheel indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "All Wheel warning detected. Check the related system and monitor for recurrence."
+  },
+  "AWD": {
+    "name": "AWD Indicator",
+    "severity": "Warning",
+    "description": "The AWD dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "AWD indicator circuit"
+    ],
+    "faults": [
+      "AWD indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "AWD indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "AWD warning detected. Check the related system and monitor for recurrence."
+  },
+  "Battery": {
+    "name": "Charging System Warning",
+    "severity": "High",
+    "description": "The battery is not being charged or there is a fault in the electrical system.",
+    "sensors": [
+      "Alternator/charging system",
+      "Battery terminals"
+    ],
+    "faults": [
+      "Failing alternator",
+      "Broken serpentine belt",
+      "Loose battery terminals"
+    ],
+    "checks": [
+      "Check battery terminals for corrosion",
+      "Inspect serpentine belt",
+      "Measure charging voltage"
+    ],
+    "causes": [
+      "Failing alternator",
+      "Broken serpentine belt",
+      "Loose battery terminals"
+    ],
+    "action": "Turn off unnecessary electrical items and drive to a service station immediately."
+  },
+  "Beam": {
+    "name": "Beam Indicator",
+    "severity": "Warning",
+    "description": "The Beam dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Beam indicator circuit"
+    ],
+    "faults": [
+      "Beam indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Beam indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Beam warning detected. Check the related system and monitor for recurrence."
+  },
+  "Blindspot": {
+    "name": "Blindspot Indicator",
+    "severity": "Warning",
+    "description": "The Blindspot dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Blindspot indicator circuit"
+    ],
+    "faults": [
+      "Blindspot indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Blindspot indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Blindspot warning detected. Check the related system and monitor for recurrence."
+  },
+  "Brake": {
+    "name": "Brake System Warning",
+    "severity": "Critical",
+    "description": "Serious issue with the braking system or the parking brake is engaged.",
+    "sensors": [
+      "Brake fluid level sensor",
+      "Parking brake switch"
+    ],
+    "faults": [
+      "Low brake fluid",
+      "Worn brake pads",
+      "Hydraulic pressure loss"
+    ],
+    "checks": [
+      "Check brake fluid level",
+      "Verify parking brake is fully released",
+      "Inspect brake pads and lines"
+    ],
+    "causes": [
+      "Low brake fluid",
+      "Worn brake pads",
+      "Hydraulic pressure loss"
+    ],
+    "action": "Stop the vehicle safely. Check brake fluid level. Do not drive if brakes feel soft."
+  },
+  "Brake Assist": {
+    "name": "Brake Assist Indicator",
+    "severity": "Warning",
+    "description": "The Brake Assist dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Brake fluid level sensor",
+      "Brake system control module"
+    ],
+    "faults": [
+      "Low brake fluid",
+      "Brake system pressure fault",
+      "Pad wear or sensor issue"
+    ],
+    "checks": [
+      "Check brake fluid level",
+      "Do not continue if brake feel is abnormal",
+      "Inspect brake system promptly"
+    ],
+    "causes": [
+      "Low brake fluid",
+      "Brake system pressure fault",
+      "Pad wear or sensor issue"
+    ],
+    "action": "Brake Assist warning detected. Check the related system and monitor for recurrence."
+  },
+  "Check Engine": {
+    "name": "Check Engine / Malfunction Indicator",
+    "severity": "Medium",
+    "description": "The engine computer has detected a fault in the emission or engine control system.",
+    "sensors": [
+      "O2 sensors",
+      "MAF sensor",
+      "EVAP system"
+    ],
+    "faults": [
+      "Loose gas cap",
+      "Faulty oxygen sensor",
+      "Catalytic converter issue"
+    ],
+    "checks": [
+      "Tighten or replace gas cap",
+      "Scan ECU for OBD-II codes",
+      "Inspect intake for leaks"
+    ],
+    "causes": [
+      "Loose gas cap",
+      "Faulty oxygen sensor",
+      "Catalytic converter issue"
+    ],
+    "action": "Schedule a diagnostic scan. If flashing, reduce speed and seek immediate service."
+  },
+  "Collision Warning": {
+    "name": "Collision Warning Indicator",
+    "severity": "Warning",
+    "description": "The Collision Warning dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Collision Warning indicator circuit"
+    ],
+    "faults": [
+      "Collision Warning indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Collision Warning indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Collision Warning warning detected. Check the related system and monitor for recurrence."
+  },
+  "Coolant Temp": {
+    "name": "Engine Overheating Warning",
+    "severity": "Critical",
+    "description": "The engine is running too hot. Continued driving will cause severe engine damage.",
+    "sensors": [
+      "Coolant temperature sensor",
+      "Radiator fan"
+    ],
+    "faults": [
+      "Coolant leak",
+      "Failing water pump",
+      "Stuck thermostat"
+    ],
+    "checks": [
+      "Pull over and let engine cool",
+      "Check coolant level after cooling",
+      "Inspect for leaks"
+    ],
+    "causes": [
+      "Coolant leak",
+      "Failing water pump",
+      "Stuck thermostat"
+    ],
+    "action": "Pull over safely and turn off the engine immediately. Do not open the radiator cap while hot."
+  },
+  "Cruise": {
+    "name": "Cruise Indicator",
+    "severity": "Warning",
+    "description": "The Cruise dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Cruise indicator circuit"
+    ],
+    "faults": [
+      "Cruise indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Cruise indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Cruise warning detected. Check the related system and monitor for recurrence."
+  },
+  "Diesel Filter": {
+    "name": "Diesel Filter Indicator",
+    "severity": "Warning",
+    "description": "The Diesel Filter dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Diesel Filter indicator circuit"
+    ],
+    "faults": [
+      "Diesel Filter indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Diesel Filter indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Diesel Filter warning detected. Check the related system and monitor for recurrence."
+  },
+  "Diff Lock": {
+    "name": "Diff Lock Indicator",
+    "severity": "Warning",
+    "description": "The Diff Lock dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Diff Lock indicator circuit"
+    ],
+    "faults": [
+      "Diff Lock indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Diff Lock indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Diff Lock warning detected. Check the related system and monitor for recurrence."
+  },
+  "Drivetrain Trouble Indicators": {
+    "name": "Drivetrain Trouble Indicators Indicator",
+    "severity": "High",
+    "description": "The Drivetrain Trouble Indicators dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Drivetrain Trouble Indicators indicator circuit"
+    ],
+    "faults": [
+      "Drivetrain Trouble Indicators indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Drivetrain Trouble Indicators indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Drivetrain Trouble Indicators warning detected. Continue carefully and service the vehicle soon."
+  },
+  "EBD": {
+    "name": "EBD Indicator",
+    "severity": "Warning",
+    "description": "The EBD dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "EBD indicator circuit"
+    ],
+    "faults": [
+      "EBD indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "EBD indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "EBD warning detected. Check the related system and monitor for recurrence."
+  },
+  "Economy Mode": {
+    "name": "Economy Mode Indicator",
+    "severity": "Info",
+    "description": "The Economy Mode dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Economy Mode indicator circuit"
+    ],
+    "faults": [
+      "Economy Mode indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Economy Mode indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Economy Mode indicator detected. Review owner manual guidance."
+  },
+  "Economy Mode2": {
+    "name": "Economy Mode2 Indicator",
+    "severity": "Info",
+    "description": "The Economy Mode2 dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Economy Mode2 indicator circuit"
+    ],
+    "faults": [
+      "Economy Mode2 indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Economy Mode2 indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Economy Mode2 indicator detected. Review owner manual guidance."
+  },
+  "Electric Park Brake": {
+    "name": "Electric Park Brake Indicator",
+    "severity": "High",
+    "description": "The Electric Park Brake dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Brake fluid level sensor",
+      "Brake system control module"
+    ],
+    "faults": [
+      "Low brake fluid",
+      "Brake system pressure fault",
+      "Pad wear or sensor issue"
+    ],
+    "checks": [
+      "Check brake fluid level",
+      "Do not continue if brake feel is abnormal",
+      "Inspect brake system promptly"
+    ],
+    "causes": [
+      "Low brake fluid",
+      "Brake system pressure fault",
+      "Pad wear or sensor issue"
+    ],
+    "action": "Electric Park Brake warning detected. Continue carefully and service the vehicle soon."
+  },
+  "Electronic Power": {
+    "name": "Electronic Power Indicator",
+    "severity": "Warning",
+    "description": "The Electronic Power dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Electronic Power indicator circuit"
+    ],
+    "faults": [
+      "Electronic Power indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Electronic Power indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Electronic Power warning detected. Check the related system and monitor for recurrence."
+  },
+  "Electronic Throttle": {
+    "name": "Electronic Throttle Indicator",
+    "severity": "High",
+    "description": "The Electronic Throttle dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Electronic Throttle indicator circuit"
+    ],
+    "faults": [
+      "Electronic Throttle indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Electronic Throttle indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Electronic Throttle warning detected. Continue carefully and service the vehicle soon."
+  },
+  "EP Steering": {
+    "name": "EP Steering Indicator",
+    "severity": "Warning",
+    "description": "The EP Steering dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "EP Steering indicator circuit"
+    ],
+    "faults": [
+      "EP Steering indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "EP Steering indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "EP Steering warning detected. Check the related system and monitor for recurrence."
+  },
+  "EV": {
+    "name": "EV Indicator",
+    "severity": "Warning",
+    "description": "The EV dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "EV indicator circuit"
+    ],
+    "faults": [
+      "EV indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "EV indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "EV warning detected. Check the related system and monitor for recurrence."
+  },
+  "Exhaust Particulate Filter": {
+    "name": "Exhaust Particulate Filter Indicator",
+    "severity": "Warning",
+    "description": "The Exhaust Particulate Filter dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Exhaust Particulate Filter indicator circuit"
+    ],
+    "faults": [
+      "Exhaust Particulate Filter indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Exhaust Particulate Filter indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Exhaust Particulate Filter warning detected. Check the related system and monitor for recurrence."
+  },
+  "Fan": {
+    "name": "Fan Indicator",
+    "severity": "Warning",
+    "description": "The Fan dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Fan indicator circuit"
+    ],
+    "faults": [
+      "Fan indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Fan indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Fan warning detected. Check the related system and monitor for recurrence."
+  },
+  "Fog": {
+    "name": "Fog Indicator",
+    "severity": "Warning",
+    "description": "The Fog dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Fog indicator circuit"
+    ],
+    "faults": [
+      "Fog indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Fog indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Fog warning detected. Check the related system and monitor for recurrence."
+  },
+  "Frost Mode": {
+    "name": "Frost Mode Indicator",
+    "severity": "Warning",
+    "description": "The Frost Mode dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Frost Mode indicator circuit"
+    ],
+    "faults": [
+      "Frost Mode indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Frost Mode indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Frost Mode warning detected. Check the related system and monitor for recurrence."
+  },
+  "Glow Plug": {
+    "name": "Glow Plug Indicator",
+    "severity": "Warning",
+    "description": "The Glow Plug dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Glow Plug indicator circuit"
+    ],
+    "faults": [
+      "Glow Plug indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Glow Plug indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Glow Plug warning detected. Check the related system and monitor for recurrence."
+  },
+  "Headlamp Levelling": {
+    "name": "Headlamp Levelling Indicator",
+    "severity": "Warning",
+    "description": "The Headlamp Levelling dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Headlamp Levelling indicator circuit"
+    ],
+    "faults": [
+      "Headlamp Levelling indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Headlamp Levelling indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Headlamp Levelling warning detected. Check the related system and monitor for recurrence."
+  },
+  "Hill Holder": {
+    "name": "Hill Holder Indicator",
+    "severity": "Warning",
+    "description": "The Hill Holder dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Hill Holder indicator circuit"
+    ],
+    "faults": [
+      "Hill Holder indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Hill Holder indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Hill Holder warning detected. Check the related system and monitor for recurrence."
+  },
+  "Hold": {
+    "name": "Hold Indicator",
+    "severity": "Warning",
+    "description": "The Hold dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Hold indicator circuit"
+    ],
+    "faults": [
+      "Hold indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Hold indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Hold warning detected. Check the related system and monitor for recurrence."
+  },
+  "Hybrid Ready": {
+    "name": "Hybrid Ready Indicator",
+    "severity": "Info",
+    "description": "The Hybrid Ready dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Hybrid Ready indicator circuit"
+    ],
+    "faults": [
+      "Hybrid Ready indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Hybrid Ready indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Hybrid Ready indicator detected. Review owner manual guidance."
+  },
+  "Key Fob": {
+    "name": "Key Fob Indicator",
+    "severity": "Info",
+    "description": "The Key Fob dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Key Fob indicator circuit"
+    ],
+    "faults": [
+      "Key Fob indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Key Fob indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Key Fob indicator detected. Review owner manual guidance."
+  },
+  "Lamp Out": {
+    "name": "Lamp Out Indicator",
+    "severity": "Warning",
+    "description": "The Lamp Out dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Lamp Out indicator circuit"
+    ],
+    "faults": [
+      "Lamp Out indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Lamp Out indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Lamp Out warning detected. Check the related system and monitor for recurrence."
+  },
+  "Lane Departure": {
+    "name": "Lane Departure Indicator",
+    "severity": "Warning",
+    "description": "The Lane Departure dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Lane Departure indicator circuit"
+    ],
+    "faults": [
+      "Lane Departure indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Lane Departure indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Lane Departure warning detected. Check the related system and monitor for recurrence."
+  },
+  "Low Beam": {
+    "name": "Low Beam Indicator",
+    "severity": "Warning",
+    "description": "The Low Beam dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Low Beam indicator circuit"
+    ],
+    "faults": [
+      "Low Beam indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Low Beam indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Low Beam warning detected. Check the related system and monitor for recurrence."
+  },
+  "Low Brake": {
+    "name": "Low Brake Indicator",
+    "severity": "Warning",
+    "description": "The Low Brake dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Brake fluid level sensor",
+      "Brake system control module"
+    ],
+    "faults": [
+      "Low brake fluid",
+      "Brake system pressure fault",
+      "Pad wear or sensor issue"
+    ],
+    "checks": [
+      "Check brake fluid level",
+      "Do not continue if brake feel is abnormal",
+      "Inspect brake system promptly"
+    ],
+    "causes": [
+      "Low brake fluid",
+      "Brake system pressure fault",
+      "Pad wear or sensor issue"
+    ],
+    "action": "Low Brake warning detected. Check the related system and monitor for recurrence."
+  },
+  "Low Fuel": {
+    "name": "Low Fuel Warning",
+    "severity": "Warning",
+    "description": "The fuel level is low.",
+    "sensors": [
+      "Fuel level sensor"
+    ],
+    "faults": [
+      "Low fuel level",
+      "Fuel level sensor drift"
+    ],
+    "checks": [
+      "Refuel as soon as possible",
+      "If light stays on, inspect fuel level sensor"
+    ],
+    "causes": [
+      "Empty fuel tank"
+    ],
+    "action": "Refuel as soon as possible to avoid being stranded."
+  },
+  "Low Speed": {
+    "name": "Low Speed Indicator",
+    "severity": "Warning",
+    "description": "The Low Speed dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Low Speed indicator circuit"
+    ],
+    "faults": [
+      "Low Speed indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Low Speed indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Low Speed warning detected. Check the related system and monitor for recurrence."
+  },
+  "Maintenance": {
+    "name": "Maintenance Reminder",
+    "severity": "Info",
+    "description": "Scheduled service is due based on mileage or time.",
+    "sensors": [
+      "Service interval monitor"
+    ],
+    "faults": [
+      "Routine service due"
+    ],
+    "checks": [
+      "Review maintenance schedule",
+      "Schedule service appointment"
+    ],
+    "causes": [
+      "Routine service due"
+    ],
+    "action": "Plan routine service soon."
+  },
+  "Message": {
+    "name": "Message Indicator",
+    "severity": "Info",
+    "description": "The Message dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Message indicator circuit"
+    ],
+    "faults": [
+      "Message indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Message indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Message indicator detected. Review owner manual guidance."
+  },
+  "Oil Pressure": {
+    "name": "Oil Pressure Warning",
+    "severity": "Critical",
+    "description": "Oil pressure is too low. Continued driving can damage the engine.",
+    "sensors": [
+      "Oil pressure sensor"
+    ],
+    "faults": [
+      "Low oil level",
+      "Oil pump failure",
+      "Oil leak"
+    ],
+    "checks": [
+      "Stop engine immediately",
+      "Check oil level",
+      "Inspect for leaks"
+    ],
+    "causes": [
+      "Low oil level",
+      "Oil pump failure",
+      "Oil leak"
+    ],
+    "action": "Stop the engine and check oil level immediately."
+  },
+  "Open Door": {
+    "name": "Open Door Indicator",
+    "severity": "Warning",
+    "description": "The Open Door dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Open Door indicator circuit"
+    ],
+    "faults": [
+      "Open Door indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Open Door indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Open Door warning detected. Check the related system and monitor for recurrence."
+  },
+  "Park Assist": {
+    "name": "Park Assist Indicator",
+    "severity": "Warning",
+    "description": "The Park Assist dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Park Assist indicator circuit"
+    ],
+    "faults": [
+      "Park Assist indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Park Assist indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Park Assist warning detected. Check the related system and monitor for recurrence."
+  },
+  "Park Lamp": {
+    "name": "Park Lamp Indicator",
+    "severity": "Warning",
+    "description": "The Park Lamp dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Park Lamp indicator circuit"
+    ],
+    "faults": [
+      "Park Lamp indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Park Lamp indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Park Lamp warning detected. Check the related system and monitor for recurrence."
+  },
+  "Passive Speed": {
+    "name": "Passive Speed Indicator",
+    "severity": "Warning",
+    "description": "The Passive Speed dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Passive Speed indicator circuit"
+    ],
+    "faults": [
+      "Passive Speed indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Passive Speed indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Passive Speed warning detected. Check the related system and monitor for recurrence."
+  },
+  "PCS": {
+    "name": "PCS Indicator",
+    "severity": "Warning",
+    "description": "The PCS dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "PCS indicator circuit"
+    ],
+    "faults": [
+      "PCS indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "PCS indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "PCS warning detected. Check the related system and monitor for recurrence."
+  },
+  "Rear Window": {
+    "name": "Rear Window Indicator",
+    "severity": "Warning",
+    "description": "The Rear Window dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Rear Window indicator circuit"
+    ],
+    "faults": [
+      "Rear Window indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Rear Window indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Rear Window warning detected. Check the related system and monitor for recurrence."
+  },
+  "Seatbelt": {
+    "name": "Seatbelt Reminder",
+    "severity": "Warning",
+    "description": "One or more occupants do not have their seatbelts fastened.",
+    "sensors": [
+      "Seatbelt buckle switch",
+      "Seat occupancy sensor"
+    ],
+    "faults": [
+      "Unbuckled seatbelt",
+      "Heavy object on seat",
+      "Seatbelt switch fault"
+    ],
+    "checks": [
+      "Ensure all occupants buckle up",
+      "Remove heavy objects from seats",
+      "Inspect seatbelt buckle switch"
+    ],
+    "causes": [
+      "Unbuckled seatbelt",
+      "Heavy object on seat"
+    ],
+    "action": "Ensure all occupants are buckled up before driving."
+  },
+  "Security": {
+    "name": "Security Indicator",
+    "severity": "Warning",
+    "description": "The Security dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Security indicator circuit"
+    ],
+    "faults": [
+      "Security indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Security indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Security warning detected. Check the related system and monitor for recurrence."
+  },
+  "Shift Lock": {
+    "name": "Shift Lock Indicator",
+    "severity": "Warning",
+    "description": "The Shift Lock dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Shift Lock indicator circuit"
+    ],
+    "faults": [
+      "Shift Lock indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Shift Lock indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Shift Lock warning detected. Check the related system and monitor for recurrence."
+  },
+  "SRS": {
+    "name": "SRS Indicator",
+    "severity": "Warning",
+    "description": "The SRS dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "SRS control unit",
+      "Impact sensors"
+    ],
+    "faults": [
+      "Airbag module fault",
+      "Harness/connector fault",
+      "Sensor calibration issue"
+    ],
+    "checks": [
+      "Scan SRS faults",
+      "Inspect seat and clock-spring connectors",
+      "Service immediately"
+    ],
+    "causes": [
+      "Airbag module fault",
+      "Harness/connector fault",
+      "Sensor calibration issue"
+    ],
+    "action": "SRS warning detected. Check the related system and monitor for recurrence."
+  },
+  "Start Stop": {
+    "name": "Start Stop Indicator",
+    "severity": "Warning",
+    "description": "The Start Stop dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Start Stop indicator circuit"
+    ],
+    "faults": [
+      "Start Stop indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Start Stop indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Start Stop warning detected. Check the related system and monitor for recurrence."
+  },
+  "Suspension": {
+    "name": "Suspension Indicator",
+    "severity": "Warning",
+    "description": "The Suspension dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Suspension indicator circuit"
+    ],
+    "faults": [
+      "Suspension indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Suspension indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Suspension warning detected. Check the related system and monitor for recurrence."
+  },
+  "Tire Pressure": {
+    "name": "Tire Pressure Monitoring System (TPMS)",
+    "severity": "Warning",
+    "description": "One or more tires have low air pressure.",
+    "sensors": [
+      "TPMS wheel sensors",
+      "TPMS receiver"
+    ],
+    "faults": [
+      "Low tire pressure",
+      "Puncture",
+      "TPMS sensor battery low"
+    ],
+    "checks": [
+      "Measure tire pressures and inflate to spec",
+      "Inspect for punctures or leaks",
+      "Reset TPMS if required"
+    ],
+    "causes": [
+      "Puncture",
+      "Temperature changes",
+      "Faulty TPMS sensor"
+    ],
+    "action": "Check tire pressures and inflate to recommended levels."
+  },
+  "Traction Control": {
+    "name": "Traction Control / Stability Control",
+    "severity": "Warning",
+    "description": "The traction control system is either active or has a fault.",
+    "sensors": [
+      "Wheel speed sensors",
+      "Yaw/steering angle sensor"
+    ],
+    "faults": [
+      "Slippery road conditions",
+      "Faulty wheel speed sensor",
+      "Steering angle sensor issue"
+    ],
+    "checks": [
+      "Drive carefully on low-traction surfaces",
+      "Scan stability control module",
+      "Inspect wheel speed sensors"
+    ],
+    "causes": [
+      "Slippery road conditions",
+      "Faulty wheel speed sensor",
+      "Steering angle sensor issue"
+    ],
+    "action": "Drive cautiously on slippery surfaces. If the light stays on, have it checked."
+  },
+  "Transmission": {
+    "name": "Transmission Warning",
+    "severity": "High",
+    "description": "Transmission temperature or control system issue detected.",
+    "sensors": [
+      "Transmission temperature sensor",
+      "Transmission control module"
+    ],
+    "faults": [
+      "Overheating transmission fluid",
+      "Low transmission fluid",
+      "Transmission control fault"
+    ],
+    "checks": [
+      "Reduce load and drive gently",
+      "Check transmission fluid level",
+      "Scan transmission control module"
+    ],
+    "causes": [
+      "Overheating transmission fluid",
+      "Low transmission fluid",
+      "Transmission control fault"
+    ],
+    "action": "Reduce speed and have the transmission inspected."
+  },
+  "Unknown": {
+    "name": "Unknown Indicator",
+    "severity": "Info",
+    "description": "The Unknown dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Unknown indicator circuit"
+    ],
+    "faults": [
+      "Unknown indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Unknown indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Unknown indicator detected. Review owner manual guidance."
+  },
+  "Warning": {
+    "name": "Warning Indicator",
+    "severity": "Warning",
+    "description": "The Warning dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Warning indicator circuit"
+    ],
+    "faults": [
+      "Warning indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Warning indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Warning warning detected. Check the related system and monitor for recurrence."
+  },
+  "Washer": {
+    "name": "Washer Indicator",
+    "severity": "Info",
+    "description": "The Washer dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Washer indicator circuit"
+    ],
+    "faults": [
+      "Washer indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Washer indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Washer indicator detected. Review owner manual guidance."
+  },
+  "Water in Fuel": {
+    "name": "Water in Fuel Indicator",
+    "severity": "Warning",
+    "description": "The Water in Fuel dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Fuel level sender",
+      "Fuel system monitor"
+    ],
+    "faults": [
+      "Low fuel level",
+      "Fuel sender drift",
+      "Fuel system warning"
+    ],
+    "checks": [
+      "Refuel soon",
+      "Confirm fuel cap is secure",
+      "Scan fuel system if warning persists"
+    ],
+    "causes": [
+      "Low fuel level",
+      "Fuel sender drift",
+      "Fuel system warning"
+    ],
+    "action": "Water in Fuel warning detected. Check the related system and monitor for recurrence."
+  },
+  "Windshield Fault": {
+    "name": "Windshield Fault Indicator",
+    "severity": "Warning",
+    "description": "The Windshield Fault dashboard indicator is active. This may indicate a temporary condition or a system fault.",
+    "sensors": [
+      "Vehicle control module",
+      "Windshield Fault indicator circuit"
+    ],
+    "faults": [
+      "Windshield Fault indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "checks": [
+      "Check owner manual for this indicator",
+      "Perform OBD diagnostic scan",
+      "Service vehicle if light stays on"
+    ],
+    "causes": [
+      "Windshield Fault indicator triggered",
+      "Sensor or wiring anomaly",
+      "Control module warning"
+    ],
+    "action": "Windshield Fault warning detected. Check the related system and monitor for recurrence."
+  }
 }

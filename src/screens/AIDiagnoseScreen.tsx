@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, ScrollView, Alert, Platform, LogBox } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  Platform,
+  LogBox,
+  useWindowDimensions
+} from 'react-native';
 import { Text, Surface, ActivityIndicator, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,6 +19,7 @@ import { useAuthStore } from '../store/authStore';
 import { hasProAccess } from '../utils/access';
 import ProGate from '../components/ProGate';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Suppress specific warnings that might cause crashes
 LogBox.ignoreLogs([
@@ -17,11 +28,33 @@ LogBox.ignoreLogs([
   'Remote debugger is in a background tab',
 ]);
 
+type DiagnosisPrediction = {
+  rawLabel?: string;
+  label: string;
+  confidence: number;
+  score?: number;
+};
+
+type DiagnosisOutput = {
+  issue: string;
+  confidence: number;
+  recommendations: string[];
+  category: string;
+  details?: {
+    top_predictions?: DiagnosisPrediction[];
+    detected_lights?: Array<DiagnosisPrediction & { entry?: any }>;
+    candidate_count?: number;
+    strategy?: string;
+  };
+};
+
 const AIDiagnoseScreen = ({ navigation }: any) => {
   const { user } = useAuthStore();
   const canUse = hasProAccess(user);
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [diagnosis, setDiagnosis] = useState<string | null>(null);
+  const [diagnosis, setDiagnosis] = useState<DiagnosisOutput | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [loadingStep, setLoadingStep] = useState<string>(''); // 'uploading' | 'scanning' | 'analyzing'
   const [recording, setRecording] = useState<import('expo-av').Audio.Recording | null>(null);
@@ -33,7 +66,18 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
   const [retryCount, setRetryCount] = useState(0);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const isMounted = useRef(true);
+  const contentPadding = Math.max(16, Math.min(24, Math.round(width * 0.05)));
+  const imageHeight = Math.max(220, Math.min(360, Math.round(width * 0.62)));
+  const headerTitleSize = Math.max(22, Math.min(30, Math.round(width * 0.068)));
+  const iconSize = Math.max(28, Math.min(34, Math.round(width * 0.08)));
 
+  const formatPredictionLine = (item: DiagnosisPrediction) =>
+    `${item.label} (${(item.confidence * 100).toFixed(1)}%)`;
+
+  const buildSpeechSummary = (result: DiagnosisOutput) => {
+    const confidencePct = (result.confidence * 100).toFixed(1);
+    return `I've analyzed your dashboard image. Result is ${result.issue} with ${confidencePct} percent confidence.`;
+  };
 
   useEffect(() => {
     return () => {
@@ -239,7 +283,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       }
       
       console.log('Starting analysis...');
-      const result = await AIService.analyzeDashboardLight(selectedImage);
+      const result = (await AIService.analyzeDashboardLight(selectedImage)) as DiagnosisOutput;
 
       const issueLabel = (result.issue || '').toLowerCase();
       if (result.category === 'Error' || issueLabel.includes('fail')) {
@@ -250,19 +294,8 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       }
       setModelReady(true);
       
-      const confidencePct = (result.confidence * 100).toFixed(1);
-      const diagnosisText = `Based on the image analysis:
-      
-🔍 Detected Issue: ${result.issue}
-📊 Confidence: ${confidencePct}%
-
-Recommendations:
-${result.recommendations.map(rec => `• ${rec}`).join('\n')}
-
-This is a preliminary diagnosis. Please consult a professional mechanic for accurate assessment.`;
-      
-      setDiagnosis(diagnosisText);
-      speakDiagnosis(`I've analyzed your car issue. It looks like ${result.issue} with ${confidencePct} percent confidence.`);
+      setDiagnosis(result);
+      speakDiagnosis(buildSpeechSummary(result));
     } catch (error) {
       console.error('Analysis error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -305,23 +338,29 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
 
   return (
     <ErrorBoundary>
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingHorizontal: contentPadding }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialCommunityIcons name="chevron-left" size={30} color="white" />
+          <MaterialCommunityIcons name="chevron-left" size={iconSize} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>AI Car Diagnose</Text>
+        <Text style={[styles.headerTitle, { fontSize: headerTitleSize }]}>AI Car Diagnose</Text>
         <IconButton 
           icon="volume-high" 
           iconColor="white" 
-          onPress={() => diagnosis && speakDiagnosis(diagnosis)} 
+          onPress={() => diagnosis && speakDiagnosis(buildSpeechSummary(diagnosis))}
           disabled={!diagnosis}
         />
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + 24 }]}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingHorizontal: contentPadding,
+            paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24
+          }
+        ]}
         onScroll={onScroll}
         onScrollBeginDrag={onScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
@@ -382,7 +421,7 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
         {/* Image Preview */}
         {selectedImage && (
           <Surface style={styles.imageContainer} elevation={2}>
-            <Image source={{ uri: selectedImage }} style={styles.image} />
+            <Image source={{ uri: selectedImage }} style={[styles.image, { height: imageHeight }]} />
           </Surface>
         )}
 
@@ -420,7 +459,41 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
               <MaterialCommunityIcons name="check-circle" size={32} color="#4CAF50" />
               <Text style={styles.diagnosisTitle}>Analysis Complete</Text>
             </View>
-            <Text style={styles.diagnosisText}>{diagnosis}</Text>
+            <Text style={styles.diagnosisText}>
+              🔍 Detected Issue: {diagnosis.issue}{'\n'}
+              📊 Confidence: {(diagnosis.confidence * 100).toFixed(1)}%
+            </Text>
+            {(diagnosis.details?.detected_lights || []).length >= 2 && (
+              <View style={styles.resultBlock}>
+                <Text style={styles.resultBlockTitle}>Detected lights</Text>
+                {(diagnosis.details?.detected_lights || []).slice(0, 4).map((item, idx) => (
+                  <Text key={`${item.label}-${idx}`} style={styles.resultLine}>
+                    • {formatPredictionLine(item)}
+                  </Text>
+                ))}
+              </View>
+            )}
+            {(diagnosis.details?.top_predictions || []).length > 0 && (
+              <View style={styles.resultBlock}>
+                <Text style={styles.resultBlockTitle}>Top predictions</Text>
+                {(diagnosis.details?.top_predictions || []).slice(0, 3).map((item, idx) => (
+                  <Text key={`${item.label}-${idx}`} style={styles.resultLine}>
+                    • {formatPredictionLine(item)}
+                  </Text>
+                ))}
+              </View>
+            )}
+            {diagnosis.recommendations?.length > 0 && (
+              <View style={styles.resultBlock}>
+                <Text style={styles.resultBlockTitle}>Recommendations</Text>
+                {diagnosis.recommendations.map((line, idx) => (
+                  <Text key={`rec-${idx}`} style={styles.resultLine}>• {line}</Text>
+                ))}
+              </View>
+            )}
+            <Text style={[styles.resultLine, { marginTop: 12 }]}>
+              This is a preliminary diagnosis. Please consult a professional mechanic for accurate assessment.
+            </Text>
           </Surface>
         )}
 
@@ -439,10 +512,10 @@ This is a preliminary diagnosis. Please consult a professional mechanic for accu
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000', paddingTop: 50 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: 'white' },
-  content: { paddingHorizontal: 20, paddingBottom: 40 },
+  container: { flex: 1, backgroundColor: '#000000' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  headerTitle: { fontWeight: 'bold', color: 'white' },
+  content: { paddingBottom: 40 },
   subtitle: { color: '#8E8E93', fontSize: 16, textAlign: 'center', marginBottom: 20 },
   modelStatus: { textAlign: 'center', fontSize: 13, fontWeight: '600' },
   voiceContainer: { backgroundColor: '#1C1C1E', borderRadius: 20, padding: 20, alignItems: 'center', marginBottom: 30, borderWidth: 1, borderColor: '#333' },
@@ -453,15 +526,18 @@ const styles = StyleSheet.create({
   buttonRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
   actionButton: { flex: 1, backgroundColor: '#1C1C1E', borderRadius: 16, padding: 20, alignItems: 'center', marginHorizontal: 5, borderWidth: 1, borderColor: '#333', minHeight: 100, justifyContent: 'center' },
   actionButtonText: { color: 'white', marginTop: 10, fontWeight: '600' },
-  imageContainer: { backgroundColor: '#1C1C1E', borderRadius: 16, padding: 10, marginBottom: 20, borderWidth: 1, borderColor: '#333', minHeight: 320 },
-  image: { width: '100%', height: 300, borderRadius: 12 },
+  imageContainer: { backgroundColor: '#1C1C1E', borderRadius: 16, padding: 10, marginBottom: 20, borderWidth: 1, borderColor: '#333' },
+  image: { width: '100%', borderRadius: 12 },
   analyzeButton: { backgroundColor: '#2196F3', borderRadius: 16, padding: 18, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20, minHeight: 56 },
   analyzeButtonDisabled: { backgroundColor: '#666', opacity: 0.7 },
   analyzeButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold', marginLeft: 10 },
   diagnosisContainer: { backgroundColor: '#1C1C1E', borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#4CAF50', minHeight: 150 },
   diagnosisHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   diagnosisTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', marginLeft: 10 },
-  diagnosisText: { color: '#E0E0E0', fontSize: 16, lineHeight: 24 },
+  diagnosisText: { color: '#E0E0E0', fontSize: 16, lineHeight: 24, marginBottom: 10 },
+  resultBlock: { marginTop: 8 },
+  resultBlockTitle: { color: '#F8FAFC', fontWeight: '700', marginBottom: 4 },
+  resultLine: { color: '#CBD5E1', fontSize: 14, lineHeight: 21 },
   infoBox: { backgroundColor: '#1C1C1E', borderRadius: 16, padding: 15, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: '#333', minHeight: 80 },
   infoText: { color: '#8E8E93', fontSize: 14, flex: 1, marginLeft: 10, lineHeight: 20 }
 });
