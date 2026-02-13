@@ -22,6 +22,7 @@
       "developmentClient": false,
       "credentialsSource": "local",
       "distribution": "internal",
+      "channel": "adhoc",
       "env": {
         "EXPO_SKIP_DOCTOR_CHECK": "1"
       },
@@ -34,6 +35,7 @@
     "preview": {
       "credentialsSource": "local",
       "distribution": "internal",
+      "channel": "preview",
       "ios": {
         "simulator": false,
         "image": "auto"
@@ -46,6 +48,7 @@
       "credentialsSource": "local",
       "distribution": "store",
       "developmentClient": false,
+      "channel": "testflight",
       "env": {
         "EXPO_SKIP_DOCTOR_CHECK": "1",
         "EXPO_PUBLIC_AD_DEBUG": "1",
@@ -61,6 +64,7 @@
       "credentialsSource": "local",
       "distribution": "store",
       "developmentClient": false,
+      "channel": "production",
       "env": {
         "EXPO_SKIP_DOCTOR_CHECK": "1"
       },
