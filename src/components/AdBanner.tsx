@@ -4,6 +4,7 @@ import { AdService } from '../services/AdService';
 
 interface AdBannerProps {
   size?: any;
+  unitId?: string;
 }
 
 let cachedGoogleMobileAds: any | undefined;
@@ -46,9 +47,22 @@ function getGoogleMobileAds(): any | null {
   return cachedGoogleMobileAds;
 }
 
-const AdBanner: React.FC<AdBannerProps> = ({ size }) => {
+const AdBanner: React.FC<AdBannerProps> = ({ size, unitId }) => {
+  const defaultBannerUnitId =
+    process.env.EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID ||
+    'ca-app-pub-9670547831022880/8900297100';
+  const productionBannerUnitId = unitId || defaultBannerUnitId;
+  const isUsingTestUnit = shouldForceTestAdUnits();
+
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [didLoad, setDidLoad] = React.useState(false);
+  const [hasRetriedWithDefault, setHasRetriedWithDefault] = React.useState(false);
+  const [effectiveProductionUnitId, setEffectiveProductionUnitId] = React.useState(productionBannerUnitId);
+
+  React.useEffect(() => {
+    setEffectiveProductionUnitId(productionBannerUnitId);
+    setHasRetriedWithDefault(false);
+  }, [productionBannerUnitId]);
 
   if (!AdService.shouldShowAds()) {
     if (isAdDebugEnabled()) {
@@ -83,14 +97,27 @@ const AdBanner: React.FC<AdBannerProps> = ({ size }) => {
     return null;
   }
 
-  const resolvedSize = size ?? BannerAdSize.ANCHORED_ADAPTIVE_BANNER;
-  const productionBannerUnitId = process.env.EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID || 'ca-app-pub-9670547831022880/8900297100';
-
+  const resolvedSize = (() => {
+    if (!size) return BannerAdSize.ANCHORED_ADAPTIVE_BANNER;
+    if (typeof size === 'string' && BannerAdSize?.[size]) {
+      return BannerAdSize[size];
+    }
+    return size;
+  })();
   // Use test ID in dev or when explicitly forced for TestFlight/debug diagnosis.
-  const adUnitId = shouldForceTestAdUnits() ? TestIds.BANNER : productionBannerUnitId;
+  const adUnitId = isUsingTestUnit ? TestIds.BANNER : effectiveProductionUnitId;
+
+  const minHeight = (() => {
+    if (typeof size === 'string') {
+      if (size === 'MEDIUM_RECTANGLE') return 250;
+      if (size === 'LARGE_BANNER') return 100;
+      if (size === 'FULL_BANNER') return 60;
+    }
+    return 52;
+  })();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { minHeight }]}>
       <BannerAd
         unitId={adUnitId}
         size={resolvedSize}
@@ -108,6 +135,21 @@ const AdBanner: React.FC<AdBannerProps> = ({ size }) => {
           const reason = describeError(error);
           setDidLoad(false);
           setLoadError(reason);
+          if (
+            !isUsingTestUnit &&
+            !hasRetriedWithDefault &&
+            effectiveProductionUnitId !== defaultBannerUnitId
+          ) {
+            setHasRetriedWithDefault(true);
+            setEffectiveProductionUnitId(defaultBannerUnitId);
+            if (isAdDebugEnabled()) {
+              console.warn(
+                '[ADS] custom banner unit failed, retrying with default banner unit',
+                reason
+              );
+            }
+            return;
+          }
           console.error('Ad failed to load: ', error);
         }}
       />
