@@ -19,7 +19,7 @@
       }
     },
     "adhoc": {
-      "developmentClient": true,
+      "developmentClient": false,
       "credentialsSource": "local",
       "distribution": "internal",
       "env": {
@@ -27,7 +27,8 @@
       },
       "ios": {
         "simulator": false,
-        "image": "auto"
+        "image": "auto",
+        "buildConfiguration": "Release"
       }
     },
     "preview": {
