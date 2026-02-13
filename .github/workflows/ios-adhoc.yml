@@ -71,7 +71,7 @@ jobs:
           const checks = [
             [
               'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMapMarkerManager.h',
-              '#import "AIRMapCalloutManager.h"'
+              '#import <React/RCTViewManager.h>'
             ],
             [
               'node_modules/react-native-maps/ios/AirGoogleMaps/AIRGMSMarker.h',
