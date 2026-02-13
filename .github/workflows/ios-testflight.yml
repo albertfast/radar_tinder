@@ -73,12 +73,13 @@ jobs:
           missing=0
           for key in EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_KEY; do
             if [ -z "${!key}" ]; then
-              echo "::warning::Missing optional secret/env: $key"
+              echo "::error::Missing required secret/env: $key"
               missing=1
             fi
           done
           if [ "$missing" -ne 0 ]; then
-            echo "::warning::Supabase env is missing in CI. Build will continue with limited backend features."
+            echo "Required EXPO_PUBLIC_* variables are missing. Aborting iOS build."
+            exit 1
           fi
 
       - name: Apply dependency patches

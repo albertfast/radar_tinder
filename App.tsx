@@ -7,7 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AppState, View, ActivityIndicator, Dimensions, Platform } from 'react-native';
+import { AppState, View, ActivityIndicator, Platform } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
@@ -15,35 +15,52 @@ import { useFonts } from 'expo-font';
 const reanimated = Reanimated as any;
 const reanimatedVersion = reanimated.version || 'unknown';
 
-// Reanimated 4 compatibility: add missing gesture handler polyfill and safe Android fallbacks.
-if (!reanimated.useAnimatedGestureHandler) {
-  reanimated.useAnimatedGestureHandler = (config: any) => {
+const trySetReanimatedProp = (key: string, value: any) => {
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(reanimated, key);
+    if (descriptor && !descriptor.writable && !descriptor.set) {
+      return false;
+    }
+    reanimated[key] = value;
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// Reanimated 4 compatibility: apply only on Android and never hard-crash startup.
+if (Platform.OS === 'android' && !reanimated.useAnimatedGestureHandler) {
+  trySetReanimatedProp('useAnimatedGestureHandler', (config: any) => {
     return {
       onStart: config?.onStart || (() => {}),
       onActive: config?.onActive || (() => {}),
       onEnd: config?.onEnd || (() => {}),
       onFinalize: config?.onFinalize || (() => {}),
     };
-  };
+  });
 }
 
-if (Platform.OS === 'android' && typeof reanimatedVersion === 'string' && reanimatedVersion.startsWith('4.')) {
+if (
+  Platform.OS === 'android' &&
+  typeof reanimatedVersion === 'string' &&
+  reanimatedVersion.startsWith('4.')
+) {
   console.warn('Reanimated 4 detected on Android, enabling compatibility fallbacks');
 
   if (!reanimated.runOnJS) {
-    reanimated.runOnJS = (fn: any) => fn;
+    trySetReanimatedProp('runOnJS', (fn: any) => fn);
   }
   if (!reanimated.useSharedValue) {
-    reanimated.useSharedValue = (initial: any) => ({ value: initial });
+    trySetReanimatedProp('useSharedValue', (initial: any) => ({ value: initial }));
   }
   if (!reanimated.useAnimatedStyle) {
-    reanimated.useAnimatedStyle = () => ({});
+    trySetReanimatedProp('useAnimatedStyle', () => ({}));
   }
   if (!reanimated.withTiming) {
-    reanimated.withTiming = (value: any) => value;
+    trySetReanimatedProp('withTiming', (value: any) => value);
   }
   if (!reanimated.withSpring) {
-    reanimated.withSpring = (value: any) => value;
+    trySetReanimatedProp('withSpring', (value: any) => value);
   }
 }
 
@@ -212,16 +229,24 @@ export default function App() {
 
   useEffect(() => {
     let hasSupabaseSession = false;
-    const authSub = supabase.auth.onAuthStateChange((_event, session) => {
-      hasSupabaseSession = Boolean(session);
-      try {
-        if (hasSupabaseSession && AppState.currentState === 'active') {
-          supabase.auth.startAutoRefresh?.();
-        } else {
-          supabase.auth.stopAutoRefresh?.();
-        }
-      } catch (e) {}
-    });
+    const authSub =
+      supabase.auth?.onAuthStateChange?.((_event: string, session: any) => {
+        hasSupabaseSession = Boolean(session);
+        try {
+          if (hasSupabaseSession && AppState.currentState === 'active') {
+            supabase.auth.startAutoRefresh?.();
+          } else {
+            supabase.auth.stopAutoRefresh?.();
+          }
+        } catch (e) {}
+      }) ??
+      ({
+        data: {
+          subscription: {
+            unsubscribe: () => {},
+          },
+        },
+      } as any);
 
     const appStateSub = AppState.addEventListener('change', (nextState) => {
       try {
@@ -235,7 +260,7 @@ export default function App() {
 
     // Cleanup on unmount
     return () => {
-      authSub.data.subscription.unsubscribe();
+      authSub?.data?.subscription?.unsubscribe?.();
       appStateSub.remove();
       BackgroundService.stop().catch(console.error);
     };

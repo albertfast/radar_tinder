@@ -1,5 +1,5 @@
-import Purchases, { LOG_LEVEL, PurchasesPackage, CustomerInfo } from 'react-native-purchases';
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
+import type { PurchasesPackage, CustomerInfo } from 'react-native-purchases';
 import { useAuthStore } from '../store/authStore';
 import { AnalyticsService } from './AnalyticsService';
 
@@ -8,6 +8,34 @@ const REVENUECAT_API_KEY = Platform.select({
   ios: 'goog_placeholder_ios',
   android: 'goog_placeholder_android',
 }) || '';
+
+type PurchasesBindings = {
+  Purchases: any;
+  LOG_LEVEL: any;
+};
+
+let cachedPurchasesBindings: PurchasesBindings | null | undefined;
+const getPurchasesBindings = (): PurchasesBindings | null => {
+  if (cachedPurchasesBindings !== undefined) return cachedPurchasesBindings;
+
+  if (!NativeModules?.RNPurchases) {
+    cachedPurchasesBindings = null;
+    return cachedPurchasesBindings;
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const purchasesModule = require('react-native-purchases');
+    cachedPurchasesBindings = {
+      Purchases: purchasesModule?.default ?? purchasesModule,
+      LOG_LEVEL: purchasesModule?.LOG_LEVEL,
+    };
+  } catch (error) {
+    cachedPurchasesBindings = null;
+  }
+
+  return cachedPurchasesBindings;
+};
 
 export class SubscriptionService {
   private static isInitialized = false;
@@ -20,8 +48,19 @@ export class SubscriptionService {
     if (this.isInitialized) return;
     
     try {
+      const bindings = getPurchasesBindings();
+      if (!bindings?.Purchases) {
+        this.isInitialized = true;
+        if (__DEV__) {
+          console.warn('RevenueCat native module is unavailable. Subscription features are disabled.');
+        }
+        return;
+      }
+
       if (__DEV__) {
-        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+        if (bindings.LOG_LEVEL?.DEBUG) {
+          bindings.Purchases.setLogLevel(bindings.LOG_LEVEL.DEBUG);
+        }
       }
       
       if (REVENUECAT_API_KEY.includes('placeholder')) {
@@ -32,11 +71,11 @@ export class SubscriptionService {
         return;
       }
 
-      Purchases.configure({ apiKey: REVENUECAT_API_KEY });
+      bindings.Purchases.configure({ apiKey: REVENUECAT_API_KEY });
       
       const user = useAuthStore.getState().user;
       if (user) {
-        await Purchases.logIn(user.id);
+        await bindings.Purchases.logIn(user.id);
       }
       
       this.isInitialized = true;
@@ -49,7 +88,10 @@ export class SubscriptionService {
   static async getOfferings() {
     if (!this.hasValidConfig() || !this.isInitialized) return null;
     try {
-      const offerings = await Purchases.getOfferings();
+      const bindings = getPurchasesBindings();
+      if (!bindings?.Purchases) return null;
+
+      const offerings = await bindings.Purchases.getOfferings();
       return offerings.current;
     } catch (error) {
       console.error('Error getting offerings:', error);
@@ -59,7 +101,10 @@ export class SubscriptionService {
 
   static async purchasePackage(pack: PurchasesPackage): Promise<boolean> {
     try {
-      const { customerInfo } = await Purchases.purchasePackage(pack);
+      const bindings = getPurchasesBindings();
+      if (!bindings?.Purchases) return false;
+
+      const { customerInfo } = await bindings.Purchases.purchasePackage(pack);
       await this.updateUserSubscriptionStatus(customerInfo);
       
       await AnalyticsService.trackEvent('purchase_success', {
@@ -79,7 +124,10 @@ export class SubscriptionService {
 
   static async restorePurchases(): Promise<boolean> {
     try {
-      const customerInfo = await Purchases.restorePurchases();
+      const bindings = getPurchasesBindings();
+      if (!bindings?.Purchases) return false;
+
+      const customerInfo = await bindings.Purchases.restorePurchases();
       await this.updateUserSubscriptionStatus(customerInfo);
       return true;
     } catch (error: any) {
@@ -92,10 +140,10 @@ export class SubscriptionService {
     const { updateUser } = useAuthStore.getState();
     
     // Check for "pro" entitlement
-    const isPro = typeof customerInfo.entitlements.active['pro'] !== 'undefined';
+    const isPro = typeof customerInfo?.entitlements?.active?.pro !== 'undefined';
     
     // Check for "remove_ads" entitlement (one-time)
-    const adsRemoved = typeof customerInfo.entitlements.active['remove_ads'] !== 'undefined';
+    const adsRemoved = typeof customerInfo?.entitlements?.active?.remove_ads !== 'undefined';
     
     updateUser({
       subscriptionType: isPro ? 'pro' : 'free',
@@ -109,7 +157,9 @@ export class SubscriptionService {
     try {
       if (!this.isInitialized) return;
       if (!this.hasValidConfig()) return;
-      await Purchases.logIn(userId);
+      const bindings = getPurchasesBindings();
+      if (!bindings?.Purchases) return;
+      await bindings.Purchases.logIn(userId);
     } catch (error) {
       console.error('Error setting RevenueCat user ID:', error);
     }
