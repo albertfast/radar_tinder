@@ -159,7 +159,8 @@ module.exports = {
       "./plugins/withPodfileFix.js",
       "./plugins/withSettingsGradleFix.js",
       "./plugins/withAndroidReleaseSigning.js",
-      "./plugins/withOnnxRuntime.js"
+      "./plugins/withOnnxRuntime.js",
+      "./plugins/withIosGoogleMapsInitFix.js"
     ],
     extra: {
       eas: {

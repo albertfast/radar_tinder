@@ -19,32 +19,7 @@ ENV['RCT_NEW_ARCH_ENABLED'] ||= '0' if podfile_properties['newArchEnabled'] == '
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] ||= podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
 ENV['RCT_USE_RN_DEP'] ||= '1' if podfile_properties['ios.buildReactNativeFromSource'] != 'true' && podfile_properties['newArchEnabled'] != 'false'
 ENV['RCT_USE_PREBUILT_RNCORE'] ||= '1' if podfile_properties['ios.buildReactNativeFromSource'] != 'true' && podfile_properties['newArchEnabled'] != 'false'
-ENV['RCT_NEW_ARCH_ENABLED'] = '0'
 platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
-
-# PNPM Support - Resolves nested .pnpm node_modules structure
-def resolve_pnpm_path(package_name)
-  require 'json'
-  
-  # Check PNPM nested structure first
-  pnpm_dir = File.join(__dir__, '..', 'node_modules', '.pnpm')
-  if Dir.exist?(pnpm_dir)
-    # Find the versioned package directory - matches exact package name followed by @version
-    # Pattern ensures we match 'package-name@version' and not 'package-name-something@version'
-    matching_dirs = Dir.glob(File.join(pnpm_dir, "#{package_name}@*")).select do |dir|
-      File.basename(dir).start_with?("#{package_name}@")
-    end
-    
-    if matching_dirs.any?
-      # Sort to get consistent results, use first match (typically only one due to lockfile)
-      package_path = File.join(matching_dirs.sort.first, 'node_modules', package_name)
-      return package_path if Dir.exist?(package_path)
-    end
-  end
-  
-  # Fallback to standard node_modules
-  File.join(__dir__, '..', 'node_modules', package_name)
-end
 
 prepare_react_native_project!
 
@@ -67,20 +42,14 @@ target 'RadarTinder' do
     ]
   end
 
-  # PNPM-compatible ONNX Runtime pod
-  onnx_path = resolve_pnpm_path('onnxruntime-react-native')
-  pod 'onnxruntime-react-native', :path => onnx_path if Dir.exist?(onnx_path)
-
-  # PNPM-compatible react-native-maps pods
-  maps_path = resolve_pnpm_path('react-native-maps')
-  if File.exist?(File.join(maps_path, 'react-native-google-maps.podspec'))
-    # react-native-maps <= 1.20.x ships Google support as a separate podspec.
-    pod 'react-native-google-maps', :path => maps_path
+# @generated begin react-native-maps - expo prebuild (DO NOT MODIFY) sync-e9cc66c360abe50bc66d89fffb3c55b034d7d369
+  rn_maps_path = File.dirname(`node --print "require.resolve('react-native-maps/package.json')"`)
+  if File.exist?(File.join(rn_maps_path, 'react-native-google-maps.podspec'))
+    pod 'react-native-google-maps', :path => rn_maps_path
   else
-    # Newer releases may expose Google as a subspec.
-    pod 'react-native-maps', :path => maps_path, :subspecs => ['Maps', 'Google']
+    pod 'react-native-maps', :path => rn_maps_path, :subspecs => ['Maps', 'Google']
   end
-  
+# @generated end react-native-maps
   config = use_native_modules!(config_command)
 
   use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
@@ -107,19 +76,9 @@ target 'RadarTinder' do
         # Some pods (RNFirebase, etc.) import React headers and fail under framework modular checks.
         build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
         build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
-
-        if target.name == 'React-Core' || target.name.include?('React')
-          definitions = build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
-          definitions = definitions.is_a?(Array) ? definitions : [definitions]
-          unless definitions.include?('FB_SONARKIT_ENABLED=1')
-            definitions << 'FB_SONARKIT_ENABLED=1'
-          end
-          build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = definitions
-        end
       end
 
-      # Match both main target and subspec targets for react-native-maps
-      if ['react-native-google-maps', 'react-native-maps', 'react-native-maps-Maps', 'react-native-maps-Google'].include?(target.name)
+      if ['react-native-google-maps', 'react-native-maps'].include?(target.name)
         target.build_configurations.each do |build_config|
           # Keep modules enabled for Google Maps related headers used by this target.
           build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
@@ -132,17 +91,6 @@ target 'RadarTinder' do
           # Keep modules enabled for @import GoogleMaps used by Google-Maps-iOS-Utils.
           build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
           build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
-        end
-      end
-
-      if target.name == 'ReactNativeReanimated'
-        target.build_configurations.each do |build_config|
-          header_paths = build_config.build_settings['HEADER_SEARCH_PATHS'] || ['$(inherited)']
-          header_paths = header_paths.is_a?(Array) ? header_paths : [header_paths]
-          unless header_paths.include?('**')
-            header_paths << '**'
-          end
-          build_config.build_settings['HEADER_SEARCH_PATHS'] = header_paths
         end
       end
     end
@@ -160,6 +108,26 @@ target 'RadarTinder' do
       gmu_content = File.read(gmu_header)
       patched = gmu_content.gsub('@import GoogleMaps;', '#import <GoogleMaps/GoogleMaps.h>')
       File.write(gmu_header, patched) if patched != gmu_content
+    end
+
+    # Xcode 26 strict module checks: keep this header chained through
+    # AIRMapCalloutManager instead of direct React/RCTViewManager import.
+    rn_maps_marker_header = File.join(
+      __dir__,
+      '..',
+      'node_modules',
+      'react-native-maps',
+      'ios',
+      'AirGoogleMaps',
+      'AIRGoogleMapMarkerManager.h'
+    )
+    if File.exist?(rn_maps_marker_header)
+      marker_content = File.read(rn_maps_marker_header)
+      marker_patched = marker_content.gsub(
+        '#import <React/RCTViewManager.h>',
+        '#import "AIRMapCalloutManager.h"'
+      )
+      File.write(rn_maps_marker_header, marker_patched) if marker_patched != marker_content
     end
 
   end
