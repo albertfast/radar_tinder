@@ -165,7 +165,7 @@ module.exports = {
     },
     owner: "albertfast",
     runtimeVersion: {
-      policy: "appVersion"
+      policy: "nativeVersion"
     },
     updates: {
       enabled: true,
