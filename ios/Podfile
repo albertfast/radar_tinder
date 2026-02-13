@@ -73,7 +73,13 @@ target 'RadarTinder' do
 
   # PNPM-compatible react-native-maps pods
   maps_path = resolve_pnpm_path('react-native-maps')
-  pod 'react-native-maps', :path => maps_path, :subspecs => ['Maps', 'Google']
+  if File.exist?(File.join(maps_path, 'react-native-google-maps.podspec'))
+    # react-native-maps <= 1.20.x ships Google support as a separate podspec.
+    pod 'react-native-google-maps', :path => maps_path
+  else
+    # Newer releases may expose Google as a subspec.
+    pod 'react-native-maps', :path => maps_path, :subspecs => ['Maps', 'Google']
+  end
   
   config = use_native_modules!(config_command)
 

@@ -164,7 +164,9 @@ module.exports = {
       }
     },
     owner: "albertfast",
-    runtimeVersion: "1.0.45",
+    runtimeVersion: {
+      policy: "appVersion"
+    },
     updates: {
       enabled: true,
       url: "https://u.expo.dev/62bbc6f8-257a-48e8-adb8-0b80558e3e92",
