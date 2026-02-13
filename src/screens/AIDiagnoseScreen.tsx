@@ -116,12 +116,17 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       }
       
       console.log('Loading AI models...');
-      const ok = await AIService.preloadModels();
+      await AIService.preloadModels();
       
       if (isMounted.current) {
         const status = AIService.getModelStatus();
-        setModelReady(ok);
-        setModelError(ok ? null : (status.error || 'AI model could not be prepared. Please rebuild the app and try again.'));
+        const dashboardReady = !!status.dashboardLoaded;
+        setModelReady(dashboardReady);
+        setModelError(
+          dashboardReady
+            ? null
+            : (status.error || 'AI model could not be prepared. Please rebuild the app and try again.')
+        );
       }
     } catch (error) {
       console.error('AI preload failed', error);
@@ -278,7 +283,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
         modelStatus = { ocrLoaded: true, dashboardLoaded: true };
       }
       
-      if (!modelStatus.ocrLoaded || !modelStatus.dashboardLoaded) {
+      if (!modelStatus.dashboardLoaded) {
         throw new Error('AI models are not ready. Please wait and try again.');
       }
       
