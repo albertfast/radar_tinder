@@ -120,6 +120,26 @@ jobs:
               );
             }
           }
+          const appDelegatePath = 'ios/RadarTinder/AppDelegate.swift';
+          if (fs.existsSync(appDelegatePath)) {
+            const appDelegateContent = fs.readFileSync(appDelegatePath, 'utf8');
+            if (!appDelegateContent.includes('Bundle.main.object(forInfoDictionaryKey: "GMSApiKey")')) {
+              throw new Error('AppDelegate patch missing: Google Maps API key should be read from Info.plist');
+            }
+            const mapsInitIndex = appDelegateContent.indexOf('GMSServices.provideAPIKey');
+            const rnStartIndex = appDelegateContent.indexOf('factory.startReactNative(');
+            if (mapsInitIndex === -1 || rnStartIndex === -1 || mapsInitIndex > rnStartIndex) {
+              throw new Error(
+                'AppDelegate patch missing: GMSServices.provideAPIKey must run before factory.startReactNative'
+              );
+            }
+            if (
+              appDelegateContent.includes('FirebaseApp.configure()') &&
+              !appDelegateContent.includes('if FirebaseApp.app() == nil')
+            ) {
+              throw new Error('AppDelegate patch missing: FirebaseApp.configure should be guarded against duplicate init');
+            }
+          }
           console.log('react-native-maps patch verification passed');
           NODE
       - name: Ensure Expo gitignore
@@ -189,6 +209,22 @@ jobs:
           EXPO_APPLE_APP_STORE_CONNECT_API_KEY_PATH: >-
             ${{ github.workspace }}/credentials/AuthKey_${{ secrets.ASC_API_KEY_ID }}.p8
           IPHONEOS_DEPLOYMENT_TARGET: "16.1"
+
+      - name: Collect dSYM artifacts
+        if: always()
+        run: |
+          mkdir -p artifacts/dsym
+          find ~/Library/Developer/Xcode/DerivedData -type d -name "RadarTinder.app.dSYM" -print \
+            -exec ditto -c -k --sequesterRsrc --keepParent {} artifacts/dsym/ \; || true
+          ls -la artifacts/dsym || true
+
+      - name: Upload dSYM artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RadarTinder-dSYMs
+          path: artifacts/dsym
+          if-no-files-found: warn
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
