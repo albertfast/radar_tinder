@@ -80,6 +80,7 @@ module.exports = {
       package: "com.radartinder.app",
       versionCode: getVersionCode(),
       googleServicesFile: "./google-services.json",
+      softwareKeyboardLayoutMode: "pan",
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#0B0F1A"

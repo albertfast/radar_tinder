@@ -8,28 +8,35 @@ const secureStorage = {
   getItem: async (name: string): Promise<string | null> => {
     try {
       return await SecureStore.getItemAsync(name);
-    } catch (e) {
+    } catch (error) {
+      console.warn('[settingsStore] SecureStore getItem failed:', name, error);
       return null;
     }
   },
   setItem: async (name: string, value: string): Promise<void> => {
     try {
       await SecureStore.setItemAsync(name, value);
-    } catch (e) {}
+    } catch (error) {
+      console.warn('[settingsStore] SecureStore setItem failed:', name, error);
+    }
   },
   removeItem: async (name: string): Promise<void> => {
     try {
       await SecureStore.deleteItemAsync(name);
-    } catch (e) {}
+    } catch (error) {
+      console.warn('[settingsStore] SecureStore removeItem failed:', name, error);
+    }
   },
 };
 
 interface SettingsState {
+  hasHydrated: boolean;
   unitSystem: 'metric' | 'imperial'; // metric = km, imperial = miles
   voiceWarningsEnabled: boolean;
   hapticAlertsEnabled: boolean;
   keepAwakeWhileDriving: boolean;
   warningVolume: number;
+  setHasHydrated: (hydrated: boolean) => void;
   toggleUnitSystem: () => void;
   setUnitSystem: (unitSystem: 'metric' | 'imperial') => void;
   setVoiceWarningsEnabled: (enabled: boolean) => void;
@@ -75,11 +82,13 @@ const defaultUnitSystem = (): 'metric' | 'imperial' => {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
+      hasHydrated: false,
       unitSystem: defaultUnitSystem(),
       voiceWarningsEnabled: true,
       hapticAlertsEnabled: true,
       keepAwakeWhileDriving: true,
       warningVolume: 90,
+      setHasHydrated: (hydrated) => set({ hasHydrated: hydrated }),
       toggleUnitSystem: () => set((state) => ({ 
         unitSystem: state.unitSystem === 'metric' ? 'imperial' : 'metric' 
       })),
@@ -101,6 +110,12 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'settings-storage',
       storage: createJSONStorage(() => secureStorage),
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          console.warn('[settingsStore] Rehydrate failed:', error);
+        }
+        state?.setHasHydrated(true);
+      },
     }
   )
 );

@@ -10,6 +10,7 @@ import { OfflineService } from './OfflineService';
 import { DatabaseService } from './DatabaseService';
 import { useAuthStore } from '../store/authStore';
 import { useRadarStore } from '../store/radarStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { RadarLocation } from '../types';
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
@@ -250,6 +251,7 @@ export class BackgroundService {
   private static lastAlertSent: Record<string, number> = {};
   private static lastAlertStored: Record<string, number> = {};
   private static ALERT_THROTTLE_MS = 60000;
+  private static ALERT_ID_BUCKET_MS = 30000;
 
   private static async handleLocationUpdate(location: { 
     latitude: number; 
@@ -286,16 +288,25 @@ export class BackgroundService {
       if (!user) return;
 
       const speedKph = (location.speed || 0) * 3.6;
+      const settings = useSettingsStore.getState();
+      const alertsHydrated = settings.hasHydrated;
+      const playSound = alertsHydrated && settings.voiceWarningsEnabled && settings.warningVolume > 0;
+      const vibrate = alertsHydrated && settings.hapticAlertsEnabled;
 
       // AUTO-SHIELD: Detect driving and notify user
       if (speedKph > 20 && !this.isProtectionActive) {
         this.isProtectionActive = true;
-        await NotificationService.sendRadarAlert({
-          id: 'auto-shield',
-          distance: 0,
-          severity: 'medium',
-          type: 'info'
-        } as any, "Radar Tinder: Yolculuk algılandı, koruma aktif! 🛡️");
+        if (alertsHydrated) {
+          await NotificationService.sendRadarAlert({
+            id: 'auto-shield',
+            distance: 0,
+            severity: 'medium',
+            type: 'info'
+          } as any, "Radar Tinder: Yolculuk algılandı, koruma aktif! 🛡️", {
+            playSound,
+            vibrate,
+          });
+        }
       } else if (speedKph < 5) {
         this.isProtectionActive = false;
       }
@@ -376,8 +387,9 @@ export class BackgroundService {
         }
 
         if (distance < threshold && isHeadingTowards) {
+          const alertBucket = Math.floor(now / this.ALERT_ID_BUCKET_MS);
           alerts.push({
-            id: `alert-${Date.now()}-${radar.id}`,
+            id: `alert-${radar.id}-${alertBucket}`,
             radarId: radar.id,
             userId: user.id,
             type: radar.type,
@@ -397,7 +409,11 @@ export class BackgroundService {
       const nowMs = Date.now();
       for (const alert of alerts) {
         const lastSent = this.lastAlertSent[alert.radarId] || 0;
-        if (alert.severity === 'high' && nowMs - lastSent > this.ALERT_THROTTLE_MS) {
+        if (
+          alertsHydrated &&
+          alert.severity === 'high' &&
+          nowMs - lastSent > this.ALERT_THROTTLE_MS
+        ) {
           let locationName: string | undefined;
           const cachedName = this.radarLocationNameCache[alert.radarId];
           if (cachedName) {
@@ -415,7 +431,10 @@ export class BackgroundService {
             }
           }
 
-          await NotificationService.sendRadarAlert(alert as any, locationName);
+          await NotificationService.sendRadarAlert(alert as any, locationName, {
+            playSound,
+            vibrate,
+          });
           this.lastAlertSent[alert.radarId] = nowMs;
         }
 

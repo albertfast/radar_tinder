@@ -10,6 +10,7 @@ interface AdBannerProps {
 let cachedGoogleMobileAds: any | undefined;
 const isTruthyFlag = (value?: string) => value === '1' || value === 'true' || value === 'yes';
 const isAdDebugEnabled = () => __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG);
+const isAdDebugOverlayEnabled = () => isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG_OVERLAY);
 const shouldForceTestAdUnits = () =>
   __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_ADMOB_FORCE_TEST_IDS);
 
@@ -65,7 +66,7 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId }) => {
   }, [productionBannerUnitId]);
 
   if (!AdService.shouldShowAds()) {
-    if (isAdDebugEnabled()) {
+    if (isAdDebugOverlayEnabled()) {
       const state = AdService.getAdsDebugState();
       return (
         <View style={styles.debugBox}>
@@ -82,7 +83,7 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId }) => {
   const BannerAdSize = googleMobileAds?.BannerAdSize;
   const TestIds = googleMobileAds?.TestIds;
   if (!BannerAd || !BannerAdSize || !TestIds) {
-    if (isAdDebugEnabled()) {
+    if (isAdDebugOverlayEnabled()) {
       return (
         <View style={styles.debugBox}>
           <Text style={styles.debugText}>
@@ -153,7 +154,7 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId }) => {
           console.error('Ad failed to load: ', error);
         }}
       />
-      {isAdDebugEnabled() && (
+      {isAdDebugOverlayEnabled() && (
         <View style={styles.debugInline}>
           <Text style={styles.debugText}>
             {didLoad ? 'Banner loaded' : 'Banner pending'} • {Platform.OS} • {debugState.forceTestAdUnits ? 'test-id' : 'prod-id'}

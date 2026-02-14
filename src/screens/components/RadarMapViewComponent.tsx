@@ -1,22 +1,34 @@
-import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import React from 'react';
+import { StyleSheet } from 'react-native';
+import MapView from 'react-native-maps';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import RadarMap from '../../components/RadarMap';
 import { ANIMATION_TIMING } from '../../utils/animationConstants';
 
 interface RadarMapViewProps {
-  currentLocation: any;
+  currentLocation: { latitude: number; longitude: number } | null;
   nearbyRadars: any[];
   mapRef: React.RefObject<MapView>;
-  unitSystem: 'metric' | 'imperial';
+  routeCoords?: Array<{ latitude: number; longitude: number }>;
+  destinationPoint?: { latitude: number; longitude: number } | null;
+  mapPadding?: { top: number; right: number; bottom: number; left: number };
+  onMapTouchStart?: () => void;
+  onMapTouchEnd?: () => void;
+  mapInteractionEnabled?: boolean;
+  onMapTap?: () => void;
 }
 
 export const RadarMapView: React.FC<RadarMapViewProps> = ({
   currentLocation,
   nearbyRadars,
   mapRef,
-  unitSystem,
+  routeCoords = [],
+  destinationPoint = null,
+  mapPadding,
+  onMapTouchStart,
+  onMapTouchEnd,
+  mapInteractionEnabled = true,
+  onMapTap,
 }) => {
   return (
     <Animated.View
@@ -24,10 +36,16 @@ export const RadarMapView: React.FC<RadarMapViewProps> = ({
       entering={FadeInDown.duration(ANIMATION_TIMING.BASE)}
     >
       <RadarMap
-        ref={mapRef}
+        mapRef={mapRef}
+        location={currentLocation || { latitude: 37.7749, longitude: -122.4194 }}
         radars={nearbyRadars}
-        currentLocation={currentLocation}
-        unitSystem={unitSystem}
+        routeCoords={routeCoords}
+        destinationPoint={destinationPoint}
+        mapPadding={mapPadding}
+        onMapTouchStart={onMapTouchStart}
+        onMapTouchEnd={onMapTouchEnd}
+        mapInteractionEnabled={mapInteractionEnabled}
+        onMapTap={onMapTap}
       />
     </Animated.View>
   );

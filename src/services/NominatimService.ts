@@ -24,6 +24,14 @@ const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
 let lastRequestTime = 0;
 const MIN_REQUEST_INTERVAL = 1100; // 1.1 seconds to be safe
 
+type SearchOptions = {
+  limit?: number;
+  countryCode?: string;
+  focusLocation?: { latitude: number; longitude: number };
+  focusRadiusKm?: number;
+  bounded?: boolean;
+};
+
 export class NominatimService {
   /**
    * Search for address suggestions
@@ -31,7 +39,7 @@ export class NominatimService {
    */
   static async search(
     query: string,
-    options?: { limit?: number; countryCode?: string }
+    options?: SearchOptions
   ): Promise<GeocodingResult[]> {
     try {
       if (!query || query.trim().length < 2) return [];
@@ -40,9 +48,39 @@ export class NominatimService {
       await this.throttle();
 
       const limit = options?.limit || 5;
-      const countryParam = options?.countryCode ? `&countrycodes=${options.countryCode}` : '';
-      
-      const url = `${NOMINATIM_BASE_URL}/search?q=${encodeURIComponent(query.trim())}&format=json&limit=${limit}&addressdetails=1${countryParam}`;
+      const params = new URLSearchParams({
+        q: query.trim(),
+        format: 'json',
+        limit: String(limit),
+        addressdetails: '1',
+        dedupe: '1',
+      });
+
+      const countryCode = options?.countryCode?.trim().toLowerCase();
+      if (countryCode) {
+        params.append('countrycodes', countryCode);
+      }
+
+      const focusLocation = options?.focusLocation;
+      if (
+        focusLocation &&
+        Number.isFinite(focusLocation.latitude) &&
+        Number.isFinite(focusLocation.longitude)
+      ) {
+        const viewBox = this.buildViewbox(
+          focusLocation.latitude,
+          focusLocation.longitude,
+          options?.focusRadiusKm
+        );
+        if (viewBox) {
+          params.append('viewbox', viewBox);
+          if (options?.bounded) {
+            params.append('bounded', '1');
+          }
+        }
+      }
+
+      const url = `${NOMINATIM_BASE_URL}/search?${params.toString()}`;
 
       const response = await fetch(url, {
         headers: {
@@ -101,7 +139,7 @@ export class NominatimService {
    */
   static async getSuggestions(
     query: string,
-    options?: { limit?: number; countryCode?: string }
+    options?: SearchOptions
   ): Promise<string[]> {
     const results = await this.search(query, options);
     return results.map((r) => r.display_name);
@@ -138,6 +176,25 @@ export class NominatimService {
     }
 
     lastRequestTime = Date.now();
+  }
+
+  private static buildViewbox(
+    latitude: number,
+    longitude: number,
+    radiusKm: number = 60
+  ): string | null {
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return null;
+    }
+    const latDelta = radiusKm / 111;
+    const safeCos = Math.max(0.2, Math.cos((latitude * Math.PI) / 180));
+    const lonDelta = radiusKm / (111 * safeCos);
+
+    const left = longitude - lonDelta;
+    const right = longitude + lonDelta;
+    const top = latitude + latDelta;
+    const bottom = latitude - latDelta;
+    return `${left},${top},${right},${bottom}`;
   }
 
   /**

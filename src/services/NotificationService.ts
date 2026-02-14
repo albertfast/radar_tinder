@@ -2,6 +2,17 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { RadarAlert } from '../types';
+import { useSettingsStore } from '../store/settingsStore';
+
+type RadarAlertOptions = {
+  playSound?: boolean;
+  vibrate?: boolean;
+  channelId?: string;
+};
+
+const CHANNEL_SOUND = 'radar-alerts';
+const CHANNEL_VIBRATE = 'radar-alerts-vibrate';
+const CHANNEL_SILENT = 'radar-alerts-silent';
 
 export class NotificationService {
   static async init(): Promise<void> {
@@ -39,12 +50,28 @@ export class NotificationService {
       // For Android, set up notification channel
       if (Platform.OS === 'android') {
         try {
-          await Notifications.setNotificationChannelAsync('radar-alerts', {
+          await Notifications.setNotificationChannelAsync(CHANNEL_SOUND, {
             name: 'Radar Alerts',
             description: 'Notifications for nearby radar detections',
             importance: Notifications.AndroidImportance.HIGH,
             vibrationPattern: [0, 250, 250, 250],
             sound: 'default',
+          });
+
+          await Notifications.setNotificationChannelAsync(CHANNEL_VIBRATE, {
+            name: 'Radar Alerts (Vibrate)',
+            description: 'Notifications with vibration only',
+            importance: Notifications.AndroidImportance.HIGH,
+            vibrationPattern: [0, 250, 250, 250],
+            sound: null,
+          });
+
+          await Notifications.setNotificationChannelAsync(CHANNEL_SILENT, {
+            name: 'Radar Alerts (Silent)',
+            description: 'Silent notifications for nearby radar detections',
+            importance: Notifications.AndroidImportance.HIGH,
+            vibrationPattern: [0],
+            sound: null,
           });
         } catch (e) {
           console.warn('Failed to set notification channel (likely Expo Go restriction):', e);
@@ -61,7 +88,11 @@ export class NotificationService {
   static setNotificationHandler(): void {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
-        shouldPlaySound: true,
+        shouldPlaySound: (() => {
+          const settings = useSettingsStore.getState();
+          if (!settings.hasHydrated) return false;
+          return settings.voiceWarningsEnabled && settings.warningVolume > 0;
+        })(),
         shouldSetBadge: true,
         shouldShowAlert: true,
         shouldShowBanner: true,
@@ -70,8 +101,23 @@ export class NotificationService {
     });
   }
 
-  static async sendRadarAlert(alert: RadarAlert, locationName?: string): Promise<void> {
+  static async sendRadarAlert(
+    alert: RadarAlert,
+    locationName?: string,
+    options?: RadarAlertOptions
+  ): Promise<void> {
     try {
+      const settings = useSettingsStore.getState();
+      const hydrated = settings.hasHydrated;
+      const defaultPlaySound =
+        hydrated && settings.voiceWarningsEnabled && settings.warningVolume > 0;
+      const defaultVibrate = hydrated && settings.hapticAlertsEnabled;
+      const playSound = options?.playSound ?? defaultPlaySound;
+      const vibrate = options?.vibrate ?? defaultVibrate;
+      const channelId =
+        options?.channelId ||
+        (playSound ? CHANNEL_SOUND : vibrate ? CHANNEL_VIBRATE : CHANNEL_SILENT);
+
       const radarLabel = (() => {
         const type = String(alert.type || '');
         if (type === 'speed_camera' || type === 'fixed') return 'Speed Camera';
@@ -100,7 +146,9 @@ export class NotificationService {
           title,
           body,
           data: { alertId: alert.id, type: 'radar_alert' },
-          sound: 'default',
+          sound: playSound ? 'default' : false,
+          vibrate: vibrate ? [0, 250, 250, 250] : [0],
+          ...(Platform.OS === 'android' ? { channelId } : {}),
           priority: Notifications.AndroidNotificationPriority.HIGH,
         },
         trigger: null, // Show immediately
@@ -151,6 +199,7 @@ export class NotificationService {
           autoDismiss: true,
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: 3600, // 1 hour
           repeats: true
         },

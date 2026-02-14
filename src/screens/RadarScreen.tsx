@@ -105,6 +105,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const { user, refreshProfile } = useAuthStore();
   const canUsePro = hasProAccess(user);
   const {
+    hasHydrated,
     unitSystem,
     voiceWarningsEnabled,
     hapticAlertsEnabled,
@@ -120,7 +121,6 @@ const RadarScreen = ({ navigation, route }: any) => {
   // Stats & States
   const [activeTab, setActiveTab] = useState<TabType>('Basic');
   const [isDriving, setIsDriving] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
   const [currentLocation, setCurrentLocation] = useState<any>(null);
   const [nearbyRadars, setNearbyRadars] = useState<any[]>([]);
   const [currentSpeed, setCurrentSpeed] = useState<number>(0);
@@ -136,6 +136,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const [drivingStartTime, setDrivingStartTime] = useState<Date | null>(null);
   const [totalDistance, setTotalDistance] = useState<number>(0);
   const [followHeading, setFollowHeading] = useState(true);
+  const [isDestinationInputFocused, setIsDestinationInputFocused] = useState(false);
 
   // Refs for logic
   const currentLocationRef = useRef(currentLocation);
@@ -143,16 +144,24 @@ const RadarScreen = ({ navigation, route }: any) => {
   const isInteractingRef = useRef(false);
   const lastCameraUpdateRef = useRef(0);
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const destinationDismissResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const proSliderRef = useRef<FlatList>(null);
   const [proSliderIndex, setProSliderIndex] = useState(0);
   const hasCenteredMapRef = useRef(false);
   const interactionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
+  const isDismissingDestinationInputRef = useRef(false);
+  const searchRequestIdRef = useRef(0);
+  const searchCountryCodeRef = useRef<string | undefined>(undefined);
+  const isResolvingSearchCountryRef = useRef(false);
+  const lastCountryResolveCoordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const tripStartRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
   const tripStartLabelRef = useRef<string | null>(null);
   const totalDistanceRef = useRef(totalDistance);
   const drivingStartTimeRef = useRef<Date | null>(drivingStartTime);
   const destinationInputRef = useRef<TextInput>(null);
+  const destinationFocusGuardUntilRef = useRef(0);
+  const isDestinationInputFocusedRef = useRef(false);
   const setTabBarHidden = useUiStore((state) => state.setTabBarHidden);
   const lastAnnouncedAlertIdRef = useRef<string | null>(null);
 
@@ -188,24 +197,6 @@ const RadarScreen = ({ navigation, route }: any) => {
   const radarAnimationSize = Math.max(220, Math.min(Math.round(width * 0.76), 360));
   const radarAuraSize = Math.round(radarAnimationSize * 0.8);
 
-  // Force tab when navigation params request it
-  useEffect(() => {
-    const forceTab = route?.params?.forceTab as TabType | undefined;
-    if (forceTab === 'Map' || forceTab === 'Graphic') {
-      if (forceTab === 'Graphic' && !canUsePro) {
-        setActiveTab('Basic');
-      } else {
-        setActiveTab(forceTab);
-      }
-      setIsDriving(true);
-      navigation.setParams?.({ forceTab: undefined });
-    } else if (forceTab === 'Basic') {
-      setActiveTab('Basic');
-      setIsDriving(false);
-      navigation.setParams?.({ forceTab: undefined });
-    }
-  }, [route?.params?.forceTab, canUsePro]);
-
   const activeAlert = useMemo(() => {
     const unacknowledged = activeAlerts.filter((alert) => !alert.acknowledged);
     return unacknowledged.sort((a, b) => a.distance - b.distance)[0];
@@ -219,6 +210,12 @@ const RadarScreen = ({ navigation, route }: any) => {
   const compassRotation = currentLocation?.heading != null
     ? `${currentLocation.heading}deg`
     : '0deg';
+  const voicePlaybackEnabled = hasHydrated && voiceWarningsEnabled && warningVolume > 0;
+  const alertModeLabel = voicePlaybackEnabled
+    ? 'Voice on'
+    : hasHydrated && hapticAlertsEnabled
+      ? 'Vibrate only'
+      : 'Silent';
 
   // --- Effects ---
 
@@ -252,6 +249,7 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   // Voice/haptic alert feedback for active hazards.
   useEffect(() => {
+    if (!hasHydrated) return;
     if (!activeAlert) {
       lastAnnouncedAlertIdRef.current = null;
       return;
@@ -264,7 +262,7 @@ const RadarScreen = ({ navigation, route }: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     }
 
-    if (!isMuted && voiceWarningsEnabled) {
+    if (voicePlaybackEnabled) {
       const etaMinutes = Math.max(1, Math.round(activeAlert.estimatedTime * 60));
       const distanceText = formatDistance(activeAlert.distance, unitSystem);
       const message = `${formatRadarLabel(activeAlert.type)} ahead. ${distanceText}. Estimated ${etaMinutes} minutes.`;
@@ -273,18 +271,24 @@ const RadarScreen = ({ navigation, route }: any) => {
         language: 'en-US',
         pitch: 1,
         rate: 0.95,
-        volume: Math.max(0.1, warningVolume / 100),
+        volume: warningVolume / 100,
       });
     }
   }, [
     activeAlert,
+    hasHydrated,
     hapticAlertsEnabled,
     isDriving,
-    isMuted,
     unitSystem,
-    voiceWarningsEnabled,
+    voicePlaybackEnabled,
     warningVolume,
   ]);
+
+  useEffect(() => {
+    if (!voicePlaybackEnabled) {
+      Speech.stop();
+    }
+  }, [voicePlaybackEnabled]);
 
   // Hide bottom tab bar in driving mode or when Map tab is active
   useEffect(() => {
@@ -315,8 +319,64 @@ const RadarScreen = ({ navigation, route }: any) => {
       if (searchTimerRef.current) {
         clearTimeout(searchTimerRef.current);
       }
+      if (destinationDismissResetTimerRef.current) {
+        clearTimeout(destinationDismissResetTimerRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    const loc = currentLocationRef.current || currentLocation;
+    if (!Number.isFinite(loc?.latitude) || !Number.isFinite(loc?.longitude)) return;
+    if (isResolvingSearchCountryRef.current) return;
+
+    const lastCoords = lastCountryResolveCoordsRef.current;
+    if (lastCoords) {
+      const movedDistanceKm = LocationService.calculateDistanceSync(
+        lastCoords.latitude,
+        lastCoords.longitude,
+        loc.latitude,
+        loc.longitude
+      );
+      if (movedDistanceKm < 120 && searchCountryCodeRef.current) {
+        return;
+      }
+    } else if (searchCountryCodeRef.current) {
+      return;
+    }
+
+    let cancelled = false;
+    isResolvingSearchCountryRef.current = true;
+
+    LocationService.reverseGeocode(loc.latitude, loc.longitude)
+      .then((addresses) => {
+        if (cancelled) return;
+        const isoCountryCode = addresses?.[0]?.isoCountryCode;
+        if (typeof isoCountryCode === 'string' && isoCountryCode.trim().length > 0) {
+          searchCountryCodeRef.current = isoCountryCode.trim().toLowerCase();
+        }
+        lastCountryResolveCoordsRef.current = {
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+        };
+      })
+      .catch(() => {
+        if (cancelled) return;
+        lastCountryResolveCoordsRef.current = {
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+        };
+      })
+      .finally(() => {
+        if (!cancelled) {
+          isResolvingSearchCountryRef.current = false;
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentLocation?.latitude, currentLocation?.longitude]);
 
   // General Location Tracking
   useEffect(() => {
@@ -648,49 +708,105 @@ const RadarScreen = ({ navigation, route }: any) => {
     return step.distanceMeters;
   };
 
+  const ensureDrivingSessionStarted = useCallback(
+    async (params?: { activateMapTab?: boolean; source?: 'manual' | 'navigate' | 'force_tab' }) => {
+      const activateMapTab = params?.activateMapTab ?? true;
+      const source = params?.source || 'manual';
+      if (activateMapTab) {
+        setActiveTab('Map');
+      }
+      setIsDriving(true);
+
+      if (drivingStartTimeRef.current && tripStartRef.current) {
+        return;
+      }
+
+      const startTime = new Date();
+      setDrivingStartTime(startTime);
+      drivingStartTimeRef.current = startTime;
+      setTotalDistance(0);
+      totalDistanceRef.current = 0;
+
+      tripStartRef.current = null;
+      tripStartLabelRef.current = null;
+
+      const startLoc = currentLocationRef.current || currentLocation;
+      if (startLoc?.latitude && startLoc?.longitude) {
+        tripStartRef.current = {
+          latitude: startLoc.latitude,
+          longitude: startLoc.longitude,
+          timestamp: Date.now(),
+        };
+        LocationService.reverseGeocode(startLoc.latitude, startLoc.longitude)
+          .then((addresses) => {
+            tripStartLabelRef.current = formatGeocodeLabel(addresses[0], startLoc);
+          })
+          .catch(() => {});
+      }
+
+      AnalyticsService.trackEvent('drive_start', {
+        source,
+        location: startLoc ? `${startLoc.latitude},${startLoc.longitude}` : 'unknown',
+      });
+    },
+    [currentLocation]
+  );
+
+  // Force tab when navigation params request it
+  useEffect(() => {
+    const forceTab = route?.params?.forceTab as TabType | undefined;
+    if (!forceTab) return;
+
+    const applyForcedTab = async () => {
+      if (forceTab === 'Map' || forceTab === 'Graphic') {
+        if (forceTab === 'Graphic' && !canUsePro) {
+          setActiveTab('Basic');
+          setIsDriving(false);
+        } else {
+          await ensureDrivingSessionStarted({
+            activateMapTab: forceTab === 'Map',
+            source: 'force_tab',
+          });
+          if (forceTab === 'Graphic') {
+            setActiveTab('Graphic');
+          }
+        }
+      } else if (forceTab === 'Basic') {
+        setActiveTab('Basic');
+        setIsDriving(false);
+      }
+      navigation.setParams?.({ forceTab: undefined });
+    };
+
+    applyForcedTab().catch(() => {
+      navigation.setParams?.({ forceTab: undefined });
+    });
+  }, [route?.params?.forceTab, canUsePro, ensureDrivingSessionStarted, navigation]);
+
   const toggleDrivingMode = async () => {
     if (!isDriving) {
-        setActiveTab('Map');
-        const startTime = new Date();
-        setDrivingStartTime(startTime);
-        drivingStartTimeRef.current = startTime;
-        setTotalDistance(0);
-        totalDistanceRef.current = 0;
-        setIsMuted(!voiceWarningsEnabled || warningVolume <= 0);
-        tripStartRef.current = null;
-        tripStartLabelRef.current = null;
-        const startLoc = currentLocationRef.current || currentLocation;
-        if (startLoc?.latitude && startLoc?.longitude) {
-          tripStartRef.current = {
-            latitude: startLoc.latitude,
-            longitude: startLoc.longitude,
-            timestamp: Date.now(),
-          };
-          tripStartLabelRef.current = null;
-          LocationService.reverseGeocode(startLoc.latitude, startLoc.longitude)
-            .then((addresses) => {
-              tripStartLabelRef.current = formatGeocodeLabel(addresses[0], startLoc);
-            })
-            .catch(() => {});
-        }
-        AnalyticsService.trackEvent('drive_start', {
-          location: currentLocation ? `${currentLocation.latitude},${currentLocation.longitude}` : 'unknown'
-        });
-    } else {
-        const startTime = drivingStartTimeRef.current;
-        AnalyticsService.trackEvent('drive_stop', {
-          duration: startTime ? (new Date().getTime() - startTime.getTime()) / 1000 : 0,
-          distance: totalDistanceRef.current
-        });
-
-        await saveTripIfNeeded();
-
-        // Show interstitial for free users when they finish a trip
-        if (AdService.shouldShowAds()) {
-            await AdService.showInterstitial();
-        }
+      await ensureDrivingSessionStarted({ activateMapTab: true, source: 'manual' });
+      return;
     }
-    setIsDriving(!isDriving);
+    const startTime = drivingStartTimeRef.current;
+    AnalyticsService.trackEvent('drive_stop', {
+      duration: startTime ? (new Date().getTime() - startTime.getTime()) / 1000 : 0,
+      distance: totalDistanceRef.current
+    });
+
+    await saveTripIfNeeded();
+
+    setIsDriving(false);
+    setActiveTab('Basic');
+    setDrivingStartTime(null);
+    drivingStartTimeRef.current = null;
+    tripStartRef.current = null;
+    tripStartLabelRef.current = null;
+
+    // Show interstitial for free users when they finish a trip
+    if (AdService.shouldShowAds()) {
+      await AdService.showInterstitial();
+    }
   };
 
   const centerMap = () => {
@@ -729,6 +845,7 @@ const RadarScreen = ({ navigation, route }: any) => {
     const query = text.trim().toLowerCase();
     if (!query) {
       setSuggestions([]);
+      searchRequestIdRef.current += 1;
       return;
     }
 
@@ -740,11 +857,22 @@ const RadarScreen = ({ navigation, route }: any) => {
     // Start fetching suggestions after 2 characters
     if (query.length < 2) return;
 
+    const requestId = searchRequestIdRef.current + 1;
+    searchRequestIdRef.current = requestId;
+
     // Debounce 600ms to account for Nominatim rate limiting (1 req/sec)
     searchTimerRef.current = setTimeout(async () => {
-      console.log('[RadarScreen] Fetching suggestions for:', text);
-      const results = await GoogleMapsService.getGeocodeSuggestions(text);
-      console.log('[RadarScreen] Got suggestions:', results.length);
+      const focusLocation = currentLocationRef.current || currentLocation;
+      const results = await GoogleMapsService.getGeocodeSuggestions(text, {
+        countryCode: searchCountryCodeRef.current,
+        focusLocation: focusLocation
+          ? {
+              latitude: focusLocation.latitude,
+              longitude: focusLocation.longitude,
+            }
+          : undefined,
+      });
+      if (requestId !== searchRequestIdRef.current) return;
       if (results.length > 0) {
         setSuggestions(results);
       }
@@ -777,6 +905,38 @@ const RadarScreen = ({ navigation, route }: any) => {
     }
     return 'Unknown';
   };
+
+  const setDestinationInputFocused = useCallback((focused: boolean) => {
+    isDestinationInputFocusedRef.current = focused;
+    setIsDestinationInputFocused(focused);
+  }, []);
+
+  const dismissDestinationInput = useCallback(
+    (options?: { respectFocusGuard?: boolean }) => {
+      const shouldRespectFocusGuard = options?.respectFocusGuard ?? true;
+      if (shouldRespectFocusGuard && Date.now() < destinationFocusGuardUntilRef.current) {
+        return;
+      }
+
+      isDismissingDestinationInputRef.current = true;
+      if (destinationDismissResetTimerRef.current) {
+        clearTimeout(destinationDismissResetTimerRef.current);
+      }
+      destinationDismissResetTimerRef.current = setTimeout(() => {
+        isDismissingDestinationInputRef.current = false;
+      }, 250);
+
+      if (destinationInputRef.current?.isFocused()) {
+        destinationInputRef.current.blur();
+      }
+      setDestinationInputFocused(false);
+      isTypingRef.current = false;
+      searchRequestIdRef.current += 1;
+      setSuggestions([]);
+      Keyboard.dismiss();
+    },
+    [setDestinationInputFocused]
+  );
 
   const saveTripIfNeeded = useCallback(async () => {
     if (!user) return;
@@ -846,12 +1006,20 @@ const RadarScreen = ({ navigation, route }: any) => {
     setNavSteps([]);
     setCurrentStepIndex(0);
     setIsDriving(false);
+    setDrivingStartTime(null);
+    drivingStartTimeRef.current = null;
+    setTotalDistance(0);
+    totalDistanceRef.current = 0;
+    tripStartRef.current = null;
+    tripStartLabelRef.current = null;
     setActiveTab('Basic');
     setNearbyRadars([]);
+    setDestinationInputFocused(false);
+    isTypingRef.current = false;
     if (currentLocation) {
       RadarService.getNearbyRadars(currentLocation.latitude, currentLocation.longitude, 10).then(setNearbyRadars);
     }
-  }, [currentLocation, saveTripIfNeeded]);
+  }, [currentLocation, saveTripIfNeeded, setDestinationInputFocused]);
 
   const exitDrivingToHome = useCallback(async () => {
     await resetRoute();
@@ -871,13 +1039,14 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, []);
 
   const handleMapTouchStart = useCallback(() => {
-    if (destinationInputRef.current?.isFocused()) {
-      destinationInputRef.current.blur();
-      isTypingRef.current = false;
-    }
-    Keyboard.dismiss();
     markInteracting();
   }, [markInteracting]);
+
+  const handleMapTapWhileInputFocused = useCallback(() => {
+    if (!isDestinationInputFocusedRef.current) return;
+    dismissDestinationInput({ respectFocusGuard: true });
+    markInteracting();
+  }, [dismissDestinationInput, markInteracting]);
 
   const endInteracting = useCallback(() => {
     if (!isTypingRef.current) {
@@ -921,8 +1090,7 @@ const RadarScreen = ({ navigation, route }: any) => {
 
       try {
         // Unfocus keyboard to reveal more map space
-        Keyboard.dismiss();
-        isTypingRef.current = false;
+        dismissDestinationInput({ respectFocusGuard: false });
 
         // Get current location from ref or fetch fresh
         let loc = currentLocationRef.current || currentLocation;
@@ -976,8 +1144,7 @@ const RadarScreen = ({ navigation, route }: any) => {
               setDestinationCoord(null);
             }
             persistRecentDestination(primaryLeg?.end_address || finalDest);
-            setIsDriving(true);
-            setActiveTab('Map');
+            await ensureDrivingSessionStarted({ activateMapTab: true, source: 'navigate' });
             const steps = primaryLeg?.steps || [];
             const parsedSteps: NavStep[] = steps.map((step: any) => ({
               instruction: stripHtml(step.html_instructions || step.instructions || ''),
@@ -1306,64 +1473,70 @@ const RadarScreen = ({ navigation, route }: any) => {
                                 }}
                                 onMapTouchStart={handleMapTouchStart}
                                 onMapTouchEnd={endInteracting}
+                                mapInteractionEnabled={!isDestinationInputFocused}
+                                onMapTap={isDestinationInputFocused ? handleMapTapWhileInputFocused : undefined}
                             />
                             <View 
                               style={[styles.mapOverlay, { top: mapOverlayTop, left: mapOverlayInset, right: mapOverlayInset }]}
                               pointerEvents="box-none"
                             >
-                                   {routeCoords.length === 0 ? (
+                                       {routeCoords.length === 0 ? (
                                      <>
                                        <View style={{flexDirection: 'row', alignItems: 'center', gap: mapControlGap}}>
-                                           <TouchableOpacity
-                                             style={{flex: 1}}
-                                             activeOpacity={1}
-                                             onPress={() => {
-                                               setTimeout(() => {
-                                                 destinationInputRef.current?.focus();
-                                               }, 100);
-                                             }}
-                                           >
-                                             <View>
-                                                <TextInput 
-                                                    ref={destinationInputRef}
-                                                    placeholder="Enter destination" 
-                                                    placeholderTextColor="#aaa"
-                                                    style={[
-                                                      styles.mapInput,
-                                                      {
-                                                        paddingVertical: getResponsivePadding(10),
-                                                        paddingHorizontal: getResponsivePadding(12),
-                                                        fontSize: getResponsiveFontSize(15),
-                                                      },
-                                                    ]}
-                                                    value={destination}
-                                                    onChangeText={handleTextChange}
-                                                    onSubmitEditing={() => {
-                                                      Keyboard.dismiss();
-                                                      handleNavigate();
-                                                    }}
-                                                    returnKeyType="search"
-                                                    blurOnSubmit={true}
-                                                    autoCorrect={false}
-                                                    autoCapitalize="none"
-                                                    keyboardType="default"
-                                                    onFocus={() => {
-                                                      isTypingRef.current = true;
-                                                      isInteractingRef.current = true;
-                                                      if (!destination.trim() && recentDestinations.length > 0) {
-                                                        setSuggestions(recentDestinations.slice(0, 6));
-                                                      }
-                                                    }}
-                                                    onBlur={() => {
-                                                      isTypingRef.current = false;
-                                                      setSuggestions([]);
-                                                      setTimeout(() => {
-                                                        endInteracting();
-                                                      }, 100);
-                                                    }}
-                                                />
-                                             </View>
-                                           </TouchableOpacity>
+                                           <View style={{flex: 1}}>
+                                              <TextInput 
+                                                  ref={destinationInputRef}
+                                                  placeholder="Enter destination" 
+                                                  placeholderTextColor="#aaa"
+                                                  style={[
+                                                    styles.mapInput,
+                                                    {
+                                                      paddingVertical: getResponsivePadding(10),
+                                                      paddingHorizontal: getResponsivePadding(12),
+                                                      fontSize: getResponsiveFontSize(15),
+                                                    },
+                                                  ]}
+                                                  value={destination}
+                                                  onChangeText={handleTextChange}
+                                                  onSubmitEditing={() => {
+                                                    Keyboard.dismiss();
+                                                    handleNavigate();
+                                                  }}
+                                                  returnKeyType="search"
+                                                  blurOnSubmit={true}
+                                                  autoCorrect={false}
+                                                  autoCapitalize="none"
+                                                  keyboardType="default"
+                                                  onFocus={() => {
+                                                    destinationFocusGuardUntilRef.current = Date.now() + 320;
+                                                    isDismissingDestinationInputRef.current = false;
+                                                    setDestinationInputFocused(true);
+                                                    isTypingRef.current = true;
+                                                    isInteractingRef.current = true;
+                                                    if (!destination.trim() && recentDestinations.length > 0) {
+                                                      setSuggestions(recentDestinations.slice(0, 6));
+                                                    }
+                                                  }}
+                                                  onBlur={() => {
+                                                    const isGhostBlur =
+                                                      Date.now() < destinationFocusGuardUntilRef.current &&
+                                                      !isDismissingDestinationInputRef.current;
+                                                    if (isGhostBlur) {
+                                                      requestAnimationFrame(() => {
+                                                        destinationInputRef.current?.focus();
+                                                      });
+                                                      return;
+                                                    }
+                                                    isDismissingDestinationInputRef.current = false;
+                                                    setDestinationInputFocused(false);
+                                                    isTypingRef.current = false;
+                                                    setSuggestions([]);
+                                                    setTimeout(() => {
+                                                      endInteracting();
+                                                    }, 100);
+                                                  }}
+                                              />
+                                           </View>
                                            
                                            <TouchableOpacity 
                                                 style={[styles.iconBtn, { backgroundColor: '#4ECDC4', padding: 12 }]} 
@@ -1701,9 +1874,15 @@ const RadarScreen = ({ navigation, route }: any) => {
                     accent="#FF5252" 
                   />
                   <StatPill 
-                    icon={isMuted ? 'bell-off' : 'bell-ring'} 
+                    icon={
+                      voicePlaybackEnabled
+                        ? 'bell-ring'
+                        : hasHydrated && hapticAlertsEnabled
+                          ? 'vibrate'
+                          : 'bell-off'
+                    } 
                     label="Alert mode" 
-                    value={isMuted ? 'Muted' : 'Sound on'} 
+                    value={alertModeLabel} 
                     accent="#38BDF8" 
                   />
               </View>

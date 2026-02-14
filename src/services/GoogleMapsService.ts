@@ -34,6 +34,14 @@ interface DistanceResult {
   };
 }
 
+interface GeocodeSuggestionOptions {
+  countryCode?: string;
+  focusLocation?: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
 export class GoogleMapsService {
   private static BASE_URL = 'https://maps.googleapis.com/maps/api';
 
@@ -49,6 +57,29 @@ export class GoogleMapsService {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
     return { lat, lon };
+  }
+
+  private static buildGoogleBounds(
+    focusLocation?: { latitude: number; longitude: number },
+    radiusKm: number = 60
+  ): string | null {
+    if (
+      !focusLocation ||
+      !Number.isFinite(focusLocation.latitude) ||
+      !Number.isFinite(focusLocation.longitude)
+    ) {
+      return null;
+    }
+
+    const latDelta = radiusKm / 111;
+    const safeCos = Math.max(0.2, Math.cos((focusLocation.latitude * Math.PI) / 180));
+    const lonDelta = radiusKm / (111 * safeCos);
+
+    const south = focusLocation.latitude - latDelta;
+    const west = focusLocation.longitude - lonDelta;
+    const north = focusLocation.latitude + latDelta;
+    const east = focusLocation.longitude + lonDelta;
+    return `${south},${west}|${north},${east}`;
   }
 
   private static async getFallbackDirections(
@@ -437,15 +468,41 @@ export class GoogleMapsService {
    * Get address suggestions
    * Uses Nominatim (free) first, falls back to Google Geocoding API
    */
-  static async getGeocodeSuggestions(input: string): Promise<string[]> {
+  static async getGeocodeSuggestions(
+    input: string,
+    options?: GeocodeSuggestionOptions
+  ): Promise<string[]> {
     const query = input.trim();
     if (!query) return [];
 
+    const normalizedCountry = options?.countryCode?.trim().toLowerCase();
+    const isShortOrMostlyNumericQuery =
+      query.length <= 4 || /^[\d\s-]+$/.test(query);
+
     // Try free Nominatim first
     try {
-      const nominatimResults = await NominatimService.getSuggestions(query, { limit: 6 });
+      let nominatimResults = await NominatimService.getSuggestions(query, {
+        limit: 6,
+        countryCode: normalizedCountry,
+        focusLocation: options?.focusLocation,
+        focusRadiusKm: isShortOrMostlyNumericQuery ? 90 : 180,
+      });
+
+      // For longer free-text queries, relax country filter if needed.
+      if (
+        nominatimResults.length === 0 &&
+        normalizedCountry &&
+        !isShortOrMostlyNumericQuery
+      ) {
+        nominatimResults = await NominatimService.getSuggestions(query, {
+          limit: 6,
+          focusLocation: options?.focusLocation,
+          focusRadiusKm: 180,
+        });
+      }
+
       if (nominatimResults.length > 0) {
-        return nominatimResults;
+        return Array.from(new Set(nominatimResults)).slice(0, 6);
       }
     } catch (nominatimError) {
       console.warn('[GoogleMapsService] Nominatim failed, trying Google:', nominatimError);
@@ -454,15 +511,38 @@ export class GoogleMapsService {
     // Fallback to Google Geocoding
     try {
       if (!GOOGLE_MAPS_API_KEY) return [];
-      const url = `${this.BASE_URL}/geocode/json?address=${encodeURIComponent(query)}&language=en&key=${GOOGLE_MAPS_API_KEY}`;
+      const params = new URLSearchParams({
+        address: query,
+        language: 'en',
+        key: GOOGLE_MAPS_API_KEY,
+      });
+      const bounds = this.buildGoogleBounds(
+        options?.focusLocation,
+        isShortOrMostlyNumericQuery ? 70 : 150
+      );
+      if (bounds) {
+        params.append('bounds', bounds);
+      }
+      if (normalizedCountry) {
+        params.append('region', normalizedCountry);
+        if (isShortOrMostlyNumericQuery) {
+          params.append('components', `country:${normalizedCountry}`);
+        }
+      }
+
+      const url = `${this.BASE_URL}/geocode/json?${params.toString()}`;
       const response = await fetch(url);
       const data = await response.json();
 
       if (data.status === 'OK' && Array.isArray(data.results)) {
-        return data.results
-          .map((result: any) => result.formatted_address)
-          .filter(Boolean)
-          .slice(0, 6);
+        const formattedAddresses = data.results
+          .map((result: any) =>
+            typeof result?.formatted_address === 'string'
+              ? result.formatted_address
+              : null
+          )
+          .filter((value: string | null): value is string => Boolean(value));
+        return Array.from(new Set<string>(formattedAddresses)).slice(0, 6);
       }
       return [];
     } catch (error) {
