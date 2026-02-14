@@ -26,7 +26,7 @@ const parseTestDeviceIds = (): string[] => {
   if (!raw) return [];
   return raw
     .split(',')
-    .map((item) => item.trim())
+    .map((item: string) => item.trim())
     .filter(Boolean);
 };
 

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
 import { Text, Surface } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import { SupabaseService } from '../services/SupabaseService';
 import { useAuthStore } from '../store/authStore';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
@@ -18,11 +19,33 @@ const HistoryScreen = ({ navigation }: any) => {
   const [trips, setTrips] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const loadTrips = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await SupabaseService.getUserTrips(user?.id);
+      setTrips(data || []);
+    } catch (error) {
+      console.error('Failed to load trips:', error);
+      setTrips([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     if (canUse) {
       loadTrips();
     }
-  }, [user?.id, canUse]);
+  }, [canUse, loadTrips]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (canUse) {
+        loadTrips();
+      }
+      return () => {};
+    }, [canUse, loadTrips])
+  );
 
   if (!canUse) {
     return (
@@ -34,18 +57,6 @@ const HistoryScreen = ({ navigation }: any) => {
     );
   }
 
-  const loadTrips = async () => {
-    try {
-      setLoading(true);
-      const data = await SupabaseService.getUserTrips(user?.id);
-      setTrips(data || []);
-    } catch (error) {
-      console.error('Failed to load trips:', error);
-      setTrips([]);
-    } finally {
-      setLoading(false);
-    }
-  };
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#0F172A', '#020617']} style={StyleSheet.absoluteFill} />

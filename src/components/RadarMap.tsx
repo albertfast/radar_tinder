@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { View, StyleSheet, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { modernMapStyle, modernRouteStyle } from '../utils/modernMapStyle';
+import { modernMapStyle } from '../utils/modernMapStyle';
 import { getResponsiveWidth, getResponsiveHeight, getResponsiveMargin, getResponsivePadding } from '../constants/layout';
 
 // Optimized Marker (moved here or kept in same file)
@@ -41,6 +41,8 @@ const RadarMap = React.memo(({
     mapPadding,
     onMapTouchStart,
     onMapTouchEnd,
+    mapInteractionEnabled = true,
+    onMapTap,
 }: any) => {
     
     const initialRegion = useMemo(() => ({
@@ -71,16 +73,29 @@ const RadarMap = React.memo(({
             showsCompass={false}
             showsTraffic={false}
             mapPadding={padding}
-            pitchEnabled
-            rotateEnabled
+            pitchEnabled={mapInteractionEnabled}
+            rotateEnabled={mapInteractionEnabled}
+            zoomEnabled={mapInteractionEnabled}
+            scrollEnabled={mapInteractionEnabled}
             toolbarEnabled={false}
             zoomControlEnabled={false}
             moveOnMarkerPress={false}
-            onPanDrag={() => onMapTouchStart?.()}
-            onPress={() => onMapTouchStart?.()}
-            onTouchStart={() => onMapTouchStart?.()}
-            onTouchEnd={() => onMapTouchEnd?.()}
-            onRegionChangeComplete={() => onMapTouchEnd?.()}
+            onPanDrag={() => {
+              if (mapInteractionEnabled) onMapTouchStart?.();
+            }}
+            onPress={() => {
+              onMapTap?.();
+              if (mapInteractionEnabled) onMapTouchStart?.();
+            }}
+            onTouchStart={() => {
+              if (mapInteractionEnabled) onMapTouchStart?.();
+            }}
+            onTouchEnd={() => {
+              if (mapInteractionEnabled) onMapTouchEnd?.();
+            }}
+            onRegionChangeComplete={() => {
+              if (mapInteractionEnabled) onMapTouchEnd?.();
+            }}
         >
             {routeCoords.length > 0 && (
                 <Polyline
@@ -128,7 +143,8 @@ const RadarMap = React.memo(({
         prev.routeCoords === next.routeCoords &&
         prev.destinationPoint?.latitude === next.destinationPoint?.latitude &&
         prev.destinationPoint?.longitude === next.destinationPoint?.longitude &&
-        prev.mapPadding === next.mapPadding
+        prev.mapPadding === next.mapPadding &&
+        prev.mapInteractionEnabled === next.mapInteractionEnabled
         // Ignore location changes as MapView handles user location dot and camera is controlled via ref
     );
 });

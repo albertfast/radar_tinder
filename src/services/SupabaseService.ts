@@ -1,10 +1,28 @@
-import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import 'react-native-url-polyfill/auto';
 
 import { supabase } from '../../utils/supabase';
 
+type TripPayload = {
+  userId: string;
+  startLocation?: string | null;
+  endLocation?: string | null;
+  distance: number;
+  duration: number;
+  score?: number;
+  startTime?: string | null;
+  endTime?: string | null;
+};
+
+type QueuedTripPayload = TripPayload & {
+  queuedAt: string;
+  retryCount: number;
+};
+
 export class SupabaseService {
+  private static TRIP_QUEUE_KEY = 'pending_trip_queue_v1';
+  private static isTripQueueProcessing = false;
+
   private static normalizeTrip(row: any) {
     return {
       id: row?.id,
@@ -20,6 +38,90 @@ export class SupabaseService {
       updatedAt: row?.updated_at ?? null,
     };
   }
+
+  private static toTripInsert(payload: TripPayload) {
+    return {
+      user_id: payload.userId,
+      start_location: payload.startLocation,
+      end_location: payload.endLocation,
+      distance: payload.distance,
+      duration: payload.duration,
+      score: payload.score ?? 0,
+      start_time: payload.startTime,
+      end_time: payload.endTime,
+    };
+  }
+
+  private static async insertTrip(payload: TripPayload) {
+    const { data, error } = await supabase
+      .from('trips')
+      .insert([this.toTripInsert(payload)])
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data ? this.normalizeTrip(data) : null;
+  }
+
+  private static async readTripQueue(): Promise<QueuedTripPayload[]> {
+    try {
+      const raw = await AsyncStorage.getItem(this.TRIP_QUEUE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed;
+    } catch (error) {
+      console.warn('Supabase read trip queue error:', error);
+      return [];
+    }
+  }
+
+  private static async writeTripQueue(queue: QueuedTripPayload[]): Promise<void> {
+    try {
+      await AsyncStorage.setItem(this.TRIP_QUEUE_KEY, JSON.stringify(queue));
+    } catch (error) {
+      console.warn('Supabase write trip queue error:', error);
+    }
+  }
+
+  private static async enqueueTrip(payload: TripPayload): Promise<void> {
+    const queue = await this.readTripQueue();
+    queue.push({
+      ...payload,
+      queuedAt: new Date().toISOString(),
+      retryCount: 0,
+    });
+    await this.writeTripQueue(queue);
+  }
+
+  private static async flushQueuedTrips(): Promise<void> {
+    if (this.isTripQueueProcessing) return;
+    this.isTripQueueProcessing = true;
+    try {
+      const queue = await this.readTripQueue();
+      if (queue.length === 0) return;
+
+      const remaining: QueuedTripPayload[] = [];
+      for (const item of queue) {
+        try {
+          await this.insertTrip(item);
+        } catch (error) {
+          remaining.push({
+            ...item,
+            retryCount: (item.retryCount || 0) + 1,
+          });
+        }
+      }
+
+      await this.writeTripQueue(remaining);
+      if (remaining.length > 0) {
+        console.warn('Supabase trip queue pending:', remaining.length);
+      }
+    } finally {
+      this.isTripQueueProcessing = false;
+    }
+  }
+
   /**
    * Fetches radars within a given radius using PostGIS
    * @param latitude User's latitude
@@ -204,38 +306,13 @@ export class SupabaseService {
     }
   }
 
-  static async createTrip(params: {
-    userId: string;
-    startLocation?: string | null;
-    endLocation?: string | null;
-    distance: number;
-    duration: number;
-    score?: number;
-    startTime?: string | null;
-    endTime?: string | null;
-  }) {
+  static async createTrip(params: TripPayload) {
     try {
-      const { data, error } = await supabase
-        .from('trips')
-        .insert([
-          {
-            user_id: params.userId,
-            start_location: params.startLocation,
-            end_location: params.endLocation,
-            distance: params.distance,
-            duration: params.duration,
-            score: params.score ?? 0,
-            start_time: params.startTime,
-            end_time: params.endTime,
-          },
-        ])
-        .select('*')
-        .single();
-
-      if (error) throw error;
-      return data ? this.normalizeTrip(data) : null;
+      await this.flushQueuedTrips();
+      return await this.insertTrip(params);
     } catch (error) {
       console.error('Supabase createTrip error:', error);
+      await this.enqueueTrip(params);
       return null;
     }
   }
@@ -245,6 +322,7 @@ export class SupabaseService {
    */
   static async getUserTrips(userId?: string) {
     try {
+      await this.flushQueuedTrips();
       let query = supabase
         .from('trips')
         .select('*')
@@ -255,7 +333,7 @@ export class SupabaseService {
       const { data, error } = await query;
 
       if (error) throw error;
-      return (data || []).map((row) => this.normalizeTrip(row));
+      return (data || []).map((row: any) => this.normalizeTrip(row));
     } catch (error) {
       console.error('Supabase getUserTrips error:', error);
       return [];

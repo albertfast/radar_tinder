@@ -100,7 +100,7 @@ const RadarSettingsScreen = ({ navigation }: any) => {
         language: 'en-US',
         rate: 0.95,
         pitch: 1,
-        volume: Math.max(0.1, warningVolume / 100),
+        volume: warningVolume / 100,
       });
       return;
     }
