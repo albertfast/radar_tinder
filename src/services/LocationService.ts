@@ -260,6 +260,14 @@ export class LocationService {
       });
       return addresses;
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isTimeout =
+        message.includes('TimeoutException') ||
+        message.includes('Waited 5 seconds');
+      if (isTimeout) {
+        console.warn('Reverse geocoding timed out; continuing without address label');
+        return [];
+      }
       console.error('Error reverse geocoding:', error);
       throw error;
     }

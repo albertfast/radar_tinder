@@ -11,6 +11,7 @@ import { AppState, View, ActivityIndicator, Platform } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 const reanimated = Reanimated as any;
 const reanimatedVersion = reanimated.version || 'unknown';
@@ -295,6 +296,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        <KeyboardProvider>
         <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
             <PaperProvider theme={combinedDarkTheme}>
@@ -364,6 +366,7 @@ export default function App() {
             </PaperProvider>
           </QueryClientProvider>
         </SafeAreaProvider>
+        </KeyboardProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
   );
