@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   FlatList,
   Platform,
+  Pressable,
+  InteractionManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
@@ -144,24 +146,19 @@ const RadarScreen = ({ navigation, route }: any) => {
   const isInteractingRef = useRef(false);
   const lastCameraUpdateRef = useRef(0);
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const destinationDismissResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const proSliderRef = useRef<FlatList>(null);
   const [proSliderIndex, setProSliderIndex] = useState(0);
   const hasCenteredMapRef = useRef(false);
   const interactionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
-  const isDismissingDestinationInputRef = useRef(false);
   const searchRequestIdRef = useRef(0);
   const searchCountryCodeRef = useRef<string | undefined>(undefined);
-  const isResolvingSearchCountryRef = useRef(false);
-  const lastCountryResolveCoordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const tripStartRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
   const tripStartLabelRef = useRef<string | null>(null);
   const totalDistanceRef = useRef(totalDistance);
   const drivingStartTimeRef = useRef<Date | null>(drivingStartTime);
   const destinationInputRef = useRef<TextInput>(null);
-  const destinationFocusGuardUntilRef = useRef(0);
-  const isDestinationInputFocusedRef = useRef(false);
+  const keyboardWorkaroundInProgressRef = useRef(false);
   const setTabBarHidden = useUiStore((state) => state.setTabBarHidden);
   const lastAnnouncedAlertIdRef = useRef<string | null>(null);
 
@@ -319,64 +316,21 @@ const RadarScreen = ({ navigation, route }: any) => {
       if (searchTimerRef.current) {
         clearTimeout(searchTimerRef.current);
       }
-      if (destinationDismissResetTimerRef.current) {
-        clearTimeout(destinationDismissResetTimerRef.current);
-      }
     };
   }, []);
 
   useEffect(() => {
-    const loc = currentLocationRef.current || currentLocation;
-    if (!Number.isFinite(loc?.latitude) || !Number.isFinite(loc?.longitude)) return;
-    if (isResolvingSearchCountryRef.current) return;
-
-    const lastCoords = lastCountryResolveCoordsRef.current;
-    if (lastCoords) {
-      const movedDistanceKm = LocationService.calculateDistanceSync(
-        lastCoords.latitude,
-        lastCoords.longitude,
-        loc.latitude,
-        loc.longitude
-      );
-      if (movedDistanceKm < 120 && searchCountryCodeRef.current) {
-        return;
-      }
-    } else if (searchCountryCodeRef.current) {
+    const envCountryCode = process.env.EXPO_PUBLIC_DEFAULT_COUNTRY_CODE?.trim().toLowerCase();
+    if (envCountryCode && /^[a-z]{2}$/.test(envCountryCode)) {
+      searchCountryCodeRef.current = envCountryCode;
       return;
     }
-
-    let cancelled = false;
-    isResolvingSearchCountryRef.current = true;
-
-    LocationService.reverseGeocode(loc.latitude, loc.longitude)
-      .then((addresses) => {
-        if (cancelled) return;
-        const isoCountryCode = addresses?.[0]?.isoCountryCode;
-        if (typeof isoCountryCode === 'string' && isoCountryCode.trim().length > 0) {
-          searchCountryCodeRef.current = isoCountryCode.trim().toLowerCase();
-        }
-        lastCountryResolveCoordsRef.current = {
-          latitude: loc.latitude,
-          longitude: loc.longitude,
-        };
-      })
-      .catch(() => {
-        if (cancelled) return;
-        lastCountryResolveCoordsRef.current = {
-          latitude: loc.latitude,
-          longitude: loc.longitude,
-        };
-      })
-      .finally(() => {
-        if (!cancelled) {
-          isResolvingSearchCountryRef.current = false;
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentLocation?.latitude, currentLocation?.longitude]);
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale || '';
+    const localeCountry = locale.split('-')[1]?.toLowerCase();
+    if (localeCountry && /^[a-z]{2}$/.test(localeCountry)) {
+      searchCountryCodeRef.current = localeCountry;
+    }
+  }, []);
 
   // General Location Tracking
   useEffect(() => {
@@ -907,36 +861,19 @@ const RadarScreen = ({ navigation, route }: any) => {
   };
 
   const setDestinationInputFocused = useCallback((focused: boolean) => {
-    isDestinationInputFocusedRef.current = focused;
     setIsDestinationInputFocused(focused);
   }, []);
 
-  const dismissDestinationInput = useCallback(
-    (options?: { respectFocusGuard?: boolean }) => {
-      const shouldRespectFocusGuard = options?.respectFocusGuard ?? true;
-      if (shouldRespectFocusGuard && Date.now() < destinationFocusGuardUntilRef.current) {
-        return;
-      }
-
-      isDismissingDestinationInputRef.current = true;
-      if (destinationDismissResetTimerRef.current) {
-        clearTimeout(destinationDismissResetTimerRef.current);
-      }
-      destinationDismissResetTimerRef.current = setTimeout(() => {
-        isDismissingDestinationInputRef.current = false;
-      }, 250);
-
-      if (destinationInputRef.current?.isFocused()) {
-        destinationInputRef.current.blur();
-      }
-      setDestinationInputFocused(false);
-      isTypingRef.current = false;
-      searchRequestIdRef.current += 1;
-      setSuggestions([]);
-      Keyboard.dismiss();
-    },
-    [setDestinationInputFocused]
-  );
+  const dismissDestinationInput = useCallback(() => {
+    if (destinationInputRef.current?.isFocused()) {
+      destinationInputRef.current.blur();
+    }
+    setDestinationInputFocused(false);
+    isTypingRef.current = false;
+    searchRequestIdRef.current += 1;
+    setSuggestions([]);
+    Keyboard.dismiss();
+  }, [setDestinationInputFocused]);
 
   const saveTripIfNeeded = useCallback(async () => {
     if (!user) return;
@@ -1042,12 +979,6 @@ const RadarScreen = ({ navigation, route }: any) => {
     markInteracting();
   }, [markInteracting]);
 
-  const handleMapTapWhileInputFocused = useCallback(() => {
-    if (!isDestinationInputFocusedRef.current) return;
-    dismissDestinationInput({ respectFocusGuard: true });
-    markInteracting();
-  }, [dismissDestinationInput, markInteracting]);
-
   const endInteracting = useCallback(() => {
     if (!isTypingRef.current) {
       isInteractingRef.current = false;
@@ -1090,7 +1021,7 @@ const RadarScreen = ({ navigation, route }: any) => {
 
       try {
         // Unfocus keyboard to reveal more map space
-        dismissDestinationInput({ respectFocusGuard: false });
+        dismissDestinationInput();
 
         // Get current location from ref or fetch fresh
         let loc = currentLocationRef.current || currentLocation;
@@ -1458,31 +1389,35 @@ const RadarScreen = ({ navigation, route }: any) => {
 
                   {activeTab === 'Map' && (
                       <View style={{flex: 1}}>
-                            <RadarMap
-                                location={currentLocation || {latitude: 37.7749, longitude: -122.4194}}
-                                radars={nearbyRadars}
-                                routeCoords={routeCoords}
-                                mapRef={mapRef}
-                                showsUserLocation={true}
-                                destinationPoint={destinationCoord}
-                                mapPadding={mapPadding}
-                                onRadarPress={(radar: RadarLocation) => {
-                                  if (canConfirmRadar(radar)) {
-                                    handleConfirmRadar(radar);
-                                  }
-                                }}
-                                onMapTouchStart={handleMapTouchStart}
-                                onMapTouchEnd={endInteracting}
-                                mapInteractionEnabled={!isDestinationInputFocused}
-                                onMapTap={isDestinationInputFocused ? handleMapTapWhileInputFocused : undefined}
-                            />
+                            <View
+                              style={StyleSheet.absoluteFill}
+                              pointerEvents={isDestinationInputFocused ? 'none' : 'auto'}
+                            >
+                              <RadarMap
+                                  location={currentLocation || {latitude: 37.7749, longitude: -122.4194}}
+                                  radars={nearbyRadars}
+                                  routeCoords={routeCoords}
+                                  mapRef={mapRef}
+                                  showsUserLocation={true}
+                                  destinationPoint={destinationCoord}
+                                  mapPadding={mapPadding}
+                                  onRadarPress={(radar: RadarLocation) => {
+                                    if (canConfirmRadar(radar)) {
+                                      handleConfirmRadar(radar);
+                                    }
+                                  }}
+                                  onMapTouchStart={handleMapTouchStart}
+                                  onMapTouchEnd={endInteracting}
+                                  mapInteractionEnabled={!isDestinationInputFocused}
+                              />
+                            </View>
                             <View 
                               style={[styles.mapOverlay, { top: mapOverlayTop, left: mapOverlayInset, right: mapOverlayInset }]}
                               pointerEvents="box-none"
                             >
                                        {routeCoords.length === 0 ? (
                                      <>
-                                       <View style={{flexDirection: 'row', alignItems: 'center', gap: mapControlGap}}>
+                                       <View style={{flexDirection: 'row', alignItems: 'center', gap: mapControlGap}} pointerEvents="box-none">
                                            <View style={{flex: 1}}>
                                               <TextInput 
                                                   ref={destinationInputRef}
@@ -1507,9 +1442,27 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                   autoCorrect={false}
                                                   autoCapitalize="none"
                                                   keyboardType="default"
+                                                  autoFocus={false}
+                                                  onTouchEnd={() => {
+                                                    // Fabric workaround: use TextInput.State API with ref (not node handle)
+                                                    if (Platform.OS === 'android') {
+                                                      console.log('[KEYBOARD] onTouchEnd - using TextInput.State with ref');
+                                                      const ref = destinationInputRef.current;
+                                                      if (ref) {
+                                                        // @ts-ignore - internal API
+                                                        if (TextInput.State && TextInput.State.focusTextInput) {
+                                                          console.log('[KEYBOARD] Calling TextInput.State.focusTextInput with ref');
+                                                          // @ts-ignore - pass ref directly for Fabric
+                                                          TextInput.State.focusTextInput(ref);
+                                                        } else {
+                                                          console.log('[KEYBOARD] TextInput.State not available, using ref.focus');
+                                                          ref.focus();
+                                                        }
+                                                      }
+                                                    }
+                                                  }}
                                                   onFocus={() => {
-                                                    destinationFocusGuardUntilRef.current = Date.now() + 320;
-                                                    isDismissingDestinationInputRef.current = false;
+                                                    console.log('[KEYBOARD] TextInput onFocus');
                                                     setDestinationInputFocused(true);
                                                     isTypingRef.current = true;
                                                     isInteractingRef.current = true;
@@ -1518,16 +1471,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                     }
                                                   }}
                                                   onBlur={() => {
-                                                    const isGhostBlur =
-                                                      Date.now() < destinationFocusGuardUntilRef.current &&
-                                                      !isDismissingDestinationInputRef.current;
-                                                    if (isGhostBlur) {
-                                                      requestAnimationFrame(() => {
-                                                        destinationInputRef.current?.focus();
-                                                      });
-                                                      return;
-                                                    }
-                                                    isDismissingDestinationInputRef.current = false;
+                                                    console.log('[KEYBOARD] TextInput onBlur');
                                                     setDestinationInputFocused(false);
                                                     isTypingRef.current = false;
                                                     setSuggestions([]);
