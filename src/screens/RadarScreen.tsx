@@ -9,24 +9,18 @@ import {
   Modal,
   TouchableOpacity,
   FlatList,
-  Platform,
-  Pressable,
-  InteractionManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
-  Text, 
-  Surface,
-  FAB,
-  Button,
+  Text,
   IconButton
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Speech from 'expo-speech';
 import * as Haptics from 'expo-haptics';
 import { useRadarStore } from '../store/radarStore';
@@ -36,7 +30,8 @@ import { GoogleMapsService } from '../services/GoogleMapsService';
 import { LocationService } from '../services/LocationService';
 import { OfflineService } from '../services/OfflineService';
 import { SupabaseService } from '../services/SupabaseService';
-import { RadarLocation } from '../types';
+import { NotificationService } from '../services/NotificationService';
+import { AddressSuggestion, RadarAlert, RadarLocation } from '../types';
 import { BlurView } from 'expo-blur';
 import { useSettingsStore } from '../store/settingsStore';
 import { useUiStore } from '../store/uiStore';
@@ -45,11 +40,10 @@ import { hasProAccess } from '../utils/access';
 import AdBanner from '../components/AdBanner';
 import { AdService } from '../services/AdService';
 import { AnalyticsService } from '../services/AnalyticsService';
-import { RadarHeader } from './components/RadarHeader';
-import { RadarAnimation } from '../components/RadarAnimation';
 import RadarMap from '../components/RadarMap';
 import { RadarGraphicView } from './components/RadarGraphicView';
-import { ANIMATION_TIMING } from '../utils/animationConstants';
+import { RadarHomeDashboard } from './radar/components/RadarHomeDashboard';
+import { useRouteTrace } from './radar/hooks/useRouteTrace';
 import { TAB_BAR_HEIGHT, getResponsivePadding, getResponsiveFontSize, getResponsiveMargin, getResponsiveWidth, getResponsiveHeight, getUIScale } from '../constants/layout';
 
 import { darkMapStyle } from '../utils/mapStyle';
@@ -69,39 +63,9 @@ const PRO_FEATURES = [
 ];
 
 const RECENT_DESTINATIONS_KEY = 'recent_destinations_v1';
-
-// OPTIMIZED MARKER COMPONENT
-const OptimizedMarker = React.memo(({ coordinate, type, speedLimit }: any) => {
-    const [tracksViewChanges, setTracksViewChanges] = useState(true);
-
-    // Stop tracking changes after initial render to save performance
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setTracksViewChanges(false);
-        }, 500); // Wait for image load/render
-        return () => clearTimeout(timer);
-    }, []);
-
-    return (
-        <Marker
-          coordinate={coordinate}
-          tracksViewChanges={tracksViewChanges}
-          anchor={{ x: 0.5, y: 0.5 }}
-        >
-            <View style={[styles.markerBadge, { backgroundColor: type === 'police' ? '#FF5252' : '#4ECDC4' }]}>
-                {type === 'fixed' && speedLimit ? (
-                    <Text style={{color:'black', fontSize:10, fontWeight:'bold'}}>{speedLimit}</Text>
-                ) : (
-                    <MaterialCommunityIcons 
-                      name={type === 'police' ? "police-badge" : "camera"} 
-                      size={14} 
-                      color="black" 
-                    />
-                )}
-            </View>
-        </Marker>
-    );
-});
+const KEYBOARD_TRACE_ENABLED = /^(1|true|yes)$/i.test(
+  process.env.EXPO_PUBLIC_KEYBOARD_TRACE || ''
+);
 
 const RadarScreen = ({ navigation, route }: any) => {
   const { user, refreshProfile } = useAuthStore();
@@ -132,13 +96,14 @@ const RadarScreen = ({ navigation, route }: any) => {
   const [destinationCoord, setDestinationCoord] = useState<{ latitude: number; longitude: number } | null>(null);
   const [navSteps, setNavSteps] = useState<NavStep[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [recentDestinations, setRecentDestinations] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [recentDestinations, setRecentDestinations] = useState<AddressSuggestion[]>([]);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [drivingStartTime, setDrivingStartTime] = useState<Date | null>(null);
   const [totalDistance, setTotalDistance] = useState<number>(0);
   const [followHeading, setFollowHeading] = useState(true);
   const [isDestinationInputFocused, setIsDestinationInputFocused] = useState(false);
+  const [closestRadarHint, setClosestRadarHint] = useState('');
 
   // Refs for logic
   const currentLocationRef = useRef(currentLocation);
@@ -158,9 +123,15 @@ const RadarScreen = ({ navigation, route }: any) => {
   const totalDistanceRef = useRef(totalDistance);
   const drivingStartTimeRef = useRef<Date | null>(drivingStartTime);
   const destinationInputRef = useRef<TextInput>(null);
-  const keyboardWorkaroundInProgressRef = useRef(false);
+  const rerouteConsecutiveOffRouteRef = useRef(0);
+  const lastRerouteAtRef = useRef(0);
+  const stepDistanceHistoryRef = useRef<Record<number, { lastDistanceMeters: number; increasingTicks: number }>>({});
+  const navRefreshInFlightRef = useRef(false);
   const setTabBarHidden = useUiStore((state) => state.setTabBarHidden);
   const lastAnnouncedAlertIdRef = useRef<string | null>(null);
+  const speedSampleRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
+  const closestRadarLabelCacheRef = useRef<Record<string, string>>({});
+  const closestRadarLabelRequestRef = useRef<Record<string, boolean>>({});
 
   // Refs for cleanup
   const lastPositionRef = useRef<any>(null);
@@ -171,32 +142,52 @@ const RadarScreen = ({ navigation, route }: any) => {
   const mapControlSize = getResponsiveWidth(38);
   const mapControlGap = getResponsiveMargin(8);
   const isMapNavigationActive = isDriving && activeTab === 'Map' && routeCoords.length > 0;
-  const mapControlsBottom = isMapNavigationActive
+  const mapControlsBottomBase = isMapNavigationActive
     ? Math.max(getResponsiveHeight(180), Math.round(height * 0.3))
     : Math.max(110, Math.round(height * 0.22));
   const mapNavDockBottom = isMapNavigationActive
     ? Math.max(getResponsiveHeight(70), mapOverlayInset + 48)
     : 0;
-  const floatingFabBottom = isMapNavigationActive
-    ? Math.max(getResponsiveHeight(170), mapControlsBottom - mapControlSize - mapControlGap)
-    : 85;
-  const mapPadding = {
-    top: isMapNavigationActive ? getResponsiveHeight(120) : getResponsiveHeight(160),
-    right: mapOverlayInset,
-    bottom: isMapNavigationActive ? getResponsiveHeight(320) : getResponsiveHeight(220),
-    left: mapOverlayInset,
-  };
+  const mapPadding = useMemo(
+    () => ({
+      top: isMapNavigationActive ? getResponsiveHeight(120) : getResponsiveHeight(160),
+      right: mapOverlayInset,
+      bottom: isMapNavigationActive ? getResponsiveHeight(320) : getResponsiveHeight(220),
+      left: mapOverlayInset,
+    }),
+    [isMapNavigationActive, mapOverlayInset]
+  );
 
   // Safe area & tab bar height to avoid overlaps (e.g., Start Driving button vs. pill tab)
   const insets = useSafeAreaInsets();
   const bottomSafe = Math.max(insets.bottom, 10);
   const tabBarInset = TAB_BAR_HEIGHT + bottomSafe + 16;
-  const radarAnimationSize = Math.max(220, Math.min(Math.round(width * 0.76), 360));
-  const radarAuraSize = Math.round(radarAnimationSize * 0.8);
+  const mapAdBottom = useMemo(
+    () =>
+      Math.max(
+        tabBarInset + 8,
+        isMapNavigationActive ? mapNavDockBottom + getResponsiveHeight(84) : tabBarInset + 8
+      ),
+    [isMapNavigationActive, mapNavDockBottom, tabBarInset]
+  );
+  const mapAdEstimatedHeight = getResponsiveHeight(62);
+  const mapControlsBottom = useMemo(
+    () =>
+      Math.max(
+        mapControlsBottomBase,
+        mapAdBottom + mapAdEstimatedHeight + mapControlGap + getResponsiveHeight(6)
+      ),
+    [mapAdBottom, mapAdEstimatedHeight, mapControlGap, mapControlsBottomBase]
+  );
+  const floatingFabBottom = isMapNavigationActive
+    ? Math.max(getResponsiveHeight(170), mapControlsBottom - mapControlSize - mapControlGap)
+    : 85;
+  const radarAnimationSize = Math.max(180, Math.min(Math.round(width * 0.62), 300));
+  const radarAuraSize = Math.round(radarAnimationSize * 0.74);
 
-  const activeAlert = useMemo(() => {
-    const unacknowledged = activeAlerts.filter((alert) => !alert.acknowledged);
-    return unacknowledged.sort((a, b) => a.distance - b.distance)[0];
+  const activeAlert = useMemo<RadarAlert | null>(() => {
+    const unacknowledged = (activeAlerts as RadarAlert[]).filter((alert) => !alert.acknowledged);
+    return unacknowledged.sort((a, b) => a.distance - b.distance)[0] || null;
   }, [activeAlerts]);
 
   const closestRadar = useMemo(() => {
@@ -213,6 +204,61 @@ const RadarScreen = ({ navigation, route }: any) => {
     : hasHydrated && hapticAlertsEnabled
       ? 'Vibrate only'
       : 'Silent';
+
+  const extractShortStreetLabel = useCallback((label?: string | null) => {
+    if (!label) return '';
+    const firstSegment = label
+      .split(',')
+      .map((part) => part.trim())
+      .find(Boolean);
+    if (!firstSegment) return '';
+    const noZip = firstSegment.replace(/\b\d{5}(?:-\d{4})?\b/g, '').trim();
+    const noHouseNumber = noZip.replace(/^\d+[A-Za-z-]*\s+/, '').trim();
+    return noHouseNumber || noZip || firstSegment;
+  }, []);
+
+  const nearestRadarSummary = useMemo(() => {
+    if (!closestRadar) return 'Scanning...';
+    const distanceLabel = formatDistance(closestRadar.distance, unitSystem);
+    return closestRadarHint ? `${distanceLabel} at ${closestRadarHint}` : distanceLabel;
+  }, [closestRadar, closestRadarHint, unitSystem]);
+  const { logRouteSteps } = useRouteTrace();
+
+  const toRecentSuggestion = useCallback((item: any): AddressSuggestion | null => {
+    if (typeof item === 'string') {
+      const label = item.trim();
+      if (!label) return null;
+      return {
+        id: `recent:${label.toLowerCase()}`,
+        label,
+        queryValue: label,
+        latitude: Number.NaN,
+        longitude: Number.NaN,
+        source: 'recent',
+        qualityScore: 20,
+      };
+    }
+    if (!item || typeof item !== 'object') return null;
+    const label = typeof item.label === 'string' ? item.label.trim() : '';
+    if (!label) return null;
+    const latitude = Number(item.latitude);
+    const longitude = Number(item.longitude);
+    const queryValue =
+      typeof item.queryValue === 'string' && item.queryValue.trim().length > 0
+        ? item.queryValue
+        : Number.isFinite(latitude) && Number.isFinite(longitude)
+          ? `${latitude},${longitude}`
+          : label;
+    return {
+      id: typeof item.id === 'string' ? item.id : `recent:${label.toLowerCase()}`,
+      label,
+      queryValue,
+      latitude,
+      longitude,
+      source: 'recent',
+      qualityScore: Number(item.qualityScore) || 30,
+    };
+  }, []);
 
   // --- Effects ---
 
@@ -234,11 +280,14 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   // Keep screen awake during driving mode
   useEffect(() => {
-    if (isDriving && keepAwakeWhileDriving) {
-      activateKeepAwake();
-    } else {
-      deactivateKeepAwake();
-    }
+    const updateKeepAwake = async () => {
+      if (isDriving && keepAwakeWhileDriving) {
+        await activateKeepAwakeAsync();
+      } else {
+        deactivateKeepAwake();
+      }
+    };
+    updateKeepAwake().catch(() => {});
     return () => {
       deactivateKeepAwake();
     };
@@ -260,9 +309,20 @@ const RadarScreen = ({ navigation, route }: any) => {
     }
 
     if (voicePlaybackEnabled) {
+      const liveSettings = useSettingsStore.getState();
+      const liveVoiceEnabled =
+        liveSettings.hasHydrated &&
+        liveSettings.voiceWarningsEnabled &&
+        liveSettings.warningVolume > 0;
+      if (!liveVoiceEnabled) {
+        return;
+      }
       const etaMinutes = Math.max(1, Math.round(activeAlert.estimatedTime * 60));
       const distanceText = formatDistance(activeAlert.distance, unitSystem);
-      const message = `${formatRadarLabel(activeAlert.type)} ahead. ${distanceText}. Estimated ${etaMinutes} minutes.`;
+      const locationSuffix = activeAlert.locationLabel
+        ? ` near ${activeAlert.locationLabel.split(',').slice(0, 2).join(', ')}`
+        : '';
+      const message = `${formatRadarLabel(activeAlert.type)} ahead${locationSuffix}. ${distanceText}. Estimated ${etaMinutes} minutes.`;
       Speech.stop();
       Speech.speak(message, {
         language: 'en-US',
@@ -283,7 +343,9 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   useEffect(() => {
     if (!voicePlaybackEnabled) {
-      Speech.stop();
+      NotificationService.silenceAllAudioNow().catch(() => {
+        Speech.stop();
+      });
     }
   }, [voicePlaybackEnabled]);
 
@@ -302,20 +364,40 @@ const RadarScreen = ({ navigation, route }: any) => {
         if (!raw) return;
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          setRecentDestinations(parsed.filter((item) => typeof item === 'string'));
+          const normalized = parsed
+            .map((item) => toRecentSuggestion(item))
+            .filter((item): item is AddressSuggestion => Boolean(item))
+            .slice(0, 8);
+          setRecentDestinations(normalized);
         }
       })
       .catch(() => {});
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [toRecentSuggestion]);
 
   useEffect(() => {
     return () => {
       if (searchTimerRef.current) {
         clearTimeout(searchTimerRef.current);
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!KEYBOARD_TRACE_ENABLED) return;
+    const showSub = Keyboard.addListener('keyboardDidShow', (event) => {
+      console.log('[KeyboardTrace] didShow', {
+        height: event.endCoordinates?.height,
+      });
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      console.log('[KeyboardTrace] didHide');
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
     };
   }, []);
 
@@ -329,8 +411,58 @@ const RadarScreen = ({ navigation, route }: any) => {
     const localeCountry = locale.split('-')[1]?.toLowerCase();
     if (localeCountry && /^[a-z]{2}$/.test(localeCountry)) {
       searchCountryCodeRef.current = localeCountry;
+      return;
     }
+    searchCountryCodeRef.current = 'us';
   }, []);
+
+  useEffect(() => {
+    if (!closestRadar?.id) {
+      setClosestRadarHint('');
+      return;
+    }
+    const cached = closestRadarLabelCacheRef.current[closestRadar.id];
+    if (cached) {
+      setClosestRadarHint(cached);
+      return;
+    }
+
+    const latitude = Number(closestRadar.latitude);
+    const longitude = Number(closestRadar.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setClosestRadarHint('');
+      return;
+    }
+    if (closestRadarLabelRequestRef.current[closestRadar.id]) {
+      return;
+    }
+
+    let cancelled = false;
+    closestRadarLabelRequestRef.current[closestRadar.id] = true;
+    (async () => {
+      try {
+        const fullLabel = await GoogleMapsService.getReverseGeocoding(latitude, longitude);
+        if (cancelled) return;
+        const shortLabel = extractShortStreetLabel(fullLabel);
+        if (shortLabel) {
+          closestRadarLabelCacheRef.current[closestRadar.id] = shortLabel;
+          setClosestRadarHint(shortLabel);
+        } else {
+          setClosestRadarHint('');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setClosestRadarHint('');
+        }
+      } finally {
+        delete closestRadarLabelRequestRef.current[closestRadar.id];
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [closestRadar, extractShortStreetLabel]);
 
   // General Location Tracking
   useEffect(() => {
@@ -344,9 +476,38 @@ const RadarScreen = ({ navigation, route }: any) => {
         )) {
             currentLocationRef.current = location;
             setCurrentLocation(location);
-            if (location.speed !== null && location.speed !== undefined) {
-                setCurrentSpeed(location.speed * 3.6);
+            const now = Date.now();
+            const previousSample = speedSampleRef.current;
+            let nextSpeedKph: number | null = null;
+            if (
+                typeof location.speed === 'number' &&
+                Number.isFinite(location.speed) &&
+                location.speed >= 0
+            ) {
+                nextSpeedKph = location.speed * 3.6;
+            } else if (previousSample) {
+                const elapsedSeconds = (now - previousSample.timestamp) / 1000;
+                if (elapsedSeconds >= 0.7 && elapsedSeconds <= 8) {
+                    const movedKm = LocationService.calculateDistanceSync(
+                        previousSample.latitude,
+                        previousSample.longitude,
+                        location.latitude,
+                        location.longitude
+                    );
+                    nextSpeedKph = Math.min(220, (movedKm / elapsedSeconds) * 3600);
+                }
             }
+            if (nextSpeedKph !== null && Number.isFinite(nextSpeedKph)) {
+                const boundedSpeed = Math.max(0, Math.min(nextSpeedKph, 220));
+                setCurrentSpeed((prev) => (prev <= 0 ? boundedSpeed : prev * 0.35 + boundedSpeed * 0.65));
+            } else {
+                setCurrentSpeed((prev) => (prev < 1 ? 0 : prev * 0.75));
+            }
+            speedSampleRef.current = {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                timestamp: now,
+            };
             
             // Smooth Camera Follow
             if (isDriving && activeTab === 'Map' && !isInteractingRef.current && !isTypingRef.current) {
@@ -389,175 +550,218 @@ const RadarScreen = ({ navigation, route }: any) => {
     drivingStartTimeRef.current = drivingStartTime;
   }, [drivingStartTime]);
 
+  const hasSameRadarSnapshot = useCallback((a: any[], b: any[]) => {
+    if (a === b) return true;
+    if (a.length !== b.length) return false;
+    for (let index = 0; index < a.length; index += 1) {
+      const left = a[index];
+      const right = b[index];
+      if (!left || !right) return false;
+      if (left.id !== right.id) return false;
+      if (left.type !== right.type) return false;
+      const leftDistance = Math.round((left.distance || 0) * 100);
+      const rightDistance = Math.round((right.distance || 0) * 100);
+      if (leftDistance !== rightDistance) return false;
+    }
+    return true;
+  }, []);
+
+  const updateNearbyRadarsState = useCallback(
+    (incoming: any[]) => {
+      setNearbyRadars((prev) => {
+        if (hasSameRadarSnapshot(prev, incoming)) {
+          return prev;
+        }
+        nearbyRadarsRef.current = incoming;
+        setRadarLocations(incoming);
+        return incoming;
+      });
+    },
+    [hasSameRadarSnapshot, setRadarLocations]
+  );
+
   // Periodic Radar Fetch
   useEffect(() => {
     const fetchNearby = async () => {
         const loc = currentLocationRef.current || await LocationService.getCurrentLocation();
         if (loc) {
             const radars = await RadarService.getNearbyRadars(loc.latitude, loc.longitude, 10);
-            setNearbyRadars(radars);
-            setRadarLocations(radars); // Update store for map
-            nearbyRadarsRef.current = radars;
+            updateNearbyRadarsState(radars);
         }
     };
     fetchNearby();
     const interval = setInterval(fetchNearby, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [updateNearbyRadarsState]);
 
-  // Driving Logic (Distance & Alerts)
+  // Unified driving scheduler: distance accounting + step progression + reroute hysteresis.
   useEffect(() => {
     if (!isDriving) return;
-    const interval = setInterval(() => {
-        if (currentLocationRef.current && lastPositionRef.current) {
-            const dist = LocationService.calculateDistanceSync(
-                currentLocationRef.current.latitude, currentLocationRef.current.longitude,
-                lastPositionRef.current.latitude, lastPositionRef.current.longitude
-            );
-            if(dist > 0.005) { // moving
-                setTotalDistance(p => p + dist);
-                lastPositionRef.current = currentLocationRef.current;
-            }
-        } else if (currentLocationRef.current) {
-            lastPositionRef.current = currentLocationRef.current;
-        }
-        
-        // Enhanced Rerouting Logic
-        if (routeCoords.length > 0 && currentLocationRef.current && destination) {
-            const loc = currentLocationRef.current;
-            const currentStep = navSteps[currentStepIndex];
-            
-            // Check if we're off route
-            if (currentStep && currentStep.endLocation) {
-                const distToStep = LocationService.calculateDistanceSync(
-                    loc.latitude, loc.longitude,
-                    currentStep.endLocation.latitude,
-                    currentStep.endLocation.longitude
-                );
-                
-                // If we're far from current step and moving away, trigger reroute
-                if (distToStep > 100) {
-                    console.log(`[RadarScreen] Off route detected: ${distToStep.toFixed(1)}m from step`);
-                    // Trigger reroute through Google Maps Service
-                    GoogleMapsService.recalculateRoute(
-                        loc.latitude, loc.longitude, destination,
-                        {
-                            legs: [{
-                                distance: routeMeta?.distanceText,
-                                duration: routeMeta?.etaText,
-                                end_address: routeMeta?.destinationLabel,
-                                steps: navSteps,
-                                end_location: destinationCoord,
-                                start_location: currentLocation
-                            }],
-                            coordinates: routeCoords
-                        }
-                    ).then(newRoute => {
-                        if (newRoute && !newRoute.error && newRoute.coordinates) {
-                            console.log('[RadarScreen] Route recalculated successfully');
-                            setRouteCoords(newRoute.coordinates);
-                            
-                            // Update route metadata
-                            if (newRoute.legs && newRoute.legs[0]) {
-                                const leg = newRoute.legs[0];
-                                setRouteMeta({
-                                    etaText: leg.duration?.text || routeMeta?.etaText,
-                                    distanceText: leg.distance?.text || routeMeta?.distanceText,
-                                    destinationLabel: leg.end_address || routeMeta?.destinationLabel
-                                });
-                                
-                                // Update navigation steps
-                                if (leg.steps) {
-                                    const parsedSteps: NavStep[] = leg.steps.map((step: any) => ({
-                                        instruction: stripHtml(step.html_instructions || step.instructions || ''),
-                                        distanceMeters: step.distance?.value ?? null,
-                                        maneuver: step.maneuver,
-                                        endLocation: step.end_location
-                                            ? { latitude: step.end_location.lat, longitude: step.end_location.lng }
-                                            : undefined
-                                    }));
-                                    setNavSteps(parsedSteps);
-                                    setCurrentStepIndex(0);
-                                }
-                                
-                                // Update destination coordinate
-                                if (leg.end_location?.lat && leg.end_location?.lng) {
-                                    setDestinationCoord({
-                                        latitude: leg.end_location.lat,
-                                        longitude: leg.end_location.lng
-                                    });
-                                }
-                            }
-                        } else {
-                            console.warn('[RadarScreen] Route recalculation failed:', newRoute?.message);
-                        }
-                    }).catch(error => {
-                        console.error('[RadarScreen] Error during route recalculation:', error);
-                    });
-                }
-            }
-        }
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [isDriving, routeCoords, destination, navSteps, currentStepIndex]);
-  
-  // Rerouting Check Effect
-  useEffect(() => {
-    if (!isDriving || routeCoords.length === 0 || !destination) return;
-    
-    const checkReroute = async () => {
-        const loc = currentLocationRef.current;
-        if (!loc) return;
-        
-        // Check if we are close to ANY point on the route
-        // This is O(N) but N is usually small (< 500) for local routes.
-        // We can optimize by only checking points near the current step index.
-        const searchWindow = 20; // check 20 points ahead/behind current index estimate
-        // Actually, let's just check the whole route for now, it's fast enough in JS for < 1000 points.
-        
-        let minDistance = 100000;
-        for (const coord of routeCoords) {
-            // fast euclidean approximation for lat/lng (rough)
-            const dLat = (coord.latitude - loc.latitude) * 111000;
-            const dLng = (coord.longitude - loc.longitude) * 111000 * Math.cos(loc.latitude * (Math.PI/180));
-            const distMeters = Math.sqrt(dLat*dLat + dLng*dLng);
-            if (distMeters < minDistance) minDistance = distMeters;
-            if (minDistance < 30) break; // We are on route
-        }
-        
-        if (minDistance > 60) { // Off route threshold (40m is standard, using 60m to be safe)
-            console.log('Off route detected! Distance:', minDistance);
-            // Trigger Reroute
-            await handleNavigate(destination);
-        }
+
+    const computeRouteProximityMeters = (loc: { latitude: number; longitude: number }) => {
+      if (!routeCoords.length) return Number.POSITIVE_INFINITY;
+      let minDistance = Number.POSITIVE_INFINITY;
+      const cosLat = Math.max(0.2, Math.cos((loc.latitude * Math.PI) / 180));
+      for (const coord of routeCoords) {
+        const dLat = (coord.latitude - loc.latitude) * 111000;
+        const dLng = (coord.longitude - loc.longitude) * 111000 * cosLat;
+        const distance = Math.sqrt(dLat * dLat + dLng * dLng);
+        if (distance < minDistance) minDistance = distance;
+        if (minDistance < 18) break;
+      }
+      return minDistance;
     };
 
-    const rerouteInterval = setInterval(checkReroute, 5000); // Check every 5s
-    return () => clearInterval(rerouteInterval);
-  }, [isDriving, routeCoords, destination]);
+    const isHighwayManeuver = (step?: NavStep) => {
+      const maneuver = (step?.maneuver || '').toLowerCase();
+      const instruction = (step?.instruction || '').toLowerCase();
+      return (
+        maneuver.includes('ramp') ||
+        maneuver.includes('merge') ||
+        maneuver.includes('fork') ||
+        maneuver.includes('keep') ||
+        instruction.includes('highway') ||
+        instruction.includes('motorway') ||
+        instruction.includes('exit') ||
+        instruction.includes('ramp')
+      );
+    };
 
-  // Turn-by-turn step progression
-  useEffect(() => {
-    if (!isDriving || navSteps.length === 0) return;
-    const loc = currentLocationRef.current || currentLocation;
-    const step = navSteps[currentStepIndex];
-    if (!loc || !step?.endLocation) return;
+    const scheduler = setInterval(async () => {
+      const loc = currentLocationRef.current;
+      if (!loc) return;
 
-    const distanceKm = LocationService.calculateDistanceSync(
-      loc.latitude,
-      loc.longitude,
-      step.endLocation.latitude,
-      step.endLocation.longitude
-    );
-    const distanceMeters = distanceKm * 1000;
-    const threshold = step.distanceMeters
-      ? Math.max(15, Math.min(60, step.distanceMeters * 0.25))
-      : 25;
+      if (lastPositionRef.current) {
+        const movedKm = LocationService.calculateDistanceSync(
+          loc.latitude,
+          loc.longitude,
+          lastPositionRef.current.latitude,
+          lastPositionRef.current.longitude
+        );
+        if (movedKm > 0.005) {
+          setTotalDistance((prev) => prev + movedKm);
+          lastPositionRef.current = loc;
+        }
+      } else {
+        lastPositionRef.current = loc;
+      }
 
-    if (distanceMeters <= threshold && currentStepIndex < navSteps.length - 1) {
-      setCurrentStepIndex((prev) => Math.min(prev + 1, navSteps.length - 1));
-    }
-  }, [currentLocation, currentStepIndex, navSteps, isDriving]);
+      const currentStep = navSteps[currentStepIndex];
+      if (currentStep?.endLocation && currentStepIndex < navSteps.length - 1) {
+        const distanceMeters =
+          LocationService.calculateDistanceSync(
+            loc.latitude,
+            loc.longitude,
+            currentStep.endLocation.latitude,
+            currentStep.endLocation.longitude
+          ) * 1000;
+        const thresholdBase = isHighwayManeuver(currentStep) ? 90 : 55;
+        const thresholdByStepLength = currentStep.distanceMeters
+          ? Math.max(30, Math.min(isHighwayManeuver(currentStep) ? 120 : 70, currentStep.distanceMeters * 0.35))
+          : thresholdBase;
+        const threshold = Math.max(thresholdBase, thresholdByStepLength);
+        const previous = stepDistanceHistoryRef.current[currentStepIndex];
+        const increasingTicks =
+          previous && distanceMeters > previous.lastDistanceMeters + 6
+            ? previous.increasingTicks + 1
+            : 0;
+
+        stepDistanceHistoryRef.current[currentStepIndex] = {
+          lastDistanceMeters: distanceMeters,
+          increasingTicks,
+        };
+
+        if (distanceMeters <= threshold || (distanceMeters <= threshold + 35 && increasingTicks >= 2)) {
+          setCurrentStepIndex((prev) => Math.min(prev + 1, navSteps.length - 1));
+        }
+      }
+
+      if (!routeCoords.length || !destination) return;
+      const distanceToRoute = computeRouteProximityMeters(loc);
+      if (distanceToRoute > 75) {
+        rerouteConsecutiveOffRouteRef.current += 1;
+      } else if (distanceToRoute < 45) {
+        rerouteConsecutiveOffRouteRef.current = 0;
+      }
+
+      const shouldReroute =
+        rerouteConsecutiveOffRouteRef.current >= 2 &&
+        Date.now() - lastRerouteAtRef.current > 12000 &&
+        !navRefreshInFlightRef.current;
+      if (!shouldReroute) return;
+
+      navRefreshInFlightRef.current = true;
+      lastRerouteAtRef.current = Date.now();
+      try {
+        const currentStepSnapshot = navSteps[currentStepIndex];
+        const previousInstruction = currentStepSnapshot?.instruction || '';
+        const previousDestination = destinationCoord;
+        const reroute = await GoogleMapsService.recalculateRoute(loc.latitude, loc.longitude, destination, {
+          legs: [
+            {
+              distance: routeMeta?.distanceText,
+              duration: routeMeta?.etaText,
+              end_address: routeMeta?.destinationLabel,
+              steps: navSteps,
+              end_location: destinationCoord,
+              start_location: currentLocation,
+            },
+          ],
+          coordinates: routeCoords,
+        });
+        if (reroute?.error || !reroute?.coordinates?.length) return;
+
+        const newCoords = reroute.coordinates;
+        setRouteCoords(newCoords);
+
+        const leg = reroute?.legs?.[0];
+        if (leg) {
+          setRouteMeta({
+            etaText: leg.duration?.text || routeMeta?.etaText || 'ETA —',
+            distanceText: leg.distance?.text || routeMeta?.distanceText || 'Distance —',
+            destinationLabel: leg.end_address || routeMeta?.destinationLabel || destination,
+          });
+          if (leg.end_location?.lat && leg.end_location?.lng) {
+            setDestinationCoord({ latitude: leg.end_location.lat, longitude: leg.end_location.lng });
+          } else if (previousDestination) {
+            setDestinationCoord(previousDestination);
+          }
+        }
+
+        const parsedSteps: NavStep[] = (leg?.steps || []).map((step: any) => ({
+          instruction: stripHtml(step.html_instructions || step.instructions || ''),
+          distanceMeters: step.distance?.value ?? null,
+          maneuver: step.maneuver,
+          endLocation: step.end_location
+            ? { latitude: step.end_location.lat, longitude: step.end_location.lng }
+            : undefined,
+        }));
+        if (parsedSteps.length > 0) {
+          setNavSteps(parsedSteps);
+          const matchedIndex = parsedSteps.findIndex(
+            (step) => step.instruction && step.instruction === previousInstruction
+          );
+          const safeIndex = matchedIndex >= 0 ? matchedIndex : Math.min(currentStepIndex, parsedSteps.length - 1);
+          setCurrentStepIndex(safeIndex);
+        }
+      } catch (error) {
+        console.error('[RadarScreen] Reroute scheduler failed:', error);
+      } finally {
+        navRefreshInFlightRef.current = false;
+      }
+    }, 2500);
+
+    return () => clearInterval(scheduler);
+  }, [
+    currentLocation,
+    currentStepIndex,
+    destination,
+    destinationCoord,
+    isDriving,
+    navSteps,
+    routeCoords,
+    routeMeta,
+  ]);
 
   // --- Handlers ---
 
@@ -593,9 +797,13 @@ const RadarScreen = ({ navigation, route }: any) => {
         return 'arrow-right';
       case 'turn-slight-left':
       case 'keep-left':
+      case 'fork-left':
+      case 'exit-left':
         return 'arrow-top-left';
       case 'turn-slight-right':
       case 'keep-right':
+      case 'fork-right':
+      case 'exit-right':
         return 'arrow-top-right';
       case 'turn-sharp-left':
         return 'arrow-bottom-left';
@@ -778,16 +986,62 @@ const RadarScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const persistRecentDestination = useCallback(async (label: string) => {
-    const cleaned = label.trim();
-    if (!cleaned) return;
+  const persistRecentDestination = useCallback(async (suggestion: AddressSuggestion) => {
+    const cleanedLabel = suggestion.label.trim();
+    if (!cleanedLabel) return;
+
+    const normalized: AddressSuggestion = {
+      ...suggestion,
+      id: suggestion.id || `recent:${cleanedLabel.toLowerCase()}`,
+      label: cleanedLabel,
+      queryValue:
+        suggestion.queryValue ||
+        (Number.isFinite(suggestion.latitude) && Number.isFinite(suggestion.longitude)
+          ? `${suggestion.latitude},${suggestion.longitude}`
+          : cleanedLabel),
+      source: 'recent',
+      qualityScore: Math.max(40, suggestion.qualityScore || 0),
+    };
+
     setRecentDestinations((prev) => {
-      const deduped = [cleaned, ...prev.filter((item) => item.toLowerCase() !== cleaned.toLowerCase())];
+      const deduped = [
+        normalized,
+        ...prev.filter(
+          (item) =>
+            item.label.toLowerCase() !== normalized.label.toLowerCase() &&
+            item.queryValue !== normalized.queryValue
+        ),
+      ];
       const next = deduped.slice(0, 8);
-      AsyncStorage.setItem(RECENT_DESTINATIONS_KEY, JSON.stringify(next)).catch(() => {});
+      const serializable = next.map((item) => ({
+        id: item.id,
+        label: item.label,
+        queryValue: item.queryValue,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        qualityScore: item.qualityScore,
+      }));
+      AsyncStorage.setItem(RECENT_DESTINATIONS_KEY, JSON.stringify(serializable)).catch(() => {});
       return next;
     });
   }, []);
+
+  const mergeSuggestions = useCallback(
+    (primary: AddressSuggestion[], secondary: AddressSuggestion[] = []) => {
+      const merged = new Map<string, AddressSuggestion>();
+      for (const item of [...primary, ...secondary]) {
+        const key = `${item.queryValue}|${item.label.toLowerCase()}`;
+        const existing = merged.get(key);
+        if (!existing || item.qualityScore > existing.qualityScore) {
+          merged.set(key, item);
+        }
+      }
+      return Array.from(merged.values())
+        .sort((a, b) => b.qualityScore - a.qualityScore)
+        .slice(0, 6);
+    },
+    []
+  );
 
   const handleTextChange = (text: string) => {
     setDestination(text);
@@ -804,7 +1058,8 @@ const RadarScreen = ({ navigation, route }: any) => {
     }
 
     const localMatches = recentDestinations
-      .filter((item) => item.toLowerCase().includes(query))
+      .filter((item) => item.label.toLowerCase().includes(query))
+      .map((item) => ({ ...item, qualityScore: Math.max(item.qualityScore, 45) }))
       .slice(0, 6);
     setSuggestions(localMatches);
 
@@ -828,15 +1083,23 @@ const RadarScreen = ({ navigation, route }: any) => {
       });
       if (requestId !== searchRequestIdRef.current) return;
       if (results.length > 0) {
-        setSuggestions(results);
+        setSuggestions(mergeSuggestions(results, localMatches));
       }
     }, 600);
   };
 
-  const handleSelectSuggestion = (desc: string) => {
-      setDestination(desc);
+  const handleSelectSuggestion = (suggestion: AddressSuggestion) => {
+      const navigateTarget = suggestion.queryValue || suggestion.label;
+      setDestination(suggestion.label);
       setSuggestions([]); // clear
-      handleNavigate(desc);
+      persistRecentDestination(suggestion);
+      handleNavigate(navigateTarget, {
+        destinationLabel: suggestion.label,
+        destinationCoord:
+          Number.isFinite(suggestion.latitude) && Number.isFinite(suggestion.longitude)
+            ? { latitude: suggestion.latitude, longitude: suggestion.longitude }
+            : undefined,
+      });
   };
 
   const formatGeocodeLabel = (
@@ -942,6 +1205,10 @@ const RadarScreen = ({ navigation, route }: any) => {
     setDestinationCoord(null);
     setNavSteps([]);
     setCurrentStepIndex(0);
+    stepDistanceHistoryRef.current = {};
+    rerouteConsecutiveOffRouteRef.current = 0;
+    lastRerouteAtRef.current = 0;
+    navRefreshInFlightRef.current = false;
     setIsDriving(false);
     setDrivingStartTime(null);
     drivingStartTimeRef.current = null;
@@ -954,9 +1221,9 @@ const RadarScreen = ({ navigation, route }: any) => {
     setDestinationInputFocused(false);
     isTypingRef.current = false;
     if (currentLocation) {
-      RadarService.getNearbyRadars(currentLocation.latitude, currentLocation.longitude, 10).then(setNearbyRadars);
+      RadarService.getNearbyRadars(currentLocation.latitude, currentLocation.longitude, 10).then(updateNearbyRadarsState);
     }
-  }, [currentLocation, saveTripIfNeeded, setDestinationInputFocused]);
+  }, [currentLocation, saveTripIfNeeded, setDestinationInputFocused, updateNearbyRadarsState]);
 
   const exitDrivingToHome = useCallback(async () => {
     await resetRoute();
@@ -976,8 +1243,17 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, []);
 
   const handleMapTouchStart = useCallback(() => {
+    if (isDestinationInputFocused) return;
     markInteracting();
-  }, [markInteracting]);
+  }, [isDestinationInputFocused, markInteracting]);
+
+  const handleMapTap = useCallback(() => {
+    if (isDestinationInputFocused) {
+      dismissDestinationInput();
+      return;
+    }
+    setSuggestions([]);
+  }, [dismissDestinationInput, isDestinationInputFocused]);
 
   const endInteracting = useCallback(() => {
     if (!isTypingRef.current) {
@@ -1006,116 +1282,140 @@ const RadarScreen = ({ navigation, route }: any) => {
     });
   }, [currentLocation, markInteracting]);
 
-  const handleNavigate = async (targetDest?: string) => {
-      if (!canUsePro && AdService.shouldShowAds()) {
-        await AdService.showInterstitial();
-      }
-      const finalDest = targetDest || destination;
-      // Simplified navigate logic
-      if (!finalDest) {
-        console.warn('No destination provided');
-        return;
-      }
-      setRouteMeta(null);
-      setDestinationCoord(null);
+  const handleNavigate = async (
+    targetDest?: string,
+    params?: {
+      destinationLabel?: string;
+      destinationCoord?: { latitude: number; longitude: number };
+    }
+  ) => {
+    if (!canUsePro && AdService.shouldShowAds()) {
+      await AdService.showInterstitial();
+    }
+    const finalDest = (targetDest || destination).trim();
+    if (!finalDest) {
+      console.warn('No destination provided');
+      return;
+    }
+    setRouteMeta(null);
+    setDestinationCoord(params?.destinationCoord || null);
+    rerouteConsecutiveOffRouteRef.current = 0;
 
-      try {
-        // Unfocus keyboard to reveal more map space
-        dismissDestinationInput();
+    try {
+      dismissDestinationInput();
 
-        // Get current location from ref or fetch fresh
-        let loc = currentLocationRef.current || currentLocation;
-        if (!loc) {
-          try {
-            loc = await LocationService.getCurrentLocation();
-            if (loc) {
-              setCurrentLocation(loc);
-              currentLocationRef.current = loc;
-            }
-          } catch (error) {
-            console.error('Failed to get current location:', error);
-            alert('Unable to get your location. Please enable location services and try again.');
-            return;
+      let loc = currentLocationRef.current || currentLocation;
+      if (!loc) {
+        try {
+          loc = await LocationService.getCurrentLocation();
+          if (loc) {
+            setCurrentLocation(loc);
+            currentLocationRef.current = loc;
           }
-        }
-
-        if (!loc) {
-          alert('Location unavailable. Please enable location services.');
+        } catch (error) {
+          console.error('Failed to get current location:', error);
+          alert('Unable to get your location. Please enable location services and try again.');
           return;
         }
-
-        const res = await GoogleMapsService.getDirections(
-            loc.latitude, loc.longitude, finalDest,
-            { alternatives: true, prefer: 'duration' }
-        );
-        
-        // Handle error responses
-        if (!res || res?.error) {
-            alert(res?.message || 'Unable to get directions. Please try again.');
-            return;
-        }
-        
-        if(res?.coordinates?.length) {
-            setRouteCoords(res.coordinates);
-            const primaryLeg = res?.legs?.[0];
-            if (primaryLeg) {
-              setRouteMeta({
-                etaText: primaryLeg.duration?.text || 'ETA —',
-                distanceText: primaryLeg.distance?.text || 'Distance —',
-                destinationLabel: primaryLeg.end_address || finalDest
-              });
-              if (primaryLeg.end_location?.lat && primaryLeg.end_location?.lng) {
-                setDestinationCoord({
-                  latitude: primaryLeg.end_location.lat,
-                  longitude: primaryLeg.end_location.lng
-                });
-              }
-            } else {
-              setRouteMeta(null);
-              setDestinationCoord(null);
-            }
-            persistRecentDestination(primaryLeg?.end_address || finalDest);
-            await ensureDrivingSessionStarted({ activateMapTab: true, source: 'navigate' });
-            const steps = primaryLeg?.steps || [];
-            const parsedSteps: NavStep[] = steps.map((step: any) => ({
-              instruction: stripHtml(step.html_instructions || step.instructions || ''),
-              distanceMeters: step.distance?.value ?? null,
-              maneuver: step.maneuver,
-              endLocation: step.end_location
-                ? { latitude: step.end_location.lat, longitude: step.end_location.lng }
-                : undefined
-            }));
-            setNavSteps(parsedSteps);
-            setCurrentStepIndex(0);
-            // Also fetch radars along route
-            const rawRouteRadars = await RadarService.getRadarsAlongRoute(res.coordinates);
-            
-            // Calculate distance from current location for proper display
-            const routeRadarsWithDist = await Promise.all(rawRouteRadars.map(async (r) => {
-                const d = await LocationService.calculateDistance(
-                    loc.latitude, loc.longitude,
-                    r.latitude, r.longitude
-                );
-                return { ...r, distance: d };
-            }));
-
-            setNearbyRadars(routeRadarsWithDist.sort((a,b) => a.distance - b.distance));
-            
-            // Clear suggestions just in case
-            setSuggestions([]);
-
-            mapRef.current?.fitToCoordinates(res.coordinates, {
-              edgePadding: { top: 180, right: 80, bottom: 260, left: 80 },
-              animated: true,
-            });
-            hasCenteredMapRef.current = true;
-        } else {
-            alert('Unable to find route. Please check the destination and try again.');
-        }
-      } catch (error) {
-        console.error('Navigation failed:', error);
-        alert('Route could not be created. Check your connection and try again.');
       }
+
+      if (!loc) {
+        alert('Location unavailable. Please enable location services.');
+        return;
+      }
+
+      const res = await GoogleMapsService.getDirections(loc.latitude, loc.longitude, finalDest, {
+        alternatives: true,
+        prefer: 'duration',
+      });
+
+      if (!res || res?.error) {
+        alert(res?.message || 'Unable to get directions. Please try again.');
+        return;
+      }
+
+      if (!res?.coordinates?.length) {
+        alert('Unable to find route. Please check the destination and try again.');
+        return;
+      }
+
+      setRouteCoords(res.coordinates);
+      const primaryLeg = res?.legs?.[0];
+      const resolvedDestinationLabel =
+        primaryLeg?.end_address || params?.destinationLabel || finalDest;
+      const resolvedDestinationCoord =
+        primaryLeg?.end_location?.lat && primaryLeg?.end_location?.lng
+          ? {
+              latitude: primaryLeg.end_location.lat,
+              longitude: primaryLeg.end_location.lng,
+            }
+          : params?.destinationCoord || null;
+
+      if (primaryLeg) {
+        setRouteMeta({
+          etaText: primaryLeg.duration?.text || 'ETA —',
+          distanceText: primaryLeg.distance?.text || 'Distance —',
+          destinationLabel: resolvedDestinationLabel,
+        });
+      } else {
+        setRouteMeta(null);
+      }
+      setDestinationCoord(resolvedDestinationCoord);
+
+      await persistRecentDestination({
+        id: `recent:${resolvedDestinationLabel.toLowerCase()}`,
+        label: resolvedDestinationLabel,
+        queryValue:
+          resolvedDestinationCoord &&
+          Number.isFinite(resolvedDestinationCoord.latitude) &&
+          Number.isFinite(resolvedDestinationCoord.longitude)
+            ? `${resolvedDestinationCoord.latitude},${resolvedDestinationCoord.longitude}`
+            : finalDest,
+        latitude: resolvedDestinationCoord?.latitude ?? Number.NaN,
+        longitude: resolvedDestinationCoord?.longitude ?? Number.NaN,
+        source: 'recent',
+        qualityScore: 60,
+      });
+
+      await ensureDrivingSessionStarted({ activateMapTab: true, source: 'navigate' });
+      const steps = primaryLeg?.steps || [];
+      const parsedSteps: NavStep[] = steps.map((step: any) => ({
+        instruction: stripHtml(step.html_instructions || step.instructions || ''),
+        distanceMeters: step.distance?.value ?? null,
+        maneuver: step.maneuver,
+        endLocation: step.end_location
+          ? { latitude: step.end_location.lat, longitude: step.end_location.lng }
+          : undefined,
+      }));
+      logRouteSteps({
+        destination: resolvedDestinationLabel,
+        points: res.coordinates.length,
+        steps: parsedSteps,
+      });
+      setNavSteps(parsedSteps);
+      setCurrentStepIndex(0);
+      stepDistanceHistoryRef.current = {};
+
+      const rawRouteRadars = await RadarService.getRadarsAlongRoute(res.coordinates);
+      const routeRadarsWithDist = await Promise.all(
+        rawRouteRadars.map(async (r) => {
+          const d = await LocationService.calculateDistance(loc.latitude, loc.longitude, r.latitude, r.longitude);
+          return { ...r, distance: d };
+        })
+      );
+
+      setNearbyRadars(routeRadarsWithDist.sort((a, b) => a.distance - b.distance));
+      setSuggestions([]);
+
+      mapRef.current?.fitToCoordinates(res.coordinates, {
+        edgePadding: { top: 180, right: 80, bottom: 260, left: 80 },
+        animated: true,
+      });
+      hasCenteredMapRef.current = true;
+    } catch (error) {
+      console.error('Navigation failed:', error);
+      alert('Route could not be created. Check your connection and try again.');
+    }
   };
 
   const handleReportRadar = async (type: RadarLocation['type']) => {
@@ -1142,8 +1442,7 @@ const RadarScreen = ({ navigation, route }: any) => {
         });
 
         const refreshed = await RadarService.getNearbyRadars(loc.latitude, loc.longitude, 10);
-        setNearbyRadars(refreshed);
-        setRadarLocations(refreshed);
+        updateNearbyRadarsState(refreshed);
 
         await refreshProfile();
         alert('Report sent. Nearby drivers will be notified.');
@@ -1195,61 +1494,6 @@ const RadarScreen = ({ navigation, route }: any) => {
       }
   };
 
-  // --- Components ---
-
-  const ActionCard = ({ icon, title, subtitle, onPress, gradientColors = ['#0F172A', '#0B1224'], accent = '#4ECDC4', tag }: any) => (
-    <TouchableOpacity style={styles.actionCard} onPress={onPress}>
-        <LinearGradient
-            colors={gradientColors}
-            start={{x:0, y:0}} end={{x:1, y:1}}
-            style={styles.actionCardGradient}
-        >
-            <View style={styles.actionTopRow}>
-                <View style={[styles.actionIconContainer, { backgroundColor: accent + '22', borderColor: accent + '33' }]}>
-                    <MaterialCommunityIcons name={icon} size={28} color={accent} />
-                </View>
-                {tag ? (
-                  <View style={[styles.actionTag, { backgroundColor: accent + '20' }]}>
-                    <Text style={[styles.actionTagText, { color: accent }]}>{tag}</Text>
-                  </View>
-                ) : null}
-            </View>
-            <Text style={styles.actionTitle}>{title}</Text>
-            <Text style={styles.actionSubtitle}>{subtitle}</Text>
-        </LinearGradient>
-    </TouchableOpacity>
-  );
-
-  const ProSlideItem = ({ item }: any) => (
-      <View style={{ width: width - 40, alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={[styles.proIconBox, { backgroundColor: item.color + '20' }]}>
-                <MaterialCommunityIcons name={item.icon} size={20} color={item.color} />
-            </View>
-            <View style={{ marginLeft: 12 }}>
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>{item.title}</Text>
-                <Text style={{ color: '#aaa', fontSize: 11 }}>{item.subtitle}</Text>
-            </View>
-          </View>
-          <TouchableOpacity 
-             style={{ backgroundColor: item.color, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 }}
-             onPress={() => navigation.navigate('Subscription')}
-          >
-              <Text style={{ fontSize: 10, fontWeight: 'bold', color: 'black' }}>UPGRADE</Text>
-          </TouchableOpacity>
-      </View>
-  );
-
-  const StatPill = ({ icon, label, value, accent = '#4ECDC4' }: { icon: any; label: string; value: string; accent?: string }) => (
-    <View style={[styles.statCard, { borderColor: accent + '40', backgroundColor: accent + '12' }]}>
-      <View style={[styles.statIcon, { backgroundColor: accent + '26' }]}>
-        <MaterialCommunityIcons name={icon} size={18} color={accent} />
-      </View>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
-  );
-
   // --- RENDER ---
 
   if (isDriving) {
@@ -1284,7 +1528,12 @@ const RadarScreen = ({ navigation, route }: any) => {
                             {formatRadarLabel(activeAlert.type)}
                           </Text>
                           <Text style={styles.liveAlertSubtitle}>
-                            {formatDistance(activeAlert.distance, unitSystem)} • ETA {Math.max(1, Math.round(activeAlert.estimatedTime * 60))} min
+                            {formatDistance(activeAlert.distance, unitSystem)}
+                            {activeAlert.locationLabel
+                              ? ` • ${activeAlert.locationLabel.split(',').slice(0, 2).join(', ')}`
+                              : ''}
+                            {' • '}
+                            ETA {Math.max(1, Math.round(activeAlert.estimatedTime * 60))} min
                           </Text>
                       </View>
                       <TouchableOpacity onPress={() => acknowledgeAlert(activeAlert.id)} style={styles.liveAlertDismiss}>
@@ -1409,6 +1658,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                   onMapTouchStart={handleMapTouchStart}
                                   onMapTouchEnd={endInteracting}
                                   mapInteractionEnabled={!isDestinationInputFocused}
+                                  onMapTap={handleMapTap}
                               />
                             </View>
                             <View 
@@ -1434,35 +1684,20 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                   value={destination}
                                                   onChangeText={handleTextChange}
                                                   onSubmitEditing={() => {
-                                                    Keyboard.dismiss();
                                                     handleNavigate();
                                                   }}
                                                   returnKeyType="search"
-                                                  blurOnSubmit={true}
+                                                  blurOnSubmit={false}
+                                                  enablesReturnKeyAutomatically
                                                   autoCorrect={false}
                                                   autoCapitalize="none"
                                                   keyboardType="default"
                                                   autoFocus={false}
-                                                  onTouchEnd={() => {
-                                                    // Fabric workaround: use TextInput.State API with ref (not node handle)
-                                                    if (Platform.OS === 'android') {
-                                                      console.log('[KEYBOARD] onTouchEnd - using TextInput.State with ref');
-                                                      const ref = destinationInputRef.current;
-                                                      if (ref) {
-                                                        // @ts-ignore - internal API
-                                                        if (TextInput.State && TextInput.State.focusTextInput) {
-                                                          console.log('[KEYBOARD] Calling TextInput.State.focusTextInput with ref');
-                                                          // @ts-ignore - pass ref directly for Fabric
-                                                          TextInput.State.focusTextInput(ref);
-                                                        } else {
-                                                          console.log('[KEYBOARD] TextInput.State not available, using ref.focus');
-                                                          ref.focus();
-                                                        }
-                                                      }
-                                                    }
-                                                  }}
+                                                  showSoftInputOnFocus={true}
                                                   onFocus={() => {
-                                                    console.log('[KEYBOARD] TextInput onFocus');
+                                                    if (KEYBOARD_TRACE_ENABLED) {
+                                                      console.log('[KeyboardTrace] inputFocus');
+                                                    }
                                                     setDestinationInputFocused(true);
                                                     isTypingRef.current = true;
                                                     isInteractingRef.current = true;
@@ -1471,13 +1706,15 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                     }
                                                   }}
                                                   onBlur={() => {
-                                                    console.log('[KEYBOARD] TextInput onBlur');
+                                                    if (KEYBOARD_TRACE_ENABLED) {
+                                                      console.log('[KeyboardTrace] inputBlur');
+                                                    }
                                                     setDestinationInputFocused(false);
                                                     isTypingRef.current = false;
-                                                    setSuggestions([]);
                                                     setTimeout(() => {
+                                                      setSuggestions([]);
                                                       endInteracting();
-                                                    }, 100);
+                                                    }, 120);
                                                   }}
                                               />
                                            </View>
@@ -1513,12 +1750,12 @@ const RadarScreen = ({ navigation, route }: any) => {
                                            <View style={styles.suggestionsContainer}>
                                                {suggestions.map((item, index) => (
                                                    <TouchableOpacity 
-                                                       key={`${item}-${index}`} 
+                                                       key={item.id || `${item.label}-${index}`} 
                                                        style={styles.suggestionItem}
                                                        onPress={() => handleSelectSuggestion(item)}
                                                    >
                                                        <MaterialCommunityIcons name="map-marker-outline" size={20} color="#94A3B8" />
-                                                       <Text style={styles.suggestionText} numberOfLines={1}>{item}</Text>
+                                                       <Text style={styles.suggestionText} numberOfLines={1}>{item.label}</Text>
                                                    </TouchableOpacity>
                                                ))}
                                            </View>
@@ -1574,37 +1811,33 @@ const RadarScreen = ({ navigation, route }: any) => {
                                </View>
                              </View>
                            )}
-                           <View
-                             style={[
-                               styles.mapAdContainer,
-                               {
-                                 left: mapOverlayInset,
-                                 right: mapOverlayInset,
-                                 bottom: Math.max(
-                                   tabBarInset + 8,
-                                   isMapNavigationActive
-                                     ? mapNavDockBottom + getResponsiveHeight(84)
-                                     : tabBarInset + 8
-                                 ),
-                               },
-                             ]}
-                           >
-                             <AdBanner />
-                           </View>
+                           {!isDestinationInputFocused && (
+                             <View
+                               style={[
+                                 styles.mapAdContainer,
+                                 {
+                                   left: mapOverlayInset,
+                                   right: mapOverlayInset,
+                                   bottom: mapAdBottom,
+                                 },
+                               ]}
+                             >
+                               <AdBanner />
+                             </View>
+                           )}
                            <View
                              style={[
                                styles.mapControls,
                                {
                                  right: mapOverlayInset,
                                  bottom: mapControlsBottom,
-                                 gap: mapControlGap,
                                },
                              ]}
                            >
                              <TouchableOpacity
                                style={[
                                  styles.mapControlButton,
-                                 { width: mapControlSize, height: mapControlSize },
+                                 { width: mapControlSize, height: mapControlSize, marginBottom: mapControlGap },
                                ]}
                                onPress={() => zoomMap(1)}
                              >
@@ -1613,7 +1846,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                              <TouchableOpacity
                                style={[
                                  styles.mapControlButton,
-                                 { width: mapControlSize, height: mapControlSize },
+                                 { width: mapControlSize, height: mapControlSize, marginBottom: mapControlGap },
                                ]}
                                onPress={() => zoomMap(-1)}
                              >
@@ -1683,177 +1916,30 @@ const RadarScreen = ({ navigation, route }: any) => {
       );
   }
 
-  // DASHBOARD MODE UI (Home)
   return (
-    <View style={styles.container}>
-      <LinearGradient
-         colors={['#0F172A', '#020617']}
-         style={StyleSheet.absoluteFill}
-      />
-      
-      {/* Custom Header with Menu Trigger */}
-      <View style={[styles.mainHeader, { paddingTop: insets.top + 10 }]}>
-          <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.iconBtn}>
-              <MaterialCommunityIcons name="menu" size={28} color="#F8FAFC" />
-          </TouchableOpacity>
-          
-          <Text style={styles.appName}>
-            RADAR <Text style={{ color: '#FF5252' }}>TINDER</Text>
-          </Text>
-          
-          <View style={styles.headerRight}>
-              <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.iconBtn}>
-                  {/* Small Profile Dot Indicator */}
-                  <View style={{width: 28, height: 28, borderRadius: 14, backgroundColor: '#334155', justifyContent: 'center', alignItems: 'center'}}>
-                     <MaterialCommunityIcons name="account" size={18} color="#94A3B8" />
-                  </View>
-              </TouchableOpacity>
-          </View>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: tabBarInset + getResponsiveHeight(120) }}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled
-      >
-          {/* Pro perks moved up */}
-          <View style={styles.sliderContainer}>
-              <LinearGradient
-                colors={['#111827', '#0B1224']}
-                style={styles.sliderGradient}
-              >
-                  <FlatList
-                    ref={proSliderRef}
-                    data={PRO_FEATURES}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    getItemLayout={(_, index) => ({
-                      length: width - 40,
-                      offset: (width - 40) * index,
-                      index,
-                    })}
-                    onScrollToIndexFailed={({ index }) => {
-                      proSliderRef.current?.scrollToOffset({
-                        offset: (width - 40) * Math.max(0, Math.min(index, PRO_FEATURES.length - 1)),
-                        animated: true,
-                      });
-                    }}
-                    renderItem={({ item }) => <ProSlideItem item={item} />}
-                    keyExtractor={(item) => item.title}
-                  />
-                  {/* Pagination Dots */}
-                  <View style={styles.pager}>
-                      {PRO_FEATURES.map((_, i) => (
-                          <View key={i} style={[styles.dot, i === proSliderIndex ? { backgroundColor: '#4ECDC4', width: 16 } : {}]} />
-                      ))}
-                  </View>
-              </LinearGradient>
-          </View>
-
-          <View style={styles.homeAdContainer}>
-              <AdBanner />
-          </View>
-
-          <View style={[styles.heroCard, { marginTop: 6, paddingVertical: 14 }]}>
-              <LinearGradient
-                colors={['#0B1224', '#08101f']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={styles.heroGlowPrimary} />
-              <View style={styles.heroGlowSecondary} />
-
-              <View style={styles.heroTopRow}>
-                  <View>
-                      <Text style={styles.heroEyebrow}>Immersive radar</Text>
-                      <Text style={styles.heroTitle}>Live 3D Radar</Text>
-                  </View>
-                  <View style={styles.heroBadge}>
-                      <MaterialCommunityIcons name="cube-scan" size={18} color="#0B1424" />
-                      <Text style={styles.heroBadgeText}>3D</Text>
-                  </View>
-              </View>
-
-              <View style={styles.radarShell}>
-                  <View
-                    style={[
-                      styles.radarAura,
-                      {
-                        width: radarAuraSize,
-                        height: radarAuraSize,
-                        borderRadius: radarAuraSize / 2
-                      }
-                    ]}
-                  />
-                  <RadarAnimation size={radarAnimationSize} />
-                  <View style={[styles.radarChip, styles.radarChipLeft]}>
-                      <MaterialCommunityIcons name="radar" size={18} color="#4ECDC4" />
-                      <Text style={styles.radarChipText}>Live sweep</Text>
-                  </View>
-                  <View style={[styles.radarChip, styles.radarChipRight]}>
-                      <MaterialCommunityIcons 
-                        name={closestRadar ? 'map-marker-distance' : 'map-search'}
-                        size={18} 
-                        color={closestRadar ? '#FFB347' : '#94A3B8'} 
-                      />
-                      <Text style={styles.radarChipText}>
-                        {closestRadar ? formatDistance(closestRadar.distance, unitSystem) : 'Scanning'}
-                      </Text>
-                  </View>
-              </View>
-
-              <View style={styles.statRow}>
-                  <StatPill 
-                    icon="map-marker-distance" 
-                    label="Nearest radar" 
-                    value={closestRadar ? formatDistance(closestRadar.distance, unitSystem) : 'Scanning...'} 
-                    accent="#4ECDC4" 
-                  />
-                  <StatPill 
-                    icon="speedometer" 
-                    label="Speed" 
-                    value={formatSpeed(currentSpeed, unitSystem)} 
-                    accent="#FF5252" 
-                  />
-                  <StatPill 
-                    icon={
-                      voicePlaybackEnabled
-                        ? 'bell-ring'
-                        : hasHydrated && hapticAlertsEnabled
-                          ? 'vibrate'
-                          : 'bell-off'
-                    } 
-                    label="Alert mode" 
-                    value={alertModeLabel} 
-                    accent="#38BDF8" 
-                  />
-              </View>
-
-              <TouchableOpacity
-                style={[styles.startButton, { marginBottom: Math.max(tabBarInset + 8, 88) }]}
-                onPress={toggleDrivingMode}
-              >
-                  <LinearGradient
-                    colors={['#FF6B6B', '#FF5252']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.startButtonGradient}
-                  >
-                      <View>
-                          <Text style={styles.startText}>START DRIVING</Text>
-                          <Text style={styles.startSubtext}>3D radar, live alerts and routing</Text>
-                      </View>
-                      <View style={styles.startBadge}>
-                          <MaterialCommunityIcons name="steering" size={20} color="#0B1424" />
-                      </View>
-                  </LinearGradient>
-              </TouchableOpacity>
-          </View>
-
-      </ScrollView>
-    </View>
+    <RadarHomeDashboard
+      styles={styles}
+      insetsTop={insets.top}
+      tabBarInset={tabBarInset}
+      width={width}
+      proSliderRef={proSliderRef}
+      proSliderIndex={proSliderIndex}
+      proFeatures={PRO_FEATURES}
+      radarAuraSize={radarAuraSize}
+      radarAnimationSize={radarAnimationSize}
+      closestRadar={closestRadar}
+      nearestRadarSummary={nearestRadarSummary}
+      currentSpeed={currentSpeed}
+      unitSystem={unitSystem}
+      voicePlaybackEnabled={voicePlaybackEnabled}
+      hasHydrated={hasHydrated}
+      hapticAlertsEnabled={hapticAlertsEnabled}
+      alertModeLabel={alertModeLabel}
+      onOpenDrawer={() => navigation.openDrawer()}
+      onOpenProfile={() => navigation.navigate('Profile')}
+      onNavigateSubscription={() => navigation.navigate('Subscription')}
+      onToggleDrivingMode={toggleDrivingMode}
+    />
   );
 };
 
@@ -1891,18 +1977,6 @@ const styles = StyleSheet.create({
   startText: { color: '#FFFFFF', fontWeight: '900', fontSize: 18, letterSpacing: 0.6 },
   startSubtext: { color: '#F8FAFC', opacity: 0.8, fontSize: 12, marginTop: 4 },
   startBadge: { width: 42, height: 42, borderRadius: 12, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center' },
-  sectionLabel: { marginHorizontal: 20, marginTop: 26, marginBottom: 10, color: '#94A3B8', letterSpacing: 1, fontSize: 12, fontWeight: '700' },
-
-  // Grid
-  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20 },
-  actionCard: { width: '48%', height: 150, marginBottom: 16, borderRadius: 22, overflow: 'hidden' },
-  actionCardGradient: { flex: 1, justifyContent: 'space-between', padding: 14, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', alignItems: 'flex-start' },
-  actionTopRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  actionIconContainer: { width: 48, height: 48, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 12, borderWidth: 1 },
-  actionTag: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
-  actionTagText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
-  actionTitle: { color: 'white', fontWeight: '900', fontSize: 16 },
-  actionSubtitle: { color: '#94A3B8', fontSize: 12, marginTop: 2 },
 
   // Pro Slider
   sliderContainer: { marginHorizontal: 16, marginTop: 0, marginBottom: 10, borderRadius: 18, overflow: 'hidden' },
@@ -1910,10 +1984,6 @@ const styles = StyleSheet.create({
   proIconBox: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   pager: { flexDirection: 'row', justifyContent: 'center', marginTop: 15, gap: 6 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#334155' },
-  vehicleCard: { marginHorizontal: 16, marginTop: 6, marginBottom: 10, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(12,18,32,0.9)' },
-  vehicleIcon: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(78,205,196,0.15)' },
-  vehicleTitle: { color: '#E2E8F0', fontWeight: '800', fontSize: 15 },
-  vehicleSubtitle: { color: '#94A3B8', fontSize: 12 },
 
   // Driving Mode
   drivingHeader: { paddingBottom: 10, paddingHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#000' },
@@ -2009,16 +2079,8 @@ const styles = StyleSheet.create({
   alertDist: { color: '#FFD700', fontWeight: 'bold' },
 
   // Map
-  markerBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'white' },
   mapOverlay: { position: 'absolute', top: 20, left: 20, right: 20 },
   mapInput: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 15, borderRadius: 16, color: 'white' },
-  routeSummaryCard: { marginTop: 10, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(78,205,196,0.25)' },
-  routeSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  routeIconBubble: { width: 38, height: 38, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(78,205,196,0.5)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(78,205,196,0.1)' },
-  routeSummaryTitle: { color: '#E2E8F0', fontWeight: '800', fontSize: 15 },
-  routeSummaryMeta: { color: '#94A3B8', marginTop: 2, fontSize: 12 },
-  routeBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: '#4ECDC4' },
-  routeBadgeText: { color: '#0B1424', fontWeight: '800' },
   mapControls: { position: 'absolute', alignItems: 'center', zIndex: 10 },
   mapControlButton: { borderRadius: 16, backgroundColor: 'rgba(15,23,42,0.95)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   mapControlButtonActive: { backgroundColor: '#4ECDC4', borderColor: '#4ECDC4' },

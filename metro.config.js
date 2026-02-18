@@ -1,5 +1,7 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
+const os = require('os');
+const fs = require('fs');
 
 module.exports = (() => {
   const config = getDefaultConfig(__dirname);
@@ -12,10 +14,27 @@ module.exports = (() => {
   };
 
   // pnpm uses a nested node_modules layout. These settings help Metro resolve packages correctly.
-  config.watchFolders = Array.from(
-    new Set([...(config.watchFolders || []), path.join(__dirname, 'node_modules', '.pnpm')])
-  );
+  // Also include pnpm dlx cache roots so Metro can hash Expo CLI metro-require files when started via `pnpm dlx expo`.
+  const watchFolders = new Set(config.watchFolders || []);
+  const localPnpmStore = path.join(__dirname, 'node_modules', '.pnpm');
+  if (fs.existsSync(localPnpmStore)) {
+    watchFolders.add(localPnpmStore);
+  }
+  const pnpmDlxRoot = path.join(os.homedir(), '.cache', 'pnpm', 'dlx');
+  if (fs.existsSync(pnpmDlxRoot)) {
+    watchFolders.add(pnpmDlxRoot);
+  }
+  try {
+    const expoMetroRequirePath = require.resolve('@expo/cli/build/metro-require/require.js');
+    watchFolders.add(path.dirname(expoMetroRequirePath));
+  } catch {}
+  config.watchFolders = Array.from(watchFolders);
 
+  const existingBlockList = resolver.blockList
+    ? Array.isArray(resolver.blockList)
+      ? resolver.blockList
+      : [resolver.blockList]
+    : [];
   config.resolver = {
     ...resolver,
     assetExts: [...resolver.assetExts.filter((ext) => ext !== 'svg'), 'onnx', 'data', 'bin'],
@@ -25,7 +44,7 @@ module.exports = (() => {
       path.join(__dirname, 'node_modules', '.pnpm', 'node_modules'),
     ],
     blockList: [
-      ...(Array.isArray(resolver.blockList) ? resolver.blockList : [resolver.blockList]),
+      ...existingBlockList,
       // Exclude the huge modelx python environment and .git folder (project-local only)
       new RegExp('^' + escapeRegExp(path.join(__dirname, 'modelx')) + '.*'),
       new RegExp('^' + escapeRegExp(path.join(__dirname, '.git')) + '.*'),

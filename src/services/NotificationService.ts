@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import * as Speech from 'expo-speech';
 import { RadarAlert } from '../types';
 import { useSettingsStore } from '../store/settingsStore';
 
@@ -94,7 +95,6 @@ export class NotificationService {
           return settings.voiceWarningsEnabled && settings.warningVolume > 0;
         })(),
         shouldSetBadge: true,
-        shouldShowAlert: true,
         shouldShowBanner: true,
         shouldShowList: true,
       }),
@@ -129,8 +129,9 @@ export class NotificationService {
       const title = `${radarLabel} Ahead`;
       const hasDistance = Number.isFinite(alert.distance);
       const hasEta = Number.isFinite(alert.estimatedTime);
-      const shortLocation = locationName
-        ? locationName.split(',').slice(0, 2).join(', ')
+      const locationSource = locationName || alert.locationLabel;
+      const shortLocation = locationSource
+        ? locationSource.split(',').slice(0, 2).join(', ')
         : '';
 
       let body = shortLocation ? `${radarLabel} near ${shortLocation}.` : `${radarLabel} detected.`;
@@ -156,6 +157,55 @@ export class NotificationService {
     } catch (error) {
       console.error('Error sending radar alert notification:', error);
     }
+  }
+
+  static async sendInfoNotification(
+    title: string,
+    body: string,
+    options?: RadarAlertOptions
+  ): Promise<void> {
+    try {
+      const settings = useSettingsStore.getState();
+      const hydrated = settings.hasHydrated;
+      const defaultPlaySound =
+        hydrated && settings.voiceWarningsEnabled && settings.warningVolume > 0;
+      const defaultVibrate = hydrated && settings.hapticAlertsEnabled;
+      const playSound = options?.playSound ?? defaultPlaySound;
+      const vibrate = options?.vibrate ?? defaultVibrate;
+      const channelId =
+        options?.channelId ||
+        (playSound ? CHANNEL_SOUND : vibrate ? CHANNEL_VIBRATE : CHANNEL_SILENT);
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data: { type: 'info' },
+          sound: playSound ? 'default' : false,
+          vibrate: vibrate ? [0, 250, 250, 250] : [0],
+          ...(Platform.OS === 'android' ? { channelId } : {}),
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: null,
+      });
+    } catch (error) {
+      console.error('Error sending info notification:', error);
+    }
+  }
+
+  static async silenceAllAudioNow(): Promise<void> {
+    try {
+      Speech.stop();
+    } catch {}
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+    } catch {}
+    try {
+      // Some Android builds can still keep presented heads-up notifications alive.
+      const dismissAll = (Notifications as any).dismissAllNotificationsAsync;
+      if (typeof dismissAll === 'function') {
+        await dismissAll();
+      }
+    } catch {}
   }
 
   static async sendTestNotification(): Promise<void> {

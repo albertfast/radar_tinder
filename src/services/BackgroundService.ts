@@ -250,8 +250,8 @@ export class BackgroundService {
   private static isProtectionActive = false;
   private static lastAlertSent: Record<string, number> = {};
   private static lastAlertStored: Record<string, number> = {};
+  private static lastActiveAlertsSignature = '';
   private static ALERT_THROTTLE_MS = 60000;
-  private static ALERT_ID_BUCKET_MS = 30000;
 
   private static async handleLocationUpdate(location: { 
     latitude: number; 
@@ -297,12 +297,7 @@ export class BackgroundService {
       if (speedKph > 20 && !this.isProtectionActive) {
         this.isProtectionActive = true;
         if (alertsHydrated) {
-          await NotificationService.sendRadarAlert({
-            id: 'auto-shield',
-            distance: 0,
-            severity: 'medium',
-            type: 'info'
-          } as any, "Radar Tinder: Yolculuk algılandı, koruma aktif! 🛡️", {
+          await NotificationService.sendInfoNotification('Driving Protection Active', 'Drive detected. Radar protection is now active.', {
             playSound,
             vibrate,
           });
@@ -387,9 +382,8 @@ export class BackgroundService {
         }
 
         if (distance < threshold && isHeadingTowards) {
-          const alertBucket = Math.floor(now / this.ALERT_ID_BUCKET_MS);
           alerts.push({
-            id: `alert-${radar.id}-${alertBucket}`,
+            id: `alert-${radar.id}`,
             radarId: radar.id,
             userId: user.id,
             type: radar.type,
@@ -402,39 +396,30 @@ export class BackgroundService {
         }
       }
 
-      // Update alerts in store
-      setActiveAlerts(alerts as any);
+      const enrichedAlerts = alerts.map((alert) => ({
+        ...alert,
+        locationLabel: this.radarLocationNameCache[alert.radarId],
+      }));
 
-      // Send notifications for high priority alerts
+      // Resolve location labels with cache+throttle for in-app banner/TTS quality.
       const nowMs = Date.now();
-      for (const alert of alerts) {
+      for (const alert of enrichedAlerts) {
         const lastSent = this.lastAlertSent[alert.radarId] || 0;
         if (
           alertsHydrated &&
-          alert.severity === 'high' &&
+          !alert.locationLabel &&
           nowMs - lastSent > this.ALERT_THROTTLE_MS
         ) {
-          let locationName: string | undefined;
-          const cachedName = this.radarLocationNameCache[alert.radarId];
-          if (cachedName) {
-            locationName = cachedName;
-          } else {
-            const radar = radarById.get(alert.radarId);
-            if (radar) {
-              try {
-                const resolved = await GoogleMapsService.getReverseGeocoding(radar.latitude, radar.longitude);
-                if (resolved) {
-                  this.radarLocationNameCache[alert.radarId] = resolved;
-                  locationName = resolved;
-                }
-              } catch (error) {}
-            }
+          const radar = radarById.get(alert.radarId);
+          if (radar) {
+            try {
+              const resolved = await GoogleMapsService.getReverseGeocoding(radar.latitude, radar.longitude);
+              if (resolved) {
+                this.radarLocationNameCache[alert.radarId] = resolved;
+                alert.locationLabel = resolved;
+              }
+            } catch (error) {}
           }
-
-          await NotificationService.sendRadarAlert(alert as any, locationName, {
-            playSound,
-            vibrate,
-          });
           this.lastAlertSent[alert.radarId] = nowMs;
         }
 
@@ -447,6 +432,12 @@ export class BackgroundService {
             console.warn('Failed to save alert history:', error);
           }
         }
+      }
+
+      const alertsSignature = this.buildAlertsSignature(enrichedAlerts);
+      if (alertsSignature !== this.lastActiveAlertsSignature) {
+        this.lastActiveAlertsSignature = alertsSignature;
+        setActiveAlerts(enrichedAlerts as any);
       }
 
       // Cache radar locations for offline use
@@ -550,6 +541,19 @@ export class BackgroundService {
       isRunning: this.isRunning,
       isLocationTracking: this.locationSubscription !== null,
     };
+  }
+
+  private static buildAlertsSignature(
+    alerts: Array<{ radarId: string; distance: number; severity: string; locationLabel?: string }>
+  ): string {
+    if (!alerts.length) return '';
+    return alerts
+      .map((alert) => {
+        const distanceBucket = Math.round(alert.distance * 1000);
+        return `${alert.radarId}:${distanceBucket}:${alert.severity}:${alert.locationLabel || ''}`;
+      })
+      .sort()
+      .join('|');
   }
 }
 

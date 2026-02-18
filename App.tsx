@@ -91,8 +91,10 @@ import { OfflineService } from './src/services/OfflineService';
 import { AdService } from './src/services/AdService';
 import { SubscriptionService } from './src/services/SubscriptionService';
 import { FirebaseAuthService } from './src/services/FirebaseAuthService';
+import { NotificationService } from './src/services/NotificationService';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { supabase } from './utils/supabase';
+import { useSettingsStore } from './src/store/settingsStore';
 
 const isTruthyFlag = (value?: string) => value === '1' || value === 'true' || value === 'yes';
 const isAdDebugEnabled = () => __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG);
@@ -136,6 +138,9 @@ const prefix = Linking.createURL('/');
 
 export default function App() {
   const { isAuthenticated, user } = useAuthStore();
+  const hasSettingsHydrated = useSettingsStore((state) => state.hasHydrated);
+  const voiceWarningsEnabled = useSettingsStore((state) => state.voiceWarningsEnabled);
+  const warningVolume = useSettingsStore((state) => state.warningVolume);
   
   // Load all icon fonts using useFonts hook
   const [fontsLoaded] = useFonts({
@@ -227,6 +232,13 @@ export default function App() {
     const initTimeout = setTimeout(initializeServices, 100);
     return () => clearTimeout(initTimeout);
   }, []);
+
+  useEffect(() => {
+    if (!hasSettingsHydrated) return;
+    if (!voiceWarningsEnabled || warningVolume <= 0) {
+      NotificationService.silenceAllAudioNow().catch(() => {});
+    }
+  }, [hasSettingsHydrated, voiceWarningsEnabled, warningVolume]);
 
   useEffect(() => {
     let hasSupabaseSession = false;

@@ -54,8 +54,19 @@ export interface RadarAlert {
   distance: number;
   estimatedTime: number;
   severity: 'low' | 'medium' | 'high';
+  locationLabel?: string;
   acknowledged: boolean;
   createdAt: Date;
+}
+
+export interface AddressSuggestion {
+  id: string;
+  label: string;
+  queryValue: string;
+  latitude: number;
+  longitude: number;
+  source: 'recent' | 'nominatim' | 'google';
+  qualityScore: number;
 }
 
 export interface SubscriptionPlan {

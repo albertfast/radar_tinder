@@ -19,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { useSettingsStore } from '../store/settingsStore';
 import { useAuthStore } from '../store/authStore';
 import { SupabaseService } from '../services/SupabaseService';
+import { NotificationService } from '../services/NotificationService';
 import { ANIMATION_TIMING } from '../utils/animationConstants';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
@@ -110,6 +111,20 @@ const RadarSettingsScreen = ({ navigation }: any) => {
     );
   };
 
+  const handleVoiceToggle = (enabled: boolean) => {
+    setVoiceWarningsEnabled(enabled);
+    if (!enabled || warningVolume <= 0) {
+      NotificationService.silenceAllAudioNow().catch(() => {});
+    }
+  };
+
+  const handleVolumeChange = (value: number) => {
+    setWarningVolume(value);
+    if (value <= 0 || !voiceWarningsEnabled) {
+      NotificationService.silenceAllAudioNow().catch(() => {});
+    }
+  };
+
   const handleResetDefaults = async () => {
     const previousUnit = unitSystem;
     resetToRegionalDefaults();
@@ -122,6 +137,12 @@ const RadarSettingsScreen = ({ navigation }: any) => {
       Alert.alert('Settings', 'Failed to sync reset unit preference. Check your connection.');
     }
   };
+
+  useEffect(() => {
+    if (!voiceWarningsEnabled || warningVolume <= 0) {
+      NotificationService.silenceAllAudioNow().catch(() => {});
+    }
+  }, [voiceWarningsEnabled, warningVolume]);
 
   const SettingCard = ({
     title,
@@ -244,20 +265,20 @@ const RadarSettingsScreen = ({ navigation }: any) => {
 
         <SettingCard
           title="Warning Sound Level"
-          subtitle="Applies to spoken and future alarm-based alerts"
+          subtitle="0% is full mute for voice-based alerts"
           icon="volume-high"
           delay={180}
           right={<Text style={styles.settingValue}>{warningVolume}%</Text>}
         >
           <View style={styles.volumeRow}>
-            {[25, 50, 75, 100].map((volume) => (
+            {[0, 25, 50, 75, 100].map((volume) => (
               <TouchableOpacity
                 key={volume}
                 style={[styles.volumeChip, warningVolume === volume && styles.volumeChipActive]}
-                onPress={() => setWarningVolume(volume)}
+                onPress={() => handleVolumeChange(volume)}
               >
                 <Text style={[styles.volumeChipText, warningVolume === volume && styles.volumeChipTextActive]}>
-                  {volume}%
+                  {volume === 0 ? 'Mute' : `${volume}%`}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -269,11 +290,10 @@ const RadarSettingsScreen = ({ navigation }: any) => {
           subtitle="Announces upcoming hazards while driving"
           icon="microphone"
           delay={240}
-          onPress={() => setVoiceWarningsEnabled(!voiceWarningsEnabled)}
           right={
             <Switch
               value={voiceWarningsEnabled}
-              onValueChange={setVoiceWarningsEnabled}
+              onValueChange={handleVoiceToggle}
               color="#4ECDC4"
             />
           }
@@ -284,7 +304,6 @@ const RadarSettingsScreen = ({ navigation }: any) => {
           subtitle="Vibration feedback for high-priority warnings"
           icon="vibrate"
           delay={300}
-          onPress={() => setHapticAlertsEnabled(!hapticAlertsEnabled)}
           right={
             <Switch
               value={hapticAlertsEnabled}
@@ -299,7 +318,6 @@ const RadarSettingsScreen = ({ navigation }: any) => {
           subtitle="Prevents screen lock while driving mode is active"
           icon="cellphone-lock"
           delay={360}
-          onPress={() => setKeepAwakeWhileDriving(!keepAwakeWhileDriving)}
           right={
             <Switch
               value={keepAwakeWhileDriving}
