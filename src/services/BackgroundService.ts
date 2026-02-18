@@ -12,6 +12,7 @@ import { useAuthStore } from '../store/authStore';
 import { useRadarStore } from '../store/radarStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { RadarLocation } from '../types';
+import { hasProAccess } from '../utils/access';
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
 
@@ -306,7 +307,7 @@ export class BackgroundService {
         this.isProtectionActive = false;
       }
 
-      const radiusKm = user.subscriptionType === 'free' ? 5 : 10;
+      const radiusKm = hasProAccess(user) ? 10 : 5;
       const minIntervalMs =
         speedKph > 10 ? this.RADAR_FETCH_MIN_INTERVAL_MS_MOVING : this.RADAR_FETCH_MIN_INTERVAL_MS_STATIONARY;
 

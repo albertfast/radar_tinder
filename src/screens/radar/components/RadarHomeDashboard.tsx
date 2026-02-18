@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { formatDistance, formatSpeed } from '../../../utils/format';
 import { getResponsiveHeight } from '../../../constants/layout';
 import AdBanner from '../../../components/AdBanner';
-import { RadarAnimation } from '../../../components/RadarAnimation';
+import { RadarAnimation, type RadarRendererMode } from '../../../components/RadarAnimation';
 
 type ProFeature = {
   title: string;
@@ -31,6 +31,9 @@ type RadarHomeDashboardProps = {
   proFeatures: ProFeature[];
   radarAuraSize: number;
   radarAnimationSize: number;
+  radarRendererMode: RadarRendererMode;
+  radarSignalLevel: number;
+  radarDangerLevel: number;
   closestRadar: any;
   nearestRadarSummary: string;
   currentSpeed: number;
@@ -39,10 +42,12 @@ type RadarHomeDashboardProps = {
   hasHydrated: boolean;
   hapticAlertsEnabled: boolean;
   alertModeLabel: string;
+  voiceWarningsEnabled: boolean;
   onOpenDrawer: () => void;
   onOpenProfile: () => void;
   onNavigateSubscription: () => void;
   onToggleDrivingMode: () => void;
+  onToggleVoiceWarnings: () => void;
 };
 
 type StatPillProps = {
@@ -53,15 +58,23 @@ type StatPillProps = {
   accent?: string;
 };
 
-const StatPill = ({ styles, icon, label, value, accent = '#4ECDC4' }: StatPillProps) => (
-  <View style={[styles.statCard, { borderColor: `${accent}40`, backgroundColor: `${accent}12` }]}>
-    <View style={[styles.statIcon, { backgroundColor: `${accent}26` }]}>
-      <MaterialCommunityIcons name={icon} size={18} color={accent} />
+const StatPill = ({
+  styles,
+  icon,
+  label,
+  value,
+  accent = '#4ECDC4',
+}: StatPillProps) => {
+  return (
+    <View style={[styles.statCard, { borderColor: `${accent}40`, backgroundColor: `${accent}12` }]}>
+      <View style={[styles.statIcon, { backgroundColor: `${accent}26` }]}>
+        <MaterialCommunityIcons name={icon} size={18} color={accent} />
+      </View>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
     </View>
-    <Text style={styles.statLabel}>{label}</Text>
-    <Text style={styles.statValue}>{value}</Text>
-  </View>
-);
+  );
+};
 
 const ProSlideItem = ({
   item,
@@ -84,7 +97,7 @@ const ProSlideItem = ({
     }}
   >
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-      <View style={[styles.proIconBox, { backgroundColor: `${item.color}20` }]}>
+      <View style={[styles.proIconBox, { backgroundColor: `${item.color}20` }]}> 
         <MaterialCommunityIcons name={item.icon as any} size={20} color={item.color} />
       </View>
       <View style={{ marginLeft: 12 }}>
@@ -111,6 +124,9 @@ export function RadarHomeDashboard({
   proFeatures,
   radarAuraSize,
   radarAnimationSize,
+  radarRendererMode,
+  radarSignalLevel,
+  radarDangerLevel,
   closestRadar,
   nearestRadarSummary,
   currentSpeed,
@@ -119,16 +135,26 @@ export function RadarHomeDashboard({
   hasHydrated,
   hapticAlertsEnabled,
   alertModeLabel,
+  voiceWarningsEnabled,
   onOpenDrawer,
   onOpenProfile,
   onNavigateSubscription,
   onToggleDrivingMode,
+  onToggleVoiceWarnings,
 }: RadarHomeDashboardProps) {
+  const homeBottomInset = tabBarInset + Math.max(34, Math.round(width * 0.1));
+  const isCompactWidth = width <= 420;
+  const heroVerticalPadding = isCompactWidth ? 10 : 14;
+  const heroTopMargin = isCompactWidth ? 2 : 6;
+  const buttonBottomSpacing = isCompactWidth
+    ? Math.max(homeBottomInset + getResponsiveHeight(36), getResponsiveHeight(156))
+    : Math.max(homeBottomInset + getResponsiveHeight(28), getResponsiveHeight(138));
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#0F172A', '#020617']} style={StyleSheet.absoluteFill} />
 
-      <View style={[styles.mainHeader, { paddingTop: insetsTop + 10 }]}>
+      <View style={[styles.mainHeader, { paddingTop: insetsTop + 10 }]}> 
         <TouchableOpacity onPress={onOpenDrawer} style={styles.iconBtn}>
           <MaterialCommunityIcons name="menu" size={28} color="#F8FAFC" />
         </TouchableOpacity>
@@ -156,7 +182,7 @@ export function RadarHomeDashboard({
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: tabBarInset + getResponsiveHeight(150) }}
+        contentContainerStyle={{ paddingBottom: homeBottomInset + getResponsiveHeight(170) }}
         showsVerticalScrollIndicator={false}
         scrollEnabled
       >
@@ -204,7 +230,7 @@ export function RadarHomeDashboard({
           <AdBanner />
         </View>
 
-        <View style={[styles.heroCard, { marginTop: 6, paddingVertical: 14 }]}>
+        <View style={[styles.heroCard, { marginTop: heroTopMargin, paddingVertical: heroVerticalPadding }]}>
           <LinearGradient
             colors={['#0B1224', '#08101f']}
             start={{ x: 0, y: 0 }}
@@ -219,9 +245,33 @@ export function RadarHomeDashboard({
               <Text style={styles.heroEyebrow}>Immersive radar</Text>
               <Text style={styles.heroTitle}>Live 3D Radar</Text>
             </View>
-            <View style={styles.heroBadge}>
-              <MaterialCommunityIcons name="cube-scan" size={18} color="#0B1424" />
-              <Text style={styles.heroBadgeText}>3D</Text>
+            <View style={styles.heroActions}>
+              <View style={styles.heroBadge}>
+                <MaterialCommunityIcons name="cube-scan" size={18} color="#0B1424" />
+                <Text style={styles.heroBadgeText}>3D</Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.voicePill,
+                  voiceWarningsEnabled ? styles.voicePillOn : styles.voicePillOff,
+                ]}
+                onPress={onToggleVoiceWarnings}
+                activeOpacity={0.85}
+              >
+                <MaterialCommunityIcons
+                  name={voiceWarningsEnabled ? 'volume-high' : 'volume-mute'}
+                  size={16}
+                  color={voiceWarningsEnabled ? '#0B1424' : '#E2E8F0'}
+                />
+                <Text
+                  style={[
+                    styles.voicePillText,
+                    voiceWarningsEnabled ? styles.voicePillTextOn : styles.voicePillTextOff,
+                  ]}
+                >
+                  {voiceWarningsEnabled ? 'Mute' : 'Unmute'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -236,7 +286,13 @@ export function RadarHomeDashboard({
                 },
               ]}
             />
-            <RadarAnimation size={radarAnimationSize} />
+            <RadarAnimation
+              size={radarAnimationSize}
+              rendererMode={radarRendererMode}
+              artPreset="contour_orbit"
+              signalLevel={radarSignalLevel}
+              dangerLevel={radarDangerLevel}
+            />
             <View style={[styles.radarChip, styles.radarChipLeft]}>
               <MaterialCommunityIcons name="radar" size={18} color="#4ECDC4" />
               <Text style={styles.radarChipText}>Live sweep</Text>
@@ -272,7 +328,7 @@ export function RadarHomeDashboard({
           </View>
 
           <TouchableOpacity
-            style={[styles.startButton, { marginBottom: Math.max(tabBarInset + getResponsiveHeight(24), getResponsiveHeight(112)) }]}
+            style={[styles.startButton, { marginBottom: buttonBottomSpacing }]}
             onPress={onToggleDrivingMode}
           >
             <LinearGradient

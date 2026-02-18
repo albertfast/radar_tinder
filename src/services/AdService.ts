@@ -1,5 +1,6 @@
 import { useAuthStore } from '../store/authStore';
 import { Platform } from 'react-native';
+import { isAdminUser } from '../utils/access';
 
 type GoogleMobileAdsExports = {
   mobileAds: () => {
@@ -135,6 +136,7 @@ export class AdService {
   static shouldShowAds(): boolean {
     const user = useAuthStore.getState().user;
     if (!user) return true;
+    if (isAdminUser(user)) return false;
 
     const subscription = user.subscriptionType ?? 'free';
     if (subscription !== 'free') return false;
@@ -160,6 +162,7 @@ export class AdService {
     let shouldShowReason = 'free_user_ads_enabled';
 
     if (!user) shouldShowReason = 'guest_user';
+    else if (isAdminUser(user)) shouldShowReason = 'admin_override';
     else if ((user.subscriptionType ?? 'free') !== 'free') shouldShowReason = 'subscription_ad_free';
     else if (user.adsRemoved) shouldShowReason = 'ads_removed';
 
