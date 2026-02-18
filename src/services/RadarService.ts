@@ -3,6 +3,7 @@ import { LocationService } from './LocationService';
 import { GoogleMapsService } from './GoogleMapsService';
 import { SupabaseService } from './SupabaseService';
 import { useAuthStore } from '../store/authStore';
+import { hasProAccess } from '../utils/access';
 
 // Real-time radar data service
 
@@ -351,7 +352,7 @@ export class RadarService {
 
         // 3. Apply Accuracy Scoring & Deduplication & FEATURE GATING
         const user = useAuthStore.getState().user;
-        const isPro = user?.subscriptionType === 'pro';
+        const isPro = hasProAccess(user);
 
         let processedRadars = this.improveAccuracy(allRadars);
 

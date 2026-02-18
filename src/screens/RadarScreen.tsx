@@ -44,6 +44,10 @@ import RadarMap from '../components/RadarMap';
 import { RadarGraphicView } from './components/RadarGraphicView';
 import { RadarHomeDashboard } from './radar/components/RadarHomeDashboard';
 import { useRouteTrace } from './radar/hooks/useRouteTrace';
+import { useVoiceMode } from './radar/hooks/useVoiceMode';
+import { useSpeedSmoothing } from './radar/hooks/useSpeedSmoothing';
+import { useRadarSignalLevels } from './radar/hooks/useRadarSignalLevels';
+import { RadarRendererMode } from '../components/RadarAnimation';
 import { TAB_BAR_HEIGHT, getResponsivePadding, getResponsiveFontSize, getResponsiveMargin, getResponsiveWidth, getResponsiveHeight, getUIScale } from '../constants/layout';
 
 import { darkMapStyle } from '../utils/mapStyle';
@@ -77,6 +81,8 @@ const RadarScreen = ({ navigation, route }: any) => {
     hapticAlertsEnabled,
     keepAwakeWhileDriving,
     warningVolume,
+    setVoiceWarningsEnabled,
+    setWarningVolume,
   } = useSettingsStore();
   const setRadarLocations = useRadarStore((state) => state.setRadarLocations);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
@@ -89,7 +95,9 @@ const RadarScreen = ({ navigation, route }: any) => {
   const [isDriving, setIsDriving] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<any>(null);
   const [nearbyRadars, setNearbyRadars] = useState<any[]>([]);
-  const [currentSpeed, setCurrentSpeed] = useState<number>(0);
+  const { uiSpeedKph: currentSpeed, pushLocationSample, resetSpeed } = useSpeedSmoothing({
+    calculateDistanceSync: LocationService.calculateDistanceSync,
+  });
   const [destination, setDestination] = useState('');
   const [routeCoords, setRouteCoords] = useState<any[]>([]);
   const [routeMeta, setRouteMeta] = useState<{ etaText: string; distanceText: string; destinationLabel: string } | null>(null);
@@ -129,7 +137,6 @@ const RadarScreen = ({ navigation, route }: any) => {
   const navRefreshInFlightRef = useRef(false);
   const setTabBarHidden = useUiStore((state) => state.setTabBarHidden);
   const lastAnnouncedAlertIdRef = useRef<string | null>(null);
-  const speedSampleRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
   const closestRadarLabelCacheRef = useRef<Record<string, string>>({});
   const closestRadarLabelRequestRef = useRef<Record<string, boolean>>({});
 
@@ -182,8 +189,8 @@ const RadarScreen = ({ navigation, route }: any) => {
   const floatingFabBottom = isMapNavigationActive
     ? Math.max(getResponsiveHeight(170), mapControlsBottom - mapControlSize - mapControlGap)
     : 85;
-  const radarAnimationSize = Math.max(180, Math.min(Math.round(width * 0.62), 300));
-  const radarAuraSize = Math.round(radarAnimationSize * 0.74);
+  const radarAnimationSize = Math.max(176, Math.min(Math.round(width * 0.58), 290));
+  const radarAuraSize = Math.round(radarAnimationSize * 0.78);
 
   const activeAlert = useMemo<RadarAlert | null>(() => {
     const unacknowledged = (activeAlerts as RadarAlert[]).filter((alert) => !alert.acknowledged);
@@ -198,12 +205,17 @@ const RadarScreen = ({ navigation, route }: any) => {
   const compassRotation = currentLocation?.heading != null
     ? `${currentLocation.heading}deg`
     : '0deg';
-  const voicePlaybackEnabled = hasHydrated && voiceWarningsEnabled && warningVolume > 0;
-  const alertModeLabel = voicePlaybackEnabled
-    ? 'Voice on'
-    : hasHydrated && hapticAlertsEnabled
-      ? 'Vibrate only'
-      : 'Silent';
+  const { voicePlaybackEnabled, alertModeLabel, toggleVoiceWarnings } = useVoiceMode({
+    hasHydrated,
+    voiceWarningsEnabled,
+    hapticAlertsEnabled,
+    warningVolume,
+    setVoiceWarningsEnabled,
+    setWarningVolume,
+  });
+
+  const { signalLevel: radarSignalLevel, dangerLevel: radarDangerLevel } = useRadarSignalLevels(nearbyRadars, closestRadar);
+  const radarRendererMode: RadarRendererMode = 'auto';
 
   const extractShortStreetLabel = useCallback((label?: string | null) => {
     if (!label) return '';
@@ -476,39 +488,8 @@ const RadarScreen = ({ navigation, route }: any) => {
         )) {
             currentLocationRef.current = location;
             setCurrentLocation(location);
-            const now = Date.now();
-            const previousSample = speedSampleRef.current;
-            let nextSpeedKph: number | null = null;
-            if (
-                typeof location.speed === 'number' &&
-                Number.isFinite(location.speed) &&
-                location.speed >= 0
-            ) {
-                nextSpeedKph = location.speed * 3.6;
-            } else if (previousSample) {
-                const elapsedSeconds = (now - previousSample.timestamp) / 1000;
-                if (elapsedSeconds >= 0.7 && elapsedSeconds <= 8) {
-                    const movedKm = LocationService.calculateDistanceSync(
-                        previousSample.latitude,
-                        previousSample.longitude,
-                        location.latitude,
-                        location.longitude
-                    );
-                    nextSpeedKph = Math.min(220, (movedKm / elapsedSeconds) * 3600);
-                }
-            }
-            if (nextSpeedKph !== null && Number.isFinite(nextSpeedKph)) {
-                const boundedSpeed = Math.max(0, Math.min(nextSpeedKph, 220));
-                setCurrentSpeed((prev) => (prev <= 0 ? boundedSpeed : prev * 0.35 + boundedSpeed * 0.65));
-            } else {
-                setCurrentSpeed((prev) => (prev < 1 ? 0 : prev * 0.75));
-            }
-            speedSampleRef.current = {
-                latitude: location.latitude,
-                longitude: location.longitude,
-                timestamp: now,
-            };
-            
+            pushLocationSample(location);
+
             // Smooth Camera Follow
             if (isDriving && activeTab === 'Map' && !isInteractingRef.current && !isTypingRef.current) {
                 const now = Date.now();
@@ -1214,6 +1195,7 @@ const RadarScreen = ({ navigation, route }: any) => {
     drivingStartTimeRef.current = null;
     setTotalDistance(0);
     totalDistanceRef.current = 0;
+    resetSpeed();
     tripStartRef.current = null;
     tripStartLabelRef.current = null;
     setActiveTab('Basic');
@@ -1223,7 +1205,7 @@ const RadarScreen = ({ navigation, route }: any) => {
     if (currentLocation) {
       RadarService.getNearbyRadars(currentLocation.latitude, currentLocation.longitude, 10).then(updateNearbyRadarsState);
     }
-  }, [currentLocation, saveTripIfNeeded, setDestinationInputFocused, updateNearbyRadarsState]);
+  }, [currentLocation, resetSpeed, saveTripIfNeeded, setDestinationInputFocused, updateNearbyRadarsState]);
 
   const exitDrivingToHome = useCallback(async () => {
     await resetRoute();
@@ -1878,6 +1860,9 @@ const RadarScreen = ({ navigation, route }: any) => {
                           drivingStartTime={drivingStartTime}
                           currentSpeed={currentSpeed}
                           unitSystem={unitSystem}
+                          radarRendererMode={radarRendererMode}
+                          radarSignalLevel={radarSignalLevel}
+                          radarDangerLevel={radarDangerLevel}
                       />
                   )}
               </View>
@@ -1935,10 +1920,15 @@ const RadarScreen = ({ navigation, route }: any) => {
       hasHydrated={hasHydrated}
       hapticAlertsEnabled={hapticAlertsEnabled}
       alertModeLabel={alertModeLabel}
+      voiceWarningsEnabled={voiceWarningsEnabled}
+      radarRendererMode={radarRendererMode}
+      radarSignalLevel={radarSignalLevel}
+      radarDangerLevel={radarDangerLevel}
       onOpenDrawer={() => navigation.openDrawer()}
       onOpenProfile={() => navigation.navigate('Profile')}
       onNavigateSubscription={() => navigation.navigate('Subscription')}
       onToggleDrivingMode={toggleDrivingMode}
+      onToggleVoiceWarnings={toggleVoiceWarnings}
     />
   );
 };
@@ -1956,27 +1946,37 @@ const styles = StyleSheet.create({
   heroCard: { marginHorizontal: 16, marginTop: 6, marginBottom: 8, borderRadius: 22, overflow: 'hidden', paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(12,18,32,0.92)' },
   heroGlowPrimary: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(78,205,196,0.18)', top: -40, right: -24 },
   heroGlowSecondary: { position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,82,82,0.08)', bottom: -50, left: -24 },
-  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   heroEyebrow: { color: '#38BDF8', fontSize: 12, letterSpacing: 1, fontWeight: '700', textTransform: 'uppercase' },
-  heroTitle: { color: '#F8FAFC', fontSize: 24, fontWeight: '900', letterSpacing: 0.5, marginTop: 4 },
-  heroBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#4ECDC4', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, gap: 6, shadowColor: '#4ECDC4', shadowOpacity: 0.4, shadowRadius: 10, elevation: 4 },
+  heroTitle: { color: '#F8FAFC', fontSize: 22, fontWeight: '900', letterSpacing: 0.4, marginTop: 2 },
+  heroBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#4ECDC4', paddingHorizontal: 11, paddingVertical: 7, borderRadius: 14, gap: 6, shadowColor: '#4ECDC4', shadowOpacity: 0.4, shadowRadius: 10, elevation: 4 },
   heroBadgeText: { color: '#0B1424', fontWeight: '900', letterSpacing: 0.5 },
-  radarShell: { alignItems: 'center', justifyContent: 'center', marginTop: -4, marginBottom: 4 },
+  radarShell: { alignItems: 'center', justifyContent: 'center', marginTop: -8, marginBottom: 0 },
   radarAura: { position: 'absolute', backgroundColor: 'rgba(78,205,196,0.05)' },
-  radarChip: { position: 'absolute', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: 'rgba(2,6,23,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  radarChipLeft: { top: 22, left: 22 },
-  radarChipRight: { top: 22, right: 22 },
-  radarChipText: { color: '#E2E8F0', marginLeft: 8, fontWeight: '600', fontSize: 12 },
-  statRow: { flexDirection: 'row', gap: 10, marginTop: 2 },
-  statCard: { flex: 1, padding: 9, borderRadius: 12, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.03)' },
-  statIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  radarChip: { position: 'absolute', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 14, backgroundColor: 'rgba(2,6,23,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  radarChipLeft: { top: 12, left: 14 },
+  radarChipRight: { top: 12, right: 14 },
+  radarChipText: { color: '#E2E8F0', marginLeft: 6, fontWeight: '600', fontSize: 12 },
+  statRow: { flexDirection: 'row', gap: 8, marginTop: 2 },
+  statCard: { flex: 1, padding: 8, borderRadius: 12, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.03)' },
+  statIcon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
   statLabel: { color: '#94A3B8', fontSize: 11, letterSpacing: 0.4 },
-  statValue: { color: '#F8FAFC', fontWeight: '800', fontSize: 16 },
+  statValue: { color: '#F8FAFC', fontWeight: '800', fontSize: 15 },
+  statHint: { color: '#94A3B8', fontSize: 10, marginTop: 3, fontWeight: '600' },
   startButton: { marginTop: 6, borderRadius: 18, overflow: 'hidden', shadowColor: '#FF5252', shadowRadius: 16, shadowOpacity: 0.45, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
-  startButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 11, borderRadius: 18 },
-  startText: { color: '#FFFFFF', fontWeight: '900', fontSize: 18, letterSpacing: 0.6 },
+  startButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
+  startText: { color: '#FFFFFF', fontWeight: '900', fontSize: 17, letterSpacing: 0.5 },
   startSubtext: { color: '#F8FAFC', opacity: 0.8, fontSize: 12, marginTop: 4 },
   startBadge: { width: 42, height: 42, borderRadius: 12, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center' },
+
+  // Hero Actions & Voice Pill
+  heroActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  voicePill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, gap: 5 },
+  voicePillOn: { backgroundColor: '#4ECDC4' },
+  voicePillOff: { backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  voicePillText: { fontSize: 12, fontWeight: '700' },
+  voicePillTextOn: { color: '#0B1424' },
+  voicePillTextOff: { color: '#E2E8F0' },
 
   // Pro Slider
   sliderContainer: { marginHorizontal: 16, marginTop: 0, marginBottom: 10, borderRadius: 18, overflow: 'hidden' },

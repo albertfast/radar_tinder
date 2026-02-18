@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
@@ -15,12 +15,16 @@ import { TAB_BAR_HEIGHT } from '../../constants/layout';
 import { hasProAccess } from '../../utils/access';
 import ProGate from '../../components/ProGate';
 import AdBanner from '../../components/AdBanner';
+import { RadarAnimation, type RadarRendererMode } from '../../components/RadarAnimation';
 
 interface RadarGraphicViewProps {
   totalDistance: number;
   drivingStartTime: Date | null;
   currentSpeed: number;
   unitSystem: 'metric' | 'imperial';
+  radarRendererMode: RadarRendererMode;
+  radarSignalLevel: number;
+  radarDangerLevel: number;
 }
 
 const emptyWeeklyTrips = [
@@ -39,7 +43,11 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   drivingStartTime,
   currentSpeed,
   unitSystem,
+  radarRendererMode,
+  radarSignalLevel,
+  radarDangerLevel,
 }) => {
+  const { width } = useWindowDimensions();
   const { user } = useAuthStore();
   const canUse = hasProAccess(user);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
@@ -281,10 +289,36 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
       onScrollEndDrag={onScrollEndDrag}
       scrollEventThrottle={16}
     >
+      <Animated.View
+        style={styles.radarHeroCard}
+        entering={FadeInDown.delay(0).duration(ANIMATION_TIMING.BASE)}
+      >
+        <LinearGradient
+          colors={['#0B1224', '#091426']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.radarHeroGradient}
+        >
+          <View style={styles.radarHeroHeader}>
+            <Text style={styles.radarHeroTitle}>Live 3D Radar Field</Text>
+            <Text style={styles.radarHeroMeta}>Contour + Orbit</Text>
+          </View>
+          <View style={styles.radarHeroBody}>
+            <RadarAnimation
+              size={Math.max(150, Math.min(Math.round(width * 0.45), 220))}
+              rendererMode={radarRendererMode}
+              artPreset="contour_orbit"
+              signalLevel={radarSignalLevel}
+              dangerLevel={radarDangerLevel}
+            />
+          </View>
+        </LinearGradient>
+      </Animated.View>
+
       {/* Current Session Stats */}
       <Animated.View
         style={styles.statsGrid}
-        entering={FadeInDown.delay(0).duration(ANIMATION_TIMING.BASE)}
+        entering={FadeInDown.delay(STAGGER_DELAYS.SHORT).duration(ANIMATION_TIMING.BASE)}
       >
         <StatBox
           icon="navigation"
@@ -580,6 +614,39 @@ const styles = StyleSheet.create({
   },
   containerContent: {
     padding: 16,
+  },
+  radarHeroCard: {
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(78,205,196,0.24)',
+  },
+  radarHeroGradient: {
+    padding: 14,
+  },
+  radarHeroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  radarHeroTitle: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  radarHeroMeta: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  radarHeroBody: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 2,
   },
   statsGrid: {
     flexDirection: 'row',
