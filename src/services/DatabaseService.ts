@@ -248,7 +248,7 @@ export class DatabaseService {
     await this.ensureDb();
     try {
       const query = `
-        INSERT INTO radar_alerts 
+        INSERT OR REPLACE INTO radar_alerts 
         (id, radar_id, user_id, distance, estimated_time, severity, acknowledged, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;

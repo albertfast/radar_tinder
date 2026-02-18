@@ -4,6 +4,8 @@
  * Rate limit: 1 request/second for public endpoint
  */
 
+import { AddressSuggestion } from '../types';
+
 export interface GeocodingResult {
   display_name: string;
   lat: string;
@@ -133,16 +135,79 @@ export class NominatimService {
     }
   }
 
+  static async getSuggestionObjects(
+    query: string,
+    options?: SearchOptions
+  ): Promise<AddressSuggestion[]> {
+    const results = await this.search(query, options);
+    if (!results.length) return [];
+
+    const normalizedQuery = query.trim().toLowerCase();
+    const queryTokens = normalizedQuery
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 2);
+    const focusLocation = options?.focusLocation;
+    const dedupe = new Map<string, AddressSuggestion>();
+
+    for (const result of results) {
+      const lat = Number.parseFloat(result.lat);
+      const lon = Number.parseFloat(result.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+
+      const label = this.buildSuggestionLabel(result);
+      if (!label || this.isMalformedInterpolationLabel(label)) continue;
+      if (!this.matchesQueryTokens(label, queryTokens, normalizedQuery)) continue;
+
+      const street = this.normalizeText(
+        [result.address?.road, result.address?.postcode].filter(Boolean).join(' ')
+      );
+      const city = this.normalizeText(
+        [result.address?.city, result.address?.state, result.address?.country]
+          .filter(Boolean)
+          .join(' ')
+      );
+      const latBucket = Math.round(lat * 10000);
+      const lonBucket = Math.round(lon * 10000);
+      const dedupeKey = `${street}|${city}|${latBucket}|${lonBucket}`;
+      const qualityScore = this.computeSuggestionScore(
+        label,
+        queryTokens,
+        focusLocation,
+        lat,
+        lon
+      );
+
+      const suggestion: AddressSuggestion = {
+        id: `nominatim:${result.place_id}:${latBucket}:${lonBucket}`,
+        label,
+        queryValue: `${lat},${lon}`,
+        latitude: lat,
+        longitude: lon,
+        source: 'nominatim',
+        qualityScore,
+      };
+
+      const existing = dedupe.get(dedupeKey);
+      if (!existing || suggestion.qualityScore > existing.qualityScore) {
+        dedupe.set(dedupeKey, suggestion);
+      }
+    }
+
+    return Array.from(dedupe.values())
+      .sort((a, b) => b.qualityScore - a.qualityScore)
+      .slice(0, options?.limit || 6);
+  }
+
   /**
-   * Get formatted address suggestions for autocomplete
-   * Returns array of display names only (for UI)
+   * Backward compatible string-only suggestions.
    */
   static async getSuggestions(
     query: string,
     options?: SearchOptions
   ): Promise<string[]> {
-    const results = await this.search(query, options);
-    return results.map((r) => r.display_name);
+    const results = await this.getSuggestionObjects(query, options);
+    return results.map((item) => item.label);
   }
 
   /**
@@ -214,5 +279,119 @@ export class NominatimService {
     }
 
     return parts.join(', ');
+  }
+
+  private static normalizeText(value: string): string {
+    return value.toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  private static buildSuggestionLabel(result: GeocodingResult): string {
+    const road = result.address?.road?.trim();
+    const city = (result.address?.city || result.address?.state || '').trim();
+    const country = (result.address?.country || '').trim();
+
+    const leading = result.display_name.split(',')[0]?.trim() || '';
+    const hasStreetToken =
+      /\d/.test(leading) || /\b(st|street|ave|avenue|rd|road|blvd|drive|dr|way|ln|lane|hwy|highway)\b/i.test(leading);
+
+    const candidate = hasStreetToken
+      ? leading
+      : [road, city].filter(Boolean).join(', ');
+    const fallback = result.display_name
+      .split(',')
+      .slice(0, 4)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(', ');
+    const compact = candidate || fallback;
+    if (!compact) return '';
+
+    const suffix = [city, country]
+      .filter(Boolean)
+      .join(', ')
+      .trim();
+    const label = suffix && !compact.toLowerCase().includes(suffix.toLowerCase())
+      ? `${compact}, ${suffix}`
+      : compact;
+    return label.replace(/\s+/g, ' ').trim();
+  }
+
+  private static isMalformedInterpolationLabel(label: string): boolean {
+    if (!label) return true;
+    if (label.length > 140 && /;/.test(label)) return true;
+    if (/\d{2,}\s*;\s*\d{2,}\s*;\s*\d{2,}/.test(label)) return true;
+    const semicolonCount = (label.match(/;/g) || []).length;
+    if (semicolonCount >= 2) return true;
+    return false;
+  }
+
+  private static matchesQueryTokens(
+    label: string,
+    queryTokens: string[],
+    normalizedQuery: string
+  ): boolean {
+    const normalizedLabel = this.normalizeText(label);
+    if (!normalizedLabel) return false;
+
+    if (/^\d+$/.test(normalizedQuery)) {
+      return normalizedLabel.includes(normalizedQuery);
+    }
+
+    if (!queryTokens.length) {
+      return normalizedLabel.includes(normalizedQuery);
+    }
+
+    const required = queryTokens.slice(0, 2);
+    return required.every((token) => normalizedLabel.includes(token));
+  }
+
+  private static computeSuggestionScore(
+    label: string,
+    queryTokens: string[],
+    focusLocation: { latitude: number; longitude: number } | undefined,
+    lat: number,
+    lon: number
+  ): number {
+    const normalizedLabel = this.normalizeText(label);
+    let score = 0;
+    if (/\d+/.test(normalizedLabel)) score += 25;
+    if (/\b(st|street|ave|avenue|rd|road|blvd|drive|dr|way|ln|lane|hwy|highway)\b/i.test(normalizedLabel)) {
+      score += 10;
+    }
+
+    const tokenMatches = queryTokens.filter((token) => normalizedLabel.includes(token)).length;
+    score += tokenMatches * 20;
+
+    if (focusLocation) {
+      const distanceKm = this.distanceKm(
+        focusLocation.latitude,
+        focusLocation.longitude,
+        lat,
+        lon
+      );
+      if (distanceKm < 5) score += 35;
+      else if (distanceKm < 25) score += 25;
+      else if (distanceKm < 80) score += 10;
+      else score -= 10;
+    }
+
+    return score;
+  }
+
+  private static distanceKm(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    return 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   }
 }

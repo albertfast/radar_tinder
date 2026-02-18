@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { OSRMService } from './OSRMService';
 import { NominatimService } from './NominatimService';
+import { AddressSuggestion } from '../types';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
@@ -471,7 +472,7 @@ export class GoogleMapsService {
   static async getGeocodeSuggestions(
     input: string,
     options?: GeocodeSuggestionOptions
-  ): Promise<string[]> {
+  ): Promise<AddressSuggestion[]> {
     const query = input.trim();
     if (!query) return [];
 
@@ -481,11 +482,12 @@ export class GoogleMapsService {
 
     // Try free Nominatim first
     try {
-      let nominatimResults = await NominatimService.getSuggestions(query, {
+      let nominatimResults = await NominatimService.getSuggestionObjects(query, {
         limit: 6,
         countryCode: normalizedCountry,
         focusLocation: options?.focusLocation,
         focusRadiusKm: isShortOrMostlyNumericQuery ? 90 : 180,
+        bounded: isShortOrMostlyNumericQuery,
       });
 
       // For longer free-text queries, relax country filter if needed.
@@ -494,7 +496,7 @@ export class GoogleMapsService {
         normalizedCountry &&
         !isShortOrMostlyNumericQuery
       ) {
-        nominatimResults = await NominatimService.getSuggestions(query, {
+        nominatimResults = await NominatimService.getSuggestionObjects(query, {
           limit: 6,
           focusLocation: options?.focusLocation,
           focusRadiusKm: 180,
@@ -502,7 +504,7 @@ export class GoogleMapsService {
       }
 
       if (nominatimResults.length > 0) {
-        return Array.from(new Set(nominatimResults)).slice(0, 6);
+        return nominatimResults.slice(0, 6);
       }
     } catch (nominatimError) {
       console.warn('[GoogleMapsService] Nominatim failed, trying Google:', nominatimError);
@@ -535,19 +537,127 @@ export class GoogleMapsService {
       const data = await response.json();
 
       if (data.status === 'OK' && Array.isArray(data.results)) {
-        const formattedAddresses = data.results
-          .map((result: any) =>
+        const normalizedQuery = query.toLowerCase();
+        const queryTokens = normalizedQuery
+          .split(/\s+/)
+          .map((token: string) => token.trim())
+          .filter((token: string) => token.length >= 2);
+        const deduped = new Map<string, AddressSuggestion>();
+        for (const result of data.results) {
+          const label =
             typeof result?.formatted_address === 'string'
-              ? result.formatted_address
-              : null
-          )
-          .filter((value: string | null): value is string => Boolean(value));
-        return Array.from(new Set<string>(formattedAddresses)).slice(0, 6);
+              ? result.formatted_address.trim()
+              : '';
+          const lat = Number(result?.geometry?.location?.lat);
+          const lon = Number(result?.geometry?.location?.lng);
+          if (!label || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+          if (this.isMalformedSuggestionLabel(label)) continue;
+
+          const normalizedLabel = this.normalizeSuggestionLabel(label);
+          if (/^\d+$/.test(normalizedQuery) && !normalizedLabel.includes(normalizedQuery)) {
+            continue;
+          }
+          if (
+            queryTokens.length > 0 &&
+            !queryTokens.slice(0, 2).every((token: string) => normalizedLabel.includes(token))
+          ) {
+            continue;
+          }
+
+          const qualityScore = this.computeSuggestionScore(
+            normalizedLabel,
+            queryTokens,
+            options?.focusLocation,
+            lat,
+            lon
+          );
+          const latBucket = Math.round(lat * 10000);
+          const lonBucket = Math.round(lon * 10000);
+          const dedupeKey = `${normalizedLabel}|${latBucket}|${lonBucket}`;
+          const item: AddressSuggestion = {
+            id: `google:${result.place_id || label}:${latBucket}:${lonBucket}`,
+            label,
+            queryValue: `${lat},${lon}`,
+            latitude: lat,
+            longitude: lon,
+            source: 'google',
+            qualityScore,
+          };
+          const existing = deduped.get(dedupeKey);
+          if (!existing || qualityScore > existing.qualityScore) {
+            deduped.set(dedupeKey, item);
+          }
+        }
+        return Array.from(deduped.values())
+          .sort((a, b) => b.qualityScore - a.qualityScore)
+          .slice(0, 6);
       }
       return [];
     } catch (error) {
       console.error('Error fetching geocode suggestions:', error);
       return [];
     }
+  }
+
+  private static normalizeSuggestionLabel(label: string): string {
+    return label.toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  private static isMalformedSuggestionLabel(label: string): boolean {
+    if (!label) return true;
+    if (label.length > 140 && /;/.test(label)) return true;
+    if (/\d{2,}\s*;\s*\d{2,}\s*;\s*\d{2,}/.test(label)) return true;
+    return false;
+  }
+
+  private static computeSuggestionScore(
+    normalizedLabel: string,
+    queryTokens: string[],
+    focusLocation: { latitude: number; longitude: number } | undefined,
+    lat: number,
+    lon: number
+  ): number {
+    let score = 0;
+    if (/\d+/.test(normalizedLabel)) score += 25;
+    if (
+      /\b(st|street|ave|avenue|rd|road|blvd|drive|dr|way|ln|lane|hwy|highway)\b/i.test(
+        normalizedLabel
+      )
+    ) {
+      score += 10;
+    }
+    const tokenMatches = queryTokens.filter((token) => normalizedLabel.includes(token)).length;
+    score += tokenMatches * 20;
+
+    if (focusLocation) {
+      const distanceKm = this.distanceKm(
+        focusLocation.latitude,
+        focusLocation.longitude,
+        lat,
+        lon
+      );
+      if (distanceKm < 5) score += 35;
+      else if (distanceKm < 25) score += 25;
+      else if (distanceKm < 80) score += 10;
+      else score -= 10;
+    }
+    return score;
+  }
+
+  private static distanceKm(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    return 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   }
 }
