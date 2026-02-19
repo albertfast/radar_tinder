@@ -19,13 +19,9 @@ export function useMapInputState({ keyboardTraceEnabled }: UseMapInputStateParam
   const destinationInputRef = useRef<TextInput>(null);
   const lastDestinationFocusAtRef = useRef(0);
   const isTypingRef = useRef(false);
-  const didAttemptAndroidRefocusRef = useRef(false);
 
   const setDestinationInputFocused = useCallback((focused: boolean) => {
     setIsDestinationInputFocused(focused);
-    if (!focused) {
-      didAttemptAndroidRefocusRef.current = false;
-    }
   }, []);
 
   const handleInputFocus = useCallback(
@@ -52,8 +48,13 @@ export function useMapInputState({ keyboardTraceEnabled }: UseMapInputStateParam
     if (keyboardTraceEnabled) {
       console.log('[KeyboardTrace] inputPressIn');
     }
-    // Force an explicit focus request on Android to avoid "tap-without-keyboard".
-    destinationInputRef.current?.focus();
+    // On Android, only force-focus if the input isn't already focused,
+    // and defer slightly to avoid racing with the native focus sequence.
+    if (Platform.OS === 'android' && !destinationInputRef.current?.isFocused()) {
+      setTimeout(() => {
+        destinationInputRef.current?.focus();
+      }, 80);
+    }
   }, [keyboardTraceEnabled, setDestinationInputFocused]);
 
   const handleInputBlur = useCallback(
@@ -86,7 +87,6 @@ export function useMapInputState({ keyboardTraceEnabled }: UseMapInputStateParam
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', (event) => {
       setIsKeyboardVisible(true);
-      didAttemptAndroidRefocusRef.current = false;
       if (keyboardTraceEnabled) {
         console.log('[KeyboardTrace] didShow', {
           height: event.endCoordinates?.height,
@@ -106,28 +106,6 @@ export function useMapInputState({ keyboardTraceEnabled }: UseMapInputStateParam
       hideSub.remove();
     };
   }, [keyboardTraceEnabled]);
-
-  // Android-only fallback: try one refocus if focused without keyboard.
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    if (!isDestinationInputFocused || isKeyboardVisible) return;
-    if (didAttemptAndroidRefocusRef.current) return;
-
-    didAttemptAndroidRefocusRef.current = true;
-    const timeout = setTimeout(() => {
-      const input = destinationInputRef.current;
-      if (!input?.isFocused()) return;
-      if (keyboardTraceEnabled) {
-        console.log('[KeyboardTrace] refocusSoftInput');
-      }
-      Keyboard.dismiss();
-      setTimeout(() => {
-        input.focus();
-      }, 48);
-    }, 220);
-
-    return () => clearTimeout(timeout);
-  }, [isDestinationInputFocused, isKeyboardVisible, keyboardTraceEnabled]);
 
   return {
     isDestinationInputFocused,

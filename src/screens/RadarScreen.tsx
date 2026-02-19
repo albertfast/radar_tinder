@@ -166,9 +166,10 @@ const RadarScreen = ({ navigation, route }: any) => {
   const mapAdBottom = Math.max(tabBarInset + 8, isMapNavigationActive ? mapNavDockBottom + getResponsiveHeight(84) : tabBarInset + 8);
   const mapAdEstimatedHeight = getResponsiveHeight(62);
   const mapControlsBottom = Math.max(mapControlsBottomBase, mapAdBottom + mapAdEstimatedHeight + mapControlGap + getResponsiveHeight(6));
+  const fabGap = getResponsiveHeight(12);
   const floatingFabBottom = isMapNavigationActive
     ? Math.max(getResponsiveHeight(170), mapControlsBottom - mapControlSize - mapControlGap)
-    : 85;
+    : mapAdBottom + mapAdEstimatedHeight + fabGap;
   const hideMapAd = mapInput.isDestinationInputFocused || mapInput.isKeyboardVisible;
   const compassRotation = dataSync.currentLocation?.heading != null ? `${dataSync.currentLocation.heading}deg` : '0deg';
   const nearestRadarSummary = dataSync.closestRadar
