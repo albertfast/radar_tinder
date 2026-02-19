@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { View, useWindowDimensions, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import MapView from 'react-native-maps';
-import { FlatList } from 'react-native';
 import { useRadarStore } from '../store/radarStore';
 import { useAuthStore } from '../store/authStore';
 import { useSettingsStore } from '../store/settingsStore';
@@ -39,7 +38,6 @@ import { useMapInputState } from './radar/hooks/useMapInputState';
 import { useDrivingSession } from './radar/hooks/useDrivingSession';
 import { useRadarDataSync } from './radar/hooks/useRadarDataSync';
 import { useRadarNavigation } from './radar/hooks/useRadarNavigation';
-
 const RadarScreen = ({ navigation, route }: any) => {
   const { user, refreshProfile } = useAuthStore();
   const canUsePro = hasProAccess(user);
