@@ -43,6 +43,7 @@ type RadarHomeDashboardProps = {
   hapticAlertsEnabled: boolean;
   alertModeLabel: string;
   voiceWarningsEnabled: boolean;
+  canUsePro: boolean;
   onOpenDrawer: () => void;
   onOpenProfile: () => void;
   onNavigateSubscription: () => void;
@@ -136,6 +137,7 @@ export function RadarHomeDashboard({
   hapticAlertsEnabled,
   alertModeLabel,
   voiceWarningsEnabled,
+  canUsePro,
   onOpenDrawer,
   onOpenProfile,
   onNavigateSubscription,
@@ -186,45 +188,47 @@ export function RadarHomeDashboard({
         showsVerticalScrollIndicator={false}
         scrollEnabled
       >
-        <View style={styles.sliderContainer}>
-          <LinearGradient colors={['#111827', '#0B1224']} style={styles.sliderGradient}>
-            <FlatList
-              ref={proSliderRef}
-              data={proFeatures}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              getItemLayout={(_, index) => ({
-                length: width - 40,
-                offset: (width - 40) * index,
-                index,
-              })}
-              onScrollToIndexFailed={({ index }) => {
-                proSliderRef.current?.scrollToOffset({
-                  offset: (width - 40) * Math.max(0, Math.min(index, proFeatures.length - 1)),
-                  animated: true,
-                });
-              }}
-              renderItem={({ item }) => (
-                <ProSlideItem
-                  item={item}
-                  width={width}
-                  styles={styles}
-                  onNavigateSubscription={onNavigateSubscription}
-                />
-              )}
-              keyExtractor={(item) => item.title}
-            />
-            <View style={styles.pager}>
-              {proFeatures.map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.dot, i === proSliderIndex ? { backgroundColor: '#4ECDC4', width: 16 } : {}]}
-                />
-              ))}
-            </View>
-          </LinearGradient>
-        </View>
+        {!canUsePro && (
+          <View style={styles.sliderContainer}>
+            <LinearGradient colors={['#111827', '#0B1224']} style={styles.sliderGradient}>
+              <FlatList
+                ref={proSliderRef}
+                data={proFeatures}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                getItemLayout={(_, index) => ({
+                  length: width - 40,
+                  offset: (width - 40) * index,
+                  index,
+                })}
+                onScrollToIndexFailed={({ index }) => {
+                  proSliderRef.current?.scrollToOffset({
+                    offset: (width - 40) * Math.max(0, Math.min(index, proFeatures.length - 1)),
+                    animated: true,
+                  });
+                }}
+                renderItem={({ item }) => (
+                  <ProSlideItem
+                    item={item}
+                    width={width}
+                    styles={styles}
+                    onNavigateSubscription={onNavigateSubscription}
+                  />
+                )}
+                keyExtractor={(item) => item.title}
+              />
+              <View style={styles.pager}>
+                {proFeatures.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[styles.dot, i === proSliderIndex ? { backgroundColor: '#4ECDC4', width: 16 } : {}]}
+                  />
+                ))}
+              </View>
+            </LinearGradient>
+          </View>
+        )}
 
         <View style={styles.homeAdContainer}>
           <AdBanner />

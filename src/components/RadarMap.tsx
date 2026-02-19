@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { View, StyleSheet, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -45,12 +45,13 @@ const RadarMap = React.memo(({
     onMapTap,
 }: any) => {
     
-    const initialRegion = useMemo(() => ({
-        latitude: location?.latitude || 37.7749,
-        longitude: location?.longitude || -122.4194,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-    }), [location?.latitude, location?.longitude]);
+    const initialRegionRef = useRef({
+      latitude: location?.latitude || 37.7749,
+      longitude: location?.longitude || -122.4194,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    });
+    const initialRegion = initialRegionRef.current;
 
     const finalDestination = useMemo(() => {
       if (destinationPoint?.latitude && destinationPoint?.longitude) {
@@ -84,8 +85,9 @@ const RadarMap = React.memo(({
               if (mapInteractionEnabled) onMapTouchStart?.();
             }}
             onPress={() => {
+              if (!mapInteractionEnabled) return;
               onMapTap?.();
-              if (mapInteractionEnabled) onMapTouchStart?.();
+              onMapTouchStart?.();
             }}
             onTouchStart={() => {
               if (mapInteractionEnabled) onMapTouchStart?.();

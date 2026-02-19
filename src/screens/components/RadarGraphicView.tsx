@@ -318,7 +318,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
       {/* Current Session Stats */}
       <Animated.View
         style={styles.statsGrid}
-        entering={FadeInDown.delay(STAGGER_DELAYS.SHORT).duration(ANIMATION_TIMING.BASE)}
+        entering={FadeInDown.delay(STAGGER_DELAYS.ITEM_FAST).duration(ANIMATION_TIMING.BASE)}
       >
         <StatBox
           icon="navigation"

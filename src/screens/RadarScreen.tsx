@@ -111,6 +111,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const [totalDistance, setTotalDistance] = useState<number>(0);
   const [followHeading, setFollowHeading] = useState(true);
   const [isDestinationInputFocused, setIsDestinationInputFocused] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [closestRadarHint, setClosestRadarHint] = useState('');
 
   // Refs for logic
@@ -131,6 +132,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const totalDistanceRef = useRef(totalDistance);
   const drivingStartTimeRef = useRef<Date | null>(drivingStartTime);
   const destinationInputRef = useRef<TextInput>(null);
+  const lastDestinationFocusAtRef = useRef(0);
   const rerouteConsecutiveOffRouteRef = useRef(0);
   const lastRerouteAtRef = useRef(0);
   const stepDistanceHistoryRef = useRef<Record<number, { lastDistanceMeters: number; increasingTicks: number }>>({});
@@ -189,6 +191,8 @@ const RadarScreen = ({ navigation, route }: any) => {
   const floatingFabBottom = isMapNavigationActive
     ? Math.max(getResponsiveHeight(170), mapControlsBottom - mapControlSize - mapControlGap)
     : 85;
+  const isMapInputLockActive = isDestinationInputFocused || isKeyboardVisible;
+  const hideMapAd = isDestinationInputFocused || isKeyboardVisible;
   const radarAnimationSize = Math.max(176, Math.min(Math.round(width * 0.58), 290));
   const radarAuraSize = Math.round(radarAnimationSize * 0.78);
 
@@ -398,14 +402,19 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, []);
 
   useEffect(() => {
-    if (!KEYBOARD_TRACE_ENABLED) return;
     const showSub = Keyboard.addListener('keyboardDidShow', (event) => {
-      console.log('[KeyboardTrace] didShow', {
-        height: event.endCoordinates?.height,
-      });
+      setIsKeyboardVisible(true);
+      if (KEYBOARD_TRACE_ENABLED) {
+        console.log('[KeyboardTrace] didShow', {
+          height: event.endCoordinates?.height,
+        });
+      }
     });
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
-      console.log('[KeyboardTrace] didHide');
+      setIsKeyboardVisible(false);
+      if (KEYBOARD_TRACE_ENABLED) {
+        console.log('[KeyboardTrace] didHide');
+      }
     });
     return () => {
       showSub.remove();
@@ -1225,17 +1234,24 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, []);
 
   const handleMapTouchStart = useCallback(() => {
-    if (isDestinationInputFocused) return;
+    if (isMapInputLockActive) return;
     markInteracting();
-  }, [isDestinationInputFocused, markInteracting]);
+  }, [isMapInputLockActive, markInteracting]);
 
   const handleMapTap = useCallback(() => {
+    if (Date.now() - lastDestinationFocusAtRef.current < 450) {
+      return;
+    }
     if (isDestinationInputFocused) {
       dismissDestinationInput();
       return;
     }
+    if (isKeyboardVisible) {
+      dismissDestinationInput();
+      return;
+    }
     setSuggestions([]);
-  }, [dismissDestinationInput, isDestinationInputFocused]);
+  }, [dismissDestinationInput, isDestinationInputFocused, isKeyboardVisible]);
 
   const endInteracting = useCallback(() => {
     if (!isTypingRef.current) {
@@ -1622,7 +1638,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                       <View style={{flex: 1}}>
                             <View
                               style={StyleSheet.absoluteFill}
-                              pointerEvents={isDestinationInputFocused ? 'none' : 'auto'}
+                              pointerEvents={isMapInputLockActive ? 'none' : 'auto'}
                             >
                               <RadarMap
                                   location={currentLocation || {latitude: 37.7749, longitude: -122.4194}}
@@ -1639,7 +1655,7 @@ const RadarScreen = ({ navigation, route }: any) => {
                                   }}
                                   onMapTouchStart={handleMapTouchStart}
                                   onMapTouchEnd={endInteracting}
-                                  mapInteractionEnabled={!isDestinationInputFocused}
+                                  mapInteractionEnabled={!isMapInputLockActive}
                                   onMapTap={handleMapTap}
                               />
                             </View>
@@ -1676,10 +1692,14 @@ const RadarScreen = ({ navigation, route }: any) => {
                                                   keyboardType="default"
                                                   autoFocus={false}
                                                   showSoftInputOnFocus={true}
+                                                  onTouchStart={() => {
+                                                    lastDestinationFocusAtRef.current = Date.now();
+                                                  }}
                                                   onFocus={() => {
                                                     if (KEYBOARD_TRACE_ENABLED) {
                                                       console.log('[KeyboardTrace] inputFocus');
                                                     }
+                                                    lastDestinationFocusAtRef.current = Date.now();
                                                     setDestinationInputFocused(true);
                                                     isTypingRef.current = true;
                                                     isInteractingRef.current = true;
@@ -1793,20 +1813,20 @@ const RadarScreen = ({ navigation, route }: any) => {
                                </View>
                              </View>
                            )}
-                           {!isDestinationInputFocused && (
-                             <View
-                               style={[
-                                 styles.mapAdContainer,
-                                 {
-                                   left: mapOverlayInset,
-                                   right: mapOverlayInset,
-                                   bottom: mapAdBottom,
-                                 },
-                               ]}
-                             >
-                               <AdBanner />
-                             </View>
-                           )}
+                           <View
+                             pointerEvents={hideMapAd ? 'none' : 'auto'}
+                             style={[
+                               styles.mapAdContainer,
+                               {
+                                 left: mapOverlayInset,
+                                 right: mapOverlayInset,
+                                 bottom: mapAdBottom,
+                                 opacity: hideMapAd ? 0 : 1,
+                               },
+                             ]}
+                           >
+                             <AdBanner />
+                           </View>
                            <View
                              style={[
                                styles.mapControls,
@@ -1921,6 +1941,7 @@ const RadarScreen = ({ navigation, route }: any) => {
       hapticAlertsEnabled={hapticAlertsEnabled}
       alertModeLabel={alertModeLabel}
       voiceWarningsEnabled={voiceWarningsEnabled}
+      canUsePro={canUsePro}
       radarRendererMode={radarRendererMode}
       radarSignalLevel={radarSignalLevel}
       radarDangerLevel={radarDangerLevel}
