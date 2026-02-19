@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Platform, UIManager, ViewProps, requireNativeComponent } from 'react-native';
 import { logWarn } from '../utils/logger';
 
@@ -14,17 +14,49 @@ export interface RadarLife3DViewProps extends ViewProps {
 }
 
 const NATIVE_VIEW_NAME = 'RTRadarLife3DView';
+const NATIVE_COMPONENT_CACHE_KEY = '__RT_NATIVE_COMPONENT_RTRadarLife3DView__';
+let nativeComponent:
+  | React.ComponentType<RadarLife3DViewProps>
+  | null
+  | undefined;
+let unavailableLogged = false;
+
+const getNativeComponent = () => {
+  if (nativeComponent !== undefined) return nativeComponent;
+  const globalCache = globalThis as unknown as Record<string, unknown>;
+  const cachedGlobal =
+    globalCache[NATIVE_COMPONENT_CACHE_KEY] as typeof nativeComponent;
+  if (cachedGlobal !== undefined) {
+    nativeComponent = cachedGlobal;
+    return nativeComponent;
+  }
+
+  if (Platform.OS !== 'android') {
+    nativeComponent = null;
+    globalCache[NATIVE_COMPONENT_CACHE_KEY] = nativeComponent;
+    return nativeComponent;
+  }
+
+  const config = UIManager.getViewManagerConfig?.(NATIVE_VIEW_NAME);
+  if (!config) {
+    nativeComponent = null;
+    globalCache[NATIVE_COMPONENT_CACHE_KEY] = nativeComponent;
+    return nativeComponent;
+  }
+
+  nativeComponent = requireNativeComponent<RadarLife3DViewProps>(NATIVE_VIEW_NAME);
+  globalCache[NATIVE_COMPONENT_CACHE_KEY] = nativeComponent;
+  return nativeComponent;
+};
 
 const RadarLife3DView = (props: RadarLife3DViewProps) => {
-  const NativeRadarLife3DView = useMemo(() => {
-    if (Platform.OS !== 'android') return null;
-    const config = UIManager.getViewManagerConfig?.(NATIVE_VIEW_NAME);
-    if (!config) return null;
-    return requireNativeComponent<RadarLife3DViewProps>(NATIVE_VIEW_NAME);
-  }, []);
+  const NativeRadarLife3DView = getNativeComponent();
 
   if (!NativeRadarLife3DView) {
-    logWarn('RadarLife3DView is not available, falling back to legacy radar animation.');
+    if (!unavailableLogged) {
+      unavailableLogged = true;
+      logWarn('RadarLife3DView is not available, falling back to legacy radar animation.');
+    }
     return null;
   }
 

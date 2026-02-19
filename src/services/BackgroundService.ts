@@ -31,6 +31,9 @@ export class BackgroundService {
   private static RADAR_FETCH_MIN_INTERVAL_MS_STATIONARY = 60000;
   private static RADAR_FETCH_MIN_DISTANCE_KM = 0.25;
   private static locationPollInterval: ReturnType<typeof setInterval> | null = null;
+  private static isAppActive = AppState.currentState === 'active';
+  private static lastLocationUnavailableLogAt = 0;
+  private static LOCATION_UNAVAILABLE_LOG_THROTTLE_MS = 60000;
 
   static async init(): Promise<void> {
     try {
@@ -84,11 +87,12 @@ export class BackgroundService {
 
   private static setupAppStateListener(): void {
     this.appStateSubscription = AppState.addEventListener('change', async (nextAppState) => {
+      this.isAppActive = nextAppState === 'active';
       if (nextAppState === 'active') {
         // App came to foreground
         await this.onForeground();
-      } else if (nextAppState === 'background') {
-        // App went to background
+      } else {
+        // App went inactive/background
         await this.onBackground();
       }
     });
@@ -193,6 +197,9 @@ export class BackgroundService {
         let consecutiveErrors = 0;
         const MAX_CONSECUTIVE_ERRORS = 3;
         const poll = async () => {
+          if (!this.isRunning || !this.isAppActive) {
+            return;
+          }
           try {
             const location = await Location.getCurrentPositionAsync({
               accuracy: Location.Accuracy.Balanced,
@@ -205,6 +212,21 @@ export class BackgroundService {
               speed: location.coords.speed,
             });
           } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            const isExpectedUnavailable =
+              message.includes('Current location is unavailable') ||
+              message.includes('Location provider is unavailable') ||
+              message.includes('location services are disabled');
+
+            if (isExpectedUnavailable) {
+              const now = Date.now();
+              if (now - this.lastLocationUnavailableLogAt > this.LOCATION_UNAVAILABLE_LOG_THROTTLE_MS) {
+                this.lastLocationUnavailableLogAt = now;
+                console.warn('Location temporarily unavailable; waiting for next poll.');
+              }
+              return;
+            }
+
             consecutiveErrors++;
             if (consecutiveErrors <= MAX_CONSECUTIVE_ERRORS) {
               console.warn(`Location poll failed (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, error);
