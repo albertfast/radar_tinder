@@ -209,3 +209,17 @@ implementation project(':onnxruntime-react-native')
 
 apply plugin: 'com.google.gms.google-services'
 apply plugin: 'com.google.firebase.crashlytics'
+
+// RN new-architecture + pnpm pathing can leave clean-time autolinking CMake refs
+// pointing to codegen folders that do not exist yet. Skip fragile native clean steps
+// and remove native intermediates directly during clean.
+tasks.matching { it.name in ["externalNativeBuildCleanDebug", "externalNativeBuildCleanRelease"] }.configureEach {
+    enabled = false
+}
+
+tasks.matching { it.name == "clean" }.configureEach {
+    doFirst {
+        delete file("${projectDir}/.cxx")
+        delete file("${buildDir}/generated/autolinking")
+    }
+}

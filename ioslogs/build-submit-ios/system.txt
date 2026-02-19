@@ -1,8 +1,0 @@
-2026-02-13T11:03:15.1950000Z Evaluating build-submit-ios.if
-2026-02-13T11:03:15.1950000Z Evaluating: success()
-2026-02-13T11:03:15.1950000Z Result: true
-2026-02-13T11:03:15.1960000Z Requested labels: macos-15
-2026-02-13T11:03:15.1960000Z Job defined at: albertfast/radar_tinder/.github/workflows/ios-testflight.yml@refs/heads/master
-2026-02-13T11:03:15.1960000Z Waiting for a runner to pick up this job...
-2026-02-13T11:03:15.6640000Z Job is about to start running on the hosted runner: GitHub Actions 1000003832
-2026-02-13T11:03:15.6640000Z Job is waiting for a hosted runner to come online.
