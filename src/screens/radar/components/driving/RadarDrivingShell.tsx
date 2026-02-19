@@ -74,12 +74,7 @@ export function RadarDrivingShell({
 
       {activeAlert ? (
         <Animated.View
-          style={[
-            styles.liveAlertBanner,
-            {
-              transform: [{ translateY: activeAlert ? 0 : -100 }],
-            },
-          ]}
+          style={styles.liveAlertBanner}
           entering={FadeInUp.duration(300)}
         >
           <View style={styles.liveAlertIcon}>
@@ -107,12 +102,7 @@ export function RadarDrivingShell({
         routeCoords.length > 0 &&
         !isMapNavigationActive && (
           <Animated.View
-            style={[
-              styles.navigationProgress,
-              {
-                transform: [{ translateY: 0 }],
-              },
-            ]}
+            style={styles.navigationProgress}
             entering={FadeInUp.duration(300)}
           >
             <View style={styles.progressIcon}>
@@ -150,9 +140,15 @@ export function RadarDrivingShell({
       )}
 
       <View style={{ flex: 1 }}>
-        {activeTab === 'Basic' && basicContent}
-        {activeTab === 'Map' && mapContent}
-        {activeTab === 'Graphic' && graphicContent}
+        <View style={{ flex: 1, display: activeTab === 'Basic' ? 'flex' : 'none' }}>
+          {basicContent}
+        </View>
+        <View style={{ flex: 1, display: activeTab === 'Map' ? 'flex' : 'none' }}>
+          {mapContent}
+        </View>
+        <View style={{ flex: 1, display: activeTab === 'Graphic' ? 'flex' : 'none' }}>
+          {graphicContent}
+        </View>
       </View>
 
       <TouchableOpacity
