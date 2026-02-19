@@ -329,8 +329,12 @@ export default function App() {
                                   },
                                 },
                               },
-                              Map: {
-                                path: 'map',
+                              Drive: {
+                                screens: {
+                                  RadarMain: {
+                                    path: 'map',
+                                  },
+                                },
                               },
                               Diagnose: {
                                 path: 'diagnose',

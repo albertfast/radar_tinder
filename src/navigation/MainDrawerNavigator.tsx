@@ -28,6 +28,8 @@ const CustomDrawerContent = (props: any) => {
 
   const secondaryItems = [
     { icon: 'history', label: 'History', screen: 'History' },
+    { icon: 'bell-alert-outline', label: 'Alerts', screen: 'Alerts' },
+    { icon: 'camera-outline', label: 'AR Radar', screen: 'ARRadar' },
     { icon: 'cog-outline', label: 'Settings', screen: 'Settings' },
     { icon: 'help-circle-outline', label: 'Support', action: () => Alert.alert('Support', 'Support is coming soon.') },
   ];

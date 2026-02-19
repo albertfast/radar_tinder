@@ -10,7 +10,8 @@ module.exports = (() => {
 
   config.transformer = {
     ...transformer,
-    babelTransformerPath: require.resolve('react-native-svg-transformer'),
+    // Expo projects should use the Expo-aware transformer entry.
+    babelTransformerPath: require.resolve('react-native-svg-transformer/expo'),
   };
 
   // pnpm uses a nested node_modules layout. These settings help Metro resolve packages correctly.
