@@ -26,6 +26,8 @@ type RadarDrivingShellProps = {
   routeMetaDestinationLabel?: string;
   navInstruction?: string;
   navDistanceLabel?: string;
+  hasArrived: boolean;
+  onEndTrip: () => void;
   basicContent: React.ReactNode;
   mapContent: React.ReactNode;
   graphicContent: React.ReactNode;
@@ -51,6 +53,8 @@ export function RadarDrivingShell({
   routeMetaDestinationLabel,
   navInstruction,
   navDistanceLabel,
+  hasArrived,
+  onEndTrip,
   basicContent,
   mapContent,
   graphicContent,
@@ -72,7 +76,23 @@ export function RadarDrivingShell({
         <IconButton icon="cog" iconColor="#fff" onPress={onOpenSettings} />
       </View>
 
-      {activeAlert ? (
+      {hasArrived ? (
+        <Animated.View
+          style={styles.navigationProgress}
+          entering={FadeInUp.duration(300)}
+        >
+          <View style={styles.progressIcon}>
+            <MaterialCommunityIcons name="flag-checkered" size={18} color="#4ECDC4" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.progressTitle}>You have arrived</Text>
+            <Text style={styles.progressSubtitle}>End the trip when parked safely.</Text>
+          </View>
+          <TouchableOpacity style={styles.arrivedEndTripButton} onPress={onEndTrip}>
+            <Text style={styles.arrivedEndTripText}>End Trip</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      ) : activeAlert && routeCoords.length > 0 ? (
         <Animated.View
           style={styles.liveAlertBanner}
           entering={FadeInUp.duration(300)}
@@ -98,26 +118,23 @@ export function RadarDrivingShell({
             <MaterialCommunityIcons name="close" size={16} color="#94A3B8" />
           </TouchableOpacity>
         </Animated.View>
-      ) : (
-        routeCoords.length > 0 &&
-        !isMapNavigationActive && (
-          <Animated.View
-            style={styles.navigationProgress}
-            entering={FadeInUp.duration(300)}
-          >
-            <View style={styles.progressIcon}>
-              <MaterialCommunityIcons name="navigation" size={18} color="#4ECDC4" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.progressTitle}>{routeMetaDestinationLabel || 'Navigation Active'}</Text>
-              <Text style={styles.progressSubtitle}>{navInstruction || 'Following route...'}</Text>
-            </View>
-            <View style={styles.progressDistance}>
-              <Text style={styles.progressDistanceText}>{navDistanceLabel || ''}</Text>
-            </View>
-          </Animated.View>
-        )
-      )}
+      ) : routeCoords.length > 0 && !isMapNavigationActive ? (
+        <Animated.View
+          style={styles.navigationProgress}
+          entering={FadeInUp.duration(300)}
+        >
+          <View style={styles.progressIcon}>
+            <MaterialCommunityIcons name="navigation" size={18} color="#4ECDC4" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.progressTitle}>{routeMetaDestinationLabel || 'Navigation Active'}</Text>
+            <Text style={styles.progressSubtitle}>{navInstruction || 'Following route...'}</Text>
+          </View>
+          <View style={styles.progressDistance}>
+            <Text style={styles.progressDistanceText}>{navDistanceLabel || ''}</Text>
+          </View>
+        </Animated.View>
+      ) : null}
 
       {!isMapNavigationActive && (
         <View style={styles.tabBar}>

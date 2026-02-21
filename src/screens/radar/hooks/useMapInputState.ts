@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, TextInput } from 'react-native';
+import { Keyboard, TextInput } from 'react-native';
 
 type FocusParams = {
   isDestinationEmpty: boolean;
@@ -15,22 +15,31 @@ type UseMapInputStateParams = {
 export function useMapInputState({ keyboardTraceEnabled }: UseMapInputStateParams) {
   const [isDestinationInputFocused, setIsDestinationInputFocused] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isBlurSettling, setIsBlurSettling] = useState(false);
 
   const destinationInputRef = useRef<TextInput>(null);
   const lastDestinationFocusAtRef = useRef(0);
   const isTypingRef = useRef(false);
+  const isDestinationInputFocusedRef = useRef(false);
+  const blurFinalizeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setDestinationInputFocused = useCallback((focused: boolean) => {
+    isDestinationInputFocusedRef.current = focused;
     setIsDestinationInputFocused(focused);
   }, []);
 
   const handleInputFocus = useCallback(
     ({ isDestinationEmpty, hasRecentDestinations, onShowRecent, onBeginInteracting }: FocusParams) => {
+      if (blurFinalizeTimeoutRef.current) {
+        clearTimeout(blurFinalizeTimeoutRef.current);
+        blurFinalizeTimeoutRef.current = null;
+      }
       if (keyboardTraceEnabled) {
         console.log('[KeyboardTrace] inputFocus');
       }
       lastDestinationFocusAtRef.current = Date.now();
       setDestinationInputFocused(true);
+      setIsBlurSettling(false);
       isTypingRef.current = true;
       onBeginInteracting?.();
 
@@ -42,20 +51,12 @@ export function useMapInputState({ keyboardTraceEnabled }: UseMapInputStateParam
   );
 
   const handleInputPressIn = useCallback(() => {
+    if (blurFinalizeTimeoutRef.current) {
+      clearTimeout(blurFinalizeTimeoutRef.current);
+      blurFinalizeTimeoutRef.current = null;
+    }
     lastDestinationFocusAtRef.current = Date.now();
-    setDestinationInputFocused(true);
-    isTypingRef.current = true;
-    if (keyboardTraceEnabled) {
-      console.log('[KeyboardTrace] inputPressIn');
-    }
-    // On Android, only force-focus if the input isn't already focused,
-    // and defer slightly to avoid racing with the native focus sequence.
-    if (Platform.OS === 'android' && !destinationInputRef.current?.isFocused()) {
-      setTimeout(() => {
-        destinationInputRef.current?.focus();
-      }, 80);
-    }
-  }, [keyboardTraceEnabled, setDestinationInputFocused]);
+  }, []);
 
   const handleInputBlur = useCallback(
     (onBlurFinalize?: () => void) => {
@@ -63,10 +64,16 @@ export function useMapInputState({ keyboardTraceEnabled }: UseMapInputStateParam
         console.log('[KeyboardTrace] inputBlur');
       }
       setDestinationInputFocused(false);
+      setIsBlurSettling(true);
       isTypingRef.current = false;
-      setTimeout(() => {
+      if (blurFinalizeTimeoutRef.current) {
+        clearTimeout(blurFinalizeTimeoutRef.current);
+      }
+      blurFinalizeTimeoutRef.current = setTimeout(() => {
+        setIsBlurSettling(false);
         onBlurFinalize?.();
-      }, 120);
+        blurFinalizeTimeoutRef.current = null;
+      }, 220);
     },
     [keyboardTraceEnabled, setDestinationInputFocused]
   );
@@ -76,7 +83,12 @@ export function useMapInputState({ keyboardTraceEnabled }: UseMapInputStateParam
       if (destinationInputRef.current?.isFocused()) {
         destinationInputRef.current.blur();
       }
+      if (blurFinalizeTimeoutRef.current) {
+        clearTimeout(blurFinalizeTimeoutRef.current);
+        blurFinalizeTimeoutRef.current = null;
+      }
       setDestinationInputFocused(false);
+      setIsBlurSettling(false);
       isTypingRef.current = false;
       Keyboard.dismiss();
       onDismissFinalize?.();
@@ -96,6 +108,9 @@ export function useMapInputState({ keyboardTraceEnabled }: UseMapInputStateParam
 
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
       setIsKeyboardVisible(false);
+      if (!isDestinationInputFocusedRef.current) {
+        setIsBlurSettling(false);
+      }
       if (keyboardTraceEnabled) {
         console.log('[KeyboardTrace] didHide');
       }
@@ -104,13 +119,16 @@ export function useMapInputState({ keyboardTraceEnabled }: UseMapInputStateParam
     return () => {
       showSub.remove();
       hideSub.remove();
+      if (blurFinalizeTimeoutRef.current) {
+        clearTimeout(blurFinalizeTimeoutRef.current);
+      }
     };
   }, [keyboardTraceEnabled]);
 
   return {
     isDestinationInputFocused,
     isKeyboardVisible,
-    isMapInputLockActive: isDestinationInputFocused || isKeyboardVisible,
+    isMapInputLockActive: isDestinationInputFocused || isBlurSettling,
     destinationInputRef,
     lastDestinationFocusAtRef,
     isTypingRef,

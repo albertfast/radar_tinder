@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView from 'react-native-maps';
+import * as Speech from 'expo-speech';
 import { AddressSuggestion } from '../../../types';
 import { AdService } from '../../../services/AdService';
 import { GoogleMapsService } from '../../../services/GoogleMapsService';
@@ -34,6 +35,7 @@ type UseRadarNavigationParams = {
   dismissDestinationInput: (onDismissFinalize?: () => void) => void;
   setDestinationInputFocused: (focused: boolean) => void;
   isTypingRef: React.MutableRefObject<boolean>;
+  getCurrentSpeedKph: () => number;
   logRouteSteps: (payload: { destination: string; points: number; steps: NavStep[] }) => void;
 };
 
@@ -57,6 +59,7 @@ export function useRadarNavigation({
   dismissDestinationInput,
   setDestinationInputFocused,
   isTypingRef,
+  getCurrentSpeedKph,
   logRouteSteps,
 }: UseRadarNavigationParams) {
   const [destination, setDestination] = useState('');
@@ -67,6 +70,9 @@ export function useRadarNavigation({
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [recentDestinations, setRecentDestinations] = useState<AddressSuggestion[]>([]);
+  const [arrivalState, setArrivalState] = useState<'none' | 'approaching' | 'arrived'>('none');
+  const [distanceToDestinationMeters, setDistanceToDestinationMeters] = useState<number | null>(null);
+  const [hasArrived, setHasArrived] = useState(false);
 
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const searchRequestIdRef = useRef(0);
@@ -75,6 +81,13 @@ export function useRadarNavigation({
   const lastRerouteAtRef = useRef(0);
   const stepDistanceHistoryRef = useRef<Record<number, { lastDistanceMeters: number; increasingTicks: number }>>({});
   const navRefreshInFlightRef = useRef(false);
+  const destinationCloseTickRef = useRef(0);
+  const hasArrivalAnnouncementRef = useRef(false);
+  const hasArrivedRef = useRef(false);
+
+  useEffect(() => {
+    hasArrivedRef.current = hasArrived;
+  }, [hasArrived]);
 
   const toRecentSuggestion = useCallback((item: any): AddressSuggestion | null => {
     if (typeof item === 'string') {
@@ -272,6 +285,12 @@ export function useRadarNavigation({
       setRouteMeta(null);
       setDestinationCoord(params?.destinationCoord || null);
       rerouteConsecutiveOffRouteRef.current = 0;
+      destinationCloseTickRef.current = 0;
+      hasArrivalAnnouncementRef.current = false;
+      hasArrivedRef.current = false;
+      setArrivalState('none');
+      setDistanceToDestinationMeters(null);
+      setHasArrived(false);
 
       try {
         dismissDestinationInput(() => {
@@ -466,6 +485,12 @@ export function useRadarNavigation({
     rerouteConsecutiveOffRouteRef.current = 0;
     lastRerouteAtRef.current = 0;
     navRefreshInFlightRef.current = false;
+    destinationCloseTickRef.current = 0;
+    hasArrivalAnnouncementRef.current = false;
+    hasArrivedRef.current = false;
+    setArrivalState('none');
+    setDistanceToDestinationMeters(null);
+    setHasArrived(false);
     setTotalDistance(0);
     lastPositionRef.current = null;
     resetSpeed();
@@ -560,7 +585,67 @@ export function useRadarNavigation({
         }
       }
 
+      const finalDestination =
+        destinationCoord ||
+        (routeCoords.length > 0 ? routeCoords[routeCoords.length - 1] : null);
+      if (
+        finalDestination &&
+        Number.isFinite(finalDestination.latitude) &&
+        Number.isFinite(finalDestination.longitude)
+      ) {
+        const distanceToDestination =
+          LocationService.calculateDistanceSync(
+            loc.latitude,
+            loc.longitude,
+            finalDestination.latitude,
+            finalDestination.longitude
+          ) * 1000;
+        setDistanceToDestinationMeters(distanceToDestination);
+
+        if (!hasArrivedRef.current) {
+          if (distanceToDestination <= 25) {
+            destinationCloseTickRef.current += 1;
+          } else {
+            destinationCloseTickRef.current = 0;
+          }
+
+          const currentSpeedKph = Math.max(0, getCurrentSpeedKph() || 0);
+          const arrivedByCloseTicks =
+            distanceToDestination <= 25 && destinationCloseTickRef.current >= 2;
+          const arrivedByLowSpeed = distanceToDestination <= 35 && currentSpeedKph < 3;
+
+          if (arrivedByCloseTicks || arrivedByLowSpeed) {
+            hasArrivedRef.current = true;
+            setHasArrived(true);
+            setArrivalState('arrived');
+            rerouteConsecutiveOffRouteRef.current = 0;
+
+            if (!hasArrivalAnnouncementRef.current) {
+              hasArrivalAnnouncementRef.current = true;
+              Speech.stop();
+              Speech.speak('You have arrived.', {
+                language: 'en-US',
+                rate: 0.95,
+                pitch: 1,
+              });
+            }
+          } else if (distanceToDestination <= 150) {
+            setArrivalState('approaching');
+          } else {
+            setArrivalState('none');
+          }
+        } else {
+          setArrivalState('arrived');
+        }
+      } else {
+        setDistanceToDestinationMeters(null);
+        if (!hasArrivedRef.current) {
+          setArrivalState('none');
+        }
+      }
+
       if (!routeCoords.length || !destination) return;
+      if (hasArrivedRef.current) return;
       const distanceToRoute = computeRouteProximityMeters(loc);
       if (distanceToRoute > 75) {
         rerouteConsecutiveOffRouteRef.current += 1;
@@ -647,6 +732,7 @@ export function useRadarNavigation({
     routeCoords,
     routeMeta,
     setTotalDistance,
+    getCurrentSpeedKph,
   ]);
 
   return {
@@ -665,6 +751,9 @@ export function useRadarNavigation({
     suggestions,
     setSuggestions,
     recentDestinations,
+    arrivalState,
+    distanceToDestinationMeters,
+    hasArrived,
     handleTextChange,
     handleNavigate,
     handleSelectSuggestion,

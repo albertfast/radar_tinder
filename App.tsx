@@ -11,7 +11,6 @@ import { AppState, View, ActivityIndicator, Platform } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 const reanimated = Reanimated as any;
 const reanimatedVersion = reanimated.version || 'unknown';
@@ -82,6 +81,7 @@ import {
 
 import MainDrawerNavigator from './src/navigation/MainDrawerNavigator';
 import ReportRadarScreen from './src/screens/ReportRadarScreen';
+import AdminLoginScreen from './src/screens/AdminLoginScreen';
 import { useAuthStore } from './src/store/authStore';
 import { darkTheme } from './src/utils/theme';
 import { BackgroundService } from './src/services/BackgroundService';
@@ -308,7 +308,6 @@ export default function App() {
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-        <KeyboardProvider>
         <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
             <PaperProvider theme={combinedDarkTheme}>
@@ -330,11 +329,7 @@ export default function App() {
                                 },
                               },
                               Drive: {
-                                screens: {
-                                  RadarMain: {
-                                    path: 'map',
-                                  },
-                                },
+                                path: 'map',
                               },
                               Diagnose: {
                                 path: 'diagnose',
@@ -370,6 +365,16 @@ export default function App() {
                           headerTintColor: combinedDarkTheme.colors.text,
                         }}
                       />
+                      {__DEV__ ? (
+                        <Stack.Screen
+                          name="AdminLogin"
+                          component={AdminLoginScreen}
+                          options={{
+                            presentation: 'modal',
+                            animation: 'slide_from_bottom',
+                          }}
+                        />
+                      ) : null}
                     </>
                   ) : (
                     <Stack.Screen
@@ -382,7 +387,6 @@ export default function App() {
             </PaperProvider>
           </QueryClientProvider>
         </SafeAreaProvider>
-        </KeyboardProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
   );

@@ -49,6 +49,8 @@ type RadarHomeDashboardProps = {
   onNavigateSubscription: () => void;
   onToggleDrivingMode: () => void;
   onToggleVoiceWarnings: () => void;
+  pauseRadarAnimation: boolean;
+  showHomeAd: boolean;
 };
 
 type StatPillProps = {
@@ -143,14 +145,17 @@ export function RadarHomeDashboard({
   onNavigateSubscription,
   onToggleDrivingMode,
   onToggleVoiceWarnings,
+  pauseRadarAnimation,
+  showHomeAd,
 }: RadarHomeDashboardProps) {
   const homeBottomInset = tabBarInset + Math.max(34, Math.round(width * 0.1));
   const isCompactWidth = width <= 420;
   const heroVerticalPadding = isCompactWidth ? 10 : 14;
   const heroTopMargin = isCompactWidth ? 2 : 6;
-  const buttonBottomSpacing = isCompactWidth
-    ? Math.max(homeBottomInset + getResponsiveHeight(36), getResponsiveHeight(156))
-    : Math.max(homeBottomInset + getResponsiveHeight(28), getResponsiveHeight(138));
+  const buttonBottomSpacing = isCompactWidth ? getResponsiveHeight(8) : getResponsiveHeight(10);
+  const contentBottomPadding = showHomeAd
+    ? Math.max(getResponsiveHeight(16), Math.round(tabBarInset * 0.36))
+    : Math.max(getResponsiveHeight(10), Math.round(tabBarInset * 0.22));
 
   return (
     <View style={styles.container}>
@@ -184,7 +189,7 @@ export function RadarHomeDashboard({
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: homeBottomInset + getResponsiveHeight(170) }}
+        contentContainerStyle={{ paddingBottom: contentBottomPadding }}
         showsVerticalScrollIndicator={false}
         scrollEnabled
       >
@@ -230,9 +235,11 @@ export function RadarHomeDashboard({
           </View>
         )}
 
-        <View style={styles.homeAdContainer}>
-          <AdBanner />
-        </View>
+        {showHomeAd ? (
+          <View style={styles.homeAdContainer}>
+            <AdBanner />
+          </View>
+        ) : null}
 
         <View style={[styles.heroCard, { marginTop: heroTopMargin, paddingVertical: heroVerticalPadding }]}>
           <LinearGradient
@@ -296,6 +303,7 @@ export function RadarHomeDashboard({
               artPreset="contour_orbit"
               signalLevel={radarSignalLevel}
               dangerLevel={radarDangerLevel}
+              paused={pauseRadarAnimation}
             />
             <View style={[styles.radarChip, styles.radarChipLeft]}>
               <MaterialCommunityIcons name="radar" size={18} color="#4ECDC4" />

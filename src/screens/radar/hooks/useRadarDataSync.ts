@@ -20,11 +20,12 @@ type UseRadarDataSyncParams = {
   setCurrentLocation: (location: any) => void;
   currentLocationRef: React.MutableRefObject<any>;
   mapRef: React.RefObject<MapView | null>;
+  allowUiLocationUpdates: boolean;
   isDriving: boolean;
   activeTab: TabType;
   followHeading: boolean;
   isTypingRef: React.MutableRefObject<boolean>;
-  isInteractingRef: React.MutableRefObject<boolean>;
+  manualPanModeRef: React.MutableRefObject<boolean>;
   hasCenteredMapRef: React.MutableRefObject<boolean>;
   activeAlerts: RadarAlert[];
   hasHydrated: boolean;
@@ -35,16 +36,39 @@ type UseRadarDataSyncParams = {
   setRadarLocations: (radars: any[]) => void;
 };
 
+const normalizeHeading = (heading: number) => {
+  const normalized = heading % 360;
+  return normalized >= 0 ? normalized : normalized + 360;
+};
+
+const calculateBearing = (
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number
+) => {
+  const startLat = (fromLat * Math.PI) / 180;
+  const endLat = (toLat * Math.PI) / 180;
+  const deltaLng = ((toLng - fromLng) * Math.PI) / 180;
+  const y = Math.sin(deltaLng) * Math.cos(endLat);
+  const x =
+    Math.cos(startLat) * Math.sin(endLat) -
+    Math.sin(startLat) * Math.cos(endLat) * Math.cos(deltaLng);
+  const angle = (Math.atan2(y, x) * 180) / Math.PI;
+  return normalizeHeading(angle);
+};
+
 export function useRadarDataSync({
   currentLocation,
   setCurrentLocation,
   currentLocationRef,
   mapRef,
+  allowUiLocationUpdates,
   isDriving,
   activeTab,
   followHeading,
   isTypingRef,
-  isInteractingRef,
+  manualPanModeRef,
   hasCenteredMapRef,
   activeAlerts,
   hasHydrated,
@@ -56,6 +80,7 @@ export function useRadarDataSync({
 }: UseRadarDataSyncParams) {
   const [nearbyRadars, setNearbyRadars] = useState<any[]>([]);
   const [closestRadarHint, setClosestRadarHint] = useState('');
+  const [radarLocationHints, setRadarLocationHints] = useState<Record<string, string>>({});
 
   const { uiSpeedKph: currentSpeed, pushLocationSample, resetSpeed } = useSpeedSmoothing({
     calculateDistanceSync: LocationService.calculateDistanceSync,
@@ -70,6 +95,9 @@ export function useRadarDataSync({
   const lastAnnouncedAlertIdRef = useRef<string | null>(null);
   const closestRadarLabelCacheRef = useRef<Record<string, string>>({});
   const closestRadarLabelRequestRef = useRef<Record<string, boolean>>({});
+  const radarHintRequestRef = useRef<Record<string, boolean>>({});
+  const previousHeadingLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const lastValidHeadingRef = useRef(0);
 
   useEffect(() => {
     currentLocationRef.current = currentLocation;
@@ -217,6 +245,43 @@ export function useRadarDataSync({
   }, [closestRadar]);
 
   useEffect(() => {
+    const candidates = nearbyRadars.slice(0, 10);
+    for (const radar of candidates) {
+      if (!radar?.id) continue;
+      if (radarLocationHints[radar.id] || radarHintRequestRef.current[radar.id]) continue;
+      const latitude = Number(radar.latitude);
+      const longitude = Number(radar.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+
+      radarHintRequestRef.current[radar.id] = true;
+      (async () => {
+        try {
+          const fullLabel = await GoogleMapsService.getReverseGeocoding(latitude, longitude);
+          const shortLabel = extractShortStreetLabel(fullLabel);
+          if (!shortLabel) return;
+          setRadarLocationHints((prev) => {
+            if (prev[radar.id] === shortLabel) return prev;
+            return { ...prev, [radar.id]: shortLabel };
+          });
+        } catch (error) {
+          // Ignore reverse geocode failures for non-critical hints.
+        } finally {
+          delete radarHintRequestRef.current[radar.id];
+        }
+      })();
+    }
+  }, [nearbyRadars, radarLocationHints]);
+
+  const nearbyRadarsWithHints = useMemo(
+    () =>
+      nearbyRadars.map((radar) => ({
+        ...radar,
+        locationHint: radarLocationHints[radar.id] || radar.locationLabel || '',
+      })),
+    [nearbyRadars, radarLocationHints]
+  );
+
+  useEffect(() => {
     const unsubscribe = useRadarStore.subscribe((state) => {
       const location = state.currentLocation;
       if (
@@ -225,8 +290,42 @@ export function useRadarDataSync({
           location.latitude !== currentLocationRef.current.latitude ||
           location.longitude !== currentLocationRef.current.longitude)
       ) {
-        currentLocationRef.current = location;
-        pushLocationSample(location);
+        const previousHeadingLocation = previousHeadingLocationRef.current;
+        const headingFromSensor =
+          typeof location.heading === 'number' && Number.isFinite(location.heading)
+            ? normalizeHeading(location.heading)
+            : null;
+        const movementMeters = previousHeadingLocation
+          ? LocationService.calculateDistanceSync(
+              previousHeadingLocation.latitude,
+              previousHeadingLocation.longitude,
+              location.latitude,
+              location.longitude
+            ) * 1000
+          : 0;
+        const bearingHeading =
+          headingFromSensor === null && previousHeadingLocation && movementMeters >= 3
+            ? calculateBearing(
+                previousHeadingLocation.latitude,
+                previousHeadingLocation.longitude,
+                location.latitude,
+                location.longitude
+              )
+            : null;
+        const resolvedHeading = headingFromSensor ?? bearingHeading ?? lastValidHeadingRef.current;
+        lastValidHeadingRef.current = normalizeHeading(resolvedHeading);
+        previousHeadingLocationRef.current = {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        };
+
+        const locationWithHeading = {
+          ...location,
+          heading: lastValidHeadingRef.current,
+        };
+
+        currentLocationRef.current = locationWithHeading;
+        pushLocationSample(locationWithHeading);
 
         const previousUiLocation = lastUiLocationRef.current;
         const now = Date.now();
@@ -234,13 +333,14 @@ export function useRadarDataSync({
           ? LocationService.calculateDistanceSync(
               previousUiLocation.latitude,
               previousUiLocation.longitude,
-              location.latitude,
-              location.longitude
+              locationWithHeading.latitude,
+              locationWithHeading.longitude
             ) * 1000
           : Number.POSITIVE_INFINITY;
         const previousHeading =
           typeof previousUiLocation?.heading === 'number' ? previousUiLocation.heading : null;
-        const nextHeading = typeof location.heading === 'number' ? location.heading : null;
+        const nextHeading =
+          typeof locationWithHeading.heading === 'number' ? locationWithHeading.heading : null;
         let headingDelta = 0;
         if (previousHeading !== null && nextHeading !== null) {
           headingDelta = Math.abs(nextHeading - previousHeading);
@@ -249,27 +349,27 @@ export function useRadarDataSync({
         const shouldUpdateUiLocation =
           !previousUiLocation || movedMeters >= 4 || headingDelta >= 10 || now - lastUiLocationUpdateAtRef.current >= 900;
 
-        if (shouldUpdateUiLocation) {
-          lastUiLocationRef.current = location;
+        if (shouldUpdateUiLocation && allowUiLocationUpdates) {
+          lastUiLocationRef.current = locationWithHeading;
           lastUiLocationUpdateAtRef.current = now;
-          setCurrentLocation(location);
+          setCurrentLocation(locationWithHeading);
         }
 
-        if (isDriving && activeTab === 'Map' && !isInteractingRef.current && !isTypingRef.current) {
+        if (isDriving && activeTab === 'Map' && !manualPanModeRef.current && !isTypingRef.current) {
           const lastCameraCenter = lastCameraCenterRef.current;
           const movedFromCameraMeters = lastCameraCenter
             ? LocationService.calculateDistanceSync(
                 lastCameraCenter.latitude,
                 lastCameraCenter.longitude,
-                location.latitude,
-                location.longitude
+                locationWithHeading.latitude,
+                locationWithHeading.longitude
               ) * 1000
             : Number.POSITIVE_INFINITY;
-          const rawHeading =
-            typeof location.heading === 'number' && Number.isFinite(location.heading)
-              ? location.heading
-              : 0;
-          const targetHeading = followHeading ? rawHeading : 0;
+          const currentHeading =
+            typeof locationWithHeading.heading === 'number' && Number.isFinite(locationWithHeading.heading)
+              ? normalizeHeading(locationWithHeading.heading)
+              : lastValidHeadingRef.current;
+          const targetHeading = followHeading ? currentHeading : 0;
           const previousCameraHeading = lastCameraHeadingRef.current;
           let cameraHeadingDelta = Number.POSITIVE_INFINITY;
           if (typeof previousCameraHeading === 'number') {
@@ -285,7 +385,10 @@ export function useRadarDataSync({
           if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= 1500) {
             mapRef.current?.animateCamera(
               {
-                center: { latitude: location.latitude, longitude: location.longitude },
+                center: {
+                  latitude: locationWithHeading.latitude,
+                  longitude: locationWithHeading.longitude,
+                },
                 pitch: 50,
                 heading: targetHeading,
                 altitude: 800,
@@ -293,7 +396,10 @@ export function useRadarDataSync({
               },
               { duration: 1200 }
             );
-            lastCameraCenterRef.current = { latitude: location.latitude, longitude: location.longitude };
+            lastCameraCenterRef.current = {
+              latitude: locationWithHeading.latitude,
+              longitude: locationWithHeading.longitude,
+            };
             lastCameraHeadingRef.current = targetHeading;
             lastCameraUpdateRef.current = now;
 
@@ -312,7 +418,16 @@ export function useRadarDataSync({
     });
 
     return unsubscribe;
-  }, [activeTab, followHeading, isDriving, isInteractingRef, isTypingRef, mapRef, pushLocationSample]);
+  }, [
+    activeTab,
+    allowUiLocationUpdates,
+    followHeading,
+    isDriving,
+    manualPanModeRef,
+    isTypingRef,
+    mapRef,
+    pushLocationSample,
+  ]);
 
   useEffect(() => {
     if (currentLocation && mapRef.current && !hasCenteredMapRef.current) {
@@ -356,7 +471,7 @@ export function useRadarDataSync({
     currentLocation,
     setCurrentLocation,
     currentLocationRef,
-    nearbyRadars,
+    nearbyRadars: nearbyRadarsWithHints,
     nearbyRadarsRef,
     setNearbyRadars,
     updateNearbyRadarsState,
@@ -365,5 +480,9 @@ export function useRadarDataSync({
     activeAlert,
     closestRadar,
     closestRadarHint,
+    resolvedHeading:
+      typeof currentLocation?.heading === 'number' && Number.isFinite(currentLocation.heading)
+        ? normalizeHeading(currentLocation.heading)
+        : lastValidHeadingRef.current,
   };
 }

@@ -1,10 +1,12 @@
-import React from 'react';
-import { View, StyleSheet, Text, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, Text, Platform, Keyboard } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { AdService } from '../services/AdService';
 
 interface AdBannerProps {
   size?: any;
   unitId?: string;
+  suppressAds?: boolean;
 }
 
 let cachedGoogleMobileAds: any | undefined;
@@ -28,12 +30,8 @@ const describeError = (error: unknown): string => {
 function getGoogleMobileAds(): any | null {
   if (cachedGoogleMobileAds !== undefined) return cachedGoogleMobileAds;
   try {
-    // Load only banner-specific modules; avoid package root eager imports.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const BannerAd = require('react-native-google-mobile-ads/lib/commonjs/ads/BannerAd');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const BannerAdSize = require('react-native-google-mobile-ads/lib/commonjs/BannerAdSize');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const TestIds = require('react-native-google-mobile-ads/lib/commonjs/TestIds');
     cachedGoogleMobileAds = {
       BannerAd: BannerAd?.BannerAd ?? BannerAd?.default,
@@ -49,7 +47,14 @@ function getGoogleMobileAds(): any | null {
   return cachedGoogleMobileAds;
 }
 
-const AdBanner: React.FC<AdBannerProps> = ({ size, unitId }) => {
+const AdBanner: React.FC<AdBannerProps> = ({ size, unitId, suppressAds = false }) => {
+  let isFocused = true;
+  try {
+    isFocused = useIsFocused();
+  } catch (e) {
+    // If used outside navigation context, default to true
+  }
+
   const defaultBannerUnitId =
     process.env.EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID ||
     'ca-app-pub-9670547831022880/8900297100';
@@ -60,11 +65,47 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId }) => {
   const [didLoad, setDidLoad] = React.useState(false);
   const [hasRetriedWithDefault, setHasRetriedWithDefault] = React.useState(false);
   const [effectiveProductionUnitId, setEffectiveProductionUnitId] = React.useState(productionBannerUnitId);
+  
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   React.useEffect(() => {
     setEffectiveProductionUnitId(productionBannerUnitId);
     setHasRetriedWithDefault(false);
   }, [productionBannerUnitId]);
+
+  // LOGGING ADDED FOR DEBUGGING
+  // console.log(`[AdBanner] isFocused: ${isFocused}, isKeyboardVisible: ${isKeyboardVisible}, unitId: ${unitId || 'default'}`);
+
+  if (isKeyboardVisible || !isFocused) {
+    return <View style={{ height: 0 }} />;
+  }
+
+  if (suppressAds) {
+    if (isAdDebugOverlayEnabled()) {
+      return (
+        <View style={styles.debugBox}>
+          <Text style={styles.debugText}>Ads suppressed during active navigation</Text>
+        </View>
+      );
+    }
+    return null;
+  }
 
   if (!AdService.shouldShowAds()) {
     if (isAdDebugOverlayEnabled()) {
@@ -100,13 +141,13 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId }) => {
   }
 
   const resolvedSize = (() => {
-    if (!size) return BannerAdSize.ANCHORED_ADAPTIVE_BANNER;
+    if (!size) return BannerAdSize.BANNER;
     if (typeof size === 'string' && BannerAdSize?.[size]) {
       return BannerAdSize[size];
     }
     return size;
   })();
-  // Use test ID in dev or when explicitly forced for TestFlight/debug diagnosis.
+  
   const adUnitId = isUsingTestUnit ? TestIds.BANNER : effectiveProductionUnitId;
 
   const minHeight = (() => {
@@ -115,7 +156,7 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId }) => {
       if (size === 'LARGE_BANNER') return 100;
       if (size === 'FULL_BANNER') return 60;
     }
-    return 52;
+    return 50;
   })();
 
   return (
@@ -127,16 +168,18 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId }) => {
           requestNonPersonalizedAdsOnly: true,
         }}
         onAdLoaded={() => {
-          setDidLoad(true);
-          setLoadError(null);
+          // REMOVED STATE UPDATE TO PREVENT RE-RENDERS
+          // setDidLoad(true); 
+          // setLoadError(null);
           if (isAdDebugEnabled()) {
             console.log('[ADS] banner loaded', { platform: Platform.OS, adUnitId });
           }
         }}
         onAdFailedToLoad={(error: unknown) => {
           const reason = describeError(error);
-          setDidLoad(false);
-          setLoadError(reason);
+          // REMOVED STATE UPDATE
+          // setDidLoad(false);
+          // setLoadError(reason);
           if (
             !isUsingTestUnit &&
             !hasRetriedWithDefault &&

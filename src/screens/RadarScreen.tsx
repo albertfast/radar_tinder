@@ -3,6 +3,7 @@ import { View, useWindowDimensions, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import MapView from 'react-native-maps';
+import { useIsFocused } from '@react-navigation/native';
 import { useRadarStore } from '../store/radarStore';
 import { useAuthStore } from '../store/authStore';
 import { useSettingsStore } from '../store/settingsStore';
@@ -11,6 +12,7 @@ import { RadarService } from '../services/RadarService';
 import { OfflineService } from '../services/OfflineService';
 import { SupabaseService } from '../services/SupabaseService';
 import { LocationService } from '../services/LocationService';
+import { AdService } from '../services/AdService';
 import { formatDistance } from '../utils/format';
 import { hasProAccess } from '../utils/access';
 import { RadarAlert, RadarLocation } from '../types';
@@ -53,29 +55,38 @@ const RadarScreen = ({ navigation, route }: any) => {
   } = useSettingsStore();
   const setRadarLocations = useRadarStore((state) => state.setRadarLocations);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
+  const setActiveAlerts = useRadarStore((state) => state.setActiveAlerts);
   const acknowledgeAlert = useRadarStore((state) => state.acknowledgeAlert);
-  const setTabBarHidden = useUiStore((state) => state.setTabBarHidden);
+  const setRouteGuidanceActive = useRadarStore((state) => state.setRouteGuidanceActive);
+  const hideTabBar = useUiStore((state) => state.hideTabBar);
+  const showTabBar = useUiStore((state) => state.showTabBar);
 
   const mapRef = useRef<MapView | null>(null);
   const proSliderRef = useRef<FlatList>(null);
   const hasCenteredMapRef = useRef(false);
-  const isInteractingRef = useRef(false);
-  const interactionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const forceTabRequestRef = useRef<string | null>(null);
 
   const { width, height } = useWindowDimensions();
+  const isScreenFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>('Basic');
   const [proSliderIndex, setProSliderIndex] = useState(0);
   const [followHeading, setFollowHeading] = useState(true);
+  const [manualPanMode, setManualPanMode] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<any>(null);
   const currentLocationRef = useRef<any>(currentLocation);
+  const manualPanModeRef = useRef(manualPanMode);
 
   const mapInput = useMapInputState({ keyboardTraceEnabled: KEYBOARD_TRACE_ENABLED });
 
   useEffect(() => {
     currentLocationRef.current = currentLocation;
   }, [currentLocation]);
+
+  useEffect(() => {
+    manualPanModeRef.current = manualPanMode;
+  }, [manualPanMode]);
 
   const { voicePlaybackEnabled, alertModeLabel, toggleVoiceWarnings } = useVoiceMode({
     hasHydrated,
@@ -97,11 +108,12 @@ const RadarScreen = ({ navigation, route }: any) => {
     setCurrentLocation,
     currentLocationRef,
     mapRef,
+    allowUiLocationUpdates: isScreenFocused || driving.isDriving,
     isDriving: driving.isDriving,
     activeTab,
     followHeading,
     isTypingRef: mapInput.isTypingRef,
-    isInteractingRef,
+    manualPanModeRef,
     hasCenteredMapRef,
     activeAlerts: activeAlerts as RadarAlert[],
     hasHydrated,
@@ -113,6 +125,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   });
 
   const { logRouteSteps } = useRouteTrace();
+  const getCurrentSpeedKph = useCallback(() => dataSync.currentSpeed, [dataSync.currentSpeed]);
   const navigationState = useRadarNavigation({
     canUsePro,
     mapRef,
@@ -133,6 +146,7 @@ const RadarScreen = ({ navigation, route }: any) => {
     dismissDestinationInput: mapInput.dismissDestinationInput,
     setDestinationInputFocused: mapInput.setDestinationInputFocused,
     isTypingRef: mapInput.isTypingRef,
+    getCurrentSpeedKph,
     logRouteSteps,
   });
 
@@ -147,7 +161,8 @@ const RadarScreen = ({ navigation, route }: any) => {
   const mapOverlayTop = getResponsiveMargin(12);
   const mapControlSize = getResponsiveWidth(38);
   const mapControlGap = getResponsiveMargin(8);
-  const isMapNavigationActive = driving.isDriving && activeTab === 'Map' && navigationState.routeCoords.length > 0;
+  const isTurnByTurnActive = driving.isDriving && navigationState.routeCoords.length > 0;
+  const isMapNavigationActive = isTurnByTurnActive && activeTab === 'Map';
   const mapControlsBottomBase = isMapNavigationActive
     ? Math.max(getResponsiveHeight(180), Math.round(height * 0.3))
     : Math.max(110, Math.round(height * 0.22));
@@ -171,7 +186,8 @@ const RadarScreen = ({ navigation, route }: any) => {
     ? Math.max(getResponsiveHeight(170), mapControlsBottom - mapControlSize - mapControlGap)
     : mapAdBottom + mapAdEstimatedHeight + fabGap;
   const hideMapAd = mapInput.isDestinationInputFocused || mapInput.isKeyboardVisible;
-  const compassRotation = dataSync.currentLocation?.heading != null ? `${dataSync.currentLocation.heading}deg` : '0deg';
+  const compassRotation = `${dataSync.resolvedHeading || 0}deg`;
+  const showHomeAd = AdService.shouldShowAds();
   const nearestRadarSummary = dataSync.closestRadar
     ? (dataSync.closestRadarHint ? `${formatDistance(dataSync.closestRadar.distance, unitSystem)} at ${dataSync.closestRadarHint}` : formatDistance(dataSync.closestRadar.distance, unitSystem))
     : 'Scanning...';
@@ -185,9 +201,34 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, [driving.isDriving, keepAwakeWhileDriving]);
 
   useEffect(() => {
-    setTabBarHidden(driving.isDriving || activeTab === 'Map');
-    return () => setTabBarHidden(false);
-  }, [activeTab, driving.isDriving, setTabBarHidden]);
+    if (driving.isDriving || activeTab === 'Map') {
+      hideTabBar('driving_mode');
+      return () => showTabBar('driving_mode');
+    }
+    showTabBar('driving_mode');
+    return () => showTabBar('driving_mode');
+  }, [activeTab, driving.isDriving, hideTabBar, showTabBar]);
+
+  useEffect(() => {
+    AdService.setNavigationAdsSuppressed(isTurnByTurnActive);
+    return () => AdService.setNavigationAdsSuppressed(false);
+  }, [isTurnByTurnActive]);
+
+  useEffect(() => {
+    setRouteGuidanceActive(isTurnByTurnActive);
+    return () => setRouteGuidanceActive(false);
+  }, [isTurnByTurnActive, setRouteGuidanceActive]);
+
+  useEffect(() => {
+    if (isTurnByTurnActive) return;
+    setActiveAlerts([]);
+  }, [isTurnByTurnActive, setActiveAlerts]);
+
+  useEffect(() => {
+    if (!driving.isDriving) return;
+    setFollowHeading(true);
+    setManualPanMode(false);
+  }, [driving.isDriving]);
 
   useEffect(() => {
     if (driving.isDriving) return;
@@ -201,24 +242,49 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   useEffect(() => {
     const forceTab = route?.params?.forceTab as TabType | undefined;
-    if (!forceTab) return;
+    if (!forceTab) {
+      forceTabRequestRef.current = null;
+      return;
+    }
+    if (forceTabRequestRef.current === forceTab) return;
+    forceTabRequestRef.current = forceTab;
+    let cancelled = false;
     const run = async () => {
-      if (forceTab === 'Map' || forceTab === 'Graphic') {
+      if (forceTab === 'Map' || forceTab === 'Graphic' || forceTab === 'Basic') {
         if (forceTab === 'Graphic' && !canUsePro) {
           setActiveTab('Basic');
           driving.resetDrivingSession();
         } else {
-          await driving.startDrivingSession({ setActiveTab, activateMapTab: forceTab === 'Map', source: 'force_tab' });
-          if (forceTab === 'Graphic') setActiveTab('Graphic');
+          await driving.startDrivingSession({
+            setActiveTab,
+            activateMapTab: forceTab === 'Map',
+            source: 'force_tab',
+          });
+          if (forceTab === 'Graphic') {
+            setActiveTab('Graphic');
+          } else if (forceTab === 'Basic') {
+            setActiveTab('Basic');
+          }
         }
       } else {
         setActiveTab('Basic');
         driving.resetDrivingSession();
       }
-      navigation.setParams?.({ forceTab: undefined });
+      if (!cancelled) {
+        forceTabRequestRef.current = null;
+        navigation.setParams?.({ forceTab: undefined });
+      }
     };
-    run().catch(() => navigation.setParams?.({ forceTab: undefined }));
-  }, [route?.params?.forceTab, canUsePro, driving, navigation]);
+    run().catch(() => {
+      forceTabRequestRef.current = null;
+      if (!cancelled) {
+        navigation.setParams?.({ forceTab: undefined });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [route?.params?.forceTab, canUsePro, driving.resetDrivingSession, driving.startDrivingSession, navigation]);
 
   const toggleDrivingMode = useCallback(async () => {
     if (!driving.isDriving) {
@@ -230,23 +296,40 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   const centerMap = useCallback(() => {
     if (dataSync.currentLocation && mapRef.current) {
-      mapRef.current.animateCamera({ center: { latitude: dataSync.currentLocation.latitude, longitude: dataSync.currentLocation.longitude }, zoom: 17, heading: followHeading ? dataSync.currentLocation.heading || 0 : 0, pitch: 60 }, { duration: 1000 });
-      isInteractingRef.current = false;
+      setManualPanMode(false);
+      setFollowHeading(true);
+      mapRef.current.animateCamera(
+        {
+          center: {
+            latitude: dataSync.currentLocation.latitude,
+            longitude: dataSync.currentLocation.longitude,
+          },
+          zoom: 17,
+          heading: dataSync.resolvedHeading || dataSync.currentLocation.heading || 0,
+          pitch: 60,
+        },
+        { duration: 1000 }
+      );
     }
-  }, [dataSync.currentLocation, followHeading]);
+  }, [dataSync.currentLocation, dataSync.resolvedHeading]);
 
-  const markInteracting = useCallback(() => {
-    isInteractingRef.current = true;
-    if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
-    interactionTimeoutRef.current = setTimeout(() => {
-      if (!mapInput.isTypingRef.current) isInteractingRef.current = false;
-    }, 2000);
-  }, [mapInput.isTypingRef]);
+  const handleMapTouchStart = useCallback(() => {
+    if (mapInput.isMapInputLockActive) return;
+    setManualPanMode(true);
+    setFollowHeading(false);
+  }, [mapInput.isMapInputLockActive]);
 
   const handleMapTap = useCallback(() => {
-    if (Date.now() - mapInput.lastDestinationFocusAtRef.current < 1200) return;
-    if (mapInput.isDestinationInputFocused || mapInput.isKeyboardVisible || mapInput.isTypingRef.current) return;
-    navigationState.setSuggestions([]);
+    if (Date.now() - mapInput.lastDestinationFocusAtRef.current < 200) return;
+    if (mapInput.isDestinationInputFocused || mapInput.isKeyboardVisible || mapInput.isTypingRef.current) {
+      mapInput.dismissDestinationInput(() => {
+        navigationState.setSuggestions([]);
+      });
+      return;
+    }
+    if (navigationState.suggestions.length > 0) {
+      navigationState.setSuggestions([]);
+    }
   }, [mapInput, navigationState]);
 
   const exitDrivingToHome = useCallback(async () => {
@@ -306,9 +389,89 @@ const RadarScreen = ({ navigation, route }: any) => {
         routeCoords={navigationState.routeCoords}
         routeMetaDestinationLabel={navigationState.routeMeta?.destinationLabel}
         navInstruction={navigationState.navSteps[navigationState.currentStepIndex]?.instruction}
-        navDistanceLabel={formatStepDistance(navigationState.getStepDistanceMeters(navigationState.navSteps[navigationState.currentStepIndex]), unitSystem)}
-        basicContent={<RadarBasicTab currentSpeed={dataSync.currentSpeed} unitSystem={unitSystem} nearbyRadars={dataSync.nearbyRadars} tabBarInset={tabBarInset} />}
-        mapContent={<RadarMapTab currentLocation={dataSync.currentLocation} nearbyRadars={dataSync.nearbyRadars} routeCoords={navigationState.routeCoords} mapRef={mapRef} destinationCoord={navigationState.destinationCoord} mapPadding={mapPadding} isMapInputLockActive={mapInput.isMapInputLockActive} onRadarPress={onRadarPress} handleMapTouchStart={() => !mapInput.isMapInputLockActive && markInteracting()} endInteracting={() => !mapInput.isTypingRef.current && (isInteractingRef.current = false)} handleMapTap={handleMapTap} mapOverlayTop={mapOverlayTop} mapOverlayInset={mapOverlayInset} mapControlGap={mapControlGap} destinationInputRef={mapInput.destinationInputRef} destination={navigationState.destination} handleTextChange={navigationState.handleTextChange} handleNavigate={() => navigationState.handleNavigate()} onClearDestination={() => { navigationState.setDestination(''); navigationState.setSuggestions([]); }} centerMap={centerMap} suggestions={navigationState.suggestions} handleSelectSuggestion={navigationState.handleSelectSuggestion} recentDestinations={navigationState.recentDestinations} handleInputPressIn={mapInput.handleInputPressIn} handleInputFocus={mapInput.handleInputFocus} handleInputBlur={mapInput.handleInputBlur} isMapNavigationActive={isMapNavigationActive} routeMeta={navigationState.routeMeta} navSteps={navigationState.navSteps} currentStepIndex={navigationState.currentStepIndex} formatStepDistance={(m) => formatStepDistance(m, unitSystem)} getStepDistanceMeters={navigationState.getStepDistanceMeters} getManeuverIcon={getManeuverIcon} uiScale={uiScale} mapNavDockBottom={mapNavDockBottom} hideMapAd={hideMapAd} mapAdBottom={mapAdBottom} mapControlsBottom={mapControlsBottom} mapControlSize={mapControlSize} followHeading={followHeading} compassRotation={compassRotation} zoomMap={async (d) => { if (!mapRef.current) return; try { const c = await mapRef.current.getCamera(); mapRef.current.animateCamera({ zoom: Math.max(2, Math.min(20, (typeof c.zoom === 'number' ? c.zoom : 17) + d)) }, { duration: 200 }); markInteracting(); } catch {} }} toggleHeadingMode={() => { markInteracting(); setFollowHeading((prev) => { const next = !prev; mapRef.current?.animateCamera({ heading: next ? dataSync.currentLocation?.heading || 0 : 0 }, { duration: 300 }); return next; }); }} resetRoute={navigationState.resetRoute} setSuggestions={navigationState.setSuggestions} />}
+        navDistanceLabel={formatStepDistance(
+          navigationState.getStepDistanceMeters(navigationState.navSteps[navigationState.currentStepIndex]),
+          unitSystem
+        )}
+        hasArrived={navigationState.hasArrived}
+        onEndTrip={navigationState.resetRoute}
+        basicContent={
+          <RadarBasicTab
+            currentSpeed={dataSync.currentSpeed}
+            unitSystem={unitSystem}
+            nearbyRadars={dataSync.nearbyRadars}
+            tabBarInset={tabBarInset}
+          />
+        }
+        mapContent={
+          <RadarMapTab
+            currentLocation={dataSync.currentLocation}
+            nearbyRadars={dataSync.nearbyRadars}
+            routeCoords={navigationState.routeCoords}
+            mapRef={mapRef}
+            destinationCoord={navigationState.destinationCoord}
+            mapPadding={mapPadding}
+            isMapInputLockActive={mapInput.isMapInputLockActive}
+            onRadarPress={onRadarPress}
+            handleMapTouchStart={handleMapTouchStart}
+            handleMapTap={handleMapTap}
+            mapOverlayTop={mapOverlayTop}
+            mapOverlayInset={mapOverlayInset}
+            mapControlGap={mapControlGap}
+            destinationInputRef={mapInput.destinationInputRef}
+            destination={navigationState.destination}
+            handleTextChange={navigationState.handleTextChange}
+            handleNavigate={() => navigationState.handleNavigate()}
+            onClearDestination={() => {
+              navigationState.setDestination('');
+              navigationState.setSuggestions([]);
+            }}
+            centerMap={centerMap}
+            suggestions={navigationState.suggestions}
+            handleSelectSuggestion={navigationState.handleSelectSuggestion}
+            recentDestinations={navigationState.recentDestinations}
+            handleInputPressIn={mapInput.handleInputPressIn}
+            handleInputFocus={mapInput.handleInputFocus}
+            handleInputBlur={mapInput.handleInputBlur}
+            isMapNavigationActive={isMapNavigationActive}
+            routeMeta={navigationState.routeMeta}
+            navSteps={navigationState.navSteps}
+            currentStepIndex={navigationState.currentStepIndex}
+            formatStepDistance={(m) => formatStepDistance(m, unitSystem)}
+            getStepDistanceMeters={navigationState.getStepDistanceMeters}
+            getManeuverIcon={getManeuverIcon}
+            uiScale={uiScale}
+            mapNavDockBottom={mapNavDockBottom}
+            hideMapAd={hideMapAd}
+            mapAdBottom={mapAdBottom}
+            mapControlsBottom={mapControlsBottom}
+            mapControlSize={mapControlSize}
+            followHeading={followHeading && !manualPanMode}
+            compassRotation={compassRotation}
+            zoomMap={async (d) => {
+              if (!mapRef.current) return;
+              try {
+                const c = await mapRef.current.getCamera();
+                mapRef.current.animateCamera(
+                  {
+                    zoom: Math.max(2, Math.min(20, (typeof c.zoom === 'number' ? c.zoom : 17) + d)),
+                  },
+                  { duration: 200 }
+                );
+                setManualPanMode(true);
+                setFollowHeading(false);
+              } catch {}
+            }}
+            resumeFollowMode={centerMap}
+            arrivalState={navigationState.arrivalState}
+            distanceToDestinationMeters={navigationState.distanceToDestinationMeters}
+            hasArrived={navigationState.hasArrived}
+            onEndTrip={navigationState.resetRoute}
+            suppressAds={isTurnByTurnActive}
+            resetRoute={navigationState.resetRoute}
+            setSuggestions={navigationState.setSuggestions}
+          />
+        }
         graphicContent={<RadarGraphicView totalDistance={driving.totalDistance} drivingStartTime={driving.drivingStartTime} currentSpeed={dataSync.currentSpeed} unitSystem={unitSystem} radarRendererMode={radarRendererMode} radarSignalLevel={radarSignalLevel} radarDangerLevel={radarDangerLevel} />}
         floatingFabBottom={floatingFabBottom}
         reportModalVisible={reportModalVisible}
@@ -347,6 +510,8 @@ const RadarScreen = ({ navigation, route }: any) => {
       onNavigateSubscription={() => navigation.navigate('Subscription')}
       onToggleDrivingMode={toggleDrivingMode}
       onToggleVoiceWarnings={toggleVoiceWarnings}
+      pauseRadarAnimation={false}
+      showHomeAd={showHomeAd}
     />
   );
 };

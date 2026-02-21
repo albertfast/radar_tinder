@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Dimensions } from 'react-native';
-import { Text, Surface, Avatar, IconButton, Divider } from 'react-native-paper';
+import {
+  View,
+  StyleSheet,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { Text, Surface, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp, SlideInRight } from 'react-native-reanimated';
@@ -10,12 +19,9 @@ import { useSettingsStore } from '../store/settingsStore';
 import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
 import { HapticPatterns } from '../utils/hapticFeedback';
 import { SupabaseService } from '../services/SupabaseService';
-import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import AdBanner from '../components/AdBanner';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const { width } = Dimensions.get('window');
 
 const StatBadge = ({ icon, value, label, color = '#4ECDC4', delay = 0 }: any) => (
   <Animated.View
@@ -65,9 +71,17 @@ const MenuButton = ({ icon, label, subLabel, onPress, color = 'white', delay = 0
 const ProfileScreen = ({ navigation }: any) => {
   const { user, logout, updateUser } = useAuthStore();
   const { unitSystem } = useSettingsStore();
-  const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const insets = useSafeAreaInsets();
   const tabBarInset = TAB_BAR_HEIGHT + Math.max(insets.bottom, 10) + 16;
+
+  const handleLogout = async () => {
+    // Ensure admin overrides are cleared when the user signs out.
+    updateUser({ 
+      isAdminSession: false,
+      subscriptionType: 'free'
+    });
+    await logout();
+  };
   const [isEditing, setIsEditing] = useState(false);
   const [username, setUsername] = useState(user?.username || user?.name || '');
   
@@ -112,7 +126,7 @@ const ProfileScreen = ({ navigation }: any) => {
   };
 
   return (
-    <Animated.View 
+    <Animated.View
       style={styles.container}
       entering={SlideInRight.duration(ANIMATION_TIMING.SLOW)}
     >
@@ -121,10 +135,14 @@ const ProfileScreen = ({ navigation }: any) => {
         colors={['#0F172A', '#020617']}
         style={styles.background}
       />
-      
-      {/* Custom Header */}
-      <View style={styles.header}>
-        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* Custom Header */}
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <IconButton
               icon="arrow-left"
               iconColor="white"
@@ -136,27 +154,25 @@ const ProfileScreen = ({ navigation }: any) => {
               accessibilityRole="button"
             />
             <Text style={styles.appTitle}>PROFILE</Text>
+          </View>
+          <IconButton
+            icon="logout"
+            iconColor="#EF4444"
+            size={24}
+            style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
+            onPress={handleLogout}
+            accessibilityLabel="Sign out"
+            accessibilityHint="Logs you out of the application"
+            accessibilityRole="button"
+          />
         </View>
-        <IconButton 
-          icon="logout" 
-          iconColor="#EF4444" 
-          size={24} 
-          style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
-          onPress={logout}
-          accessibilityLabel="Sign out"
-          accessibilityHint="Logs you out of the application"
-          accessibilityRole="button"
-        />
-      </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarInset + 24 }]}
-        showsVerticalScrollIndicator={false}
-        onScroll={onScroll}
-        onScrollBeginDrag={onScrollBeginDrag}
-        onScrollEndDrag={onScrollEndDrag}
-        scrollEventThrottle={16}
-      >
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarInset + 24 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        >
         
         {/* Profile Card */}
         <Animated.View
@@ -317,6 +333,17 @@ const ProfileScreen = ({ navigation }: any) => {
         {/* Menu Grid */}
         <Text style={styles.sectionHeader}>DASHBOARD</Text>
         <View style={styles.menuGrid}>
+             {__DEV__ && (
+               <MenuButton 
+                  icon="shield-crown" 
+                  label="DEV: Admin Sign In" 
+                  subLabel="Open admin debug sign in"
+                  color="#EF4444"
+                  onPress={() => {
+                    navigation.navigate('AdminLogin');
+                  }} 
+               />
+             )}
              <MenuButton 
                 icon="trophy" 
                 label="Leaderboard" 
@@ -355,7 +382,8 @@ const ProfileScreen = ({ navigation }: any) => {
         </View>
 
         <Text style={styles.version}>v1.0.2 (Beta)</Text>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Animated.View>
   );
 };

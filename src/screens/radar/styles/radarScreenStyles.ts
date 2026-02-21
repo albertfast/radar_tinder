@@ -118,6 +118,17 @@ export const radarScreenStyles = StyleSheet.create({
   progressSubtitle: { color: '#94A3B8', fontSize: 11, marginTop: 2, flex: 1 },
   progressDistance: { alignItems: 'center', justifyContent: 'center' },
   progressDistanceText: { color: '#4ECDC4', fontWeight: 'bold', fontSize: 12 },
+  arrivedEndTripButton: {
+    backgroundColor: '#4ECDC4',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  arrivedEndTripText: {
+    color: '#0B1424',
+    fontWeight: '800',
+    fontSize: 12,
+  },
   
   basicScroll: { flex: 1 },
   basicContainer: { alignItems: 'center', paddingTop: 20 },
@@ -199,4 +210,3 @@ export const radarScreenStyles = StyleSheet.create({
   navInstructionBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0B1220', padding: 12, borderRadius: 14, marginTop: 8, borderWidth: 1, borderColor: 'rgba(78,205,196,0.35)' },
   navInstructionDock: { marginTop: 0, backgroundColor: 'rgba(11,18,32,0.96)' },
 });
-
