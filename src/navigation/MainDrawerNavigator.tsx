@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform, Alert, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigation/drawer';
 import { Text, Avatar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -29,9 +29,7 @@ const CustomDrawerContent = (props: any) => {
   const secondaryItems = [
     { icon: 'history', label: 'History', screen: 'History' },
     { icon: 'bell-alert-outline', label: 'Alerts', screen: 'Alerts' },
-    { icon: 'camera-outline', label: 'AR Radar', screen: 'ARRadar' },
     { icon: 'cog-outline', label: 'Settings', screen: 'Settings' },
-    { icon: 'help-circle-outline', label: 'Support', action: () => Alert.alert('Support', 'Support is coming soon.') },
   ];
 
   const handleNavigate = (screen: string, params?: any) => {
@@ -137,13 +135,7 @@ const CustomDrawerContent = (props: any) => {
                     <TouchableOpacity 
                         key={item.label}
                         style={styles.menuItem} 
-                        onPress={() => {
-                          if (item.screen) {
-                            handleNavigate(item.screen);
-                            return;
-                          }
-                          item.action?.();
-                        }}
+                        onPress={() => handleNavigate(item.screen)}
                     >
                         <MaterialCommunityIcons name={item.icon as any} size={22} color="#94A3B8" style={{marginLeft: 10, marginRight: 16}} />
                         <Text style={[styles.menuLabel, { color: '#94A3B8' }]}>{item.label}</Text>

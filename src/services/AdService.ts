@@ -87,6 +87,7 @@ export class AdService {
   private static interstitial: any | null = null;
   private static isInitialized: boolean = false;
   private static hasAttemptedInit: boolean = false;
+  private static navigationAdsSuppressed: boolean = false;
 
   static async init(): Promise<void> {
     if (this.hasAttemptedInit) return;
@@ -134,6 +135,8 @@ export class AdService {
   }
 
   static shouldShowAds(): boolean {
+    if (this.navigationAdsSuppressed) return false;
+
     const user = useAuthStore.getState().user;
     if (!user) return true;
     if (isAdminUser(user)) return false;
@@ -152,6 +155,7 @@ export class AdService {
     forceTestAdUnits: boolean;
     testDeviceIdsCount: number;
     hasInterstitial: boolean;
+    navigationAdsSuppressed: boolean;
     lastInitError: string | null;
     lastInterstitialError: string | null;
   } {
@@ -161,7 +165,8 @@ export class AdService {
     const shouldShow = this.shouldShowAds();
     let shouldShowReason = 'free_user_ads_enabled';
 
-    if (!user) shouldShowReason = 'guest_user';
+    if (this.navigationAdsSuppressed) shouldShowReason = 'navigation_suppressed';
+    else if (!user) shouldShowReason = 'guest_user';
     else if (isAdminUser(user)) shouldShowReason = 'admin_override';
     else if ((user.subscriptionType ?? 'free') !== 'free') shouldShowReason = 'subscription_ad_free';
     else if (user.adsRemoved) shouldShowReason = 'ads_removed';
@@ -175,9 +180,14 @@ export class AdService {
       forceTestAdUnits,
       testDeviceIdsCount: parseTestDeviceIds().length,
       hasInterstitial: Boolean(this.interstitial),
+      navigationAdsSuppressed: this.navigationAdsSuppressed,
       lastInitError: cachedLastInitError,
       lastInterstitialError: cachedLastInterstitialError,
     };
+  }
+
+  static setNavigationAdsSuppressed(suppressed: boolean): void {
+    this.navigationAdsSuppressed = suppressed;
   }
 
   static async loadInterstitial(): Promise<void> {

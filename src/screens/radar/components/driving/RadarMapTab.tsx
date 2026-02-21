@@ -23,7 +23,6 @@ type RadarMapTabProps = {
   isMapInputLockActive: boolean;
   onRadarPress: (radar: RadarLocation) => void;
   handleMapTouchStart: () => void;
-  endInteracting: () => void;
   handleMapTap: () => void;
   mapOverlayTop: number;
   mapOverlayInset: number;
@@ -61,7 +60,12 @@ type RadarMapTabProps = {
   followHeading: boolean;
   compassRotation: string;
   zoomMap: (delta: number) => void;
-  toggleHeadingMode: () => void;
+  resumeFollowMode: () => void;
+  arrivalState: 'none' | 'approaching' | 'arrived';
+  distanceToDestinationMeters: number | null;
+  hasArrived: boolean;
+  onEndTrip: () => void;
+  suppressAds?: boolean;
   resetRoute: () => void;
   setSuggestions: (suggestions: AddressSuggestion[]) => void;
 };
@@ -76,7 +80,6 @@ export function RadarMapTab({
   isMapInputLockActive,
   onRadarPress,
   handleMapTouchStart,
-  endInteracting,
   handleMapTap,
   mapOverlayTop,
   mapOverlayInset,
@@ -109,16 +112,21 @@ export function RadarMapTab({
   followHeading,
   compassRotation,
   zoomMap,
-  toggleHeadingMode,
+  resumeFollowMode,
+  arrivalState,
+  distanceToDestinationMeters,
+  hasArrived,
+  onEndTrip,
+  suppressAds = false,
   resetRoute,
   setSuggestions,
 }: RadarMapTabProps) {
+  const arrivalDistanceLabel =
+    distanceToDestinationMeters != null ? formatStepDistance(distanceToDestinationMeters) : null;
+
   return (
     <View style={{ flex: 1 }}>
-      <View
-        style={StyleSheet.absoluteFill}
-        pointerEvents={isMapInputLockActive ? 'none' : 'auto'}
-      >
+      <View style={StyleSheet.absoluteFill}>
         <RadarMap
           location={currentLocation || { latitude: 37.7749, longitude: -122.4194 }}
           radars={nearbyRadars}
@@ -129,7 +137,6 @@ export function RadarMapTab({
           mapPadding={mapPadding}
           onRadarPress={onRadarPress}
           onMapTouchStart={handleMapTouchStart}
-          onMapTouchEnd={endInteracting}
           mapInteractionEnabled={!isMapInputLockActive}
           onMapTap={handleMapTap}
         />
@@ -141,7 +148,7 @@ export function RadarMapTab({
       >
         {routeCoords.length === 0 ? (
           <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: mapControlGap }} pointerEvents="box-none">
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: mapControlGap }}>
               <View style={{ flex: 1 }}>
                 <TextInput
                   ref={destinationInputRef}
@@ -159,7 +166,7 @@ export function RadarMapTab({
                   onChangeText={handleTextChange}
                   onSubmitEditing={handleNavigate}
                   returnKeyType="search"
-                  blurOnSubmit={false}
+                  blurOnSubmit
                   enablesReturnKeyAutomatically
                   autoCorrect={false}
                   autoCapitalize="none"
@@ -172,13 +179,11 @@ export function RadarMapTab({
                       isDestinationEmpty: !destination.trim(),
                       hasRecentDestinations: recentDestinations.length > 0,
                       onShowRecent: () => setSuggestions(recentDestinations.slice(0, 6)),
-                      onBeginInteracting: handleMapTouchStart,
                     })
                   }
                   onBlur={() =>
                     handleInputBlur(() => {
                       setSuggestions([]);
-                      endInteracting();
                     })
                   }
                 />
@@ -229,18 +234,31 @@ export function RadarMapTab({
           <View style={styles.navCompactRow}>
             <View style={styles.navCompactInfo}>
               <Text style={styles.navCompactTitle} numberOfLines={1}>
-                {routeMeta?.destinationLabel || destination || 'Destination'}
+                {hasArrived ? 'You have arrived' : routeMeta?.destinationLabel || destination || 'Destination'}
               </Text>
               <Text style={styles.navCompactMeta}>
-                {routeMeta?.distanceText || '—'} • ETA {routeMeta?.etaText || '—'} • {nearbyRadars.length} radars
+                {hasArrived
+                  ? 'Tap End Trip when parked safely.'
+                  : arrivalState === 'approaching' && arrivalDistanceLabel
+                    ? `${arrivalDistanceLabel} to destination • ${nearbyRadars.length} radars`
+                    : `${routeMeta?.distanceText || '—'} • ETA ${routeMeta?.etaText || '—'} • ${nearbyRadars.length} radars`}
               </Text>
             </View>
             <TouchableOpacity style={styles.navCompactButton} onPress={centerMap}>
               <MaterialCommunityIcons name="crosshairs-gps" size={20} color="#4ECDC4" />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.navCompactButton, styles.navCompactButtonDanger]} onPress={resetRoute}>
-              <MaterialCommunityIcons name="close" size={20} color="#F8FAFC" />
-            </TouchableOpacity>
+            {hasArrived ? (
+              <TouchableOpacity
+                style={[styles.navCompactButton, { backgroundColor: '#4ECDC4', borderColor: '#4ECDC4' }]}
+                onPress={onEndTrip}
+              >
+                <MaterialCommunityIcons name="flag-checkered" size={20} color="#0B1424" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={[styles.navCompactButton, styles.navCompactButtonDanger]} onPress={resetRoute}>
+                <MaterialCommunityIcons name="close" size={20} color="#F8FAFC" />
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>
@@ -253,37 +271,62 @@ export function RadarMapTab({
           ]}
           pointerEvents="box-none"
         >
-          <View style={[styles.navInstructionBox, styles.navInstructionDock, { padding: Math.round(10 * uiScale) }]}>
-            <MaterialCommunityIcons
-              name={getManeuverIcon(navSteps[currentStepIndex]?.maneuver) as any}
-              size={24}
-              color="white"
-            />
-            <View style={{ marginLeft: 12, flex: 1 }}>
-              <Text style={{ color: 'white', fontSize: Math.round(14 * uiScale), fontWeight: 'bold' }}>
-                {formatStepDistance(getStepDistanceMeters(navSteps[currentStepIndex])) || '...'}
-              </Text>
-              <Text style={{ color: '#cbd5f5', fontSize: Math.round(11 * uiScale) }} numberOfLines={2}>
-                {navSteps[currentStepIndex]?.instruction || 'Follow the highlighted route'}
-              </Text>
+          {hasArrived ? (
+            <View style={[styles.navInstructionBox, styles.navInstructionDock, { padding: Math.round(10 * uiScale) }]}>
+              <MaterialCommunityIcons name="flag-checkered" size={24} color="#4ECDC4" />
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={{ color: 'white', fontSize: Math.round(14 * uiScale), fontWeight: 'bold' }}>
+                  You have arrived
+                </Text>
+                <Text style={{ color: '#cbd5f5', fontSize: Math.round(11 * uiScale) }} numberOfLines={2}>
+                  End the trip when you park safely.
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={onEndTrip}
+                style={{
+                  backgroundColor: '#4ECDC4',
+                  borderRadius: 10,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{ color: '#0B1424', fontWeight: '800' }}>END</Text>
+              </TouchableOpacity>
             </View>
-          </View>
+          ) : (
+            <View style={[styles.navInstructionBox, styles.navInstructionDock, { padding: Math.round(10 * uiScale) }]}>
+              <MaterialCommunityIcons
+                name={getManeuverIcon(navSteps[currentStepIndex]?.maneuver) as any}
+                size={24}
+                color="white"
+              />
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={{ color: 'white', fontSize: Math.round(14 * uiScale), fontWeight: 'bold' }}>
+                  {formatStepDistance(getStepDistanceMeters(navSteps[currentStepIndex])) || '...'}
+                </Text>
+                <Text style={{ color: '#cbd5f5', fontSize: Math.round(11 * uiScale) }} numberOfLines={2}>
+                  {navSteps[currentStepIndex]?.instruction || 'Follow the highlighted route'}
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
       )}
 
       <View
-        pointerEvents={hideMapAd ? 'none' : 'auto'}
+        pointerEvents={hideMapAd || suppressAds ? 'none' : 'auto'}
         style={[
           styles.mapAdContainer,
           {
             left: mapOverlayInset,
             right: mapOverlayInset,
             bottom: mapAdBottom,
-            opacity: hideMapAd ? 0 : 1,
+            opacity: hideMapAd || suppressAds ? 0 : 1,
           },
         ]}
       >
-        <AdBanner />
+        <AdBanner suppressAds={suppressAds} />
       </View>
 
       <View
@@ -321,7 +364,7 @@ export function RadarMapTab({
             followHeading && styles.mapControlButtonActive,
             { width: mapControlSize, height: mapControlSize },
           ]}
-          onPress={toggleHeadingMode}
+          onPress={resumeFollowMode}
         >
           <View style={{ transform: [{ rotate: compassRotation }] }}>
             <MaterialCommunityIcons

@@ -11,13 +11,15 @@ import RadarNavigator from './RadarNavigator';
 import ProfileNavigator from './ProfileNavigator';
 import AIDiagnoseScreen from '../screens/AIDiagnoseScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
+import PermitTestScreen from '../screens/PermitTestScreen';
+import DriveShortcutScreen from '../screens/DriveShortcutScreen';
 import { useUiStore } from '../store/uiStore';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 export type MainTabParamList = {
   Home: { forceTab?: string } | undefined;
-  Permit: { screen?: string } | undefined;
-  Drive: { forceTab?: string } | undefined;
+  Permit: undefined;
+  Drive: undefined;
   Diagnose: undefined;
   Leaderboard: undefined;
   Profile: undefined;
@@ -37,7 +39,7 @@ const TAB_ICONS: Record<keyof MainTabParamList, any> = {
 const PillTabBar = React.memo(({ state, descriptors, navigation }: BottomTabBarProps) => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const tabBarHidden = useUiStore((s) => s.tabBarHidden);
+  const tabBarHidden = useUiStore((s) => s.isTabBarHidden);
   const translateY = useSharedValue(0);
   const opacity = useSharedValue(1);
   const horizontalPadding = Math.max(12, Math.min(20, Math.round(width * 0.04)));
@@ -73,10 +75,7 @@ const PillTabBar = React.memo(({ state, descriptors, navigation }: BottomTabBarP
 
       if (isCenter) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-        (navigation as any).navigate('Drive', {
-          screen: 'RadarMain',
-          params: { forceTab: 'Map' },
-        });
+        (navigation as any).navigate('Drive');
         return;
       }
 
@@ -170,7 +169,7 @@ const PillTabBar = React.memo(({ state, descriptors, navigation }: BottomTabBarP
 const MainTabNavigator = () => {
   const screenOptions = useMemo(() => ({
     headerShown: false,
-    lazy: true, // Lazy loading for better performance
+    lazy: true,
   }), []);
 
   return (
@@ -181,57 +180,37 @@ const MainTabNavigator = () => {
       <Tab.Screen
         name="Home"
         component={RadarNavigator}
-        options={{
-          lazy: true,
-          unmountOnBlur: false
-        }}
+        options={{ lazy: true, unmountOnBlur: false }}
       />
 
       <Tab.Screen
         name="Permit"
-        component={RadarNavigator}
-        initialParams={{ screen: 'PermitTest' }}
-        options={{
-          lazy: true,
-          unmountOnBlur: false
-        }}
+        component={PermitTestScreen}
+        options={{ lazy: true, unmountOnBlur: false }}
       />
 
       <Tab.Screen
         name="Drive"
-        component={RadarNavigator}
-        initialParams={{ forceTab: 'Map' }}
-        options={{
-          lazy: true,
-          unmountOnBlur: false
-        }}
+        component={DriveShortcutScreen}
+        options={{ lazy: true, unmountOnBlur: true }}
       />
 
       <Tab.Screen
         name="Diagnose"
         component={AIDiagnoseScreen}
-        options={{
-          lazy: true,
-          unmountOnBlur: false
-        }}
+        options={{ lazy: true, unmountOnBlur: false }}
       />
 
       <Tab.Screen
         name="Leaderboard"
         component={LeaderboardScreen}
-        options={{
-          lazy: true,
-          unmountOnBlur: false
-        }}
+        options={{ lazy: true, unmountOnBlur: false }}
       />
 
       <Tab.Screen
         name="Profile"
         component={ProfileNavigator}
-        options={{
-          lazy: true,
-          unmountOnBlur: false
-        }}
+        options={{ lazy: true, unmountOnBlur: false }}
       />
     </Tab.Navigator>
   );
@@ -263,13 +242,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabHidden: {
-    // On some Android devices the translate animation isn't enough to fully hide;
-    // fall back to display: 'none' while hidden for reliability.
     display: 'none',
   },
-  tabItemCenter: {
-    // center tab gets lift from runtime style based on screen width
-  },
+  tabItemCenter: {},
   iconShell: {
     alignItems: 'center',
     justifyContent: 'center',

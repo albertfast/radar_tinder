@@ -15,6 +15,17 @@ type RadarBasicTabProps = {
 
 export function RadarBasicTab({ currentSpeed, unitSystem, nearbyRadars, tabBarInset }: RadarBasicTabProps) {
   const speedParts = formatSpeed(currentSpeed, unitSystem).split(' ');
+  const getRadarLabel = (radar: any) =>
+    radar.type === 'police' ? 'Police Spotted' : 'Speed Camera';
+  const getRadarStreetHint = (radar: any) => {
+    const source = radar.locationHint || radar.locationLabel || '';
+    if (!source) return '';
+    return String(source)
+      .split(',')
+      .slice(0, 2)
+      .join(', ')
+      .trim();
+  };
 
   return (
     <ScrollView
@@ -44,9 +55,14 @@ export function RadarBasicTab({ currentSpeed, unitSystem, nearbyRadars, tabBarIn
                 size={24}
                 color={radar.type === 'police' ? '#FF5252' : '#4ECDC4'}
               />
-              <Text style={styles.alertText}>
-                {radar.type === 'police' ? 'Police Spotted' : 'Speed Camera'}
-              </Text>
+              <View style={{ flex: 1, marginLeft: 15 }}>
+                <Text style={[styles.alertText, { marginLeft: 0 }]}>{getRadarLabel(radar)}</Text>
+                {getRadarStreetHint(radar) ? (
+                  <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 2 }}>
+                    {getRadarStreetHint(radar)}
+                  </Text>
+                ) : null}
+              </View>
               <Text style={styles.alertDist}>{formatDistance(radar.distance, unitSystem)}</Text>
             </View>
           ))

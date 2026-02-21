@@ -40,7 +40,6 @@ const RadarMap = React.memo(({
     destinationPoint,
     mapPadding,
     onMapTouchStart,
-    onMapTouchEnd,
     mapInteractionEnabled = true,
     onMapTap,
 }: any) => {
@@ -87,18 +86,11 @@ const RadarMap = React.memo(({
               if (mapInteractionEnabled) onMapTouchStart?.();
             }}
             onPress={() => {
-              if (!mapInteractionEnabled) return;
               onMapTap?.();
-              onMapTouchStart?.();
+              if (mapInteractionEnabled) onMapTouchStart?.();
             }}
             onTouchStart={() => {
               if (mapInteractionEnabled) onMapTouchStart?.();
-            }}
-            onTouchEnd={() => {
-              if (mapInteractionEnabled) onMapTouchEnd?.();
-            }}
-            onRegionChangeComplete={() => {
-              if (mapInteractionEnabled) onMapTouchEnd?.();
             }}
         >
             {routeCoords.length > 0 && (

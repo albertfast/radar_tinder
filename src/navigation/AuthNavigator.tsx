@@ -1,9 +1,11 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TrialOfferScreen from '../screens/TrialOfferScreen';
+import AdminLoginScreen from '../screens/AdminLoginScreen';
 
 export type AuthStackParamList = {
   TrialOffer: undefined;
+  AdminLogin?: undefined;
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -18,6 +20,7 @@ const AuthNavigator = () => {
       }}
     >
       <Stack.Screen name="TrialOffer" component={TrialOfferScreen} />
+      {__DEV__ ? <Stack.Screen name="AdminLogin" component={AdminLoginScreen} /> : null}
     </Stack.Navigator>
   );
 };
