@@ -40,6 +40,7 @@ import { useMapInputState } from './radar/hooks/useMapInputState';
 import { useDrivingSession } from './radar/hooks/useDrivingSession';
 import { useRadarDataSync } from './radar/hooks/useRadarDataSync';
 import { useRadarNavigation } from './radar/hooks/useRadarNavigation';
+const MAP_INPUT_TAP_GUARD_MS = 800;
 const RadarScreen = ({ navigation, route }: any) => {
   const { user, refreshProfile } = useAuthStore();
   const canUsePro = hasProAccess(user);
@@ -320,7 +321,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, [mapInput.isMapInputLockActive]);
 
   const handleMapTap = useCallback(() => {
-    if (Date.now() - mapInput.lastDestinationFocusAtRef.current < 200) return;
+    if (Date.now() - mapInput.lastDestinationFocusAtRef.current < MAP_INPUT_TAP_GUARD_MS) return;
     if (mapInput.isDestinationInputFocused || mapInput.isKeyboardVisible || mapInput.isTypingRef.current) {
       mapInput.dismissDestinationInput(() => {
         navigationState.setSuggestions([]);
@@ -509,6 +510,15 @@ const RadarScreen = ({ navigation, route }: any) => {
       onOpenProfile={() => navigation.navigate('Profile')}
       onNavigateSubscription={() => navigation.navigate('Subscription')}
       onToggleDrivingMode={toggleDrivingMode}
+      onOpenDriveBasic={() => {
+        const tabs = navigation.getParent?.();
+        if (tabs?.navigate) {
+          tabs.navigate('Drive');
+          return;
+        }
+        navigation.setParams?.({ forceTab: 'Basic' });
+      }}
+      onOpenAlerts={() => navigation.navigate('Alerts')}
       onToggleVoiceWarnings={toggleVoiceWarnings}
       pauseRadarAnimation={false}
       showHomeAd={showHomeAd}
