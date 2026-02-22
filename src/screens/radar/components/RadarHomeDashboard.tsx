@@ -48,6 +48,8 @@ type RadarHomeDashboardProps = {
   onOpenProfile: () => void;
   onNavigateSubscription: () => void;
   onToggleDrivingMode: () => void;
+  onOpenDriveBasic: () => void;
+  onOpenAlerts: () => void;
   onToggleVoiceWarnings: () => void;
   pauseRadarAnimation: boolean;
   showHomeAd: boolean;
@@ -144,6 +146,8 @@ export function RadarHomeDashboard({
   onOpenProfile,
   onNavigateSubscription,
   onToggleDrivingMode,
+  onOpenDriveBasic,
+  onOpenAlerts,
   onToggleVoiceWarnings,
   pauseRadarAnimation,
   showHomeAd,
@@ -156,6 +160,9 @@ export function RadarHomeDashboard({
   const contentBottomPadding = showHomeAd
     ? Math.max(getResponsiveHeight(16), Math.round(tabBarInset * 0.36))
     : Math.max(getResponsiveHeight(10), Math.round(tabBarInset * 0.22));
+  const quickPanelMinHeight = showHomeAd
+    ? Math.max(getResponsiveHeight(56), Math.round(tabBarInset * 0.42))
+    : Math.max(getResponsiveHeight(118), Math.round(tabBarInset * 0.86));
 
   return (
     <View style={styles.container}>
@@ -358,6 +365,33 @@ export function RadarHomeDashboard({
               </View>
             </LinearGradient>
           </TouchableOpacity>
+
+          <View style={[styles.homeQuickPanel, { minHeight: quickPanelMinHeight }]}>
+            <View style={styles.homeQuickRow}>
+              <TouchableOpacity
+                style={[styles.homeQuickButton, styles.homeQuickButtonPrimary]}
+                onPress={onOpenDriveBasic}
+                activeOpacity={0.86}
+              >
+                <MaterialCommunityIcons name="radar" size={18} color="#4ECDC4" />
+                <Text style={styles.homeQuickButtonText}>Drive Basic</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.homeQuickButton}
+                onPress={onOpenAlerts}
+                activeOpacity={0.86}
+              >
+                <MaterialCommunityIcons name="bell-alert-outline" size={18} color="#38BDF8" />
+                <Text style={styles.homeQuickButtonText}>Alerts</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.homeQuickMeta}>
+              {closestRadar
+                ? `Nearest radar: ${nearestRadarSummary}`
+                : 'No nearby radars detected yet.'}
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </View>

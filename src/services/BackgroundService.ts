@@ -261,6 +261,57 @@ export class BackgroundService {
       .trim();
   }
 
+  private static normalizeHeading(heading: number | null | undefined): number | null {
+    if (typeof heading !== 'number' || !Number.isFinite(heading)) return null;
+    const normalized = heading % 360;
+    return normalized >= 0 ? normalized : normalized + 360;
+  }
+
+  private static shouldPublishLocationUpdate(
+    previous:
+      | {
+          latitude: number;
+          longitude: number;
+          heading?: number | null;
+          speed?: number | null;
+        }
+      | null,
+    next: {
+      latitude: number;
+      longitude: number;
+      heading: number | null;
+      speed: number | null;
+    },
+    nowMs: number
+  ): boolean {
+    if (!previous) return true;
+
+    const movedMeters =
+      LocationService.calculateDistanceSync(
+        previous.latitude,
+        previous.longitude,
+        next.latitude,
+        next.longitude
+      ) * 1000;
+
+    const previousHeading = this.normalizeHeading(previous.heading);
+    const nextHeading = this.normalizeHeading(next.heading);
+    let headingDelta = 0;
+    if (previousHeading !== null && nextHeading !== null) {
+      headingDelta = Math.abs(nextHeading - previousHeading);
+      if (headingDelta > 180) headingDelta = 360 - headingDelta;
+    }
+
+    const previousSpeed = typeof previous.speed === 'number' && Number.isFinite(previous.speed) ? previous.speed : 0;
+    const nextSpeed = typeof next.speed === 'number' && Number.isFinite(next.speed) ? next.speed : 0;
+    const speedDelta = Math.abs(nextSpeed - previousSpeed);
+    const elapsedSinceLastUpdate = this.lastLocationUpdate
+      ? nowMs - this.lastLocationUpdate.timestamp
+      : Number.POSITIVE_INFINITY;
+
+    return movedMeters >= 3 || headingDelta >= 8 || speedDelta >= 0.8 || elapsedSinceLastUpdate >= 1500;
+  }
+
   private static async handleLocationUpdate(location: { 
     latitude: number; 
     longitude: number; 
@@ -269,7 +320,13 @@ export class BackgroundService {
   }): Promise<void> {
     try {
       const { user } = useAuthStore.getState();
-      const { activeAlerts, setActiveAlerts, setCurrentLocation, isRouteGuidanceActive } =
+      const {
+        activeAlerts,
+        currentLocation: storeLocation,
+        setActiveAlerts,
+        setCurrentLocation,
+        isRouteGuidanceActive,
+      } =
         useRadarStore.getState();
 
       const now = Date.now();
@@ -281,7 +338,6 @@ export class BackgroundService {
           this.lastLocationUpdate.longitude
         );
         if (distanceKm < 0.02 && now - this.lastLocationUpdate.timestamp < 3000) {
-          setCurrentLocation(location);
           return;
         }
       }
@@ -291,7 +347,9 @@ export class BackgroundService {
         timestamp: now,
       };
 
-      setCurrentLocation(location);
+      if (this.shouldPublishLocationUpdate(storeLocation, location, now)) {
+        setCurrentLocation(location);
+      }
 
       if (!user) return;
 

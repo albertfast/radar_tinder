@@ -34,6 +34,45 @@ export const radarScreenStyles = StyleSheet.create({
   startText: { color: '#FFFFFF', fontWeight: '900', fontSize: 17, letterSpacing: 0.5 },
   startSubtext: { color: '#F8FAFC', opacity: 0.8, fontSize: 12, marginTop: 4 },
   startBadge: { width: 42, height: 42, borderRadius: 12, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center' },
+  homeQuickPanel: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.2)',
+    backgroundColor: 'rgba(7,14,28,0.82)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  homeQuickRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  homeQuickButton: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.25)',
+    backgroundColor: 'rgba(15,23,42,0.72)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    gap: 8,
+  },
+  homeQuickButtonPrimary: {
+    borderColor: 'rgba(78,205,196,0.45)',
+  },
+  homeQuickButtonText: {
+    color: '#E2E8F0',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  homeQuickMeta: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 
   // Hero Actions & Voice Pill
   heroActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },

@@ -170,8 +170,8 @@ const ProfileScreen = ({ navigation }: any) => {
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: tabBarInset + 24 }]}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
         >
         
         {/* Profile Card */}
