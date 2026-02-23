@@ -27,7 +27,6 @@ import {
   getResponsiveHeight,
   getResponsiveMargin,
   getResponsiveWidth,
-  getUIScale,
 } from '../constants/layout';
 import { PRO_FEATURES, KEYBOARD_TRACE_ENABLED } from './radar/constants';
 import { TabType } from './radar/types';
@@ -157,11 +156,11 @@ const RadarScreen = ({ navigation, route }: any) => {
   );
   const radarRendererMode: RadarRendererMode = 'auto';
 
-  const uiScale = getUIScale();
   const mapOverlayInset = getResponsiveMargin(12);
   const mapOverlayTop = getResponsiveMargin(12);
   const mapControlSize = getResponsiveWidth(38);
   const mapControlGap = getResponsiveMargin(8);
+  const suppressMapAds = true;
   const isTurnByTurnActive = driving.isDriving && navigationState.routeCoords.length > 0;
   const isMapNavigationActive = isTurnByTurnActive && activeTab === 'Map';
   const mapControlsBottomBase = isMapNavigationActive
@@ -180,7 +179,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const bottomSafe = Math.max(insets.bottom, 10);
   const tabBarInset = TAB_BAR_HEIGHT + bottomSafe + 16;
   const mapAdBottom = Math.max(tabBarInset + 8, isMapNavigationActive ? mapNavDockBottom + getResponsiveHeight(84) : tabBarInset + 8);
-  const mapAdEstimatedHeight = getResponsiveHeight(62);
+  const mapAdEstimatedHeight = suppressMapAds ? 0 : getResponsiveHeight(62);
   const mapControlsBottom = Math.max(mapControlsBottomBase, mapAdBottom + mapAdEstimatedHeight + mapControlGap + getResponsiveHeight(6));
   const fabGap = getResponsiveHeight(12);
   const floatingFabBottom = isMapNavigationActive
@@ -305,11 +304,11 @@ const RadarScreen = ({ navigation, route }: any) => {
             latitude: dataSync.currentLocation.latitude,
             longitude: dataSync.currentLocation.longitude,
           },
-          zoom: 17,
+          zoom: 18.2,
           heading: dataSync.resolvedHeading || dataSync.currentLocation.heading || 0,
-          pitch: 60,
+          pitch: 62,
         },
-        { duration: 1000 }
+        { duration: 650 }
       );
     }
   }, [dataSync.currentLocation, dataSync.resolvedHeading]);
@@ -441,9 +440,8 @@ const RadarScreen = ({ navigation, route }: any) => {
             formatStepDistance={(m) => formatStepDistance(m, unitSystem)}
             getStepDistanceMeters={navigationState.getStepDistanceMeters}
             getManeuverIcon={getManeuverIcon}
-            uiScale={uiScale}
             mapNavDockBottom={mapNavDockBottom}
-            hideMapAd={hideMapAd}
+            hideMapAd={hideMapAd || suppressMapAds}
             mapAdBottom={mapAdBottom}
             mapControlsBottom={mapControlsBottom}
             mapControlSize={mapControlSize}
@@ -468,9 +466,12 @@ const RadarScreen = ({ navigation, route }: any) => {
             distanceToDestinationMeters={navigationState.distanceToDestinationMeters}
             hasArrived={navigationState.hasArrived}
             onEndTrip={navigationState.resetRoute}
-            suppressAds={isTurnByTurnActive}
+            suppressAds={suppressMapAds || isTurnByTurnActive}
             resetRoute={navigationState.resetRoute}
             setSuggestions={navigationState.setSuggestions}
+            voiceWarningsEnabled={voiceWarningsEnabled}
+            onToggleVoiceWarnings={toggleVoiceWarnings}
+            onOpenIncidentPanel={() => setReportModalVisible(true)}
           />
         }
         graphicContent={<RadarGraphicView totalDistance={driving.totalDistance} drivingStartTime={driving.drivingStartTime} currentSpeed={dataSync.currentSpeed} unitSystem={unitSystem} radarRendererMode={radarRendererMode} radarSignalLevel={radarSignalLevel} radarDangerLevel={radarDangerLevel} />}

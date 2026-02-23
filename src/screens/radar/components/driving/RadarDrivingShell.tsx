@@ -10,6 +10,50 @@ import { formatDistance } from '../../../../utils/format';
 import { TabType } from '../../types';
 import { radarScreenStyles as styles } from '../../styles/radarScreenStyles';
 
+type IncidentOption = {
+  id: 'radar' | 'police' | 'crash' | 'roadwork';
+  label: string;
+  emoji: string;
+  icon: string;
+  color: string;
+  reportType: RadarLocation['type'];
+};
+
+const INCIDENT_OPTIONS: IncidentOption[] = [
+  {
+    id: 'radar',
+    label: 'Radar',
+    emoji: '📸',
+    icon: 'camera',
+    color: '#22D3EE',
+    reportType: 'speed_camera',
+  },
+  {
+    id: 'police',
+    label: 'Police',
+    emoji: '👮',
+    icon: 'police-badge',
+    color: '#3B82F6',
+    reportType: 'police',
+  },
+  {
+    id: 'crash',
+    label: 'Crash',
+    emoji: '🚨',
+    icon: 'car-emergency',
+    color: '#FB7185',
+    reportType: 'traffic_enforcement',
+  },
+  {
+    id: 'roadwork',
+    label: 'Road Work',
+    emoji: '🚧',
+    icon: 'barrier',
+    color: '#F59E0B',
+    reportType: 'mobile',
+  },
+];
+
 type RadarDrivingShellProps = {
   insetsTop: number;
   activeTab: TabType;
@@ -63,6 +107,8 @@ export function RadarDrivingShell({
   setReportModalVisible,
   onReportRadar,
 }: RadarDrivingShellProps) {
+  const showFloatingFab = activeTab !== 'Map';
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#000000', '#1A1A1A']} style={StyleSheet.absoluteFill} />
@@ -136,7 +182,7 @@ export function RadarDrivingShell({
         </Animated.View>
       ) : null}
 
-      {!isMapNavigationActive && (
+      {activeTab !== 'Map' && !isMapNavigationActive && (
         <View style={styles.tabBar}>
           {(['Basic', 'Map', 'Graphic'] as TabType[]).map((tab) => (
             <TouchableOpacity
@@ -168,32 +214,65 @@ export function RadarDrivingShell({
         </View>
       </View>
 
-      <TouchableOpacity
-        style={[styles.fab, { bottom: floatingFabBottom }]}
-        onPress={() => setReportModalVisible(true)}
-      >
-        <MaterialCommunityIcons name="plus" size={32} color="white" />
-      </TouchableOpacity>
+      {showFloatingFab ? (
+        <TouchableOpacity
+          style={[styles.fab, { bottom: floatingFabBottom }]}
+          onPress={() => setReportModalVisible(true)}
+        >
+          <MaterialCommunityIcons name="plus" size={32} color="white" />
+        </TouchableOpacity>
+      ) : null}
 
       <Modal visible={reportModalVisible} transparent animationType="slide">
         <BlurView intensity={20} style={StyleSheet.absoluteFill}>
           <TouchableOpacity style={{ flex: 1 }} onPress={() => setReportModalVisible(false)} />
           <View style={styles.reportSheet}>
-            <Text style={styles.sheetTitle}>Report Hazard</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 20 }}>
-              <TouchableOpacity onPress={() => onReportRadar('police')} style={{ alignItems: 'center' }}>
-                <View style={[styles.reportIconBig, { backgroundColor: '#FF5252' }]}>
-                  <MaterialCommunityIcons name="police-badge" size={30} color="white" />
-                </View>
-                <Text style={{ color: 'white', marginTop: 8 }}>Police</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => onReportRadar('speed_camera')} style={{ alignItems: 'center' }}>
-                <View style={[styles.reportIconBig, { backgroundColor: '#2196F3' }]}>
-                  <MaterialCommunityIcons name="camera" size={30} color="white" />
-                </View>
-                <Text style={{ color: 'white', marginTop: 8 }}>Camera</Text>
-              </TouchableOpacity>
+            <Text style={styles.sheetTitle}>Add Incident</Text>
+            <Text style={{ color: '#94A3B8', textAlign: 'center', marginTop: 8, marginBottom: 18 }}>
+              Tap only if it is safe.
+            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                rowGap: 14,
+              }}
+            >
+              {INCIDENT_OPTIONS.map((option) => (
+                <TouchableOpacity
+                  key={option.id}
+                  onPress={() => onReportRadar(option.reportType)}
+                  style={{
+                    width: '48%',
+                    borderRadius: 18,
+                    borderWidth: 1,
+                    borderColor: 'rgba(148,163,184,0.2)',
+                    backgroundColor: 'rgba(15,23,42,0.92)',
+                    paddingVertical: 16,
+                    paddingHorizontal: 12,
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.reportIconBig,
+                      {
+                        backgroundColor: `${option.color}20`,
+                        width: 62,
+                        height: 62,
+                        borderRadius: 20,
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons name={option.icon as any} size={30} color={option.color} />
+                  </View>
+                  <Text style={{ color: '#E2E8F0', fontWeight: '700', fontSize: 15 }}>
+                    {option.label} {option.emoji}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         </BlurView>

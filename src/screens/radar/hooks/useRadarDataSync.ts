@@ -379,22 +379,21 @@ export function useRadarDataSync({
 
           const shouldAnimateCamera =
             !lastCameraCenter ||
-            movedFromCameraMeters >= 8 ||
-            cameraHeadingDelta >= 10;
+            movedFromCameraMeters >= 4 ||
+            cameraHeadingDelta >= 6;
 
-          if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= 1500) {
+          if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= 700) {
             mapRef.current?.animateCamera(
               {
                 center: {
                   latitude: locationWithHeading.latitude,
                   longitude: locationWithHeading.longitude,
                 },
-                pitch: 50,
+                pitch: 62,
                 heading: targetHeading,
-                altitude: 800,
-                zoom: 17,
+                zoom: 18.2,
               },
-              { duration: 1200 }
+              { duration: 650 }
             );
             lastCameraCenterRef.current = {
               latitude: locationWithHeading.latitude,
@@ -438,11 +437,11 @@ export function useRadarDataSync({
       mapRef.current.animateCamera(
         {
           center: { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
-          zoom: 15,
-          pitch: 45,
+          zoom: 17.8,
+          pitch: 60,
           heading: initialHeading,
         },
-        { duration: 800 }
+        { duration: 650 }
       );
       lastCameraCenterRef.current = {
         latitude: currentLocation.latitude,
