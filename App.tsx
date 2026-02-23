@@ -365,16 +365,14 @@ export default function App() {
                           headerTintColor: combinedDarkTheme.colors.text,
                         }}
                       />
-                      {__DEV__ ? (
-                        <Stack.Screen
-                          name="AdminLogin"
-                          component={AdminLoginScreen}
-                          options={{
-                            presentation: 'modal',
-                            animation: 'slide_from_bottom',
-                          }}
-                        />
-                      ) : null}
+                      <Stack.Screen
+                        name="AdminLogin"
+                        component={AdminLoginScreen}
+                        options={{
+                          presentation: 'modal',
+                          animation: 'slide_from_bottom',
+                        }}
+                      />
                     </>
                   ) : (
                     <Stack.Screen

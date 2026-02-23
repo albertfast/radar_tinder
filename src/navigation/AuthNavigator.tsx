@@ -20,7 +20,7 @@ const AuthNavigator = () => {
       }}
     >
       <Stack.Screen name="TrialOffer" component={TrialOfferScreen} />
-      {__DEV__ ? <Stack.Screen name="AdminLogin" component={AdminLoginScreen} /> : null}
+      <Stack.Screen name="AdminLogin" component={AdminLoginScreen} />
     </Stack.Navigator>
   );
 };

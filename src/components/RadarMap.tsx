@@ -88,7 +88,6 @@ const RadarMap = React.memo(({
             onPress={() => {
               if (!mapInteractionEnabled) return;
               onMapTap?.();
-              onMapTouchStart?.();
             }}
         >
             {routeCoords.length > 0 && (

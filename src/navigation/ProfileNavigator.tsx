@@ -20,7 +20,7 @@ const ProfileNavigator = () => {
       <Stack.Screen name="Terms" component={TermsScreen} />
       <Stack.Screen name="Privacy" component={PrivacyScreen} />
       <Stack.Screen name="ComponentsShowcase" component={ComponentsShowcaseScreen} />
-      {__DEV__ ? <Stack.Screen name="AdminLogin" component={AdminLoginScreen} /> : null}
+      <Stack.Screen name="AdminLogin" component={AdminLoginScreen} />
       <Stack.Screen 
         name="Subscription" 
         component={SubscriptionScreen} 

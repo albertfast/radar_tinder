@@ -406,10 +406,29 @@ export function useRadarNavigation({
         setNearbyRadars(routeRadarsWithDist.sort((a, b) => a.distance - b.distance));
         setSuggestions([]);
 
-        mapRef.current?.fitToCoordinates(res.coordinates, {
-          edgePadding: { top: 180, right: 80, bottom: 260, left: 80 },
-          animated: true,
-        });
+        const fallbackHeading =
+          res.coordinates.length > 1
+            ? LocationService.calculateBearing(
+                res.coordinates[0].latitude,
+                res.coordinates[0].longitude,
+                res.coordinates[1].latitude,
+                res.coordinates[1].longitude
+              )
+            : 0;
+        const tightFollowHeading =
+          typeof loc.heading === 'number' && Number.isFinite(loc.heading) ? loc.heading : fallbackHeading;
+        mapRef.current?.animateCamera(
+          {
+            center: {
+              latitude: loc.latitude,
+              longitude: loc.longitude,
+            },
+            zoom: 18.2,
+            pitch: 64,
+            heading: tightFollowHeading,
+          },
+          { duration: 650 }
+        );
         hasCenteredMapRef.current = true;
       } catch (error) {
         console.error('Navigation failed:', error);

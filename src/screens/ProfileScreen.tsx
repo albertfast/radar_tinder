@@ -333,17 +333,15 @@ const ProfileScreen = ({ navigation }: any) => {
         {/* Menu Grid */}
         <Text style={styles.sectionHeader}>DASHBOARD</Text>
         <View style={styles.menuGrid}>
-             {__DEV__ && (
-               <MenuButton 
-                  icon="shield-crown" 
-                  label="DEV: Admin Sign In" 
-                  subLabel="Open admin debug sign in"
-                  color="#EF4444"
-                  onPress={() => {
-                    navigation.navigate('AdminLogin');
-                  }} 
-               />
-             )}
+             <MenuButton 
+                icon="shield-crown" 
+                label="Admin Sign In" 
+                subLabel="Enable admin testing session"
+                color="#EF4444"
+                onPress={() => {
+                  navigation.navigate('AdminLogin');
+                }} 
+             />
              <MenuButton 
                 icon="trophy" 
                 label="Leaderboard" 

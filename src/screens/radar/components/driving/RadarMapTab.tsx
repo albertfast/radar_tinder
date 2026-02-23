@@ -51,7 +51,6 @@ type RadarMapTabProps = {
   formatStepDistance: (meters?: number | null) => string;
   getStepDistanceMeters: (step?: NavStep) => number | null;
   getManeuverIcon: (maneuver?: string) => string;
-  uiScale: number;
   mapNavDockBottom: number;
   hideMapAd: boolean;
   mapAdBottom: number;
@@ -68,6 +67,9 @@ type RadarMapTabProps = {
   suppressAds?: boolean;
   resetRoute: () => void;
   setSuggestions: (suggestions: AddressSuggestion[]) => void;
+  voiceWarningsEnabled: boolean;
+  onToggleVoiceWarnings: () => void;
+  onOpenIncidentPanel: () => void;
 };
 
 export function RadarMapTab({
@@ -103,7 +105,6 @@ export function RadarMapTab({
   formatStepDistance,
   getStepDistanceMeters,
   getManeuverIcon,
-  uiScale,
   mapNavDockBottom,
   hideMapAd,
   mapAdBottom,
@@ -120,9 +121,24 @@ export function RadarMapTab({
   suppressAds = false,
   resetRoute,
   setSuggestions,
+  voiceWarningsEnabled,
+  onToggleVoiceWarnings,
+  onOpenIncidentPanel,
 }: RadarMapTabProps) {
   const arrivalDistanceLabel =
     distanceToDestinationMeters != null ? formatStepDistance(distanceToDestinationMeters) : null;
+  const activeStep = navSteps[currentStepIndex];
+  const currentStepDistance = formatStepDistance(getStepDistanceMeters(activeStep)) || '...';
+  const stepInstruction = activeStep?.instruction || 'Follow the highlighted route';
+  const summaryDistance = hasArrived
+    ? 'Arrived'
+    : arrivalState === 'approaching' && arrivalDistanceLabel
+      ? arrivalDistanceLabel
+      : routeMeta?.distanceText || arrivalDistanceLabel || '—';
+  const summaryEta = hasArrived ? 'ETA 0 min' : `ETA ${routeMeta?.etaText || '—'}`;
+  const summaryDestination = hasArrived
+    ? 'Destination reached'
+    : routeMeta?.destinationLabel || destination || 'Destination';
 
   return (
     <View style={{ flex: 1 }}>
@@ -193,7 +209,7 @@ export function RadarMapTab({
                 style={[styles.iconBtn, { backgroundColor: '#4ECDC4', padding: 12 }]}
                 onPress={handleNavigate}
               >
-                <Text style={{ color: 'black', fontWeight: 'bold' }}>GO</Text>
+                <Text style={{ color: '#04111D', fontWeight: 'bold' }}>GO</Text>
               </TouchableOpacity>
 
               {destination.length > 0 && (
@@ -230,40 +246,97 @@ export function RadarMapTab({
               </View>
             )}
           </>
-        ) : (
-          <View style={styles.navCompactRow}>
-            <View style={styles.navCompactInfo}>
-              <Text style={styles.navCompactTitle} numberOfLines={1}>
-                {hasArrived ? 'You have arrived' : routeMeta?.destinationLabel || destination || 'Destination'}
-              </Text>
-              <Text style={styles.navCompactMeta}>
-                {hasArrived
-                  ? 'Tap End Trip when parked safely.'
-                  : arrivalState === 'approaching' && arrivalDistanceLabel
-                    ? `${arrivalDistanceLabel} to destination • ${nearbyRadars.length} radars`
-                    : `${routeMeta?.distanceText || '—'} • ETA ${routeMeta?.etaText || '—'} • ${nearbyRadars.length} radars`}
+        ) : hasArrived ? (
+          <View style={styles.navTopCard}>
+            <View style={[styles.navTopIconShell, { backgroundColor: 'rgba(78,205,196,0.18)' }]}>
+              <MaterialCommunityIcons name="flag-checkered" size={22} color="#4ECDC4" />
+            </View>
+            <View style={styles.navTopCopy}>
+              <Text style={styles.navTopDistance}>You have arrived</Text>
+              <Text style={styles.navTopInstruction} numberOfLines={1}>
+                End the trip when parked safely.
               </Text>
             </View>
-            <TouchableOpacity style={styles.navCompactButton} onPress={centerMap}>
-              <MaterialCommunityIcons name="crosshairs-gps" size={20} color="#4ECDC4" />
+            <TouchableOpacity style={styles.navTopActionPrimary} onPress={onEndTrip}>
+              <Text style={styles.navTopActionPrimaryText}>End</Text>
             </TouchableOpacity>
-            {hasArrived ? (
-              <TouchableOpacity
-                style={[styles.navCompactButton, { backgroundColor: '#4ECDC4', borderColor: '#4ECDC4' }]}
-                onPress={onEndTrip}
-              >
-                <MaterialCommunityIcons name="flag-checkered" size={20} color="#0B1424" />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={[styles.navCompactButton, styles.navCompactButtonDanger]} onPress={resetRoute}>
-                <MaterialCommunityIcons name="close" size={20} color="#F8FAFC" />
-              </TouchableOpacity>
-            )}
+          </View>
+        ) : (
+          <View style={styles.navTopCard}>
+            <View style={styles.navTopIconShell}>
+              <MaterialCommunityIcons
+                name={getManeuverIcon(activeStep?.maneuver) as any}
+                size={22}
+                color="#E2E8F0"
+              />
+            </View>
+            <View style={styles.navTopCopy}>
+              <Text style={styles.navTopDistance}>{currentStepDistance}</Text>
+              <Text style={styles.navTopInstruction} numberOfLines={1}>
+                {stepInstruction}
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.navTopClose} onPress={resetRoute}>
+              <MaterialCommunityIcons name="close" size={20} color="#E2E8F0" />
+            </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {isMapNavigationActive && (
+      <View
+        style={[
+          styles.mapLeftControls,
+          {
+            left: mapOverlayInset,
+            bottom: mapControlsBottom,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.mapControlButton,
+            followHeading && styles.mapControlButtonActive,
+            { width: mapControlSize, height: mapControlSize, marginBottom: mapControlGap },
+          ]}
+          onPress={resumeFollowMode}
+        >
+          <View style={{ transform: [{ rotate: compassRotation }] }}>
+            <MaterialCommunityIcons
+              name="navigation"
+              size={getResponsiveFontSize(20)}
+              color={followHeading ? '#0B1424' : 'white'}
+            />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.mapControlButton,
+            voiceWarningsEnabled && styles.mapControlButtonActive,
+            { width: mapControlSize, height: mapControlSize, marginBottom: mapControlGap },
+          ]}
+          onPress={onToggleVoiceWarnings}
+        >
+          <MaterialCommunityIcons
+            name={voiceWarningsEnabled ? 'volume-high' : 'volume-mute'}
+            size={getResponsiveFontSize(20)}
+            color={voiceWarningsEnabled ? '#0B1424' : 'white'}
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.mapControlButton,
+            styles.mapIncidentButton,
+            { width: mapControlSize, height: mapControlSize },
+          ]}
+          onPress={onOpenIncidentPanel}
+        >
+          <MaterialCommunityIcons name="alert-plus" size={getResponsiveFontSize(20)} color="#FEF2F2" />
+        </TouchableOpacity>
+      </View>
+
+      {routeCoords.length > 0 && isMapNavigationActive && (
         <View
           style={[
             styles.bottomNavDock,
@@ -271,46 +344,13 @@ export function RadarMapTab({
           ]}
           pointerEvents="box-none"
         >
-          {hasArrived ? (
-            <View style={[styles.navInstructionBox, styles.navInstructionDock, { padding: Math.round(10 * uiScale) }]}>
-              <MaterialCommunityIcons name="flag-checkered" size={24} color="#4ECDC4" />
-              <View style={{ marginLeft: 12, flex: 1 }}>
-                <Text style={{ color: 'white', fontSize: Math.round(14 * uiScale), fontWeight: 'bold' }}>
-                  You have arrived
-                </Text>
-                <Text style={{ color: '#cbd5f5', fontSize: Math.round(11 * uiScale) }} numberOfLines={2}>
-                  End the trip when you park safely.
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={onEndTrip}
-                style={{
-                  backgroundColor: '#4ECDC4',
-                  borderRadius: 10,
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                }}
-              >
-                <Text style={{ color: '#0B1424', fontWeight: '800' }}>END</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={[styles.navInstructionBox, styles.navInstructionDock, { padding: Math.round(10 * uiScale) }]}>
-              <MaterialCommunityIcons
-                name={getManeuverIcon(navSteps[currentStepIndex]?.maneuver) as any}
-                size={24}
-                color="white"
-              />
-              <View style={{ marginLeft: 12, flex: 1 }}>
-                <Text style={{ color: 'white', fontSize: Math.round(14 * uiScale), fontWeight: 'bold' }}>
-                  {formatStepDistance(getStepDistanceMeters(navSteps[currentStepIndex])) || '...'}
-                </Text>
-                <Text style={{ color: '#cbd5f5', fontSize: Math.round(11 * uiScale) }} numberOfLines={2}>
-                  {navSteps[currentStepIndex]?.instruction || 'Follow the highlighted route'}
-                </Text>
-              </View>
-            </View>
-          )}
+          <View style={styles.navSummaryCard}>
+            <Text style={styles.navSummaryDistance}>{summaryDistance}</Text>
+            <Text style={styles.navSummaryEta}>{summaryEta}</Text>
+            <Text style={styles.navSummaryDestination} numberOfLines={1}>
+              {summaryDestination}
+            </Text>
+          </View>
         </View>
       )}
 
@@ -351,28 +391,11 @@ export function RadarMapTab({
         <TouchableOpacity
           style={[
             styles.mapControlButton,
-            { width: mapControlSize, height: mapControlSize, marginBottom: mapControlGap },
+            { width: mapControlSize, height: mapControlSize },
           ]}
           onPress={() => zoomMap(-1)}
         >
           <MaterialCommunityIcons name="minus" size={getResponsiveFontSize(20)} color="white" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.mapControlButton,
-            followHeading && styles.mapControlButtonActive,
-            { width: mapControlSize, height: mapControlSize },
-          ]}
-          onPress={resumeFollowMode}
-        >
-          <View style={{ transform: [{ rotate: compassRotation }] }}>
-            <MaterialCommunityIcons
-              name="navigation"
-              size={getResponsiveFontSize(20)}
-              color={followHeading ? '#0B1424' : 'white'}
-            />
-          </View>
         </TouchableOpacity>
       </View>
     </View>
