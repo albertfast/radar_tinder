@@ -189,6 +189,82 @@ const patchReactNativeMapsForXcode26 = () => {
   ensureAirMapImport('AIRGMSPolyline.h');
   ensureAirMapImport('AIRGMSPolygon.h');
 
+  const patchAirGoogleMapInsertSubviewGuard = () => {
+    const sourceCandidates = ['AIRGoogleMap.mm', 'AIRGoogleMap.m'];
+
+    for (const sourceName of sourceCandidates) {
+      const sourcePath = path.join(resolvedDir, 'ios', 'AirGoogleMaps', sourceName);
+      if (!fs.existsSync(sourcePath)) continue;
+
+      let source = fs.readFileSync(sourcePath, 'utf8');
+      const original = source;
+
+      const insertSignature =
+        '- (void)insertReactSubview:(id<RCTComponent>)subview atIndex:(NSInteger)atIndex {';
+
+      if (source.includes(insertSignature) && !source.includes('if (!subview) {\n    return;\n  }')) {
+        source = source.replace(
+          insertSignature,
+          `${insertSignature}\n  if (!subview) {\n    return;\n  }`
+        );
+      }
+
+      if (
+        source.includes('[self insertReactSubview:(UIView *)childSubviews[i] atIndex:atIndex];') &&
+        !source.includes('id<RCTComponent> childSubview = childSubviews[i];')
+      ) {
+        source = source.replace(
+          '[self insertReactSubview:(UIView *)childSubviews[i] atIndex:atIndex];',
+          [
+            'id<RCTComponent> childSubview = childSubviews[i];',
+            '      if (!childSubview) {',
+            '        continue;',
+            '      }',
+            '      [self insertReactSubview:(UIView *)childSubview atIndex:atIndex];',
+          ].join('\n')
+        );
+      }
+
+      const legacyInsertCall = '[_reactSubviews insertObject:(UIView *)subview atIndex:(NSUInteger) atIndex];';
+      const compactInsertCall = '[_reactSubviews insertObject:(UIView *)subview atIndex:(NSUInteger)atIndex];';
+      const hasSafeIndexGuard = source.includes('NSInteger safeAtIndex = atIndex;');
+      if (!hasSafeIndexGuard && source.includes(legacyInsertCall)) {
+        source = source.replace(
+          legacyInsertCall,
+          [
+            'NSInteger safeAtIndex = atIndex;',
+            '  if (safeAtIndex < 0) {',
+            '    safeAtIndex = 0;',
+            '  } else if (safeAtIndex > _reactSubviews.count) {',
+            '    safeAtIndex = _reactSubviews.count;',
+            '  }',
+            '  [_reactSubviews insertObject:(UIView *)subview atIndex:(NSUInteger)safeAtIndex];',
+          ].join('\n  ')
+        );
+      } else if (!hasSafeIndexGuard && source.includes(compactInsertCall)) {
+        source = source.replace(
+          compactInsertCall,
+          [
+            'NSInteger safeAtIndex = atIndex;',
+            '  if (safeAtIndex < 0) {',
+            '    safeAtIndex = 0;',
+            '  } else if (safeAtIndex > _reactSubviews.count) {',
+            '    safeAtIndex = _reactSubviews.count;',
+            '  }',
+            '  [_reactSubviews insertObject:(UIView *)subview atIndex:(NSUInteger)safeAtIndex];',
+          ].join('\n  ')
+        );
+      }
+
+      if (source !== original) {
+        fs.writeFileSync(sourcePath, source);
+        console.log(`Patched react-native-maps ${sourceName} insertReactSubview nil/index guards`);
+      }
+    }
+  };
+
+  patchAirGoogleMapInsertSubviewGuard();
+
   // AIRGoogleMapPolyline does not use AIRGoogleMapMarkerManager and this import can
   // trigger strict module resolution failures under Xcode 26.
   const polylinePath = path.join(resolvedDir, 'ios', 'AirGoogleMaps', 'AIRGoogleMapPolyline.m');

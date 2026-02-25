@@ -1,9 +1,29 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { View, StyleSheet, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { modernMapStyle } from '../utils/modernMapStyle';
 import { getResponsiveWidth, getResponsiveHeight, getResponsiveMargin, getResponsivePadding } from '../constants/layout';
+
+const MAP_COORD_TRACE_ENABLED =
+  __DEV__ || /^(1|true|yes)$/i.test(process.env.EXPO_PUBLIC_MAP_TRACE || '');
+
+type LatLng = { latitude: number; longitude: number };
+
+const toValidCoordinate = (value: any): LatLng | null => {
+  const latitude = Number(value?.latitude);
+  const longitude = Number(value?.longitude);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    return null;
+  }
+
+  return { latitude, longitude };
+};
 
 // Optimized Marker (moved here or kept in same file)
 const OptimizedMarker = React.memo(({ coordinate, type, speedLimit, onPress }: any) => {
@@ -43,21 +63,124 @@ const RadarMap = React.memo(({
     mapInteractionEnabled = true,
     onMapTap,
 }: any) => {
-    
+    const safeLocation = useMemo(() => toValidCoordinate(location), [location]);
     const initialRegionRef = useRef({
-      latitude: location?.latitude || 37.7749,
-      longitude: location?.longitude || -122.4194,
+      latitude: safeLocation?.latitude ?? 37.7749,
+      longitude: safeLocation?.longitude ?? -122.4194,
       latitudeDelta: 0.01,
       longitudeDelta: 0.01,
     });
     const initialRegion = initialRegionRef.current;
 
-    const finalDestination = useMemo(() => {
-      if (destinationPoint?.latitude && destinationPoint?.longitude) {
-        return destinationPoint;
+    const routeInputLength = Array.isArray(routeCoords) ? routeCoords.length : 0;
+    const sanitizedRouteCoords = useMemo(() => {
+      if (!Array.isArray(routeCoords)) {
+        return [] as LatLng[];
       }
-      return routeCoords?.length ? routeCoords[routeCoords.length - 1] : null;
-    }, [destinationPoint, routeCoords]);
+      return routeCoords
+        .map((point: any) => toValidCoordinate(point))
+        .filter((point: LatLng | null): point is LatLng => point !== null);
+    }, [routeCoords]);
+    const invalidRouteCoordCount = Math.max(0, routeInputLength - sanitizedRouteCoords.length);
+
+    const sanitizedRadars = useMemo(() => {
+      const validEntries: Array<{ key: string | number; radar: any; coordinate: LatLng }> = [];
+      let invalidCount = 0;
+
+      if (!Array.isArray(radars)) {
+        return { validEntries, invalidCount };
+      }
+
+      radars.forEach((radar: any, index: number) => {
+        const coordinate = toValidCoordinate({
+          latitude: radar?.latitude,
+          longitude: radar?.longitude,
+        });
+
+        if (!coordinate) {
+          invalidCount += 1;
+          return;
+        }
+
+        validEntries.push({
+          key: radar?.id || index,
+          radar,
+          coordinate,
+        });
+      });
+
+      return { validEntries, invalidCount };
+    }, [radars]);
+
+    const sanitizedDestination = useMemo(() => toValidCoordinate(destinationPoint), [destinationPoint]);
+    const invalidDestinationPoint = Boolean(destinationPoint) && !sanitizedDestination;
+
+    const finalDestination = useMemo(() => {
+      if (sanitizedDestination) {
+        return sanitizedDestination;
+      }
+      return sanitizedRouteCoords.length > 0 ? sanitizedRouteCoords[sanitizedRouteCoords.length - 1] : null;
+    }, [sanitizedDestination, sanitizedRouteCoords]);
+
+    const mapChildren = useMemo(() => {
+      const children: React.ReactElement[] = [];
+
+      if (sanitizedRouteCoords.length > 0) {
+        children.push(
+          <Polyline
+            key="route-polyline"
+            coordinates={sanitizedRouteCoords}
+            strokeWidth={getResponsiveWidth(6)}
+            strokeColor="#4ECDC4"
+            lineCap="round"
+            lineJoin="round"
+            zIndex={10}
+          />
+        );
+      }
+
+      if (finalDestination) {
+        children.push(
+          <Marker key="route-destination" coordinate={finalDestination} anchor={{ x: 0.5, y: 1 }}>
+            <View style={styles.destinationMarker}>
+              <MaterialCommunityIcons name="flag-checkered" size={16} color="#0B1424" />
+            </View>
+          </Marker>
+        );
+      }
+
+      sanitizedRadars.validEntries.forEach(({ key, radar, coordinate }) => {
+        children.push(
+          <OptimizedMarker
+            key={key}
+            coordinate={coordinate}
+            type={radar?.type}
+            speedLimit={radar?.speedLimit}
+            onPress={() => onRadarPress?.(radar)}
+          />
+        );
+      });
+
+      return children;
+    }, [finalDestination, onRadarPress, sanitizedRadars.validEntries, sanitizedRouteCoords]);
+
+    const invalidSummaryRef = useRef('');
+    const invalidRadarCount = sanitizedRadars.invalidCount;
+    useEffect(() => {
+      if (!MAP_COORD_TRACE_ENABLED) return;
+
+      const summary = `route:${invalidRouteCoordCount}|radar:${invalidRadarCount}|dest:${invalidDestinationPoint ? 1 : 0}`;
+      if (summary === invalidSummaryRef.current) return;
+      invalidSummaryRef.current = summary;
+
+      if (invalidRouteCoordCount > 0 || invalidRadarCount > 0 || invalidDestinationPoint) {
+        console.debug('[RadarMap] Dropped invalid map coordinates', {
+          route: invalidRouteCoordCount,
+          radars: invalidRadarCount,
+          destination: invalidDestinationPoint ? 1 : 0,
+        });
+      }
+    }, [invalidDestinationPoint, invalidRadarCount, invalidRouteCoordCount]);
 
     const padding = mapPadding || { top: 200, right: 40, bottom: 280, left: 40 };
 
@@ -90,33 +213,7 @@ const RadarMap = React.memo(({
               onMapTap?.();
             }}
         >
-            {routeCoords.length > 0 && (
-                <Polyline
-                  coordinates={routeCoords}
-                  strokeWidth={getResponsiveWidth(6)}
-                  strokeColor="#4ECDC4"
-                  lineCap="round"
-                  lineJoin="round"
-                  zIndex={10}
-                />
-            )}
-            {finalDestination && (
-              <Marker coordinate={finalDestination} anchor={{ x: 0.5, y: 1 }}>
-                  <View style={styles.destinationMarker}>
-                      <MaterialCommunityIcons name="flag-checkered" size={16} color="#0B1424" />
-                  </View>
-              </Marker>
-            )}
-            
-            {radars.map((r: any, i: number) => (
-                <OptimizedMarker 
-                    key={r.id || i}
-                    coordinate={{latitude: r.latitude, longitude: r.longitude}}
-                    type={r.type}
-                    speedLimit={r.speedLimit}
-                    onPress={() => onRadarPress?.(r)}
-                />
-            ))}
+            {mapChildren}
         </MapView>
     );
 }, (prev, next) => {
