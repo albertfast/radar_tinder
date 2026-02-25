@@ -40,7 +40,11 @@
       </dict>
     </array>
     <key>CFBundleVersion</key>
+<<<<<<< HEAD
     <string>2070965508</string>
+=======
+    <string>2071834826</string>
+>>>>>>> 30f85b9 (WIP: local changes)
     <key>GMSApiKey</key>
     <string>AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ</string>
     <key>ITSAppUsesNonExemptEncryption</key>
