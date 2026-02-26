@@ -70,9 +70,8 @@ target 'RadarTinder' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
-
-    # Xcode script sandbox can block CocoaPods resource copy phases because
-    # they create temporary file lists under ios/Pods.
+    # Disable script sandboxing for app target shell phases. CocoaPods resource
+    # scripts write temporary file lists under ios/Pods and can be blocked.
     installer.aggregate_targets.each do |aggregate_target|
       user_project = aggregate_target.user_project
       next unless user_project

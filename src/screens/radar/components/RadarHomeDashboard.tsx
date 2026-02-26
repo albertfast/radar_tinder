@@ -243,7 +243,12 @@ export function RadarHomeDashboard({
         )}
 
         {showHomeAd ? (
-          <View style={styles.homeAdContainer}>
+          <View
+            style={[
+              styles.homeAdContainer,
+              { minHeight: 58, justifyContent: 'center' },
+            ]}
+          >
             <AdBanner />
           </View>
         ) : null}

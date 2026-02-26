@@ -1,6 +1,6 @@
 import { useAuthStore } from '../store/authStore';
 import { Platform } from 'react-native';
-import { isAdminUser } from '../utils/access';
+import { isAdminUser, shouldShowHomeAds } from '../utils/access';
 
 type GoogleMobileAdsExports = {
   mobileAds: () => {
@@ -139,11 +139,7 @@ export class AdService {
 
     const user = useAuthStore.getState().user;
     if (!user) return true;
-    if (isAdminUser(user)) return false;
-
-    const subscription = user.subscriptionType ?? 'free';
-    if (subscription !== 'free') return false;
-    return !user.adsRemoved;
+    return shouldShowHomeAds(user);
   }
 
   static getAdsDebugState(): {

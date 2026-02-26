@@ -14,7 +14,7 @@ import { SupabaseService } from '../services/SupabaseService';
 import { LocationService } from '../services/LocationService';
 import { AdService } from '../services/AdService';
 import { formatDistance } from '../utils/format';
-import { hasProAccess } from '../utils/access';
+import { hasProAccess, shouldShowHomeAds } from '../utils/access';
 import { RadarAlert, RadarLocation } from '../types';
 import { RadarGraphicView } from './components/RadarGraphicView';
 import { RadarHomeDashboard } from './radar/components/RadarHomeDashboard';
@@ -187,7 +187,7 @@ const RadarScreen = ({ navigation, route }: any) => {
     : mapAdBottom + mapAdEstimatedHeight + fabGap;
   const hideMapAd = mapInput.isDestinationInputFocused || mapInput.isKeyboardVisible;
   const compassRotation = `${dataSync.resolvedHeading || 0}deg`;
-  const showHomeAd = AdService.shouldShowAds();
+  const showHomeAd = shouldShowHomeAds(user);
   const nearestRadarSummary = dataSync.closestRadar
     ? (dataSync.closestRadarHint ? `${formatDistance(dataSync.closestRadar.distance, unitSystem)} at ${dataSync.closestRadarHint}` : formatDistance(dataSync.closestRadar.distance, unitSystem))
     : 'Scanning...';

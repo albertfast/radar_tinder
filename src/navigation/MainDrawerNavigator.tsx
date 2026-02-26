@@ -172,7 +172,6 @@ const MainDrawerNavigator = () => {
                 overlayColor: 'rgba(0,0,0,0.8)',
                 sceneContainerStyle: { backgroundColor: '#0F172A' },
             }}
-            useLegacyImplementation={false}
         >
         <Drawer.Screen name="MainTabs" component={MainTabNavigator} />
         </Drawer.Navigator>

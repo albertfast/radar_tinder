@@ -466,44 +466,46 @@ const patchExpoHmrWindowLocationGuard = () => {
   let source = fs.readFileSync(hmrPath, 'utf8');
   const original = source;
 
-  const setupNeedle =
-    "const serverScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';\n" +
-    "    const client = new MetroHMRClient(`${serverScheme}://${window.location.host}/hot`);";
   const setupPatch =
     "const windowLocation = typeof window !== 'undefined' ? window.location : null;\n" +
     "    const hmrHost = windowLocation?.host || 'localhost';\n" +
     "    const serverScheme = windowLocation?.protocol === 'https:' ? 'wss' : 'ws';\n" +
     "    const client = new MetroHMRClient(`${serverScheme}://${hmrHost}/hot`);";
 
-  if (source.includes(setupNeedle) && !source.includes('const windowLocation = typeof window !==')) {
-    source = source.replace(setupNeedle, setupPatch);
+  if (!source.includes('const windowLocation = typeof window !==')) {
+    source = source.replace(
+      /const serverScheme = window\.location\.protocol === 'https:' \? 'wss' : 'ws';\n\s*const client = new MetroHMRClient\(`\$\{serverScheme\}:\/\/\$\{window\.location\.host\}\/hot`\);/m,
+      setupPatch
+    );
   }
 
-  const bundleNeedle =
-    "const bundleUrl = new URL(\n" +
-    "        currentScript && 'src' in currentScript ? currentScript.src : location.href,\n" +
-    "        location.href\n" +
-    "      );";
-  const bundlePatch =
-    "const baseHref = windowLocation?.href || 'http://localhost/';\n" +
-    "      const bundleUrl = new URL(\n" +
-    "        currentScript && 'src' in currentScript ? currentScript.src : baseHref,\n" +
-    "        baseHref\n" +
-    "      );";
-  if (source.includes(bundleNeedle) && !source.includes('const baseHref = windowLocation?.href')) {
-    source = source.replace(bundleNeedle, bundlePatch);
+  if (!source.includes('const globalDocument =')) {
+    const documentPatch =
+      "const globalDocument =\n" +
+      "        typeof document !== 'undefined' ? document : (globalThis as any).document;\n" +
+      "      const currentScript = globalDocument?.currentScript;";
+    source = source.replace(
+      /const currentScript = document(?:\?|)\.currentScript;/,
+      documentPatch
+    );
   }
 
-  const documentNeedle = 'const currentScript = document?.currentScript;';
-  const documentPatch =
-    "const globalDocument =\n" +
-    "        typeof document !== 'undefined' ? document : (globalThis as any).document;\n" +
-    "      const currentScript = globalDocument?.currentScript;";
-  if (source.includes(documentNeedle) && !source.includes('const globalDocument =')) {
-    source = source.replace(documentNeedle, documentPatch);
+  if (!source.includes('const baseHref = windowLocation?.href')) {
+    const bundlePatch =
+      "const baseHref = windowLocation?.href || 'http://localhost/';\n" +
+      "      const bundleUrl = new URL(\n" +
+      "        currentScript && 'src' in currentScript ? currentScript.src : baseHref,\n" +
+      "        baseHref\n" +
+      "      );";
+    source = source.replace(
+      /const bundleUrl = new URL\(\n\s*currentScript && 'src' in currentScript \? currentScript\.src : location\.href,\n\s*location\.href\n\s*\);/m,
+      bundlePatch
+    );
   }
 
-  source = source.replace('URL: ${window.location.host}', 'URL: ${hmrHost}');
+  if (!source.includes('URL: ${hmrHost}')) {
+    source = source.replace('URL: ${window.location.host}', 'URL: ${hmrHost}');
+  }
 
   if (source !== original) {
     fs.writeFileSync(hmrPath, source);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { NavigationContainer, DarkTheme as NavigationDarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
@@ -6,89 +6,10 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { GestureHandlerRootView, State as GestureHandlerState } from 'react-native-gesture-handler';
-import { AppState, View, ActivityIndicator, Platform } from 'react-native';
-import * as Reanimated from 'react-native-reanimated';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AppState, View, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-
-const reanimated = Reanimated as any;
-const reanimatedVersion = reanimated.version || 'unknown';
-
-const trySetReanimatedProp = (key: string, value: any) => {
-  try {
-    const descriptor = Object.getOwnPropertyDescriptor(reanimated, key);
-    if (descriptor && !descriptor.writable && !descriptor.set) {
-      return false;
-    }
-    reanimated[key] = value;
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-// Reanimated 4 removed useAnimatedGestureHandler but @react-navigation/drawer@6 still calls it.
-// Provide a JS fallback to keep the drawer runtime-compatible on iOS/Android.
-if (!reanimated.useAnimatedGestureHandler) {
-  const BEGAN = GestureHandlerState?.BEGAN ?? 2;
-  const ACTIVE = GestureHandlerState?.ACTIVE ?? 4;
-  const END = GestureHandlerState?.END ?? 5;
-  const CANCELLED = GestureHandlerState?.CANCELLED ?? 3;
-  const FAILED = GestureHandlerState?.FAILED ?? 1;
-
-  trySetReanimatedProp('useAnimatedGestureHandler', (config: any) => {
-    const context: Record<string, any> = {};
-
-    return (event: any) => {
-      const nativeEvent = event?.nativeEvent ?? event ?? {};
-      const state = nativeEvent?.state;
-
-      if (state === BEGAN) {
-        config?.onStart?.(nativeEvent, context);
-        return;
-      }
-
-      if (state === ACTIVE) {
-        config?.onActive?.(nativeEvent, context);
-        return;
-      }
-
-      if (state === END || state === CANCELLED || state === FAILED) {
-        config?.onEnd?.(nativeEvent, context);
-        config?.onFinish?.(nativeEvent, context, state === CANCELLED || state === FAILED);
-      }
-    };
-  });
-}
-
-if (
-  Platform.OS === 'android' &&
-  typeof reanimatedVersion === 'string' &&
-  reanimatedVersion.startsWith('4.')
-) {
-  console.warn('Reanimated 4 detected on Android, enabling compatibility fallbacks');
-
-  if (!reanimated.runOnJS) {
-    trySetReanimatedProp('runOnJS', (fn: any) => fn);
-  }
-  if (!reanimated.useSharedValue) {
-    trySetReanimatedProp('useSharedValue', (initial: any) => ({ value: initial }));
-  }
-  if (!reanimated.useAnimatedStyle) {
-    trySetReanimatedProp('useAnimatedStyle', () => ({}));
-  }
-  if (!reanimated.withTiming) {
-    trySetReanimatedProp('withTiming', (value: any) => value);
-  }
-  if (!reanimated.withSpring) {
-    trySetReanimatedProp('withSpring', (value: any) => value);
-  }
-}
-
-console.log('Reanimated version:', reanimatedVersion);
-console.log('React Native New Architecture (Fabric):', (global as any)._IS_FABRIC ? 'Enabled' : 'Disabled');
-console.log('React Native Bridgeless Mode:', (global as any).RN$Bridgeless ? 'Enabled' : 'Disabled');
 
 import { 
   MaterialCommunityIcons, 
