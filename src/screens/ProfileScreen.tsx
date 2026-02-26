@@ -379,7 +379,7 @@ const ProfileScreen = ({ navigation }: any) => {
           <AdBanner />
         </View>
 
-        <Text style={styles.version}>v1.0.2 (Beta)</Text>
+        <Text style={styles.version}>1.0.5</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </Animated.View>

@@ -152,17 +152,19 @@ export function RadarHomeDashboard({
   pauseRadarAnimation,
   showHomeAd,
 }: RadarHomeDashboardProps) {
-  const homeBottomInset = tabBarInset + Math.max(34, Math.round(width * 0.1));
+  const homeBottomInset = tabBarInset + Math.max(28, Math.round(width * 0.08));
   const isCompactWidth = width <= 420;
   const heroVerticalPadding = isCompactWidth ? 10 : 14;
   const heroTopMargin = isCompactWidth ? 2 : 6;
   const buttonBottomSpacing = isCompactWidth ? getResponsiveHeight(8) : getResponsiveHeight(10);
-  const contentBottomPadding = showHomeAd
-    ? Math.max(getResponsiveHeight(16), Math.round(tabBarInset * 0.36))
-    : Math.max(getResponsiveHeight(10), Math.round(tabBarInset * 0.22));
-  const quickPanelMinHeight = showHomeAd
-    ? Math.max(getResponsiveHeight(56), Math.round(tabBarInset * 0.42))
-    : Math.max(getResponsiveHeight(118), Math.round(tabBarInset * 0.86));
+  const contentBottomPadding = Math.max(
+    homeBottomInset,
+    showHomeAd ? getResponsiveHeight(82) : getResponsiveHeight(52)
+  );
+  const quickPanelMinHeight = Math.max(
+    getResponsiveHeight(118),
+    Math.round(tabBarInset * (showHomeAd ? 0.96 : 0.86))
+  );
 
   return (
     <View style={styles.container}>
@@ -246,7 +248,7 @@ export function RadarHomeDashboard({
           <View
             style={[
               styles.homeAdContainer,
-              { minHeight: 58, justifyContent: 'center' },
+              { minHeight: 62, justifyContent: 'center' },
             ]}
           >
             <AdBanner />

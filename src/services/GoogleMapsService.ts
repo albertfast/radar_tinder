@@ -375,33 +375,30 @@ export class GoogleMapsService {
   ): Promise<any> {
     try {
       console.log('[GoogleMapsService] Recalculating route from current position');
-      
-      // Get new directions from current location
-      const newRoute = await this.getDirections(currentLat, currentLng, destination, {
+
+      const legEnd = originalRoute?.legs?.[0]?.end_location;
+      const endLat = Number(legEnd?.lat ?? legEnd?.latitude);
+      const endLng = Number(legEnd?.lng ?? legEnd?.longitude);
+      const destinationTarget =
+        Number.isFinite(endLat) && Number.isFinite(endLng)
+          ? `${endLat},${endLng}`
+          : destination;
+
+      const newRoute = await this.getDirections(currentLat, currentLng, destinationTarget, {
         alternatives: true,
         prefer: 'duration'
       });
 
-      if (newRoute && !newRoute.error) {
-        // Compare with original route to determine if significant deviation
-        if (originalRoute && originalRoute.legs) {
-          const originalDistance = originalRoute.legs[0].distance.value;
-          const newDistance = newRoute.legs[0].distance.value;
-          const deviationPercentage = Math.abs((newDistance - originalDistance) / originalDistance) * 100;
-          
-          console.log(`[GoogleMapsService] Route deviation: ${deviationPercentage.toFixed(1)}%`);
-          
-          // Only return new route if deviation is significant (> 15%)
-          if (deviationPercentage < 15) {
-            console.log('[GoogleMapsService] Deviation minor, keeping original route');
-            return originalRoute;
-          }
-        }
-        
-        console.log('[GoogleMapsService] New route calculated due to significant deviation');
+      if (newRoute && !newRoute.error && Array.isArray(newRoute.coordinates) && newRoute.coordinates.length > 0) {
+        console.log('[GoogleMapsService] Route recalculated and applied');
         return newRoute;
       }
-      
+
+      if (originalRoute && Array.isArray(originalRoute.coordinates) && originalRoute.coordinates.length > 0) {
+        console.warn('[GoogleMapsService] Recalculation failed, keeping previous route snapshot');
+        return originalRoute;
+      }
+
       return newRoute;
     } catch (error) {
       console.error('Error recalculating route:', error);

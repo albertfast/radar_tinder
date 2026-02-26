@@ -13,6 +13,8 @@ type DrivingSessionParams = {
   currentLocationRef: React.MutableRefObject<any>;
 };
 
+const MIN_TRIP_DISTANCE_METERS = 80;
+
 export function useDrivingSession({ user, currentLocation, currentLocationRef }: DrivingSessionParams) {
   const [isDriving, setIsDriving] = useState(false);
   const [drivingStartTime, setDrivingStartTime] = useState<Date | null>(null);
@@ -59,7 +61,7 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
     if (!startTime || !tripStartRef.current) return;
 
     const distanceMeters = Math.round(totalDistanceRef.current * 1000);
-    if (distanceMeters < 200) {
+    if (distanceMeters < MIN_TRIP_DISTANCE_METERS) {
       tripStartRef.current = null;
       tripStartLabelRef.current = null;
       return;
@@ -91,7 +93,7 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
       }
     }
 
-    await SupabaseService.createTrip({
+    const savedTrip = await SupabaseService.createTrip({
       userId: user.id,
       startLocation: startLabel || 'Start',
       endLocation: endLabel,
@@ -101,6 +103,9 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
       endTime: endTime.toISOString(),
       score: 0,
     });
+    if (!savedTrip) {
+      console.warn('[DrivingSession] Trip queued. Supabase insert will retry when connectivity is restored.');
+    }
 
     tripStartRef.current = null;
     tripStartLabelRef.current = null;

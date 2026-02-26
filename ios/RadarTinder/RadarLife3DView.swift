@@ -38,10 +38,10 @@ final class RadarLife3DView: UIView {
     }
   }
 
-  @objc var paused: Bool = false {
+  @objc(paused) var radarPaused: Bool = false {
     didSet {
-      metalView.isPaused = paused
-      radarRenderer?.paused = paused
+      metalView.isPaused = radarPaused
+      radarRenderer?.paused = radarPaused
     }
   }
 
@@ -66,7 +66,7 @@ final class RadarLife3DView: UIView {
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
-    let shouldPause = window == nil || paused
+    let shouldPause = window == nil || radarPaused
     metalView.isPaused = shouldPause
     radarRenderer?.paused = shouldPause
   }
@@ -100,7 +100,7 @@ final class RadarLife3DView: UIView {
     radarRenderer?.signalLevel = signalLevel.floatValue
     radarRenderer?.dangerLevel = dangerLevel.floatValue
     radarRenderer?.themeVariant = themeVariant as String
-    radarRenderer?.paused = paused
-    metalView.isPaused = paused
+    radarRenderer?.paused = radarPaused
+    metalView.isPaused = radarPaused
   }
 }
