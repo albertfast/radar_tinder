@@ -46,6 +46,12 @@ build/
 # iOS Build Artifacts
 *.ipa
 *.dSYM.zip
+*.xcarchive
+*.xctestproducts
+ios/*.xctestproducts/
+ios/RadarTinder_*.xctestproducts/
+ios/*.xcresult
+ios/*.xcarchive
 
 # iOS
 ios/Pods/

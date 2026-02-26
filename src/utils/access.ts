@@ -38,3 +38,5 @@ export const isFreeWithAds = (user?: User | null) =>
   !user?.isAdminSession &&
   user?.subscriptionType === 'free' &&
   !user?.adsRemoved;
+
+export const shouldShowHomeAds = (user?: User | null) => isFreeWithAds(user);

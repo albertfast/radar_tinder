@@ -29,6 +29,21 @@ const secureStorage = {
 
 let inflightAnonymousSignIn: Promise<{ data: any; error: any }> | null = null;
 
+const normalizeSubscriptionType = (
+  value: unknown
+): User['subscriptionType'] => {
+  if (value === 'free' || value === 'premium' || value === 'pro') {
+    return value;
+  }
+  return 'free';
+};
+
+const normalizeAdsRemoved = (profile: any): boolean => {
+  if (typeof profile?.ads_removed === 'boolean') return profile.ads_removed;
+  if (typeof profile?.adsRemoved === 'boolean') return profile.adsRemoved;
+  return false;
+};
+
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -97,7 +112,7 @@ export const useAuthStore = create<AuthState>()(
               username: profile?.username,
               displayName: profile?.display_name,
               name: displayName,
-              subscriptionType: profile?.subscription_type || 'free',
+              subscriptionType: normalizeSubscriptionType(profile?.subscription_type),
               avatarUrl: profile?.avatar_url,
               profileImage: profile?.avatar_url,
               points: profile?.points || 0,
@@ -105,6 +120,7 @@ export const useAuthStore = create<AuthState>()(
               xp: profile?.xp || 0,
               level: profile?.level || 1,
               stats: profile?.stats || { reports: 0, confirmations: 0, distanceDriven: 0 },
+              adsRemoved: normalizeAdsRemoved(profile),
               createdAt: new Date(data.user.created_at),
               updatedAt: new Date(),
             };
@@ -198,7 +214,7 @@ export const useAuthStore = create<AuthState>()(
             username: profile?.username,
             displayName: profile?.display_name,
             name: displayName,
-            subscriptionType: profile?.subscription_type || 'free',
+            subscriptionType: normalizeSubscriptionType(profile?.subscription_type),
             avatarUrl: profile?.avatar_url,
             profileImage: profile?.avatar_url,
             points: profile?.points || 0,
@@ -206,6 +222,7 @@ export const useAuthStore = create<AuthState>()(
             xp: profile?.xp || 0,
             level: profile?.level || 1,
             stats: profile?.stats || { reports: 0, confirmations: 0, distanceDriven: 0 },
+            adsRemoved: normalizeAdsRemoved(profile),
             createdAt: new Date(supabaseUser.created_at),
             updatedAt: new Date(),
           };
@@ -322,7 +339,7 @@ export const useAuthStore = create<AuthState>()(
               username: profile?.username,
               displayName: profile?.display_name,
               name: displayName,
-              subscriptionType: profile?.subscription_type || 'free',
+              subscriptionType: normalizeSubscriptionType(profile?.subscription_type),
               avatarUrl: profile?.avatar_url,
               profileImage: profile?.avatar_url,
               points: profile?.points || 0,
@@ -330,6 +347,7 @@ export const useAuthStore = create<AuthState>()(
               xp: profile?.xp || 0,
               level: profile?.level || 1,
               stats: profile?.stats || { reports: 0, confirmations: 0, distanceDriven: 0 },
+              adsRemoved: normalizeAdsRemoved(profile),
               createdAt: new Date(data.user.created_at),
               updatedAt: new Date(),
             };
@@ -368,7 +386,7 @@ export const useAuthStore = create<AuthState>()(
             username: profile?.username,
             displayName: profile?.display_name,
             name: displayName,
-            subscriptionType: profile?.subscription_type || 'free',
+            subscriptionType: normalizeSubscriptionType(profile?.subscription_type),
             avatarUrl: profile?.avatar_url,
             profileImage: profile?.avatar_url,
             points: profile?.points || 0,
@@ -376,6 +394,7 @@ export const useAuthStore = create<AuthState>()(
             xp: profile?.xp || 0,
             level: profile?.level || 1,
             stats: profile?.stats || { reports: 0, confirmations: 0, distanceDriven: 0 },
+            adsRemoved: normalizeAdsRemoved(profile),
             createdAt: new Date(data.session.user.created_at),
             updatedAt: new Date(),
           };
@@ -406,24 +425,16 @@ export const useAuthStore = create<AuthState>()(
           if (!profile) return;
 
           const isAdminSession = Boolean(currentUser.isAdminSession);
-          const profileSubscriptionType =
-            profile.subscription_type === 'free' || profile.subscription_type === 'premium' || profile.subscription_type === 'pro'
-              ? profile.subscription_type
-              : null;
-          const profileAdsRemoved =
-            typeof profile.ads_removed === 'boolean'
-              ? profile.ads_removed
-              : typeof profile.adsRemoved === 'boolean'
-                ? profile.adsRemoved
-                : null;
+          const profileSubscriptionType = normalizeSubscriptionType(profile.subscription_type);
+          const profileAdsRemoved = normalizeAdsRemoved(profile);
 
           const normalizedSubscriptionType = isAdminSession
             ? 'pro'
-            : profileSubscriptionType || currentUser.subscriptionType || 'free';
+            : profileSubscriptionType;
 
           const normalizedAdsRemoved = isAdminSession
             ? true
-            : profileAdsRemoved ?? Boolean(currentUser.adsRemoved);
+            : profileAdsRemoved;
 
           const unitSystem = profile.unit_system;
           if (unitSystem === 'metric' || unitSystem === 'imperial') {
@@ -463,23 +474,15 @@ export const useAuthStore = create<AuthState>()(
           if (!profile) return;
 
           const isAdminSession = Boolean(currentUser.isAdminSession);
-          const profileSubscriptionType =
-            profile.subscription_type === 'free' || profile.subscription_type === 'premium' || profile.subscription_type === 'pro'
-              ? profile.subscription_type
-              : null;
-          const profileAdsRemoved =
-            typeof profile.ads_removed === 'boolean'
-              ? profile.ads_removed
-              : typeof profile.adsRemoved === 'boolean'
-                ? profile.adsRemoved
-                : null;
+          const profileSubscriptionType = normalizeSubscriptionType(profile.subscription_type);
+          const profileAdsRemoved = normalizeAdsRemoved(profile);
 
           const normalizedSubscriptionType = isAdminSession
             ? 'pro'
-            : profileSubscriptionType || currentUser.subscriptionType || 'free';
+            : profileSubscriptionType;
           const normalizedAdsRemoved = isAdminSession
             ? true
-            : profileAdsRemoved ?? Boolean(currentUser.adsRemoved);
+            : profileAdsRemoved;
 
           const unitSystem = profile.unit_system;
           if (unitSystem === 'metric' || unitSystem === 'imperial') {
