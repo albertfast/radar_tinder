@@ -26,7 +26,7 @@ const RadarNavigator = ({ route, navigation }: any) => {
   }, [initialParams?.screen, navigation]);
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator id="radar-stack" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="RadarMain" component={RadarScreen} initialParams={initialParams} />
       <Stack.Screen name="RadarSettings" component={RadarSettingsScreen} />
       <Stack.Screen name="AIDiagnose" component={AIDiagnoseScreen} />

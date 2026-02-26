@@ -41,6 +41,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1772079810646</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-9670547831022880~5105162950</string>
 	<key>GMSApiKey</key>
 	<string>AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

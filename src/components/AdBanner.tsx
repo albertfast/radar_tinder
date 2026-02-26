@@ -16,6 +16,19 @@ const isAdDebugOverlayEnabled = () =>
   isAdDebugEnabled() && isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG_OVERLAY);
 const shouldForceTestAdUnits = () =>
   __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_ADMOB_FORCE_TEST_IDS);
+const shouldFallbackToTestOnFailure = () =>
+  isTruthyFlag(process.env.EXPO_PUBLIC_ADMOB_FALLBACK_TO_TEST_ON_ERROR);
+
+const loadGoogleMobileAdsBannerModules = () => {
+  let root: any = null;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    root = require('react-native-google-mobile-ads');
+  } catch {}
+
+  return { root };
+};
 
 const describeError = (error: unknown): string => {
   if (!error) return 'Unknown error';
@@ -30,13 +43,11 @@ const describeError = (error: unknown): string => {
 function getGoogleMobileAds(): any | null {
   if (cachedGoogleMobileAds !== undefined) return cachedGoogleMobileAds;
   try {
-    const BannerAd = require('react-native-google-mobile-ads/lib/commonjs/ads/BannerAd');
-    const BannerAdSize = require('react-native-google-mobile-ads/lib/commonjs/BannerAdSize');
-    const TestIds = require('react-native-google-mobile-ads/lib/commonjs/TestIds');
+    const { root } = loadGoogleMobileAdsBannerModules();
     cachedGoogleMobileAds = {
-      BannerAd: BannerAd?.BannerAd ?? BannerAd?.default,
-      BannerAdSize: BannerAdSize?.BannerAdSize ?? BannerAdSize?.default,
-      TestIds: TestIds?.TestIds ?? TestIds?.default,
+      BannerAd: root?.BannerAd,
+      BannerAdSize: root?.BannerAdSize,
+      TestIds: root?.TestIds,
     };
   } catch (error) {
     if (__DEV__) {
@@ -55,15 +66,27 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId, suppressAds = false }
     // If used outside navigation context, default to true
   }
 
+  const platformBannerUnitId = Platform.select({
+    ios: process.env.EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID_IOS,
+    android: process.env.EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID_ANDROID,
+    default: undefined,
+  });
+  const fallbackTestBannerUnitId =
+    Platform.OS === 'ios'
+      ? 'ca-app-pub-3940256099942544/2934735716'
+      : 'ca-app-pub-3940256099942544/6300978111';
   const defaultBannerUnitId =
+    platformBannerUnitId ||
     process.env.EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID ||
-    'ca-app-pub-9670547831022880/8900297100';
+    fallbackTestBannerUnitId;
   const productionBannerUnitId = unitId || defaultBannerUnitId;
   const isUsingTestUnit = shouldForceTestAdUnits();
 
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [didLoad, setDidLoad] = React.useState(false);
   const [hasRetriedWithDefault, setHasRetriedWithDefault] = React.useState(false);
+  const [hasRetriedWithTestUnit, setHasRetriedWithTestUnit] = React.useState(false);
+  const [useTestFallbackUnit, setUseTestFallbackUnit] = React.useState(false);
   const [effectiveProductionUnitId, setEffectiveProductionUnitId] = React.useState(productionBannerUnitId);
   
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
@@ -87,7 +110,14 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId, suppressAds = false }
   React.useEffect(() => {
     setEffectiveProductionUnitId(productionBannerUnitId);
     setHasRetriedWithDefault(false);
+    setHasRetriedWithTestUnit(false);
+    setUseTestFallbackUnit(false);
   }, [productionBannerUnitId]);
+
+  React.useEffect(() => {
+    if (!isFocused || suppressAds) return;
+    AdService.init().catch(() => {});
+  }, [isFocused, suppressAds]);
 
   // LOGGING ADDED FOR DEBUGGING
   // console.log(`[AdBanner] isFocused: ${isFocused}, isKeyboardVisible: ${isKeyboardVisible}, unitId: ${unitId || 'default'}`);
@@ -148,7 +178,8 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId, suppressAds = false }
     return size;
   })();
   
-  const adUnitId = isUsingTestUnit ? TestIds.BANNER : effectiveProductionUnitId;
+  const adUnitId =
+    isUsingTestUnit || useTestFallbackUnit ? TestIds.BANNER : effectiveProductionUnitId;
 
   const minHeight = (() => {
     if (typeof size === 'string') {
@@ -168,20 +199,19 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId, suppressAds = false }
           requestNonPersonalizedAdsOnly: true,
         }}
         onAdLoaded={() => {
-          // REMOVED STATE UPDATE TO PREVENT RE-RENDERS
-          // setDidLoad(true); 
-          // setLoadError(null);
+          setDidLoad(true);
+          setLoadError(null);
           if (isAdDebugEnabled()) {
             console.log('[ADS] banner loaded', { platform: Platform.OS, adUnitId });
           }
         }}
         onAdFailedToLoad={(error: unknown) => {
           const reason = describeError(error);
-          // REMOVED STATE UPDATE
-          // setDidLoad(false);
-          // setLoadError(reason);
+          setDidLoad(false);
+          setLoadError(reason);
           if (
             !isUsingTestUnit &&
+            !useTestFallbackUnit &&
             !hasRetriedWithDefault &&
             effectiveProductionUnitId !== defaultBannerUnitId
           ) {
@@ -192,6 +222,19 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId, suppressAds = false }
                 '[ADS] custom banner unit failed, retrying with default banner unit',
                 reason
               );
+            }
+            return;
+          }
+          if (
+            !isUsingTestUnit &&
+            !useTestFallbackUnit &&
+            !hasRetriedWithTestUnit &&
+            shouldFallbackToTestOnFailure()
+          ) {
+            setHasRetriedWithTestUnit(true);
+            setUseTestFallbackUnit(true);
+            if (isAdDebugEnabled()) {
+              console.warn('[ADS] banner failed, retrying once with platform test unit', reason);
             }
             return;
           }
