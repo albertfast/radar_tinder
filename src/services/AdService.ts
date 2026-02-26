@@ -47,31 +47,38 @@ const asErrorString = (error: unknown): string => {
   }
 };
 
+const loadGoogleMobileAdsModules = () => {
+  let root: any = null;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    root = require('react-native-google-mobile-ads');
+  } catch {}
+
+  return { root };
+};
+
 function getGoogleMobileAds(): GoogleMobileAdsExports | null {
   if (cachedGoogleMobileAds !== undefined) return cachedGoogleMobileAds;
 
   try {
-    // Don't import the package root: it eagerly imports additional modules.
-    // Load only what we need and rely on try/catch for binaries without ads.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const MobileAds = require('react-native-google-mobile-ads/lib/commonjs/MobileAds');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const MaxAdContentRating = require('react-native-google-mobile-ads/lib/commonjs/MaxAdContentRating');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const TestIds = require('react-native-google-mobile-ads/lib/commonjs/TestIds');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const AdEventType = require('react-native-google-mobile-ads/lib/commonjs/AdEventType');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const InterstitialAd = require('react-native-google-mobile-ads/lib/commonjs/ads/InterstitialAd');
+    const { root } = loadGoogleMobileAdsModules();
 
-    const mobileAds = MobileAds?.default ?? MobileAds?.MobileAds;
+    const mobileAds =
+      root?.default ??
+      root?.mobileAds ??
+      root?.MobileAds;
     cachedGoogleMobileAds = {
       mobileAds,
-      MaxAdContentRating: MaxAdContentRating?.MaxAdContentRating ?? MaxAdContentRating?.default,
-      TestIds: TestIds?.TestIds ?? TestIds?.default,
-      AdEventType: AdEventType?.AdEventType ?? AdEventType?.default,
-      InterstitialAd: InterstitialAd?.InterstitialAd ?? InterstitialAd?.default,
+      MaxAdContentRating: root?.MaxAdContentRating,
+      TestIds: root?.TestIds,
+      AdEventType: root?.AdEventType,
+      InterstitialAd: root?.InterstitialAd,
     };
+
+    if (typeof cachedGoogleMobileAds.mobileAds !== 'function') {
+      throw new Error('mobile_ads_function_missing');
+    }
   } catch (error) {
     if (__DEV__) {
       console.log('Google Mobile Ads module unavailable, skipping ads:', error);
@@ -87,51 +94,63 @@ export class AdService {
   private static interstitial: any | null = null;
   private static isInitialized: boolean = false;
   private static hasAttemptedInit: boolean = false;
+  private static initPromise: Promise<void> | null = null;
   private static navigationAdsSuppressed: boolean = false;
 
   static async init(): Promise<void> {
-    if (this.hasAttemptedInit) return;
+    if (this.isInitialized) return;
+    if (this.initPromise) return this.initPromise;
+    if (this.hasAttemptedInit && !cachedLastInitError) return;
     this.hasAttemptedInit = true;
-    
-    try {
-      const googleMobileAds = getGoogleMobileAds();
-      const mobileAds = googleMobileAds?.mobileAds;
 
-      // Check if the native module exists before initializing
-      if (typeof mobileAds !== 'function') {
-        cachedLastInitError = 'mobile_ads_function_missing';
-        if (__DEV__) {
-          console.log('Mobile Ads SDK not available in this iOS/Android binary. Skipping ads initialization.');
-        } else {
-          console.warn(
-            'Mobile Ads SDK not available in this iOS/Android binary. Skipping ads initialization.'
-          );
+    this.initPromise = (async () => {
+      try {
+        const googleMobileAds = getGoogleMobileAds();
+        const mobileAds = googleMobileAds?.mobileAds;
+
+        if (typeof mobileAds !== 'function') {
+          this.isInitialized = false;
+          cachedLastInitError = 'mobile_ads_function_missing';
+          if (__DEV__) {
+            console.log(
+              'Mobile Ads SDK not available in this iOS/Android binary. Skipping ads initialization.'
+            );
+          } else {
+            console.warn(
+              'Mobile Ads SDK not available in this iOS/Android binary. Skipping ads initialization.'
+            );
+          }
+          return;
         }
-        return;
-      }
 
-      const testDeviceIdentifiers = parseTestDeviceIds();
-      await mobileAds().initialize();
-      await mobileAds().setRequestConfiguration({
-        maxAdContentRating: googleMobileAds?.MaxAdContentRating?.G ?? 'G',
-        tagForChildDirectedTreatment: false,
-        tagForUnderAgeOfConsent: false,
-        ...(testDeviceIdentifiers.length > 0 ? { testDeviceIdentifiers } : {}),
-      });
-      this.isInitialized = true;
-      cachedLastInitError = null;
-      if (isAdDebugEnabled()) {
-        console.log('[ADS] init ok', {
-          platform: Platform.OS,
-          forcedTestIds: shouldForceTestAdUnits(),
-          testDeviceIds: testDeviceIdentifiers.length,
+        const testDeviceIdentifiers = parseTestDeviceIds();
+        await mobileAds().initialize();
+        await mobileAds().setRequestConfiguration({
+          maxAdContentRating: googleMobileAds?.MaxAdContentRating?.G ?? 'G',
+          tagForChildDirectedTreatment: false,
+          tagForUnderAgeOfConsent: false,
+          ...(testDeviceIdentifiers.length > 0 ? { testDeviceIdentifiers } : {}),
         });
+        this.isInitialized = true;
+        cachedLastInitError = null;
+        if (isAdDebugEnabled()) {
+          console.log('[ADS] init ok', {
+            platform: Platform.OS,
+            forcedTestIds: shouldForceTestAdUnits(),
+            testDeviceIds: testDeviceIdentifiers.length,
+          });
+        }
+        console.log('Mobile Ads SDK initialized');
+      } catch (error) {
+        this.isInitialized = false;
+        cachedLastInitError = asErrorString(error);
+        console.warn('Error initializing Mobile Ads SDK (Native module might be missing):', error);
+      } finally {
+        this.initPromise = null;
       }
-      console.log('Mobile Ads SDK initialized');
-    } catch (error) {
-      cachedLastInitError = asErrorString(error);
-      console.warn('Error initializing Mobile Ads SDK (Native module might be missing):', error);
-    }
+    })();
+
+    return this.initPromise;
   }
 
   static shouldShowAds(): boolean {
@@ -188,6 +207,8 @@ export class AdService {
 
   static async loadInterstitial(): Promise<void> {
     if (!this.shouldShowAds()) return;
+    await this.init();
+    if (!this.isInitialized) return;
 
     const googleMobileAds = getGoogleMobileAds();
     if (!googleMobileAds?.InterstitialAd || !googleMobileAds?.TestIds) return;

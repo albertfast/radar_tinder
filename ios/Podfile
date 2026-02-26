@@ -151,5 +151,59 @@ target 'RadarTinder' do
       File.write(rn_maps_marker_header, marker_patched) if marker_patched != marker_content
     end
 
+    # RN 0.81 + RNGestureHandler 2.28 can generate ShadowNodes.cpp without
+    # generating the matching ShadowNodes.h for rngesturehandler_codegen.
+    # ReactCodegen expects that header and fails with lstat(...) No such file.
+    rngh_codegen_dir = File.join(
+      __dir__,
+      'build',
+      'generated',
+      'ios',
+      'react',
+      'renderer',
+      'components',
+      'rngesturehandler_codegen'
+    )
+    rngh_shadow_nodes_h = File.join(rngh_codegen_dir, 'ShadowNodes.h')
+    rngh_shadow_nodes_cpp = File.join(rngh_codegen_dir, 'ShadowNodes.cpp')
+    if File.exist?(rngh_shadow_nodes_cpp) && !File.exist?(rngh_shadow_nodes_h)
+      File.write(
+        rngh_shadow_nodes_h,
+        <<~'RNGH_SHADOW_NODES_H'
+          /**
+           * Workaround file generated from Podfile post_install.
+           * Upstream codegen intermittently misses this header on iOS.
+           */
+
+          #pragma once
+
+          #include <react/renderer/components/rngesturehandler_codegen/EventEmitters.h>
+          #include <react/renderer/components/rngesturehandler_codegen/Props.h>
+          #include <react/renderer/components/rngesturehandler_codegen/States.h>
+          #include <react/renderer/components/view/ConcreteViewShadowNode.h>
+          #include <jsi/jsi.h>
+
+          namespace facebook::react {
+
+          JSI_EXPORT extern const char RNGestureHandlerButtonComponentName[];
+          using RNGestureHandlerButtonShadowNode = ConcreteViewShadowNode<
+              RNGestureHandlerButtonComponentName,
+              RNGestureHandlerButtonProps,
+              RNGestureHandlerButtonEventEmitter,
+              RNGestureHandlerButtonState>;
+
+          JSI_EXPORT extern const char RNGestureHandlerRootViewComponentName[];
+          using RNGestureHandlerRootViewShadowNode = ConcreteViewShadowNode<
+              RNGestureHandlerRootViewComponentName,
+              RNGestureHandlerRootViewProps,
+              RNGestureHandlerRootViewEventEmitter,
+              RNGestureHandlerRootViewState>;
+
+          } // namespace facebook::react
+        RNGH_SHADOW_NODES_H
+      )
+      Pod::UI.puts 'Patched missing rngesturehandler_codegen/ShadowNodes.h'
+    end
+
   end
 end

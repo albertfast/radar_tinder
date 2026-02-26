@@ -43,4 +43,7 @@ export const isFreeWithAds = (user?: User | null) =>
   user?.subscriptionType === 'free' &&
   !user?.adsRemoved;
 
-export const shouldShowHomeAds = (user?: User | null) => isFreeWithAds(user);
+export const shouldShowHomeAds = (user?: User | null) => {
+  if (!user) return true;
+  return isFreeWithAds(user);
+};
