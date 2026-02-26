@@ -25,12 +25,33 @@ $RNFirebaseAsStaticFramework = true
 
       if (!podfileContent.includes('CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES')) {
         const mapsWorkaround = `
+    # Disable script sandboxing for app target shell phases. CocoaPods resource
+    # scripts write temporary file lists under ios/Pods and can be blocked.
+    installer.aggregate_targets.each do |aggregate_target|
+      user_project = aggregate_target.user_project
+      next unless user_project
+
+      user_project.native_targets.each do |native_target|
+        native_target.build_configurations.each do |build_config|
+          build_config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+        end
+      end
+
+      user_project.save
+    end
+
     # Workaround: Xcode 26 strict modular header checks in static framework pods
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build_config|
         # Some pods (RNFirebase, etc.) import React headers and fail under framework modular checks.
         build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
         build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
+        if build_config.name == 'Release'
+          # Ensure Release archives emit dSYMs so App Store symbol upload succeeds.
+          build_config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
+          build_config.build_settings['GCC_GENERATE_DEBUGGING_SYMBOLS'] = 'YES'
+          build_config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
+        end
       end
 
       if ['react-native-google-maps', 'react-native-maps'].include?(target.name)

@@ -70,10 +70,9 @@ target 'RadarTinder' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
-<<<<<<< HEAD
-=======
 
-        # @radartinder begin user-script-sandbox-fix
+    # Xcode script sandbox can block CocoaPods resource copy phases because
+    # they create temporary file lists under ios/Pods.
     installer.aggregate_targets.each do |aggregate_target|
       user_project = aggregate_target.user_project
       next unless user_project
@@ -86,15 +85,19 @@ target 'RadarTinder' do
 
       user_project.save
     end
-    # @radartinder end user-script-sandbox-fix
 
->>>>>>> 30f85b9 (WIP: local changes)
     # Workaround: Xcode 26 strict modular header checks in static framework pods
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build_config|
         # Some pods (RNFirebase, etc.) import React headers and fail under framework modular checks.
         build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
         build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
+        if build_config.name == 'Release'
+          # Ensure Release archives emit dSYMs so App Store symbol upload succeeds.
+          build_config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
+          build_config.build_settings['GCC_GENERATE_DEBUGGING_SYMBOLS'] = 'YES'
+          build_config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
+        end
       end
 
       if ['react-native-google-maps', 'react-native-maps'].include?(target.name)

@@ -47,6 +47,7 @@ interface AuthState {
     profile?: { email?: string | null; displayName?: string | null; avatarUrl?: string | null };
   }) => Promise<{ data: any; error: any }>;
   hydrateFromSupabaseSession: () => Promise<boolean>;
+  normalizeAccessState: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
@@ -391,6 +392,68 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      normalizeAccessState: async () => {
+        try {
+          let currentUser = get().user;
+          if (!currentUser) {
+            const hydrated = await get().hydrateFromSupabaseSession();
+            if (!hydrated) return;
+            currentUser = get().user;
+          }
+          if (!currentUser) return;
+
+          const profile = await SupabaseService.getProfile(currentUser.id);
+          if (!profile) return;
+
+          const isAdminSession = Boolean(currentUser.isAdminSession);
+          const profileSubscriptionType =
+            profile.subscription_type === 'free' || profile.subscription_type === 'premium' || profile.subscription_type === 'pro'
+              ? profile.subscription_type
+              : null;
+          const profileAdsRemoved =
+            typeof profile.ads_removed === 'boolean'
+              ? profile.ads_removed
+              : typeof profile.adsRemoved === 'boolean'
+                ? profile.adsRemoved
+                : null;
+
+          const normalizedSubscriptionType = isAdminSession
+            ? 'pro'
+            : profileSubscriptionType || currentUser.subscriptionType || 'free';
+
+          const normalizedAdsRemoved = isAdminSession
+            ? true
+            : profileAdsRemoved ?? Boolean(currentUser.adsRemoved);
+
+          const unitSystem = profile.unit_system;
+          if (unitSystem === 'metric' || unitSystem === 'imperial') {
+            useSettingsStore.getState().setUnitSystem(unitSystem);
+          }
+
+          set({
+            user: {
+              ...currentUser,
+              username: profile.username ?? currentUser.username,
+              displayName: profile.display_name ?? currentUser.displayName,
+              name:
+                profile.display_name ||
+                profile.username ||
+                currentUser.name ||
+                currentUser.email.split('@')[0],
+              avatarUrl: profile.avatar_url ?? currentUser.avatarUrl,
+              profileImage: profile.avatar_url ?? currentUser.profileImage,
+              subscriptionType: normalizedSubscriptionType,
+              adsRemoved: normalizedAdsRemoved,
+              isAdminSession: isAdminSession ? true : undefined,
+              updatedAt: new Date(),
+            },
+            isAuthenticated: true,
+          });
+        } catch (error) {
+          console.error('Failed to normalize access state:', error);
+        }
+      },
+
       refreshProfile: async () => {
         const currentUser = get().user;
         if (!currentUser) return;
@@ -398,6 +461,30 @@ export const useAuthStore = create<AuthState>()(
         try {
           const profile = await SupabaseService.getProfile(currentUser.id);
           if (!profile) return;
+
+          const isAdminSession = Boolean(currentUser.isAdminSession);
+          const profileSubscriptionType =
+            profile.subscription_type === 'free' || profile.subscription_type === 'premium' || profile.subscription_type === 'pro'
+              ? profile.subscription_type
+              : null;
+          const profileAdsRemoved =
+            typeof profile.ads_removed === 'boolean'
+              ? profile.ads_removed
+              : typeof profile.adsRemoved === 'boolean'
+                ? profile.adsRemoved
+                : null;
+
+          const normalizedSubscriptionType = isAdminSession
+            ? 'pro'
+            : profileSubscriptionType || currentUser.subscriptionType || 'free';
+          const normalizedAdsRemoved = isAdminSession
+            ? true
+            : profileAdsRemoved ?? Boolean(currentUser.adsRemoved);
+
+          const unitSystem = profile.unit_system;
+          if (unitSystem === 'metric' || unitSystem === 'imperial') {
+            useSettingsStore.getState().setUnitSystem(unitSystem);
+          }
 
           set({
             user: {
@@ -416,6 +503,9 @@ export const useAuthStore = create<AuthState>()(
               xp: profile.xp ?? currentUser.xp,
               level: profile.level ?? currentUser.level,
               stats: profile.stats ?? currentUser.stats,
+              subscriptionType: normalizedSubscriptionType,
+              adsRemoved: normalizedAdsRemoved,
+              isAdminSession: isAdminSession ? true : undefined,
               updatedAt: new Date(),
             },
           });
@@ -445,6 +535,19 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => secureStorage),
+      partialize: (state) => {
+        const sanitizedUser = state.user
+          ? (() => {
+              const { isAdminSession: _isAdminSession, ...restUser } = state.user as User;
+              return restUser as User;
+            })()
+          : null;
+        return {
+          user: sanitizedUser,
+          isAuthenticated: state.isAuthenticated,
+          isLoading: state.isLoading,
+        };
+      },
     }
   )
 );

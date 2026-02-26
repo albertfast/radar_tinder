@@ -31,15 +31,7 @@ public class AppDelegate: ExpoAppDelegate {
     window = UIWindow(frame: UIScreen.main.bounds)
 // @generated begin @react-native-firebase/app-didFinishLaunchingWithOptions - expo prebuild (DO NOT MODIFY) sync-10e8520570672fd76b2403b7e1e27f5198a6349a
 if FirebaseApp.app() == nil {
-<<<<<<< HEAD
   FirebaseApp.configure()
-=======
-  if FirebaseApp.app() == nil {
-    if FirebaseApp.app() == nil {
-      FirebaseApp.configure()
-    }
-  }
->>>>>>> 30f85b9 (WIP: local changes)
 }
 // @generated end @react-native-firebase/app-didFinishLaunchingWithOptions
     // @generated begin react-native-maps-init - expo prebuild (DO NOT MODIFY) sync-custom-mainthread-init

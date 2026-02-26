@@ -449,6 +449,120 @@ const patchRNFBAnalyticsForModules = () => {
   }
 };
 
+const patchExpoHmrWindowLocationGuard = () => {
+  const pkg = 'expo';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const hmrPath = path.join(resolvedDir, 'src', 'async-require', 'hmr.ts');
+  if (!fs.existsSync(hmrPath)) {
+    console.warn(`prepare-patches: missing file ${hmrPath}`);
+    return;
+  }
+
+  let source = fs.readFileSync(hmrPath, 'utf8');
+  const original = source;
+
+  const setupNeedle =
+    "const serverScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';\n" +
+    "    const client = new MetroHMRClient(`${serverScheme}://${window.location.host}/hot`);";
+  const setupPatch =
+    "const windowLocation = typeof window !== 'undefined' ? window.location : null;\n" +
+    "    const hmrHost = windowLocation?.host || 'localhost';\n" +
+    "    const serverScheme = windowLocation?.protocol === 'https:' ? 'wss' : 'ws';\n" +
+    "    const client = new MetroHMRClient(`${serverScheme}://${hmrHost}/hot`);";
+
+  if (source.includes(setupNeedle) && !source.includes('const windowLocation = typeof window !==')) {
+    source = source.replace(setupNeedle, setupPatch);
+  }
+
+  const bundleNeedle =
+    "const bundleUrl = new URL(\n" +
+    "        currentScript && 'src' in currentScript ? currentScript.src : location.href,\n" +
+    "        location.href\n" +
+    "      );";
+  const bundlePatch =
+    "const baseHref = windowLocation?.href || 'http://localhost/';\n" +
+    "      const bundleUrl = new URL(\n" +
+    "        currentScript && 'src' in currentScript ? currentScript.src : baseHref,\n" +
+    "        baseHref\n" +
+    "      );";
+  if (source.includes(bundleNeedle) && !source.includes('const baseHref = windowLocation?.href')) {
+    source = source.replace(bundleNeedle, bundlePatch);
+  }
+
+  const documentNeedle = 'const currentScript = document?.currentScript;';
+  const documentPatch =
+    "const globalDocument =\n" +
+    "        typeof document !== 'undefined' ? document : (globalThis as any).document;\n" +
+    "      const currentScript = globalDocument?.currentScript;";
+  if (source.includes(documentNeedle) && !source.includes('const globalDocument =')) {
+    source = source.replace(documentNeedle, documentPatch);
+  }
+
+  source = source.replace('URL: ${window.location.host}', 'URL: ${hmrHost}');
+
+  if (source !== original) {
+    fs.writeFileSync(hmrPath, source);
+    console.log('Patched expo async-require hmr.ts with window.location guards');
+  }
+};
+
+const patchReactNativeXcodeMetroIpWriteGuard = () => {
+  const pkg = 'react-native';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const scriptPaths = [
+    path.join(resolvedDir, 'scripts', 'react-native-xcode.sh'),
+    path.join(nodeModules, 'react-native', 'scripts', 'react-native-xcode.sh'),
+  ];
+
+  const writeNeedle = '  echo "$IP" > "$DEST/ip.txt"';
+  const writePatch = [
+    '  if ! echo "$IP" > "$DEST/ip.txt" 2>/dev/null; then',
+    '    echo "warning: Skipping Metro IP file write to $DEST/ip.txt (sandboxed)."',
+    '  fi',
+  ].join('\n');
+
+  let patchedAny = false;
+  const visited = new Set();
+
+  for (const scriptPath of scriptPaths) {
+    const realPath = fs.existsSync(scriptPath) ? fs.realpathSync(scriptPath) : null;
+    const canonicalPath = realPath || scriptPath;
+    if (visited.has(canonicalPath)) continue;
+    visited.add(canonicalPath);
+
+    if (!fs.existsSync(scriptPath)) {
+      console.warn(`prepare-patches: missing file ${scriptPath}`);
+      continue;
+    }
+
+    let source = fs.readFileSync(scriptPath, 'utf8');
+    const original = source;
+
+    if (source.includes(writeNeedle) && !source.includes('Skipping Metro IP file write')) {
+      source = source.replace(writeNeedle, writePatch);
+    }
+
+    if (source !== original) {
+      fs.writeFileSync(scriptPath, source);
+      patchedAny = true;
+    }
+  }
+
+  if (patchedAny) {
+    console.log('Patched react-native react-native-xcode.sh Metro IP file write guard');
+  }
+};
+
 for (const pkg of packages) {
   try {
     const resolvedDir = resolvePackageDir(pkg);
@@ -471,3 +585,5 @@ patchExpoModulesCoreForRN81();
 patchExpoReactActivityDelegateWrapperForRN81();
 patchRNFBCrashlyticsForModules();
 patchRNFBAnalyticsForModules();
+patchExpoHmrWindowLocationGuard();
+patchReactNativeXcodeMetroIpWriteGuard();

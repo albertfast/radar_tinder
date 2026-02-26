@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, UIManager, ViewProps, requireNativeComponent } from 'react-native';
+import { UIManager, ViewProps, requireNativeComponent } from 'react-native';
 import { logWarn } from '../utils/logger';
 
 export type RadarLifeThemeVariant = 'contour_orbit';
@@ -28,12 +28,6 @@ const getNativeComponent = () => {
     globalCache[NATIVE_COMPONENT_CACHE_KEY] as typeof nativeComponent;
   if (cachedGlobal !== undefined) {
     nativeComponent = cachedGlobal;
-    return nativeComponent;
-  }
-
-  if (Platform.OS !== 'android') {
-    nativeComponent = null;
-    globalCache[NATIVE_COMPONENT_CACHE_KEY] = nativeComponent;
     return nativeComponent;
   }
 

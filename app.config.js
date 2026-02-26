@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const getVersionCode = () => {
+const getAndroidVersionCode = () => {
   try {
     // Current timestamp logic
     const now = Math.floor(Date.now() / 1000);
@@ -13,6 +13,15 @@ const getVersionCode = () => {
     console.warn('Version code generation failed, using fallback:', e);
     return 2100000000;
   }
+};
+
+const getIosBuildNumber = () => {
+  if (process.env.IOS_BUILD_NUMBER) {
+    return process.env.IOS_BUILD_NUMBER;
+  }
+
+  // Millisecond precision prevents duplicate uploads from rapid consecutive archives.
+  return Date.now().toString();
 };
 
 const APP_VERSION = "1.0.5";
@@ -36,8 +45,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.radartinder.app",
-      // Use the same dynamic logic as Android for auto-incrementing build numbers
-      buildNumber: getVersionCode().toString(),
+      buildNumber: getIosBuildNumber(),
       googleServicesFile: "./GoogleService-Info.plist",
       config: {
         googleMapsApiKey: "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
@@ -78,7 +86,7 @@ module.exports = {
     },
     android: {
       package: "com.radartinder.app",
-      versionCode: getVersionCode(),
+      versionCode: getAndroidVersionCode(),
       googleServicesFile: "./google-services.json",
       softwareKeyboardLayoutMode: "pan",
       adaptiveIcon: {
@@ -142,7 +150,8 @@ module.exports = {
           },
           ios: {
             deploymentTarget: "16.1",
-            useFrameworks: "static"
+            useFrameworks: "static",
+            buildReactNativeFromSource: true
           }
         }
       ],
