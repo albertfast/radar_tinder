@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { View, StyleSheet, Platform, UIManager, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, UIManager, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { logInfo } from '../utils/logger';
@@ -47,7 +47,6 @@ export const RadarAnimation = ({
   const dynamicStyles = useMemo(() => createDynamicStyles(resolvedSize), [resolvedSize]);
 
   const canUseLife3D = useMemo(() => {
-    if (Platform.OS !== 'android') return false;
     return !!UIManager.getViewManagerConfig?.('RTRadarLife3DView');
   }, []);
 

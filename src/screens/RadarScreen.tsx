@@ -41,7 +41,7 @@ import { useRadarDataSync } from './radar/hooks/useRadarDataSync';
 import { useRadarNavigation } from './radar/hooks/useRadarNavigation';
 const MAP_INPUT_TAP_GUARD_MS = 800;
 const RadarScreen = ({ navigation, route }: any) => {
-  const { user, refreshProfile } = useAuthStore();
+  const { user, refreshProfile, normalizeAccessState } = useAuthStore();
   const canUsePro = hasProAccess(user);
   const {
     hasHydrated,
@@ -208,6 +208,11 @@ const RadarScreen = ({ navigation, route }: any) => {
     showTabBar('driving_mode');
     return () => showTabBar('driving_mode');
   }, [activeTab, driving.isDriving, hideTabBar, showTabBar]);
+
+  useEffect(() => {
+    if (!isScreenFocused) return;
+    normalizeAccessState().catch(() => {});
+  }, [isScreenFocused, normalizeAccessState]);
 
   useEffect(() => {
     AdService.setNavigationAdsSuppressed(isTurnByTurnActive);

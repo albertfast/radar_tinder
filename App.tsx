@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, State as GestureHandlerState } from 'react-native-gesture-handler';
 import { AppState, View, ActivityIndicator, Platform } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import * as SplashScreen from 'expo-splash-screen';
@@ -28,14 +28,36 @@ const trySetReanimatedProp = (key: string, value: any) => {
   }
 };
 
-// Reanimated 4 compatibility: apply only on Android and never hard-crash startup.
-if (Platform.OS === 'android' && !reanimated.useAnimatedGestureHandler) {
+// Reanimated 4 removed useAnimatedGestureHandler but @react-navigation/drawer@6 still calls it.
+// Provide a JS fallback to keep the drawer runtime-compatible on iOS/Android.
+if (!reanimated.useAnimatedGestureHandler) {
+  const BEGAN = GestureHandlerState?.BEGAN ?? 2;
+  const ACTIVE = GestureHandlerState?.ACTIVE ?? 4;
+  const END = GestureHandlerState?.END ?? 5;
+  const CANCELLED = GestureHandlerState?.CANCELLED ?? 3;
+  const FAILED = GestureHandlerState?.FAILED ?? 1;
+
   trySetReanimatedProp('useAnimatedGestureHandler', (config: any) => {
-    return {
-      onStart: config?.onStart || (() => {}),
-      onActive: config?.onActive || (() => {}),
-      onEnd: config?.onEnd || (() => {}),
-      onFinalize: config?.onFinalize || (() => {}),
+    const context: Record<string, any> = {};
+
+    return (event: any) => {
+      const nativeEvent = event?.nativeEvent ?? event ?? {};
+      const state = nativeEvent?.state;
+
+      if (state === BEGAN) {
+        config?.onStart?.(nativeEvent, context);
+        return;
+      }
+
+      if (state === ACTIVE) {
+        config?.onActive?.(nativeEvent, context);
+        return;
+      }
+
+      if (state === END || state === CANCELLED || state === FAILED) {
+        config?.onEnd?.(nativeEvent, context);
+        config?.onFinish?.(nativeEvent, context, state === CANCELLED || state === FAILED);
+      }
     };
   });
 }
@@ -137,7 +159,7 @@ const combinedDarkTheme = {
 const prefix = Linking.createURL('/');
 
 export default function App() {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, hydrateFromSupabaseSession, normalizeAccessState } = useAuthStore();
   const hasSettingsHydrated = useSettingsStore((state) => state.hasHydrated);
   const voiceWarningsEnabled = useSettingsStore((state) => state.voiceWarningsEnabled);
   const warningVolume = useSettingsStore((state) => state.warningVolume);
@@ -232,6 +254,24 @@ export default function App() {
     const initTimeout = setTimeout(initializeServices, 100);
     return () => clearTimeout(initTimeout);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timeout = setTimeout(async () => {
+      try {
+        await hydrateFromSupabaseSession();
+        if (cancelled) return;
+        await normalizeAccessState();
+      } catch (error) {
+        console.warn('Initial auth normalization failed:', error);
+      }
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [hydrateFromSupabaseSession, normalizeAccessState]);
 
   useEffect(() => {
     if (!hasSettingsHydrated) return;

@@ -6,7 +6,7 @@
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { NativeModules } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import ocrClasses from '../../assets/models/digital_ocr_classes.json';
 import dashboardMetadata from '../../assets/models/dashboard_classes.json';
 import diagnosticKb from '../../assets/models/diagnostic_kb.json';
@@ -33,18 +33,256 @@ let modelLoadError: string | null = null;
 let ortModuleCache: OrtModule | null | undefined;
 let dashboardKbValidated = false;
 
+type ModelErrorCode =
+  | 'native_module_missing'
+  | 'model_uri_invalid'
+  | 'file_corrupt'
+  | 'session_create_failed'
+  | 'asset_copy_failed'
+  | 'unknown';
+
+type ModelDiagnosticEntry = {
+  sourceUri: string | null;
+  resolvedPath: string | null;
+  sizeBytes: number | null;
+  loaded: boolean;
+  lastErrorCode: ModelErrorCode | null;
+  lastErrorMessage: string | null;
+  loadAttempts: number;
+  lastLoadedAt: string | null;
+};
+
+type ModelDiagnostics = {
+  platform: string;
+  remoteFallbackEnabled: boolean;
+  lastErrorCode: ModelErrorCode | null;
+  lastErrorMessage: string | null;
+  ocr: ModelDiagnosticEntry;
+  dashboard: ModelDiagnosticEntry;
+};
+
 // Emergency fallback base URL for remote-hosted models.
 // Primary source is always embedded app assets; this is used only if local loading fails.
 const REMOTE_MODEL_BASE = 'https://raw.githubusercontent.com/albertfast/radar_tinder/master/assets/models';
 const REMOTE_MODEL_FALLBACK_ENABLED = /^(1|true|yes)$/i.test(
   String((process as any)?.env?.EXPO_PUBLIC_ALLOW_REMOTE_MODEL_FALLBACK || '')
 );
+const DASHBOARD_MODEL_MIN_BYTES = 4 * 1024 * 1024;
+const OCR_MODEL_MIN_BYTES = 256 * 1024;
+
+const createModelDiagnosticEntry = (): ModelDiagnosticEntry => ({
+  sourceUri: null,
+  resolvedPath: null,
+  sizeBytes: null,
+  loaded: false,
+  lastErrorCode: null,
+  lastErrorMessage: null,
+  loadAttempts: 0,
+  lastLoadedAt: null,
+});
+
+const modelDiagnostics: ModelDiagnostics = {
+  platform: Platform.OS,
+  remoteFallbackEnabled: REMOTE_MODEL_FALLBACK_ENABLED,
+  lastErrorCode: null,
+  lastErrorMessage: null,
+  ocr: createModelDiagnosticEntry(),
+  dashboard: createModelDiagnosticEntry(),
+};
 
 export class AIService {
+  private static createModelError(
+    code: ModelErrorCode,
+    message: string,
+    cause?: unknown
+  ): Error & { code: ModelErrorCode } {
+    const error = new Error(message) as Error & { code: ModelErrorCode; cause?: unknown };
+    error.code = code;
+    if (cause !== undefined) {
+      error.cause = cause;
+    }
+    return error;
+  }
+
+  private static getModelErrorCode(error: unknown): ModelErrorCode {
+    const code = (error as { code?: unknown })?.code;
+    if (typeof code === 'string') {
+      return code as ModelErrorCode;
+    }
+    return 'unknown';
+  }
+
+  private static getCacheRootDirectory(): string {
+    const root = (FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory;
+    if (!root) {
+      throw this.createModelError(
+        'asset_copy_failed',
+        'No writable cache directory is available for ONNX model preparation.'
+      );
+    }
+    return root;
+  }
+
+  private static ensureCachePath(fileName: string): string {
+    return `${this.getCacheRootDirectory()}${fileName}`;
+  }
+
+  private static setModelFailure(
+    model: 'ocr' | 'dashboard',
+    error: unknown,
+    fallbackMessage: string
+  ) {
+    const entry = model === 'ocr' ? modelDiagnostics.ocr : modelDiagnostics.dashboard;
+    const code = this.getModelErrorCode(error);
+    const message = error instanceof Error ? error.message : fallbackMessage;
+
+    entry.loaded = false;
+    entry.lastErrorCode = code;
+    entry.lastErrorMessage = message;
+    modelDiagnostics.lastErrorCode = code;
+    modelDiagnostics.lastErrorMessage = message;
+    modelLoadError = message;
+  }
+
+  private static markModelPrepared(
+    model: 'ocr' | 'dashboard',
+    sourceUri: string,
+    resolvedPath: string,
+    sizeBytes: number
+  ) {
+    const entry = model === 'ocr' ? modelDiagnostics.ocr : modelDiagnostics.dashboard;
+    entry.sourceUri = sourceUri;
+    entry.resolvedPath = resolvedPath;
+    entry.sizeBytes = sizeBytes;
+    entry.loaded = true;
+    entry.lastErrorCode = null;
+    entry.lastErrorMessage = null;
+    entry.lastLoadedAt = new Date().toISOString();
+
+    modelDiagnostics.lastErrorCode = null;
+    modelDiagnostics.lastErrorMessage = null;
+    modelLoadError = null;
+  }
+
+  private static bumpModelAttempt(model: 'ocr' | 'dashboard') {
+    const entry = model === 'ocr' ? modelDiagnostics.ocr : modelDiagnostics.dashboard;
+    entry.loadAttempts += 1;
+  }
+
+  private static async validateModelFileSize(
+    filePath: string,
+    minBytes: number,
+    label: string
+  ): Promise<number> {
+    const info = (await FileSystem.getInfoAsync(filePath)) as { exists: boolean; size?: number };
+    const size = typeof info.size === 'number' ? info.size : 0;
+    if (!info.exists || size < minBytes) {
+      throw this.createModelError(
+        'file_corrupt',
+        `${label} is missing or smaller than expected (${size} B < ${minBytes} B): ${filePath}`
+      );
+    }
+    return size;
+  }
+
+  private static async writeAtomically(
+    destinationPath: string,
+    writer: (tempPath: string) => Promise<void>,
+    minBytes: number,
+    label: string
+  ): Promise<number> {
+    const tempPath = `${destinationPath}.tmp.${Date.now()}`;
+    await FileSystem.deleteAsync(tempPath, { idempotent: true }).catch(() => {});
+    await FileSystem.deleteAsync(destinationPath, { idempotent: true }).catch(() => {});
+
+    try {
+      await writer(tempPath);
+      const size = await this.validateModelFileSize(tempPath, minBytes, label);
+      await FileSystem.moveAsync({ from: tempPath, to: destinationPath });
+      return size;
+    } catch (error) {
+      await FileSystem.deleteAsync(tempPath, { idempotent: true }).catch(() => {});
+      if (this.getModelErrorCode(error) !== 'file_corrupt') {
+        throw this.createModelError('asset_copy_failed', `${label} cache write failed.`, error);
+      }
+      throw error;
+    }
+  }
+
+  private static async prepareModelPathFromSource(
+    sourceUri: string,
+    destinationPath: string,
+    minBytes: number,
+    label: string
+  ): Promise<{ path: string; sizeBytes: number }> {
+    if (sourceUri === destinationPath) {
+      const size = await this.validateModelFileSize(destinationPath, minBytes, label);
+      return { path: destinationPath, sizeBytes: size };
+    }
+
+    if (sourceUri.startsWith('file://') || sourceUri.startsWith('content://')) {
+      const size = await this.writeAtomically(
+        destinationPath,
+        async (tempPath) => {
+          await FileSystem.copyAsync({ from: sourceUri, to: tempPath });
+        },
+        minBytes,
+        label
+      );
+      return { path: destinationPath, sizeBytes: size };
+    }
+
+    if (__DEV__ && this.isLoopbackAssetUri(sourceUri)) {
+      const size = await this.writeAtomically(
+        destinationPath,
+        async (tempPath) => {
+          await FileSystem.downloadAsync(sourceUri, tempPath);
+        },
+        minBytes,
+        label
+      );
+      return { path: destinationPath, sizeBytes: size };
+    }
+
+    throw this.createModelError(
+      'model_uri_invalid',
+      `${label} URI is not loadable as a local model file: ${sourceUri}`
+    );
+  }
+
+  private static resolveBundledAssetUri(asset: Asset, label: string): string {
+    const candidates = [asset.localUri, (asset as any).uri, asset.uri].filter(
+      (v): v is string => typeof v === 'string' && v.length > 0
+    );
+    const local = candidates.find((uri) => !this.isRemoteHttpUri(uri));
+    if (local) return local;
+
+    const loopback = candidates.find((uri) => this.isLoopbackAssetUri(uri));
+    if (loopback) {
+      if (__DEV__) return loopback;
+      throw this.createModelError(
+        'model_uri_invalid',
+        `${label} is resolving to Metro localhost (${loopback}). Production builds must use embedded app assets.`
+      );
+    }
+
+    if (candidates.length > 0) {
+      throw this.createModelError(
+        'model_uri_invalid',
+        `${label} is not resolving to an embedded local asset: ${candidates[0]}`
+      );
+    }
+
+    throw this.createModelError('model_uri_invalid', `${label} asset URI not found in app bundle.`);
+  }
+
   private static getOrtModule(): OrtModule {
     if (ortModuleCache) return ortModuleCache;
     if (ortModuleCache === null) {
-      throw new Error(modelLoadError || 'ONNX Runtime module is not available.');
+      throw this.createModelError(
+        'native_module_missing',
+        modelLoadError || 'ONNX Runtime module is not available.'
+      );
     }
 
     const onnxNative = (NativeModules as any)?.Onnxruntime;
@@ -53,13 +291,16 @@ export class AIService {
       ortModuleCache = null;
       modelLoadError =
         'ONNX Runtime native module is unavailable in this build. Rebuild and reinstall the app, then retry.';
-      throw new Error(modelLoadError);
+      throw this.createModelError('native_module_missing', modelLoadError);
     }
 
     try {
       const ort = require('onnxruntime-react-native') as OrtModule;
       if (!ort?.InferenceSession || typeof ort.InferenceSession.create !== 'function') {
-        throw new Error('ONNX Runtime JS bridge loaded but InferenceSession API is missing.');
+        throw this.createModelError(
+          'native_module_missing',
+          'ONNX Runtime JS bridge loaded but InferenceSession API is missing.'
+        );
       }
       ortModuleCache = ort;
       return ortModuleCache;
@@ -67,7 +308,7 @@ export class AIService {
       ortModuleCache = null;
       const message = error instanceof Error ? error.message : String(error);
       modelLoadError = `Failed to initialize ONNX Runtime bridge: ${message}`;
-      throw new Error(modelLoadError);
+      throw this.createModelError('native_module_missing', modelLoadError, error);
     }
   }
 
@@ -114,32 +355,11 @@ export class AIService {
     return /^https?:\/\//i.test(uri);
   }
 
-  private static resolveBundledAssetUri(asset: Asset, label: string): string {
-    const candidates = [asset.localUri, (asset as any).uri, asset.uri].filter(
-      (v): v is string => typeof v === 'string' && v.length > 0
-    );
-    const local = candidates.find((uri) => !this.isRemoteHttpUri(uri));
-    if (local) return local;
-
-    const loopback = candidates.find((uri) => this.isLoopbackAssetUri(uri));
-    if (loopback) {
-      throw new Error(
-        `${label} is resolving to Metro localhost (${loopback}). This build must load models from embedded app assets only.`
-      );
-    }
-
-    if (candidates.length > 0) {
-      throw new Error(`${label} is not an embedded local asset: ${candidates[0]}`);
-    }
-
-    throw new Error(`${label} asset URI not found in app bundle.`);
-  }
-
   private static isEmbeddedAssetErrorMessage(message: string): boolean {
     const text = (message || '').toLowerCase();
     return (
       text.includes('metro localhost') ||
-      text.includes('embedded app assets only') ||
+      text.includes('embedded app assets') ||
       text.includes('not an embedded local asset') ||
       text.includes('asset uri not found in app bundle')
     );
@@ -332,88 +552,93 @@ export class AIService {
    */
   private static async loadOcrModel() {
     if (ocrSession) return ocrSession;
-    
+
+    this.bumpModelAttempt('ocr');
+
     try {
       const asset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx'));
       await asset.downloadAsync();
-      const candidateUri = this.resolveBundledAssetUri(asset, 'Bundled OCR model');
-
-      const modelPath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx`;
-      if (candidateUri !== modelPath) {
-        await FileSystem.copyAsync({
-          from: candidateUri,
-          to: modelPath
-        });
-      }
+      const sourceUri = this.resolveBundledAssetUri(asset, 'Bundled OCR model');
+      const targetPath = this.ensureCachePath('digital_ocr_net.onnx');
+      const prepared = await this.prepareModelPathFromSource(
+        sourceUri,
+        targetPath,
+        OCR_MODEL_MIN_BYTES,
+        'Bundled OCR model'
+      );
 
       try {
         const dataAsset = Asset.fromModule(require('../../assets/models/digital_ocr_net.onnx.data'));
         await dataAsset.downloadAsync();
-        const dataUri = this.resolveBundledAssetUri(dataAsset, 'Bundled OCR sidecar');
-        const dataPath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx.data`;
-        if (dataUri !== dataPath) {
-          await FileSystem.copyAsync({
-            from: dataUri,
-            to: dataPath
-          });
-        }
+        const dataSource = this.resolveBundledAssetUri(dataAsset, 'Bundled OCR sidecar');
+        const dataPath = this.ensureCachePath('digital_ocr_net.onnx.data');
+        await this.prepareModelPathFromSource(
+          dataSource,
+          dataPath,
+          1024,
+          'Bundled OCR sidecar'
+        );
       } catch (dataError) {
-        // Model may be self-contained without external data.
+        // OCR may be self-contained; sidecar is optional.
       }
 
       const ort = this.getOrtModule();
-      ocrSession = await ort.InferenceSession.create(modelPath);
+      try {
+        ocrSession = await ort.InferenceSession.create(prepared.path);
+      } catch (sessionError) {
+        throw this.createModelError(
+          'session_create_failed',
+          `OCR session initialization failed for ${prepared.path}`,
+          sessionError
+        );
+      }
+      this.markModelPrepared('ocr', sourceUri, prepared.path, prepared.sizeBytes);
       return ocrSession;
     } catch (error) {
-      console.error('Error loading OCR model from bundled asset:', error);
-      const bundledMessage = error instanceof Error ? error.message : 'Failed to load OCR model';
+      this.setModelFailure('ocr', error, 'Failed to load OCR model from bundled asset.');
+      const bundledMessage =
+        error instanceof Error ? error.message : 'Failed to load OCR model from bundled asset.';
       if (!this.canUseRemoteModelFallback() || this.isEmbeddedAssetErrorMessage(bundledMessage)) {
-        modelLoadError =
-          `${bundledMessage}. Remote model fallback is disabled (embedded asset required).`;
-        throw new Error(modelLoadError);
+        throw error;
       }
+
       const fallbackUrl = this.buildRemoteModelUrl('digital_ocr_net.onnx');
       if (!fallbackUrl) {
-        modelLoadError = bundledMessage;
-        throw new Error(modelLoadError);
+        throw error;
       }
-      // Attempt fallback to remote model URL
+
       try {
-        const remotePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/digital_ocr_net.onnx`;
+        const remotePath = this.ensureCachePath('digital_ocr_net.onnx');
         console.warn('Attempting to download OCR model from remote URL:', fallbackUrl);
-        await FileSystem.downloadAsync(fallbackUrl, remotePath);
+        const remoteSize = await this.writeAtomically(
+          remotePath,
+          async (tempPath) => {
+            await FileSystem.downloadAsync(fallbackUrl, tempPath);
+          },
+          OCR_MODEL_MIN_BYTES,
+          'Remote OCR model'
+        );
         const ort = this.getOrtModule();
         ocrSession = await ort.InferenceSession.create(remotePath);
+        this.markModelPrepared('ocr', fallbackUrl, remotePath, remoteSize);
         return ocrSession;
       } catch (remoteError) {
-        console.error('Error loading OCR model from remote URL:', remoteError);
-        modelLoadError =
-          remoteError instanceof Error ? remoteError.message : 'Failed to load OCR model';
-        throw new Error(modelLoadError);
+        this.setModelFailure('ocr', remoteError, 'Failed to load OCR model from remote URL.');
+        throw remoteError;
       }
     }
   }
 
   private static async ensureDashboardSidecar(modelPath: string) {
     try {
-      console.log('Ensuring dashboard model sidecar file...');
       const dataAsset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx.data'));
       await dataAsset.downloadAsync();
-      console.log('Dashboard model data asset downloaded');
 
       const targetPath = modelPath.endsWith('.onnx')
         ? modelPath.replace(/dashboard_net\.onnx$/, 'dashboard_net.onnx.data')
         : `${modelPath}.data`;
-
-      const existing = await FileSystem.getInfoAsync(targetPath);
-      if (existing.exists) {
-        console.log('Dashboard model sidecar already exists');
-        return targetPath;
-      }
-
       const source = this.resolveBundledAssetUri(dataAsset, 'Bundled dashboard sidecar');
-
-      const sourceInfo = await FileSystem.getInfoAsync(source);
+      const sourceInfo = await FileSystem.getInfoAsync(source).catch(() => ({ exists: false, size: 0 }));
       if (sourceInfo.exists && typeof sourceInfo.size === 'number' && sourceInfo.size <= 32) {
         try {
           const marker = await FileSystem.readAsStringAsync(source, {
@@ -428,10 +653,13 @@ export class AIService {
         }
       }
 
-      console.log('Copying dashboard model sidecar to:', targetPath);
-      await FileSystem.copyAsync({ from: source, to: targetPath });
-      console.log('Dashboard model sidecar copied successfully');
-      return targetPath;
+      const prepared = await this.prepareModelPathFromSource(
+        source,
+        targetPath,
+        1,
+        'Bundled dashboard sidecar'
+      );
+      return prepared.path;
     } catch (error) {
       console.warn('Dashboard model sidecar copy failed:', error);
       return null;
@@ -446,105 +674,85 @@ export class AIService {
     }
     if (dashboardSessionPromise) return dashboardSessionPromise;
     if (isModelLoading) {
-      throw new Error('Model is already loading');
+      throw this.createModelError('unknown', 'Model is already loading');
     }
 
     dashboardSessionPromise = (async () => {
+      const cachePath = this.ensureCachePath('dashboard_net.onnx');
+      this.bumpModelAttempt('dashboard');
       try {
         isModelLoading = true;
-        console.log('Loading Dashboard model...');
-        
+
         const asset = Asset.fromModule(require('../../assets/models/dashboard_net.onnx'));
         await asset.downloadAsync();
-        const candidateUri = this.resolveBundledAssetUri(asset, 'Bundled dashboard model');
-        console.log('Dashboard model asset downloaded');
+        const sourceUri = this.resolveBundledAssetUri(asset, 'Bundled dashboard model');
+        const prepared = await this.prepareModelPathFromSource(
+          sourceUri,
+          cachePath,
+          DASHBOARD_MODEL_MIN_BYTES,
+          'Bundled dashboard model'
+        );
 
-        const cachePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/dashboard_net.onnx`;
-        let modelPath = candidateUri;
-        // Always prefer a writable cache path for ONNX sessions.
+        await this.ensureDashboardSidecar(prepared.path);
+
+        const ort = this.getOrtModule();
         try {
-          if (candidateUri === cachePath) {
-            modelPath = cachePath;
-          } else {
-            const sourceInfo = await FileSystem.getInfoAsync(candidateUri);
-            const cachedInfo = await FileSystem.getInfoAsync(cachePath);
-            const shouldRefreshCache =
-              !cachedInfo.exists ||
-              cachedInfo.size === 0 ||
-              (sourceInfo.exists &&
-                typeof sourceInfo.size === 'number' &&
-                sourceInfo.size > 0 &&
-                cachedInfo.size !== sourceInfo.size);
-
-            if (shouldRefreshCache) {
-              console.log('Copying dashboard model to cache directory');
-              if (String(candidateUri).startsWith('file://') || String(candidateUri).startsWith('content://')) {
-                await FileSystem.copyAsync({ from: candidateUri, to: cachePath });
-              } else {
-                await FileSystem.copyAsync({ from: candidateUri, to: cachePath });
-              }
-              console.log('Dashboard model copied to cache');
-            }
-            const verifiedCache = await FileSystem.getInfoAsync(cachePath);
-            if (verifiedCache.exists && (typeof verifiedCache.size !== 'number' || verifiedCache.size > 0)) {
-              modelPath = cachePath;
-            } else {
-              console.warn('Dashboard model cache path unavailable; using bundled URI');
-            }
-          }
-        } catch (cacheError) {
-          console.warn('Dashboard model cache preparation failed, using bundled URI:', cacheError);
+          dashboardSession = await ort.InferenceSession.create(prepared.path);
+        } catch (sessionError) {
+          throw this.createModelError(
+            'session_create_failed',
+            `Dashboard session initialization failed for ${prepared.path}`,
+            sessionError
+          );
         }
 
-        console.log('Ensuring dashboard model sidecar...');
-        await this.ensureDashboardSidecar(modelPath);
-        
-        console.log('Creating dashboard inference session...');
-        const ort = this.getOrtModule();
-        dashboardSession = await ort.InferenceSession.create(modelPath);
-        console.log('Dashboard model loaded successfully');
         dashboardModelFailed = false;
-        modelLoadError = null;
+        this.markModelPrepared('dashboard', sourceUri, prepared.path, prepared.sizeBytes);
         return dashboardSession;
       } catch (error) {
-        console.error('Dashboard model load failed:', error);
         dashboardModelFailed = true;
-        modelLoadError = error instanceof Error ? error.message : 'Unknown error';
-        
-        // If the cached file is corrupted/truncated, delete it once and let the next run re-download.
+        this.setModelFailure('dashboard', error, 'Failed to load dashboard model from bundled asset.');
+
         try {
-          const cachePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/dashboard_net.onnx`;
           await FileSystem.deleteAsync(cachePath, { idempotent: true });
-          console.log('Deleted corrupted cached model file');
+          await FileSystem.deleteAsync(`${cachePath}.data`, { idempotent: true });
         } catch (e) {
           console.warn('Failed to delete cached model file:', e);
         }
 
-        // Try remote fallback only when explicitly enabled
-        if (!this.canUseRemoteModelFallback() || this.isEmbeddedAssetErrorMessage(modelLoadError || '')) {
-          throw new Error(
-            `Failed to load dashboard model: ${modelLoadError}. Remote model fallback is disabled (embedded asset required).`
-          );
+        const errorMessage = error instanceof Error ? error.message : '';
+        if (!this.canUseRemoteModelFallback() || this.isEmbeddedAssetErrorMessage(errorMessage)) {
+          throw error;
         }
 
         const fallbackUrl = this.buildRemoteModelUrl('dashboard_net.onnx');
         if (!fallbackUrl) {
-          throw new Error(`Failed to load dashboard model: ${modelLoadError}`);
+          throw error;
         }
+
         try {
-          console.log('Attempting to download dashboard model from remote URL...');
-          const remotePath = `${(FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || './'}/dashboard_net.onnx`;
-          await FileSystem.downloadAsync(fallbackUrl, remotePath);
-          console.log('Dashboard model downloaded from remote URL');
+          const remotePath = this.ensureCachePath('dashboard_net.onnx');
+          const remoteSize = await this.writeAtomically(
+            remotePath,
+            async (tempPath) => {
+              await FileSystem.downloadAsync(fallbackUrl, tempPath);
+            },
+            DASHBOARD_MODEL_MIN_BYTES,
+            'Remote dashboard model'
+          );
           await this.ensureDashboardSidecar(remotePath);
           const ort = this.getOrtModule();
           dashboardSession = await ort.InferenceSession.create(remotePath);
           dashboardModelFailed = false;
-          modelLoadError = null;
+          this.markModelPrepared('dashboard', fallbackUrl, remotePath, remoteSize);
           return dashboardSession;
         } catch (remoteErr) {
-          console.error('Dashboard model load failed from remote URL:', remoteErr);
-          throw new Error(`Failed to load dashboard model: ${modelLoadError}`);
+          this.setModelFailure(
+            'dashboard',
+            remoteErr,
+            'Failed to load dashboard model from remote URL.'
+          );
+          throw remoteErr;
         }
       } finally {
         isModelLoading = false;
@@ -777,44 +985,57 @@ export class AIService {
     } catch (error) {
       console.error('On-Device AI Analysis Error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      if (this.isEmbeddedAssetErrorMessage(errorMessage)) {
+      const errorCode = this.getModelErrorCode(error);
+
+      if (this.isEmbeddedAssetErrorMessage(errorMessage) || errorCode === 'model_uri_invalid') {
         return {
           issue: "Embedded Model Missing",
           confidence: 0,
           recommendations: [
-            "AI model must be loaded from bundled app assets, not Metro localhost.",
-            "Install/run a build that embeds model files (internal/release APK), then retry."
+            "AI model must be loaded from bundled app assets.",
+            "Run a dev-client/internal/release build that embeds ONNX files and retry."
           ],
           category: "Error",
-          details: { error: errorMessage }
+          details: { error: errorMessage, code: errorCode }
         };
       }
-      if (errorMessage.toLowerCase().includes('onnx runtime native module is unavailable')) {
+      if (errorCode === 'native_module_missing' || errorMessage.toLowerCase().includes('onnx runtime native module is unavailable')) {
         return {
           issue: "AI Module Missing",
           confidence: 0,
           recommendations: [
             "This build does not include ONNX Runtime native module.",
-            "Rebuild and reinstall the Android dev client, then try again."
+            "Rebuild and reinstall the app (dev client or release build), then retry."
           ],
           category: "Error",
-          details: { error: errorMessage }
+          details: { error: errorMessage, code: errorCode }
         };
       }
-      
-      // Provide more helpful error messages
-      if (errorMessage.includes('Failed to load')) {
+      if (errorCode === 'file_corrupt') {
         return {
-          issue: "Model Loading Error",
+          issue: "Corrupted Model Cache",
           confidence: 0,
           recommendations: [
-            "Could not load AI model. Please check your internet connection and try again.",
-            "Restart the app if the problem persists."
+            "Model cache appears corrupted or truncated.",
+            "Reset AI model state and retry model preload."
           ],
           category: "Error",
-          details: { error: errorMessage }
+          details: { error: errorMessage, code: errorCode }
         };
-      } else if (errorMessage.includes('already loading')) {
+      }
+      if (errorCode === 'session_create_failed') {
+        return {
+          issue: "Model Session Error",
+          confidence: 0,
+          recommendations: [
+            "Model file is present but inference session initialization failed.",
+            "Reset AI model state, reinstall the build if needed, and retry."
+          ],
+          category: "Error",
+          details: { error: errorMessage, code: errorCode }
+        };
+      }
+      if (errorMessage.includes('already loading')) {
         return {
           issue: "Model Loading",
           confidence: 0,
@@ -832,7 +1053,7 @@ export class AIService {
             "Make sure the image is clear and well-lit."
           ],
           category: "Error",
-          details: { error: errorMessage }
+          details: { error: errorMessage, code: errorCode }
         };
       }
     }
@@ -1139,20 +1360,45 @@ export class AIService {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorCode = this.getModelErrorCode(error);
       if (!dashboardAnalysisErrorLogged) {
         console.error('Dashboard analysis failed:', errorMessage);
         dashboardAnalysisErrorLogged = true;
       }
-      if (this.isEmbeddedAssetErrorMessage(errorMessage)) {
+      if (this.isEmbeddedAssetErrorMessage(errorMessage) || errorCode === 'model_uri_invalid') {
         return {
           issue: "Embedded Model Missing",
           confidence: 0,
           recommendations: [
-            "Dashboard model must load from bundled app assets (no localhost/Metro).",
-            "Install/run an internal or release build that embeds the ONNX files."
+            "Dashboard model must load from bundled app assets.",
+            "Install/run a build that embeds the ONNX files and retry."
           ],
           category: "Error",
-          details: { error: errorMessage }
+          details: { error: errorMessage, code: errorCode }
+        };
+      }
+      if (errorCode === 'native_module_missing') {
+        return {
+          issue: "AI Module Missing",
+          confidence: 0,
+          recommendations: [
+            "ONNX Runtime native module is missing in this app binary.",
+            "Rebuild and reinstall the app, then retry."
+          ],
+          category: "Error",
+          details: { error: errorMessage, code: errorCode }
+        };
+      }
+      if (errorCode === 'file_corrupt') {
+        return {
+          issue: "Corrupted Model Cache",
+          confidence: 0,
+          recommendations: [
+            "Dashboard model cache appears corrupted or truncated.",
+            "Reset AI model cache and preload models again."
+          ],
+          category: "Error",
+          details: { error: errorMessage, code: errorCode }
         };
       }
       return {
@@ -1163,7 +1409,7 @@ export class AIService {
           errorMessage
         ],
         category: "Error",
-        details: { error: errorMessage }
+        details: { error: errorMessage, code: errorCode }
       };
     }
   }
@@ -1319,6 +1565,8 @@ export class AIService {
       console.error('Model preload failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       modelLoadError = errorMessage;
+      modelDiagnostics.lastErrorCode = this.getModelErrorCode(error);
+      modelDiagnostics.lastErrorMessage = errorMessage;
       return false;
     }
   }
@@ -1332,11 +1580,16 @@ export class AIService {
       dashboardLoaded: !!dashboardSession,
       isLoading: isModelLoading,
       error: modelLoadError,
+      errorCode: modelDiagnostics.lastErrorCode,
       models: {
         ocr: ocrSession ? "Loaded" : "Not Loaded",
         dashboard: dashboardSession ? "Loaded" : "Not Loaded"
       }
     };
+  }
+
+  static getModelDiagnostics() {
+    return JSON.parse(JSON.stringify(modelDiagnostics)) as ModelDiagnostics;
   }
 
   /**
@@ -1357,6 +1610,10 @@ export class AIService {
       isModelLoading = false;
       modelLoadError = null;
       ortModuleCache = undefined;
+      modelDiagnostics.lastErrorCode = null;
+      modelDiagnostics.lastErrorMessage = null;
+      modelDiagnostics.ocr = createModelDiagnosticEntry();
+      modelDiagnostics.dashboard = createModelDiagnosticEntry();
       
       // Clear cache files
       try {
@@ -1391,7 +1648,8 @@ export class AIService {
       models: {
         ocr: ocrSession ? "Loaded" : "Not Loaded",
         dashboard: dashboardSession ? "Loaded" : "Not Loaded"
-      }
+      },
+      diagnostics: this.getModelDiagnostics()
     };
   }
 }
