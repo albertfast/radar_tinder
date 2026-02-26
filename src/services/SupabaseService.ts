@@ -317,6 +317,11 @@ export class SupabaseService {
     }
   }
 
+  static async getPendingTripQueueCount(): Promise<number> {
+    const queue = await this.readTripQueue();
+    return queue.length;
+  }
+
   /**
    * Fetches user's trip history from Supabase
    */

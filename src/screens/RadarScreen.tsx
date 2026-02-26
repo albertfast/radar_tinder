@@ -154,7 +154,13 @@ const RadarScreen = ({ navigation, route }: any) => {
     dataSync.nearbyRadars,
     dataSync.closestRadar
   );
-  const radarRendererMode: RadarRendererMode = 'auto';
+  const radarRendererMode = useMemo<RadarRendererMode>(() => {
+    const configured = (process.env.EXPO_PUBLIC_RADAR_RENDERER || 'auto').trim().toLowerCase();
+    if (configured === 'life3d' || configured === 'legacy2d' || configured === 'auto') {
+      return configured;
+    }
+    return 'auto';
+  }, []);
 
   const mapOverlayInset = getResponsiveMargin(12);
   const mapOverlayTop = getResponsiveMargin(12);

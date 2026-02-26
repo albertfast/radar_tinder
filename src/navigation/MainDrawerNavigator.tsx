@@ -150,7 +150,7 @@ const CustomDrawerContent = (props: any) => {
                  <MaterialCommunityIcons name="logout" size={20} color="#FF5252" />
                  <Text style={styles.logoutText}>Log Out</Text>
              </TouchableOpacity>
-             <Text style={styles.versionText}>RADAR TINDER v1.0.2</Text>
+             <Text style={styles.versionText}>RADAR TINDER 1.0.5</Text>
         </View>
     </View>
   );

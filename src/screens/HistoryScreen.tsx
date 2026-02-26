@@ -17,16 +17,22 @@ const HistoryScreen = ({ navigation }: any) => {
   const canUse = hasProAccess(user);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [trips, setTrips] = useState<any[]>([]);
+  const [pendingTripCount, setPendingTripCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const loadTrips = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await SupabaseService.getUserTrips(user?.id);
+      const [data, queuedCount] = await Promise.all([
+        SupabaseService.getUserTrips(user?.id),
+        SupabaseService.getPendingTripQueueCount(),
+      ]);
       setTrips(data || []);
+      setPendingTripCount(queuedCount);
     } catch (error) {
       console.error('Failed to load trips:', error);
       setTrips([]);
+      setPendingTripCount(0);
     } finally {
       setLoading(false);
     }
@@ -70,6 +76,15 @@ const HistoryScreen = ({ navigation }: any) => {
              <MaterialCommunityIcons name="filter-variant" size={24} color="#94A3B8" />
         </TouchableOpacity>
       </View>
+
+      {pendingTripCount > 0 ? (
+        <View style={styles.syncBanner}>
+          <MaterialCommunityIcons name="cloud-sync-outline" size={16} color="#67E8F9" />
+          <Text style={styles.syncBannerText}>
+            {pendingTripCount} trip{pendingTripCount > 1 ? 's are' : ' is'} queued and will sync automatically.
+          </Text>
+        </View>
+      ) : null}
 
       <FlatList
         data={trips}
@@ -146,6 +161,25 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 10 },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: 'white' },
   backBtn: { padding: 5 },
+  syncBanner: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(103,232,249,0.35)',
+    backgroundColor: 'rgba(2,26,43,0.8)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  syncBannerText: {
+    color: '#BAE6FD',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
   
   tripCard: { backgroundColor: '#1E293B', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   tripHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },

@@ -422,10 +422,8 @@ export const useAuthStore = create<AuthState>()(
           if (!currentUser) return;
 
           const profile = await SupabaseService.getProfile(currentUser.id);
-          if (!profile) return;
-
           const isAdminSession = Boolean(currentUser.isAdminSession);
-          const profileSubscriptionType = normalizeSubscriptionType(profile.subscription_type);
+          const profileSubscriptionType = normalizeSubscriptionType(profile?.subscription_type);
           const profileAdsRemoved = normalizeAdsRemoved(profile);
 
           const normalizedSubscriptionType = isAdminSession
@@ -436,7 +434,7 @@ export const useAuthStore = create<AuthState>()(
             ? true
             : profileAdsRemoved;
 
-          const unitSystem = profile.unit_system;
+          const unitSystem = profile?.unit_system;
           if (unitSystem === 'metric' || unitSystem === 'imperial') {
             useSettingsStore.getState().setUnitSystem(unitSystem);
           }
@@ -444,15 +442,15 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: {
               ...currentUser,
-              username: profile.username ?? currentUser.username,
-              displayName: profile.display_name ?? currentUser.displayName,
+              username: profile?.username ?? currentUser.username,
+              displayName: profile?.display_name ?? currentUser.displayName,
               name:
-                profile.display_name ||
-                profile.username ||
+                profile?.display_name ||
+                profile?.username ||
                 currentUser.name ||
                 currentUser.email.split('@')[0],
-              avatarUrl: profile.avatar_url ?? currentUser.avatarUrl,
-              profileImage: profile.avatar_url ?? currentUser.profileImage,
+              avatarUrl: profile?.avatar_url ?? currentUser.avatarUrl,
+              profileImage: profile?.avatar_url ?? currentUser.profileImage,
               subscriptionType: normalizedSubscriptionType,
               adsRemoved: normalizedAdsRemoved,
               isAdminSession: isAdminSession ? true : undefined,
@@ -471,10 +469,8 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const profile = await SupabaseService.getProfile(currentUser.id);
-          if (!profile) return;
-
           const isAdminSession = Boolean(currentUser.isAdminSession);
-          const profileSubscriptionType = normalizeSubscriptionType(profile.subscription_type);
+          const profileSubscriptionType = normalizeSubscriptionType(profile?.subscription_type);
           const profileAdsRemoved = normalizeAdsRemoved(profile);
 
           const normalizedSubscriptionType = isAdminSession
@@ -484,7 +480,7 @@ export const useAuthStore = create<AuthState>()(
             ? true
             : profileAdsRemoved;
 
-          const unitSystem = profile.unit_system;
+          const unitSystem = profile?.unit_system;
           if (unitSystem === 'metric' || unitSystem === 'imperial') {
             useSettingsStore.getState().setUnitSystem(unitSystem);
           }
@@ -492,20 +488,20 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: {
               ...currentUser,
-              username: profile.username ?? currentUser.username,
-              displayName: profile.display_name ?? currentUser.displayName,
+              username: profile?.username ?? currentUser.username,
+              displayName: profile?.display_name ?? currentUser.displayName,
               name:
-                profile.display_name ||
-                profile.username ||
+                profile?.display_name ||
+                profile?.username ||
                 currentUser.name ||
                 currentUser.email.split('@')[0],
-              avatarUrl: profile.avatar_url ?? currentUser.avatarUrl,
-              profileImage: profile.avatar_url ?? currentUser.profileImage,
-              points: profile.points ?? currentUser.points,
-              rank: profile.rank ?? currentUser.rank,
-              xp: profile.xp ?? currentUser.xp,
-              level: profile.level ?? currentUser.level,
-              stats: profile.stats ?? currentUser.stats,
+              avatarUrl: profile?.avatar_url ?? currentUser.avatarUrl,
+              profileImage: profile?.avatar_url ?? currentUser.profileImage,
+              points: profile?.points ?? currentUser.points,
+              rank: profile?.rank ?? currentUser.rank,
+              xp: profile?.xp ?? currentUser.xp,
+              level: profile?.level ?? currentUser.level,
+              stats: profile?.stats ?? currentUser.stats,
               subscriptionType: normalizedSubscriptionType,
               adsRemoved: normalizedAdsRemoved,
               isAdminSession: isAdminSession ? true : undefined,

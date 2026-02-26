@@ -25,12 +25,16 @@ export const isAdminUser = (user?: User | null) => {
 };
 
 export const hasProAccess = (user?: User | null) =>
-  Boolean(user?.isAdminSession) || user?.subscriptionType === 'pro' || isAdminUser(user);
+  Boolean(user?.isAdminSession) ||
+  user?.subscriptionType === 'pro' ||
+  user?.subscriptionType === 'premium' ||
+  isAdminUser(user);
 
 export const isAdFreeLimited = (user?: User | null) =>
   !isAdminUser(user) &&
   !user?.isAdminSession &&
   user?.subscriptionType !== 'pro' &&
+  user?.subscriptionType !== 'premium' &&
   Boolean(user?.adsRemoved);
 
 export const isFreeWithAds = (user?: User | null) =>
