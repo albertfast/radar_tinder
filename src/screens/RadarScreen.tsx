@@ -58,6 +58,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const setActiveAlerts = useRadarStore((state) => state.setActiveAlerts);
   const acknowledgeAlert = useRadarStore((state) => state.acknowledgeAlert);
   const setRouteGuidanceActive = useRadarStore((state) => state.setRouteGuidanceActive);
+  const setRouteGuidancePath = useRadarStore((state) => state.setRouteGuidancePath);
   const hideTabBar = useUiStore((state) => state.hideTabBar);
   const showTabBar = useUiStore((state) => state.showTabBar);
 
@@ -193,7 +194,7 @@ const RadarScreen = ({ navigation, route }: any) => {
     : mapAdBottom + mapAdEstimatedHeight + fabGap;
   const hideMapAd = mapInput.isDestinationInputFocused || mapInput.isKeyboardVisible;
   const compassRotation = `${dataSync.resolvedHeading || 0}deg`;
-  const showHomeAd = shouldShowHomeAds(user);
+  const showHomeAd = hasHydrated && shouldShowHomeAds(user);
   const nearestRadarSummary = dataSync.closestRadar
     ? (dataSync.closestRadarHint ? `${formatDistance(dataSync.closestRadar.distance, unitSystem)} at ${dataSync.closestRadarHint}` : formatDistance(dataSync.closestRadar.distance, unitSystem))
     : 'Scanning...';
@@ -229,6 +230,11 @@ const RadarScreen = ({ navigation, route }: any) => {
     setRouteGuidanceActive(isTurnByTurnActive);
     return () => setRouteGuidanceActive(false);
   }, [isTurnByTurnActive, setRouteGuidanceActive]);
+
+  useEffect(() => {
+    setRouteGuidancePath(navigationState.routeCoords || []);
+    return () => setRouteGuidancePath([]);
+  }, [navigationState.routeCoords, setRouteGuidancePath]);
 
   useEffect(() => {
     if (isTurnByTurnActive) return;
@@ -483,6 +489,8 @@ const RadarScreen = ({ navigation, route }: any) => {
             voiceWarningsEnabled={voiceWarningsEnabled}
             onToggleVoiceWarnings={toggleVoiceWarnings}
             onOpenIncidentPanel={() => setReportModalVisible(true)}
+            currentSpeed={dataSync.currentSpeed}
+            unitSystem={unitSystem}
           />
         }
         graphicContent={<RadarGraphicView totalDistance={driving.totalDistance} drivingStartTime={driving.drivingStartTime} currentSpeed={dataSync.currentSpeed} unitSystem={unitSystem} radarRendererMode={radarRendererMode} radarSignalLevel={radarSignalLevel} radarDangerLevel={radarDangerLevel} />}
@@ -523,11 +531,6 @@ const RadarScreen = ({ navigation, route }: any) => {
       onNavigateSubscription={() => navigation.navigate('Subscription')}
       onToggleDrivingMode={toggleDrivingMode}
       onOpenDriveBasic={() => {
-        const tabs = navigation.getParent?.();
-        if (tabs?.navigate) {
-          tabs.navigate('Drive');
-          return;
-        }
         navigation.setParams?.({ forceTab: 'Basic' });
       }}
       onOpenAlerts={() => navigation.navigate('Alerts')}

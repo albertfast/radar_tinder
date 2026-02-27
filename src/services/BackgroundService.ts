@@ -248,9 +248,14 @@ export class BackgroundService {
   private static isProtectionActive = false;
   private static lastAlertSent: Record<string, number> = {};
   private static lastRadarNotificationSent: Record<string, number> = {};
+  private static lastRadarNotificationByKey: Record<string, number> = {};
   private static lastAlertStored: Record<string, number> = {};
   private static lastActiveAlertsSignature = '';
   private static ALERT_THROTTLE_MS = 60000;
+  private static NOTIFICATION_DEDUPE_MS = 120000;
+  private static routeSessionId: string | null = null;
+  private static lastRouteGuidanceState = false;
+  private static protectionSessionAnnouncedFor: string | null = null;
 
   private static toShortLocationLabel(label?: string | null): string {
     if (!label) return '';
@@ -265,6 +270,89 @@ export class BackgroundService {
     if (typeof heading !== 'number' || !Number.isFinite(heading)) return null;
     const normalized = heading % 360;
     return normalized >= 0 ? normalized : normalized + 360;
+  }
+
+  private static getDirectionBucket(heading: number | null | undefined): string {
+    const normalized = this.normalizeHeading(heading);
+    if (normalized === null) return 'unknown';
+    const bucket = Math.round(normalized / 30) * 30;
+    return `${bucket % 360}`;
+  }
+
+  private static distancePointToSegmentMeters(
+    pointLat: number,
+    pointLon: number,
+    aLat: number,
+    aLon: number,
+    bLat: number,
+    bLon: number
+  ): number {
+    const toXY = (lat: number, lon: number) => {
+      const x = lon * 111320 * Math.cos((lat * Math.PI) / 180);
+      const y = lat * 110540;
+      return { x, y };
+    };
+    const p = toXY(pointLat, pointLon);
+    const a = toXY(aLat, aLon);
+    const b = toXY(bLat, bLon);
+    const abx = b.x - a.x;
+    const aby = b.y - a.y;
+    const apx = p.x - a.x;
+    const apy = p.y - a.y;
+    const denom = abx * abx + aby * aby;
+    const t = denom <= 0 ? 0 : Math.max(0, Math.min(1, (apx * abx + apy * aby) / denom));
+    const cx = a.x + abx * t;
+    const cy = a.y + aby * t;
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  private static minDistanceToRouteMeters(
+    radar: { latitude: number; longitude: number },
+    routeCoords: Array<{ latitude: number; longitude: number }>
+  ): number {
+    if (!routeCoords.length) return Number.POSITIVE_INFINITY;
+    if (routeCoords.length === 1) {
+      return (
+        LocationService.calculateDistanceSync(
+          radar.latitude,
+          radar.longitude,
+          routeCoords[0].latitude,
+          routeCoords[0].longitude
+        ) * 1000
+      );
+    }
+
+    let minMeters = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < routeCoords.length - 1; i += 1) {
+      const a = routeCoords[i];
+      const b = routeCoords[i + 1];
+      const d = this.distancePointToSegmentMeters(
+        radar.latitude,
+        radar.longitude,
+        a.latitude,
+        a.longitude,
+        b.latitude,
+        b.longitude
+      );
+      if (d < minMeters) minMeters = d;
+      if (minMeters <= 120) break;
+    }
+    return minMeters;
+  }
+
+  private static ensureRouteSession(isRouteGuidanceActive: boolean): void {
+    if (isRouteGuidanceActive && !this.lastRouteGuidanceState) {
+      this.routeSessionId = `route-${Date.now()}`;
+      this.protectionSessionAnnouncedFor = null;
+      this.lastRadarNotificationByKey = {};
+    } else if (!isRouteGuidanceActive && this.lastRouteGuidanceState) {
+      this.routeSessionId = null;
+      this.protectionSessionAnnouncedFor = null;
+      this.lastRadarNotificationByKey = {};
+    }
+    this.lastRouteGuidanceState = isRouteGuidanceActive;
   }
 
   private static shouldPublishLocationUpdate(
@@ -326,8 +414,11 @@ export class BackgroundService {
         setActiveAlerts,
         setCurrentLocation,
         isRouteGuidanceActive,
+        routeGuidancePath,
       } =
         useRadarStore.getState();
+
+      this.ensureRouteSession(isRouteGuidanceActive);
 
       const now = Date.now();
       if (this.lastLocationUpdate) {
@@ -359,7 +450,11 @@ export class BackgroundService {
       const playSound = alertsHydrated && settings.voiceWarningsEnabled && settings.warningVolume > 0;
       const vibrate = alertsHydrated && settings.hapticAlertsEnabled;
 
-      if (isRouteGuidanceActive && speedKph > 20 && !this.isProtectionActive) {
+      if (
+        isRouteGuidanceActive &&
+        speedKph > 20 &&
+        this.protectionSessionAnnouncedFor !== this.routeSessionId
+      ) {
         this.isProtectionActive = true;
         if (alertsHydrated) {
           await NotificationService.sendInfoNotification('Driving Protection Active', 'Drive detected. Radar protection is now active.', {
@@ -367,6 +462,7 @@ export class BackgroundService {
             vibrate,
           });
         }
+        this.protectionSessionAnnouncedFor = this.routeSessionId;
       } else if (!isRouteGuidanceActive || speedKph < 5) {
         this.isProtectionActive = false;
       }
@@ -436,6 +532,11 @@ export class BackgroundService {
       const alerts = [];
       for (const radar of nearbyRadars) {
         const distance = radar.distance || 0;
+        const corridorMeters =
+          isRouteGuidanceActive && routeGuidancePath.length > 0
+            ? this.minDistanceToRouteMeters(radar, routeGuidancePath)
+            : null;
+        const isRouteMatched = corridorMeters === null || corridorMeters <= 120;
         let isHeadingTowards = true;
         if (location.heading !== null && location.heading !== undefined) {
           const bearing = LocationService.calculateBearing(
@@ -445,7 +546,7 @@ export class BackgroundService {
             radar.longitude
           );
           const diff = Math.abs((bearing - location.heading + 540) % 360 - 180);
-          isHeadingTowards = diff < 45;
+          isHeadingTowards = diff <= 55;
         }
 
         let threshold = baseThreshold;
@@ -454,7 +555,14 @@ export class BackgroundService {
           threshold = Math.max(threshold, 4.0);
         }
 
-        if (distance < threshold && isHeadingTowards) {
+        const etaSeconds = ((distance / (speedKph || 60)) * 3600);
+        const isEtaInWindow = etaSeconds >= 10 && etaSeconds <= 90;
+        if (distance < threshold && isHeadingTowards && isEtaInWindow && isRouteMatched) {
+          const distanceScore = 1 - Math.min(distance / Math.max(threshold, 0.1), 1);
+          const corridorScore =
+            corridorMeters == null
+              ? 1
+              : 1 - Math.min(corridorMeters / 120, 1);
           alerts.push({
             id: `alert-${radar.id}`,
             radarId: radar.id,
@@ -463,6 +571,24 @@ export class BackgroundService {
             distance: distance,
             estimatedTime: distance / (speedKph || 60),
             severity: distance < (threshold / 2) ? 'high' : 'medium',
+            routeMatchScore: Number(((distanceScore * 0.55) + (corridorScore * 0.45)).toFixed(3)),
+            headingDeltaDeg:
+              location.heading !== null && location.heading !== undefined
+                ? Number(
+                    Math.abs(
+                      (LocationService.calculateBearing(
+                        location.latitude,
+                        location.longitude,
+                        radar.latitude,
+                        radar.longitude
+                      ) -
+                        location.heading +
+                        540) %
+                        360 -
+                        180
+                    ).toFixed(1)
+                  )
+                : null,
             acknowledged: false,
             createdAt: new Date(),
           });
@@ -496,13 +622,20 @@ export class BackgroundService {
           this.lastAlertSent[alert.radarId] = nowMs;
         }
 
+        const directionBucket = this.getDirectionBucket(location.heading);
+        const dedupeKey = `${alert.radarId}:${this.routeSessionId || 'no-route'}:${directionBucket}`;
+        const lastNotificationByKey = this.lastRadarNotificationByKey[dedupeKey] || 0;
         const lastNotificationSent = this.lastRadarNotificationSent[alert.radarId] || 0;
-        if (nowMs - lastNotificationSent > this.ALERT_THROTTLE_MS) {
+        if (
+          nowMs - lastNotificationSent > this.ALERT_THROTTLE_MS &&
+          nowMs - lastNotificationByKey > this.NOTIFICATION_DEDUPE_MS
+        ) {
           await NotificationService.sendRadarAlert(alert as any, alert.locationLabel, {
             playSound,
             vibrate,
           });
           this.lastRadarNotificationSent[alert.radarId] = nowMs;
+          this.lastRadarNotificationByKey[dedupeKey] = nowMs;
         }
 
         const lastStored = this.lastAlertStored[alert.radarId] || 0;

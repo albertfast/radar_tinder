@@ -24,6 +24,13 @@ interface SpeedLimitResult {
   units: 'KPH' | 'MPH';
 }
 
+interface CoordinateSpeedLimitResult {
+  speedLimit: number;
+  units: 'KPH' | 'MPH';
+  placeId?: string;
+  source: 'roads_api' | 'fallback';
+}
+
 interface DistanceResult {
   distance: {
     text: string;
@@ -45,6 +52,10 @@ interface GeocodeSuggestionOptions {
 
 export class GoogleMapsService {
   private static BASE_URL = 'https://maps.googleapis.com/maps/api';
+  private static speedLimitCache = new Map<
+    string,
+    { value: CoordinateSpeedLimitResult; timestamp: number }
+  >();
 
   private static parseDestinationCoordinates(
     destination: string
@@ -205,6 +216,55 @@ export class GoogleMapsService {
     }
   }
 
+  static async getSpeedLimitForCoordinate(
+    latitude: number,
+    longitude: number
+  ): Promise<CoordinateSpeedLimitResult | null> {
+    try {
+      if (!GOOGLE_MAPS_API_KEY) return null;
+      const cacheKey = `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
+      const cached = this.speedLimitCache.get(cacheKey);
+      const now = Date.now();
+      if (cached && now - cached.timestamp < 120000) {
+        return cached.value;
+      }
+
+      const snapUrl = `https://roads.googleapis.com/v1/snapToRoads?path=${latitude},${longitude}&interpolate=false&key=${GOOGLE_MAPS_API_KEY}`;
+      const snapResponse = await fetch(snapUrl);
+      if (!snapResponse.ok) {
+        return null;
+      }
+      const snapData = await snapResponse.json();
+      const placeId = snapData?.snappedPoints?.[0]?.placeId;
+      if (!placeId) {
+        return null;
+      }
+      const speed = await this.getSpeedLimit(placeId);
+      if (speed?.speedLimit) {
+        const result: CoordinateSpeedLimitResult = {
+          speedLimit: speed.speedLimit,
+          units: speed.units,
+          placeId: speed.placeId,
+          source: 'roads_api',
+        };
+        this.speedLimitCache.set(cacheKey, { value: result, timestamp: now });
+        return result;
+      }
+
+      // Fallback for dense city roads when Roads API is unavailable.
+      const fallback: CoordinateSpeedLimitResult = {
+        speedLimit: 35,
+        units: 'MPH',
+        source: 'fallback',
+      };
+      this.speedLimitCache.set(cacheKey, { value: fallback, timestamp: now });
+      return fallback;
+    } catch (error) {
+      console.warn('Error getting speed limit for coordinate:', error);
+      return null;
+    }
+  }
+
   /**
    * Get accurate distance and duration
    * Uses OSRM (free) first, falls back to Google Distance Matrix API
@@ -284,25 +344,22 @@ export class GoogleMapsService {
       if (data.status === 'OK') {
         const routes = Array.isArray(data.routes) ? data.routes : [];
         
-        // Enhanced route scoring with traffic awareness and road quality
+        // Traffic-first route scoring. Lower score is better.
         const scoredRoutes = routes.map((route: any) => {
           const leg = route?.legs?.[0];
           const duration = leg?.duration?.value ?? Number.MAX_SAFE_INTEGER;
           const distance = leg?.distance?.value ?? Number.MAX_SAFE_INTEGER;
           const trafficDuration = leg?.duration_in_traffic?.value ?? duration;
-          const hasHighways = route?.overview_polyline?.points?.includes('highway') || false;
-          
-          // Prefer routes with less traffic and better road quality
-          const trafficScore = duration / trafficDuration; // Lower is better
-          const roadQualityScore = hasHighways ? 0.9 : 1.0; // Slight preference for highways
-          
+
+          // Main driver: traffic ETA, with small distance tie-breaker.
+          const trafficScore = trafficDuration;
+          const distancePenalty = distance * 0.08;
           return {
             route,
             duration,
             distance,
-            trafficScore,
-            roadQualityScore,
-            score: trafficScore * roadQualityScore
+            trafficDuration,
+            score: trafficScore + distancePenalty,
           };
         });
 
@@ -331,7 +388,7 @@ export class GoogleMapsService {
           waypoint_order: selectedRoute.waypoint_order
         };
         
-        console.log('[GoogleMapsService] Best route selected with', points.length, 'points, traffic score:', scoredRoutes[0]?.trafficScore);
+        console.log('[GoogleMapsService] Best route selected with', points.length, 'points, traffic ETA(s):', scoredRoutes[0]?.trafficDuration);
         return routeInfo;
       }
       

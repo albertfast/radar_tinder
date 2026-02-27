@@ -5,11 +5,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
-    "jsx": "react-jsx",
-    "module": "es2020",
-    "target": "es2020"
+    "allowSyntheticDefaultImports": true
   },
   "exclude": [
     "src/app/**",

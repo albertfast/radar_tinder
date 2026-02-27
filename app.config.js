@@ -170,7 +170,8 @@ module.exports = {
       "./plugins/withSettingsGradleFix.js",
       "./plugins/withAndroidReleaseSigning.js",
       "./plugins/withOnnxRuntime.js",
-      "./plugins/withIosGoogleMapsInitFix.js"
+      "./plugins/withIosGoogleMapsInitFix.js",
+      "./plugins/withLottieNewArchDisable.js"
     ],
     extra: {
       eas: {

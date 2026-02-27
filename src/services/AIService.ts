@@ -23,6 +23,14 @@ export interface DiagnosisResult {
   details?: any;
 }
 
+export type AIModelErrorCode =
+  | 'native_module_missing'
+  | 'model_uri_invalid'
+  | 'file_corrupt'
+  | 'session_create_failed'
+  | 'asset_copy_failed'
+  | 'unknown';
+
 let ocrSession: OrtInferenceSession | null = null;
 let dashboardSession: OrtInferenceSession | null = null;
 let dashboardSessionPromise: Promise<OrtInferenceSession> | null = null;
@@ -33,20 +41,12 @@ let modelLoadError: string | null = null;
 let ortModuleCache: OrtModule | null | undefined;
 let dashboardKbValidated = false;
 
-type ModelErrorCode =
-  | 'native_module_missing'
-  | 'model_uri_invalid'
-  | 'file_corrupt'
-  | 'session_create_failed'
-  | 'asset_copy_failed'
-  | 'unknown';
-
 type ModelDiagnosticEntry = {
   sourceUri: string | null;
   resolvedPath: string | null;
   sizeBytes: number | null;
   loaded: boolean;
-  lastErrorCode: ModelErrorCode | null;
+  lastErrorCode: AIModelErrorCode | null;
   lastErrorMessage: string | null;
   loadAttempts: number;
   lastLoadedAt: string | null;
@@ -55,7 +55,8 @@ type ModelDiagnosticEntry = {
 type ModelDiagnostics = {
   platform: string;
   remoteFallbackEnabled: boolean;
-  lastErrorCode: ModelErrorCode | null;
+  nativeModuleAvailable: boolean | null;
+  lastErrorCode: AIModelErrorCode | null;
   lastErrorMessage: string | null;
   ocr: ModelDiagnosticEntry;
   dashboard: ModelDiagnosticEntry;
@@ -84,6 +85,7 @@ const createModelDiagnosticEntry = (): ModelDiagnosticEntry => ({
 const modelDiagnostics: ModelDiagnostics = {
   platform: Platform.OS,
   remoteFallbackEnabled: REMOTE_MODEL_FALLBACK_ENABLED,
+  nativeModuleAvailable: null,
   lastErrorCode: null,
   lastErrorMessage: null,
   ocr: createModelDiagnosticEntry(),
@@ -92,11 +94,11 @@ const modelDiagnostics: ModelDiagnostics = {
 
 export class AIService {
   private static createModelError(
-    code: ModelErrorCode,
+    code: AIModelErrorCode,
     message: string,
     cause?: unknown
-  ): Error & { code: ModelErrorCode } {
-    const error = new Error(message) as Error & { code: ModelErrorCode; cause?: unknown };
+  ): Error & { code: AIModelErrorCode } {
+    const error = new Error(message) as Error & { code: AIModelErrorCode; cause?: unknown };
     error.code = code;
     if (cause !== undefined) {
       error.cause = cause;
@@ -104,10 +106,10 @@ export class AIService {
     return error;
   }
 
-  private static getModelErrorCode(error: unknown): ModelErrorCode {
+  private static getModelErrorCode(error: unknown): AIModelErrorCode {
     const code = (error as { code?: unknown })?.code;
     if (typeof code === 'string') {
-      return code as ModelErrorCode;
+      return code as AIModelErrorCode;
     }
     return 'unknown';
   }
@@ -289,6 +291,7 @@ export class AIService {
     const onnxJsiHelper = (NativeModules as any)?.OnnxruntimeJSIHelper;
     if (!onnxNative || !onnxJsiHelper || typeof onnxJsiHelper.install !== 'function') {
       ortModuleCache = null;
+      modelDiagnostics.nativeModuleAvailable = false;
       modelLoadError =
         'ONNX Runtime native module is unavailable in this build. Rebuild and reinstall the app, then retry.';
       throw this.createModelError('native_module_missing', modelLoadError);
@@ -303,9 +306,11 @@ export class AIService {
         );
       }
       ortModuleCache = ort;
+      modelDiagnostics.nativeModuleAvailable = true;
       return ortModuleCache;
     } catch (error) {
       ortModuleCache = null;
+      modelDiagnostics.nativeModuleAvailable = false;
       const message = error instanceof Error ? error.message : String(error);
       modelLoadError = `Failed to initialize ONNX Runtime bridge: ${message}`;
       throw this.createModelError('native_module_missing', modelLoadError, error);
@@ -1571,6 +1576,31 @@ export class AIService {
     }
   }
 
+  static async prepareDiagnosisRuntime(): Promise<{
+    ready: boolean;
+    status: ReturnType<typeof AIService.getModelStatus>;
+    diagnostics: ReturnType<typeof AIService.getModelDiagnostics>;
+  }> {
+    const preloadOk = await this.preloadModels();
+    const status = this.getModelStatus();
+    const diagnostics = this.getModelDiagnostics();
+    const modelCode = status.errorCode || diagnostics.lastErrorCode || 'session_create_failed';
+    const modelMessage =
+      status.error ||
+      diagnostics.lastErrorMessage ||
+      'Dashboard model could not be prepared.';
+
+    if (!preloadOk || !status.dashboardLoaded) {
+      throw this.createModelError(modelCode, modelMessage);
+    }
+
+    return {
+      ready: true,
+      status,
+      diagnostics,
+    };
+  }
+
   /**
    * Get model status and error information
    */
@@ -1581,6 +1611,7 @@ export class AIService {
       isLoading: isModelLoading,
       error: modelLoadError,
       errorCode: modelDiagnostics.lastErrorCode,
+      nativeModuleAvailable: modelDiagnostics.nativeModuleAvailable,
       models: {
         ocr: ocrSession ? "Loaded" : "Not Loaded",
         dashboard: dashboardSession ? "Loaded" : "Not Loaded"
@@ -1610,6 +1641,7 @@ export class AIService {
       isModelLoading = false;
       modelLoadError = null;
       ortModuleCache = undefined;
+      modelDiagnostics.nativeModuleAvailable = null;
       modelDiagnostics.lastErrorCode = null;
       modelDiagnostics.lastErrorMessage = null;
       modelDiagnostics.ocr = createModelDiagnosticEntry();

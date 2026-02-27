@@ -2,17 +2,20 @@ import { useAuthStore } from '../store/authStore';
 import { Platform } from 'react-native';
 import { isAdminUser, shouldShowHomeAds } from '../utils/access';
 
-type GoogleMobileAdsExports = {
+export type GoogleMobileAdsExports = {
   mobileAds: () => {
     initialize: () => Promise<unknown>;
     setRequestConfiguration: (config: unknown) => Promise<unknown>;
   };
   MaxAdContentRating?: any;
+  BannerAd?: any;
+  BannerAdSize?: any;
   TestIds?: any;
   AdEventType?: any;
   InterstitialAd?: any;
 };
 
+const GMA_GLOBAL_CACHE_KEY = '__RT_GMA_EXPORTS__';
 let cachedGoogleMobileAds: GoogleMobileAdsExports | null | undefined;
 let cachedLastInitError: string | null = null;
 let cachedLastInterstitialError: string | null = null;
@@ -55,26 +58,45 @@ const loadGoogleMobileAdsModules = () => {
     root = require('react-native-google-mobile-ads');
   } catch {}
 
-  return { root };
+  return root;
 };
 
-function getGoogleMobileAds(): GoogleMobileAdsExports | null {
+export function getGoogleMobileAdsModule(): GoogleMobileAdsExports | null {
   if (cachedGoogleMobileAds !== undefined) return cachedGoogleMobileAds;
 
   try {
-    const { root } = loadGoogleMobileAdsModules();
+    const globalCache = globalThis as unknown as Record<string, unknown>;
+    const cachedFromGlobal = globalCache[GMA_GLOBAL_CACHE_KEY] as
+      | GoogleMobileAdsExports
+      | null
+      | undefined;
+    if (cachedFromGlobal !== undefined) {
+      cachedGoogleMobileAds = cachedFromGlobal;
+      return cachedGoogleMobileAds;
+    }
+
+    const root = loadGoogleMobileAdsModules();
 
     const mobileAds =
-      root?.default ??
-      root?.mobileAds ??
-      root?.MobileAds;
+      (typeof root?.mobileAds === 'function'
+        ? root.mobileAds
+        : typeof root?.default?.mobileAds === 'function'
+          ? root.default.mobileAds
+          : typeof root?.default === 'function'
+            ? root.default
+            : typeof root?.MobileAds === 'function'
+              ? root.MobileAds
+              : null);
     cachedGoogleMobileAds = {
       mobileAds,
-      MaxAdContentRating: root?.MaxAdContentRating,
-      TestIds: root?.TestIds,
-      AdEventType: root?.AdEventType,
-      InterstitialAd: root?.InterstitialAd,
+      MaxAdContentRating: root?.MaxAdContentRating ?? root?.default?.MaxAdContentRating,
+      BannerAd: root?.BannerAd ?? root?.default?.BannerAd,
+      BannerAdSize: root?.BannerAdSize ?? root?.default?.BannerAdSize,
+      TestIds: root?.TestIds ?? root?.default?.TestIds,
+      AdEventType: root?.AdEventType ?? root?.default?.AdEventType,
+      InterstitialAd: root?.InterstitialAd ?? root?.default?.InterstitialAd,
     };
+    globalCache[GMA_GLOBAL_CACHE_KEY] = cachedGoogleMobileAds;
 
     if (typeof cachedGoogleMobileAds.mobileAds !== 'function') {
       throw new Error('mobile_ads_function_missing');
@@ -85,6 +107,8 @@ function getGoogleMobileAds(): GoogleMobileAdsExports | null {
     }
     cachedLastInitError = `ads_module_unavailable: ${asErrorString(error)}`;
     cachedGoogleMobileAds = null;
+    const globalCache = globalThis as unknown as Record<string, unknown>;
+    globalCache[GMA_GLOBAL_CACHE_KEY] = null;
   }
 
   return cachedGoogleMobileAds;
@@ -105,7 +129,7 @@ export class AdService {
 
     this.initPromise = (async () => {
       try {
-        const googleMobileAds = getGoogleMobileAds();
+        const googleMobileAds = getGoogleMobileAdsModule();
         const mobileAds = googleMobileAds?.mobileAds;
 
         if (typeof mobileAds !== 'function') {
@@ -175,7 +199,7 @@ export class AdService {
     lastInterstitialError: string | null;
   } {
     const user = useAuthStore.getState().user;
-    const moduleAvailable = Boolean(getGoogleMobileAds()?.mobileAds);
+    const moduleAvailable = Boolean(getGoogleMobileAdsModule()?.mobileAds);
     const forceTestAdUnits = shouldForceTestAdUnits();
     const shouldShow = this.shouldShowAds();
     let shouldShowReason = 'free_user_ads_enabled';
@@ -210,7 +234,7 @@ export class AdService {
     await this.init();
     if (!this.isInitialized) return;
 
-    const googleMobileAds = getGoogleMobileAds();
+    const googleMobileAds = getGoogleMobileAdsModule();
     if (!googleMobileAds?.InterstitialAd || !googleMobileAds?.TestIds) return;
 
     // Use test ID in dev or when explicitly forced for TestFlight/debug diagnosis.

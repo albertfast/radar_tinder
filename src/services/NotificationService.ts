@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import * as Speech from 'expo-speech';
 import { RadarAlert } from '../types';
 import { useSettingsStore } from '../store/settingsStore';
@@ -9,6 +9,7 @@ type RadarAlertOptions = {
   playSound?: boolean;
   vibrate?: boolean;
   channelId?: string;
+  allowForeground?: boolean;
 };
 
 const CHANNEL_SOUND = 'radar-alerts';
@@ -16,6 +17,12 @@ const CHANNEL_VIBRATE = 'radar-alerts-vibrate';
 const CHANNEL_SILENT = 'radar-alerts-silent';
 
 export class NotificationService {
+  private static canPublishSystemNotification(options?: RadarAlertOptions): boolean {
+    const allowForeground = options?.allowForeground === true;
+    if (allowForeground) return true;
+    return AppState.currentState !== 'active';
+  }
+
   static async init(): Promise<void> {
     try {
       await this.requestPermissions();
@@ -107,6 +114,9 @@ export class NotificationService {
     options?: RadarAlertOptions
   ): Promise<void> {
     try {
+      if (!this.canPublishSystemNotification(options)) {
+        return;
+      }
       const settings = useSettingsStore.getState();
       const hydrated = settings.hasHydrated;
       const defaultPlaySound =
@@ -165,6 +175,9 @@ export class NotificationService {
     options?: RadarAlertOptions
   ): Promise<void> {
     try {
+      if (!this.canPublishSystemNotification(options)) {
+        return;
+      }
       const settings = useSettingsStore.getState();
       const hydrated = settings.hasHydrated;
       const defaultPlaySound =

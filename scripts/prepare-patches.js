@@ -513,6 +513,416 @@ const patchExpoHmrWindowLocationGuard = () => {
   }
 };
 
+const patchExpoDevMenuPackagerConnectionForRN84 = () => {
+  const pkg = 'expo-dev-menu';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const handlerPath = path.join(resolvedDir, 'ios', 'DevMenuPackagerConnectionHandler.swift');
+  if (!fs.existsSync(handlerPath)) {
+    console.warn(`prepare-patches: missing file ${handlerPath}`);
+    return;
+  }
+
+  let handlerSource = fs.readFileSync(handlerPath, 'utf8');
+  const originalHandler = handlerSource;
+
+  if (!handlerSource.includes('private var arePackagerHandlersRegistered = false')) {
+    handlerSource = handlerSource.replace(
+      '  private static var suppressRNDevMenu = true',
+      '  private static var suppressRNDevMenu = true\n  private var arePackagerHandlersRegistered = false'
+    );
+  }
+
+  const legacyPackagerConnectionBlock = `    RCTPackagerConnection
+      .shared()
+      .addNotificationHandler(
+        self.sendDevCommandNotificationHandler,
+        queue: DispatchQueue.main,
+        forMethod: "sendDevCommand"
+      )
+
+    RCTPackagerConnection
+      .shared()
+      .addNotificationHandler(
+        self.devMenuNotificationHanlder,
+        queue: DispatchQueue.main,
+        forMethod: "devMenu"
+      )`;
+
+  if (handlerSource.includes(legacyPackagerConnectionBlock)) {
+    handlerSource = handlerSource.replace(legacyPackagerConnectionBlock, '    self.registerHandlersIfNeeded()');
+  }
+
+  if (!handlerSource.includes('func registerHandlersIfNeeded()')) {
+    const registerHandlersMethod = `
+  func registerHandlersIfNeeded() {
+#if DEBUG
+    guard !arePackagerHandlersRegistered, let devSettings = manager?.currentBridge?.devSettings else {
+      return
+    }
+
+    _ = devSettings.addNotificationHandler(
+      self.sendDevCommandNotificationHandler,
+      queue: DispatchQueue.main,
+      forMethod: "sendDevCommand"
+    )
+
+    _ = devSettings.addNotificationHandler(
+      self.devMenuNotificationHanlder,
+      queue: DispatchQueue.main,
+      forMethod: "devMenu"
+    )
+
+    arePackagerHandlersRegistered = true
+#endif
+  }
+`;
+
+    handlerSource = handlerSource.replace(
+      '  private func swizzleRCTDevMenuShow() {',
+      `${registerHandlersMethod}\n  private func swizzleRCTDevMenuShow() {`
+    );
+  }
+
+  if (handlerSource.includes('func sendDevCommandNotificationHandler(_ params: [String: Any])')) {
+    handlerSource = handlerSource.replace(
+      'func sendDevCommandNotificationHandler(_ params: [String: Any])',
+      'func sendDevCommandNotificationHandler(_ params: [String: Any]?)'
+    );
+    handlerSource = handlerSource.replace(
+      `    guard let manager = manager,
+      let command = params["name"] as? String,
+      let bridge = manager.currentBridge
+    else {
+      return
+    }`,
+      `    guard let manager = manager,
+      let params,
+      let command = params["name"] as? String,
+      let bridge = manager.currentBridge
+    else {
+      return
+    }`
+    );
+  }
+
+  if (handlerSource.includes('func devMenuNotificationHanlder(_ parames: [String: Any])')) {
+    handlerSource = handlerSource.replace(
+      'func devMenuNotificationHanlder(_ parames: [String: Any])',
+      'func devMenuNotificationHanlder(_ parames: [String: Any]?)'
+    );
+  }
+
+  if (handlerSource !== originalHandler) {
+    fs.writeFileSync(handlerPath, handlerSource);
+    console.log('Patched expo-dev-menu DevMenuPackagerConnectionHandler.swift for RN 0.84 packager API');
+  }
+
+  const managerPath = path.join(resolvedDir, 'ios', 'DevMenuManager.swift');
+  if (!fs.existsSync(managerPath)) {
+    console.warn(`prepare-patches: missing file ${managerPath}`);
+    return;
+  }
+
+  let managerSource = fs.readFileSync(managerPath, 'utf8');
+  const originalManager = managerSource;
+  const didSetNeedle = `      if let currentBridge {
+        disableRNDevMenuHoykeys(for: currentBridge)
+      }`;
+
+  if (
+    managerSource.includes(didSetNeedle) &&
+    !managerSource.includes('packagerConnectionHandler?.registerHandlersIfNeeded()')
+  ) {
+    managerSource = managerSource.replace(
+      didSetNeedle,
+      `      if let currentBridge {
+        disableRNDevMenuHoykeys(for: currentBridge)
+      }
+      packagerConnectionHandler?.registerHandlersIfNeeded()`
+    );
+  }
+
+  if (managerSource !== originalManager) {
+    fs.writeFileSync(managerPath, managerSource);
+    console.log('Patched expo-dev-menu DevMenuManager.swift to register packager handlers from current bridge');
+  }
+};
+
+const patchExpoDevLauncherBridgeForRN84 = () => {
+  const pkg = 'expo-dev-launcher';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const bridgeHeaderPath = path.join(resolvedDir, 'ios', 'ReactNative', 'EXDevLauncherRCTBridge.h');
+  if (!fs.existsSync(bridgeHeaderPath)) {
+    console.warn(`prepare-patches: missing file ${bridgeHeaderPath}`);
+    return;
+  }
+
+  let bridgeHeader = fs.readFileSync(bridgeHeaderPath, 'utf8');
+  const originalBridgeHeader = bridgeHeader;
+
+  if (!bridgeHeader.includes('#ifndef RCT_REMOVE_LEGACY_ARCH')) {
+    bridgeHeader = bridgeHeader.replace(
+      `@interface EXDevLauncherRCTCxxBridge : RCTCxxBridge
+
+- (NSArray<Class> *)filterModuleList:(NSArray<Class> *)modules;
+
+@end
+
+@interface EXDevLauncherRCTBridge : RCTBridge
+
+- (Class)bridgeClass;
+
+@end`,
+      `#ifndef RCT_REMOVE_LEGACY_ARCH
+@interface EXDevLauncherRCTCxxBridge : RCTCxxBridge
+
+- (NSArray<Class> *)filterModuleList:(NSArray<Class> *)modules;
+
+@end
+#endif // RCT_REMOVE_LEGACY_ARCH
+
+@interface EXDevLauncherRCTBridge : RCTBridge
+
+#ifndef RCT_REMOVE_LEGACY_ARCH
+- (Class)bridgeClass;
+#endif // RCT_REMOVE_LEGACY_ARCH
+
+@end`
+    );
+  }
+
+  if (bridgeHeader !== originalBridgeHeader) {
+    fs.writeFileSync(bridgeHeaderPath, bridgeHeader);
+    console.log('Patched expo-dev-launcher EXDevLauncherRCTBridge.h for RN 0.84 legacy-bridge guard');
+  }
+
+  const bridgeImplPath = path.join(resolvedDir, 'ios', 'ReactNative', 'EXDevLauncherRCTBridge.m');
+  if (!fs.existsSync(bridgeImplPath)) {
+    console.warn(`prepare-patches: missing file ${bridgeImplPath}`);
+    return;
+  }
+
+  let bridgeImpl = fs.readFileSync(bridgeImplPath, 'utf8');
+  const originalBridgeImpl = bridgeImpl;
+
+  if (!bridgeImpl.includes('#ifndef RCT_REMOVE_LEGACY_ARCH')) {
+    bridgeImpl = bridgeImpl.replace(
+      `#import <EXDevLauncher/RCTCxxBridge+Private.h>
+
+#import <React/RCTPerformanceLogger.h>
+#import <React/RCTDevSettings.h>
+#import <React/RCTDevMenu.h>`,
+      `#ifndef RCT_REMOVE_LEGACY_ARCH
+#import <EXDevLauncher/RCTCxxBridge+Private.h>
+
+#import <React/RCTPerformanceLogger.h>
+#import <React/RCTDevSettings.h>
+#import <React/RCTDevMenu.h>
+#endif // RCT_REMOVE_LEGACY_ARCH`
+    );
+
+    bridgeImpl = bridgeImpl.replace(
+      '@implementation EXDevLauncherRCTCxxBridge',
+      '#ifndef RCT_REMOVE_LEGACY_ARCH\n@implementation EXDevLauncherRCTCxxBridge'
+    );
+    bridgeImpl = bridgeImpl.replace(
+      '@implementation EXDevLauncherRCTBridge',
+      '#endif // RCT_REMOVE_LEGACY_ARCH\n\n@implementation EXDevLauncherRCTBridge'
+    );
+  }
+
+  const legacyBridgeClassMethod = `- (Class)bridgeClass
+{
+  return [EXDevLauncherRCTCxxBridge class];
+}`;
+  if (
+    bridgeImpl.includes(legacyBridgeClassMethod) &&
+    !bridgeImpl.includes('#ifndef RCT_REMOVE_LEGACY_ARCH\n- (Class)bridgeClass')
+  ) {
+    bridgeImpl = bridgeImpl.replace(
+      legacyBridgeClassMethod,
+      `#ifndef RCT_REMOVE_LEGACY_ARCH
+- (Class)bridgeClass
+{
+  return [EXDevLauncherRCTCxxBridge class];
+}
+#endif // RCT_REMOVE_LEGACY_ARCH`
+    );
+  }
+
+  if (bridgeImpl !== originalBridgeImpl) {
+    fs.writeFileSync(bridgeImplPath, bridgeImpl);
+    console.log('Patched expo-dev-launcher EXDevLauncherRCTBridge.m for RN 0.84 legacy-bridge guard');
+  }
+
+  const controllerPath = path.join(resolvedDir, 'ios', 'EXDevLauncherController.m');
+  if (!fs.existsSync(controllerPath)) {
+    console.warn(`prepare-patches: missing file ${controllerPath}`);
+    return;
+  }
+
+  let controllerSource = fs.readFileSync(controllerPath, 'utf8');
+  const originalControllerSource = controllerSource;
+
+  controllerSource = controllerSource.replace(
+    '[[RCTPackagerConnection sharedPackagerConnection] setSocketConnectionURL:url];',
+    '[self.appBridge.devSettings.packagerConnection setSocketConnectionURL:url];'
+  );
+  controllerSource = controllerSource.replace(
+    '[[RCTPackagerConnection sharedPackagerConnection] setSocketConnectionURL:bundleUrl];',
+    '[self.appBridge.devSettings.packagerConnection setSocketConnectionURL:bundleUrl];'
+  );
+
+  if (controllerSource !== originalControllerSource) {
+    fs.writeFileSync(controllerPath, controllerSource);
+    console.log('Patched expo-dev-launcher EXDevLauncherController.m packager connection access for RN 0.84');
+  }
+};
+
+const restoreExpoModulesCoreJSIUtils = () => {
+  const pkg = 'expo-modules-core';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const jsiUtilsHeaderPath = path.join(resolvedDir, 'ios', 'JSI', 'EXJSIUtils.h');
+  if (!fs.existsSync(jsiUtilsHeaderPath)) {
+    console.warn(`prepare-patches: missing file ${jsiUtilsHeaderPath}`);
+    return;
+  }
+
+  let header = fs.readFileSync(jsiUtilsHeaderPath, 'utf8');
+  const declaration =
+    'void callPromiseSetupWithBlock(jsi::Runtime &runtime, std::shared_ptr<react::CallInvoker> jsInvoker, std::shared_ptr<react::Promise> promise, PromiseInvocationBlock setupBlock);';
+  const markerLine = '// PATCHED: CallInvoker compatibility fix for React Native 0.84+';
+  const callbackWrapperImport = '#import <react/bridging/CallbackWrapper.h>';
+  const legacyCallbackWrapperImport = '#import <ReactCommon/CallbackWrapper.h>';
+  let headerChanged = false;
+
+  if (header.includes(markerLine)) {
+    header = header.replace(/\/\/ PATCHED: CallInvoker compatibility fix for React Native 0\.84\+\n/g, '');
+    headerChanged = true;
+  }
+
+  if (header.includes(legacyCallbackWrapperImport)) {
+    header = header.replace(legacyCallbackWrapperImport, callbackWrapperImport);
+    headerChanged = true;
+  }
+
+  if (!header.includes(callbackWrapperImport) && header.includes('#import <ReactCommon/TurboModuleUtils.h>')) {
+    header = header.replace(
+      '#import <ReactCommon/TurboModuleUtils.h>',
+      `#import <ReactCommon/TurboModuleUtils.h>\n${callbackWrapperImport}`
+    );
+    headerChanged = true;
+  }
+
+  const commentedDeclarationRegex =
+    /^\s*\/\/\s*void callPromiseSetupWithBlock\(jsi::Runtime &runtime, std::shared_ptr<react::CallInvoker> jsInvoker, std::shared_ptr<react::Promise> promise, PromiseInvocationBlock setupBlock\);\s*$/m;
+  if (commentedDeclarationRegex.test(header)) {
+    header = header.replace(commentedDeclarationRegex, `    ${declaration}`);
+    headerChanged = true;
+  }
+
+  if (headerChanged) {
+    fs.writeFileSync(jsiUtilsHeaderPath, header);
+    console.log('Patched expo-modules-core EXJSIUtils.h for RN 0.84 CallbackWrapper compatibility');
+  }
+
+  const jsiUtilsImplPath = path.join(resolvedDir, 'ios', 'JSI', 'EXJSIUtils.mm');
+  if (!fs.existsSync(jsiUtilsImplPath)) {
+    console.warn(`prepare-patches: missing file ${jsiUtilsImplPath}`);
+    return;
+  }
+
+  let impl = fs.readFileSync(jsiUtilsImplPath, 'utf8');
+  const startRegex =
+    /(?:^|\n)\s*(?:\/\/\s*)*void callPromiseSetupWithBlock\(jsi::Runtime &runtime, std::shared_ptr<CallInvoker> jsInvoker, std::shared_ptr<Promise> promise, PromiseInvocationBlock setupBlock\)/;
+  const startMatch = impl.match(startRegex);
+  const pragmaNeedle = '\n#pragma mark - Weak objects';
+
+  if (startMatch && typeof startMatch.index === 'number') {
+    const startIdx = startMatch.index + (startMatch[0].startsWith('\n') ? 1 : 0);
+    const endIdx = impl.indexOf(pragmaNeedle, startIdx);
+    if (endIdx !== -1) {
+      const beforeFunc = impl.substring(0, startIdx);
+      let funcBody = impl.substring(startIdx, endIdx);
+      const afterFunc = impl.substring(endIdx);
+      let restoredPasses = 0;
+
+      while (/^\s*(?:\/\/\s*)+void callPromiseSetupWithBlock/m.test(funcBody) && restoredPasses < 5) {
+        funcBody = funcBody
+          .split('\n')
+          .map((line) => line.replace(/^(\s*)\/\/\s?/, '$1'))
+          .join('\n');
+        restoredPasses += 1;
+      }
+
+      const restoredImpl = beforeFunc + funcBody + afterFunc;
+      if (restoredImpl !== impl) {
+        fs.writeFileSync(jsiUtilsImplPath, restoredImpl);
+        console.log('Restored expo-modules-core EXJSIUtils.mm callPromiseSetupWithBlock implementation');
+      }
+    }
+  }
+};
+
+const patchLottieReactNativeCodegen = () => {
+  const pkg = 'lottie-react-native';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  // Create the missing codegen directory structure for lottie-react-native
+  const codegenDir = path.join(
+    __dirname,
+    '..',
+    'ios',
+    'build',
+    'generated',
+    'ios',
+    'ReactCodegen',
+    'react',
+    'renderer',
+    'components',
+    'lottiereactnative'
+  );
+
+  if (!fs.existsSync(codegenDir)) {
+    fs.mkdirSync(codegenDir, { recursive: true });
+    console.log('Created lottie-react-native codegen directory structure');
+  }
+
+  // Create placeholder header files if they don't exist
+  const headerFiles = ['States.h', 'ShadowNodes.h', 'RCTComponentViewHelpers.h', 'Props.h', 'EventEmitters.h', 'ComponentDescriptors.h'];
+  
+  for (const headerFile of headerFiles) {
+    const headerPath = path.join(codegenDir, headerFile);
+    if (!fs.existsSync(headerPath)) {
+      const content = `// Placeholder header for ${headerFile}
+// This file is auto-generated but may be missing in some build configurations
+#pragma once
+`;
+      fs.writeFileSync(headerPath, content);
+      console.log(`Created placeholder ${headerFile} for lottie-react-native`);
+    }
+  }
+};
+
 const patchReactNativeXcodeMetroIpWriteGuard = () => {
   const pkg = 'react-native';
   const resolvedDir = resolvePackageDir(pkg);
@@ -588,4 +998,8 @@ patchExpoReactActivityDelegateWrapperForRN81();
 patchRNFBCrashlyticsForModules();
 patchRNFBAnalyticsForModules();
 patchExpoHmrWindowLocationGuard();
+patchExpoDevMenuPackagerConnectionForRN84();
+patchExpoDevLauncherBridgeForRN84();
+restoreExpoModulesCoreJSIUtils();
+patchLottieReactNativeCodegen();
 patchReactNativeXcodeMetroIpWriteGuard();

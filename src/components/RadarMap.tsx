@@ -196,7 +196,7 @@ const RadarMap = React.memo(({
             userLocationUpdateInterval={1000}
             userLocationFastestInterval={500}
             showsCompass={false}
-            showsTraffic={false}
+            showsTraffic
             mapPadding={padding}
             pitchEnabled={mapInteractionEnabled}
             rotateEnabled={mapInteractionEnabled}

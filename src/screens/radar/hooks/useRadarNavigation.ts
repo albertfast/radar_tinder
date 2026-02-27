@@ -80,6 +80,8 @@ export function useRadarNavigation({
   const rerouteConsecutiveOffRouteRef = useRef(0);
   const lastRerouteAtRef = useRef(0);
   const stepDistanceHistoryRef = useRef<Record<number, { lastDistanceMeters: number; increasingTicks: number }>>({});
+  const announcedTurnCueRef = useRef<Record<string, boolean>>({});
+  const stepRouteProgressRef = useRef<number[]>([]);
   const navRefreshInFlightRef = useRef(false);
   const destinationCloseTickRef = useRef(0);
   const hasArrivalAnnouncementRef = useRef(false);
@@ -530,6 +532,42 @@ export function useRadarNavigation({
     []
   );
 
+  const updateStepRouteProgress = useCallback(
+    (steps: NavStep[], coords: Array<{ latitude: number; longitude: number }>) => {
+      if (!steps.length || !coords.length) {
+        stepRouteProgressRef.current = [];
+        return;
+      }
+      const nextProgress: number[] = [];
+      let searchStart = 0;
+      const toMeters = (a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) =>
+        LocationService.calculateDistanceSync(a.latitude, a.longitude, b.latitude, b.longitude) * 1000;
+
+      for (const step of steps) {
+        if (!step.endLocation) {
+          nextProgress.push(searchStart);
+          continue;
+        }
+        let bestIndex = searchStart;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        const maxIndex = coords.length - 1;
+        const windowEnd = Math.min(maxIndex, searchStart + 160);
+        for (let index = searchStart; index <= windowEnd; index += 1) {
+          const distance = toMeters(step.endLocation, coords[index]);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestIndex = index;
+            if (distance < 12) break;
+          }
+        }
+        nextProgress.push(bestIndex);
+        searchStart = bestIndex;
+      }
+      stepRouteProgressRef.current = nextProgress;
+    },
+    []
+  );
+
   const resetRoute = useCallback(async () => {
     try {
       await saveTripIfNeeded();
@@ -543,6 +581,8 @@ export function useRadarNavigation({
     setNavSteps([]);
     setCurrentStepIndex(0);
     stepDistanceHistoryRef.current = {};
+    announcedTurnCueRef.current = {};
+    stepRouteProgressRef.current = [];
     rerouteConsecutiveOffRouteRef.current = 0;
     lastRerouteAtRef.current = 0;
     navRefreshInFlightRef.current = false;
@@ -578,7 +618,12 @@ export function useRadarNavigation({
     setNearbyRadars,
     setTotalDistance,
     updateNearbyRadarsState,
+    updateStepRouteProgress,
   ]);
+
+  useEffect(() => {
+    updateStepRouteProgress(navSteps, routeCoords);
+  }, [navSteps, routeCoords, updateStepRouteProgress]);
 
   useEffect(() => {
     if (!isDriving) return;
@@ -648,8 +693,60 @@ export function useRadarNavigation({
       }
 
       nextStepIndex = resolveStepIndexFromLocation(loc, navSteps, nextStepIndex);
+      const routeProgressMarks = stepRouteProgressRef.current;
+      if (routeCoords.length > 0 && routeProgressMarks.length > 0) {
+        let currentRouteIndex = 0;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        const cosLat = Math.max(0.2, Math.cos((loc.latitude * Math.PI) / 180));
+        for (let i = 0; i < routeCoords.length; i += 1) {
+          const coord = routeCoords[i];
+          const dLat = (coord.latitude - loc.latitude) * 111000;
+          const dLng = (coord.longitude - loc.longitude) * 111000 * cosLat;
+          const d = Math.sqrt(dLat * dLat + dLng * dLng);
+          if (d < bestDistance) {
+            bestDistance = d;
+            currentRouteIndex = i;
+            if (d < 8) break;
+          }
+        }
+        while (
+          nextStepIndex < routeProgressMarks.length - 1 &&
+          currentRouteIndex >= Math.max(0, (routeProgressMarks[nextStepIndex] || 0) - 2)
+        ) {
+          nextStepIndex += 1;
+        }
+      }
       if (nextStepIndex !== currentStepIndex) {
         setCurrentStepIndex(nextStepIndex);
+      }
+
+      const stepForCue = navSteps[nextStepIndex];
+      if (stepForCue?.endLocation) {
+        const stepDistanceMeters =
+          LocationService.calculateDistanceSync(
+            loc.latitude,
+            loc.longitude,
+            stepForCue.endLocation.latitude,
+            stepForCue.endLocation.longitude
+          ) * 1000;
+        const cueThresholds = [500, 200, 80];
+        for (const threshold of cueThresholds) {
+          const cueKey = `${nextStepIndex}:${threshold}`;
+          if (!announcedTurnCueRef.current[cueKey] && stepDistanceMeters <= threshold) {
+            const instruction = stepForCue.instruction || 'follow the route';
+            const spokenText =
+              threshold <= 80
+                ? `Now, ${instruction}.`
+                : `In ${Math.max(20, Math.round(stepDistanceMeters))} meters, ${instruction}.`;
+            Speech.stop();
+            Speech.speak(spokenText, {
+              language: 'en-US',
+              rate: 0.95,
+              pitch: 1,
+            });
+            announcedTurnCueRef.current[cueKey] = true;
+          }
+        }
       }
 
       const finalDestination =
@@ -714,16 +811,21 @@ export function useRadarNavigation({
       if (!routeCoords.length || !destination) return;
       if (hasArrivedRef.current) return;
       const distanceToRoute = computeRouteProximityMeters(loc);
-      if (distanceToRoute > 45) {
+      if (distanceToRoute > 60) {
+        rerouteConsecutiveOffRouteRef.current = Math.max(
+          rerouteConsecutiveOffRouteRef.current,
+          3
+        );
+      } else if (distanceToRoute > 35) {
         rerouteConsecutiveOffRouteRef.current += 1;
-      } else if (distanceToRoute < 28) {
+      } else if (distanceToRoute < 22) {
         rerouteConsecutiveOffRouteRef.current = 0;
       }
 
       const now = Date.now();
       const shouldReroute =
-        rerouteConsecutiveOffRouteRef.current >= 2 &&
-        now - lastRerouteAtRef.current > 6000 &&
+        rerouteConsecutiveOffRouteRef.current >= 3 &&
+        now - lastRerouteAtRef.current > 4500 &&
         !navRefreshInFlightRef.current;
       if (!shouldReroute) return;
 
@@ -775,6 +877,8 @@ export function useRadarNavigation({
           const safeIndex = resolveStepIndexFromLocation(loc, parsedSteps, 0);
           setCurrentStepIndex(safeIndex);
           stepDistanceHistoryRef.current = {};
+          announcedTurnCueRef.current = {};
+          updateStepRouteProgress(parsedSteps, reroute.coordinates || routeCoords);
         }
       } catch (error) {
         console.error('[RadarScreen] Reroute scheduler failed:', error);
@@ -798,6 +902,7 @@ export function useRadarNavigation({
     setTotalDistance,
     getCurrentSpeedKph,
     resolveStepIndexFromLocation,
+    updateStepRouteProgress,
   ]);
 
   return {
