@@ -56,6 +56,8 @@ export interface RadarAlert {
   estimatedTime: number;
   severity: 'low' | 'medium' | 'high';
   locationLabel?: string;
+  routeMatchScore?: number;
+  headingDeltaDeg?: number | null;
   acknowledged: boolean;
   createdAt: Date;
 }

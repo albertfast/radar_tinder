@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo, useState } from 'react';
 import { NavigationContainer, DarkTheme as NavigationDarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
@@ -80,7 +80,14 @@ const combinedDarkTheme = {
 const prefix = Linking.createURL('/');
 
 export default function App() {
-  const { isAuthenticated, user, hydrateFromSupabaseSession, normalizeAccessState } = useAuthStore();
+  const {
+    isAuthenticated,
+    user,
+    hydrateFromSupabaseSession,
+    normalizeAccessState,
+    refreshProfile,
+  } = useAuthStore();
+  const [authBootstrapComplete, setAuthBootstrapComplete] = useState(false);
   const hasSettingsHydrated = useSettingsStore((state) => state.hasHydrated);
   const voiceWarningsEnabled = useSettingsStore((state) => state.voiceWarningsEnabled);
   const warningVolume = useSettingsStore((state) => state.warningVolume);
@@ -180,11 +187,19 @@ export default function App() {
     let cancelled = false;
     const timeout = setTimeout(async () => {
       try {
-        await hydrateFromSupabaseSession();
+        const hydrated = await hydrateFromSupabaseSession();
         if (cancelled) return;
+        if (hydrated) {
+          await refreshProfile();
+          if (cancelled) return;
+        }
         await normalizeAccessState();
       } catch (error) {
         console.warn('Initial auth normalization failed:', error);
+      } finally {
+        if (!cancelled) {
+          setAuthBootstrapComplete(true);
+        }
       }
     }, 0);
 
@@ -192,7 +207,7 @@ export default function App() {
       cancelled = true;
       clearTimeout(timeout);
     };
-  }, [hydrateFromSupabaseSession, normalizeAccessState]);
+  }, [hydrateFromSupabaseSession, normalizeAccessState, refreshProfile]);
 
   useEffect(() => {
     if (!hasSettingsHydrated) return;
@@ -226,6 +241,8 @@ export default function App() {
       try {
         if (nextState === 'active' && hasSupabaseSession) {
           supabase.auth.startAutoRefresh?.();
+          refreshProfile().catch(() => {});
+          normalizeAccessState().catch(() => {});
         } else {
           supabase.auth.stopAutoRefresh?.();
         }
@@ -238,7 +255,7 @@ export default function App() {
       appStateSub.remove();
       BackgroundService.stop().catch(console.error);
     };
-  }, []);
+  }, [normalizeAccessState, refreshProfile]);
 
   // Optimized auth state tracking
   useEffect(() => {
@@ -258,7 +275,7 @@ export default function App() {
   }, [isAuthenticated, user]);
 
   // Don't render until fonts are loaded
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !authBootstrapComplete) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0F1A' }}>
         <ActivityIndicator size="large" color="#4ECDC4" />

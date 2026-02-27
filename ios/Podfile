@@ -5,6 +5,7 @@ require File.join(File.dirname(`node --print "require.resolve('expo/package.json
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
 
 require 'json'
+require 'fileutils'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 
 def ccache_enabled?(podfile_properties)
@@ -165,8 +166,8 @@ target 'RadarTinder' do
       'rngesturehandler_codegen'
     )
     rngh_shadow_nodes_h = File.join(rngh_codegen_dir, 'ShadowNodes.h')
-    rngh_shadow_nodes_cpp = File.join(rngh_codegen_dir, 'ShadowNodes.cpp')
-    if File.exist?(rngh_shadow_nodes_cpp) && !File.exist?(rngh_shadow_nodes_h)
+    FileUtils.mkdir_p(rngh_codegen_dir) unless Dir.exist?(rngh_codegen_dir)
+    if !File.exist?(rngh_shadow_nodes_h)
       File.write(
         rngh_shadow_nodes_h,
         <<~'RNGH_SHADOW_NODES_H'
@@ -203,6 +204,16 @@ target 'RadarTinder' do
         RNGH_SHADOW_NODES_H
       )
       Pod::UI.puts 'Patched missing rngesturehandler_codegen/ShadowNodes.h'
+    end
+
+    # Disable new architecture for lottie-react-native due to incomplete codegen support
+    installer.pods_project.targets.each do |target|
+      if target.name == 'lottie-react-native'
+        target.build_configurations.each do |config|
+          config.build_settings['RCT_NEW_ARCH_ENABLED'] = 'NO'
+        end
+        Pod::UI.puts 'Disabled new architecture for lottie-react-native'
+      end
     end
 
   end

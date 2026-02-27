@@ -11,9 +11,12 @@ import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { hasProAccess } from '../utils/access';
 import ProGate from '../components/ProGate';
 import AdBanner from '../components/AdBanner';
+import { useSettingsStore } from '../store/settingsStore';
+import { formatDistance } from '../utils/format';
 
 const HistoryScreen = ({ navigation }: any) => {
   const { user } = useAuthStore();
+  const unitSystem = useSettingsStore((state) => state.unitSystem);
   const canUse = hasProAccess(user);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [trips, setTrips] = useState<any[]>([]);
@@ -137,13 +140,18 @@ const HistoryScreen = ({ navigation }: any) => {
                 <View style={styles.statsRow}>
                     <View style={styles.stat}>
                         <MaterialCommunityIcons name="map-marker-distance" size={16} color="#94A3B8" />
-                        <Text style={styles.statText}>{((item.distance || 0) / 1000).toFixed(1)} km</Text>
+                        <Text style={styles.statText}>
+                          {formatDistance((item.distance || 0) / 1000, unitSystem)}
+                        </Text>
                     </View>
                     <View style={styles.stat}>
                         <MaterialCommunityIcons name="clock-outline" size={16} color="#94A3B8" />
                         <Text style={styles.statText}>{Math.round((item.duration || 0) / 60)}m</Text>
                     </View>
-                    <TouchableOpacity style={styles.detailsBtn}>
+                    <TouchableOpacity
+                      style={styles.detailsBtn}
+                      onPress={() => navigation.navigate('TripDetail', { trip: item })}
+                    >
                         <Text style={styles.detailsText}>Details</Text>
                         <MaterialCommunityIcons name="chevron-right" size={16} color="#4ECDC4" />
                     </TouchableOpacity>

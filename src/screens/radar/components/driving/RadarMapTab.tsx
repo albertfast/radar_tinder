@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,6 +12,8 @@ import {
 } from '../../../../constants/layout';
 import { NavStep, RouteMeta } from '../../types';
 import { radarScreenStyles as styles } from '../../styles/radarScreenStyles';
+import { GoogleMapsService } from '../../../../services/GoogleMapsService';
+import { LocationService } from '../../../../services/LocationService';
 
 type RadarMapTabProps = {
   currentLocation: any;
@@ -70,6 +72,8 @@ type RadarMapTabProps = {
   voiceWarningsEnabled: boolean;
   onToggleVoiceWarnings: () => void;
   onOpenIncidentPanel: () => void;
+  currentSpeed: number;
+  unitSystem: 'metric' | 'imperial';
 };
 
 export function RadarMapTab({
@@ -124,7 +128,82 @@ export function RadarMapTab({
   voiceWarningsEnabled,
   onToggleVoiceWarnings,
   onOpenIncidentPanel,
+  currentSpeed,
+  unitSystem,
 }: RadarMapTabProps) {
+  const [speedLimit, setSpeedLimit] = useState<{ value: number; units: 'KPH' | 'MPH' } | null>(null);
+  const [speedLimitSource, setSpeedLimitSource] = useState<'roads_api' | 'fallback' | null>(null);
+  const lastSpeedLimitFetchAtRef = useRef(0);
+  const lastSpeedLimitLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+
+  useEffect(() => {
+    if (!currentLocation) return;
+    const now = Date.now();
+    const lastLocation = lastSpeedLimitLocationRef.current;
+    const movedMeters = lastLocation
+      ? LocationService.calculateDistanceSync(
+          currentLocation.latitude,
+          currentLocation.longitude,
+          lastLocation.latitude,
+          lastLocation.longitude
+        ) * 1000
+      : Number.POSITIVE_INFINITY;
+
+    if (now - lastSpeedLimitFetchAtRef.current < 20000 && movedMeters < 120) {
+      return;
+    }
+
+    let cancelled = false;
+    lastSpeedLimitFetchAtRef.current = now;
+    lastSpeedLimitLocationRef.current = {
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+    };
+
+    (async () => {
+      const result = await GoogleMapsService.getSpeedLimitForCoordinate(
+        currentLocation.latitude,
+        currentLocation.longitude
+      );
+      if (cancelled) return;
+      if (!result) return;
+      setSpeedLimit({ value: result.speedLimit, units: result.units });
+      setSpeedLimitSource(result.source);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentLocation]);
+
+  const currentSpeedDisplay = useMemo(() => {
+    if (unitSystem === 'imperial') return Math.max(0, Math.round(currentSpeed * 0.621371));
+    return Math.max(0, Math.round(currentSpeed));
+  }, [currentSpeed, unitSystem]);
+
+  const speedLimitDisplay = useMemo(() => {
+    if (!speedLimit) return null;
+    if (unitSystem === 'imperial') {
+      return Math.round(speedLimit.units === 'MPH' ? speedLimit.value : speedLimit.value * 0.621371);
+    }
+    return Math.round(speedLimit.units === 'KPH' ? speedLimit.value : speedLimit.value * 1.60934);
+  }, [speedLimit, unitSystem]);
+
+  const speedUnitLabel = unitSystem === 'imperial' ? 'MPH' : 'KM/H';
+  const overspeedRatio =
+    speedLimitDisplay && speedLimitDisplay > 0
+      ? (currentSpeedDisplay - speedLimitDisplay) / speedLimitDisplay
+      : 0;
+  const speedTone = overspeedRatio > 0.1 ? '#ef4444' : overspeedRatio > 0.05 ? '#f97316' : overspeedRatio > 0 ? '#facc15' : '#67e8f9';
+  const speedGlow =
+    overspeedRatio > 0.1
+      ? 'rgba(239,68,68,0.45)'
+      : overspeedRatio > 0.05
+        ? 'rgba(249,115,22,0.45)'
+        : overspeedRatio > 0
+          ? 'rgba(250,204,21,0.4)'
+          : 'rgba(56,189,248,0.3)';
+
   const arrivalDistanceLabel =
     distanceToDestinationMeters != null ? formatStepDistance(distanceToDestinationMeters) : null;
   const activeStep = navSteps[currentStepIndex];
@@ -162,6 +241,21 @@ export function RadarMapTab({
         style={[styles.mapOverlay, { top: mapOverlayTop, left: mapOverlayInset, right: mapOverlayInset }]}
         pointerEvents="box-none"
       >
+        <View style={[localStyles.speedHud, { borderColor: speedGlow, shadowColor: speedTone }]}>
+          <View style={localStyles.speedHudRow}>
+            <Text style={[localStyles.speedHudValue, { color: speedTone }]}>{currentSpeedDisplay}</Text>
+            <Text style={localStyles.speedHudUnit}>{speedUnitLabel}</Text>
+          </View>
+          <Text style={localStyles.speedHudMeta}>
+            Limit: {speedLimitDisplay ?? '--'} {speedUnitLabel}
+          </Text>
+          {speedLimitSource ? (
+            <Text style={localStyles.speedHudSource}>
+              {speedLimitSource === 'roads_api' ? 'Roads API' : 'Fallback'}
+            </Text>
+          ) : null}
+        </View>
+
         {routeCoords.length === 0 ? (
           <>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: mapControlGap }}>
@@ -336,7 +430,7 @@ export function RadarMapTab({
         </TouchableOpacity>
       </View>
 
-      {routeCoords.length > 0 && isMapNavigationActive && (
+      {routeCoords.length > 0 && isMapNavigationActive && !hasArrived && (
         <View
           style={[
             styles.bottomNavDock,
@@ -403,3 +497,45 @@ export function RadarMapTab({
 }
 
 export type { RadarMapTabProps };
+
+const localStyles = StyleSheet.create({
+  speedHud: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+    borderRadius: 12,
+    paddingHorizontal: getResponsivePadding(12),
+    paddingVertical: getResponsivePadding(8),
+    backgroundColor: 'rgba(3,10,24,0.9)',
+    borderWidth: 1,
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  speedHudRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 5,
+  },
+  speedHudValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    lineHeight: 24,
+  },
+  speedHudUnit: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  speedHudMeta: {
+    color: '#bae6fd',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  speedHudSource: {
+    color: '#94a3b8',
+    fontSize: 10,
+    marginTop: 2,
+  },
+});

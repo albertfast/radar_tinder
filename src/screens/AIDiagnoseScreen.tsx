@@ -21,6 +21,7 @@ import ProGate from '../components/ProGate';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AdBanner from '../components/AdBanner';
+import { AIService, AIModelErrorCode } from '../services/AIService';
 
 // Suppress specific warnings that might cause crashes
 LogBox.ignoreLogs([
@@ -63,6 +64,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
   const [voiceDescription, setVoiceDescription] = useState<string | null>(null);
   const [modelReady, setModelReady] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
+  const [modelErrorCode, setModelErrorCode] = useState<AIModelErrorCode | null>(null);
   const [modelDiagnostics, setModelDiagnostics] = useState<any | null>(null);
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -106,37 +108,31 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     
     setIsModelLoading(true);
     setModelError(null);
+    setModelErrorCode(null);
     
     try {
-      let AIService;
-      try {
-        const module = await import('../services/AIService');
-        AIService = module.AIService;
-      } catch (e) {
-        console.error("AIService import failed:", e);
-        throw new Error("AI Module not available");
-      }
-      
       console.log('Loading AI models...');
-      await AIService.preloadModels();
+      const runtime = await AIService.prepareDiagnosisRuntime();
       
       if (isMounted.current) {
-        const status = AIService.getModelStatus();
-        const diagnostics = AIService.getModelDiagnostics?.();
-        setModelDiagnostics(diagnostics || null);
-        const dashboardReady = !!status.dashboardLoaded;
-        setModelReady(dashboardReady);
+        setModelDiagnostics(runtime.diagnostics || null);
+        const dashboardReady = !!runtime.status.dashboardLoaded;
+        setModelReady(Boolean(dashboardReady && runtime.ready));
         setModelError(
           dashboardReady
             ? null
-            : (status.error || 'AI model could not be prepared. Please rebuild the app and try again.')
+            : (runtime.status.error || 'AI model could not be prepared. Please rebuild the app and try again.')
         );
       }
     } catch (error) {
       console.error('AI preload failed', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorCode = (error as any)?.code as AIModelErrorCode | undefined;
       
       if (isMounted.current) {
+        setModelReady(false);
+        setModelErrorCode(errorCode || null);
+        setModelDiagnostics(AIService.getModelDiagnostics?.() || null);
         setModelError(`AI model could not be prepared: ${errorMessage}`);
       }
     } finally {
@@ -253,6 +249,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     setIsAnalyzing(true);
     setLoadingStep('uploading');
     setModelError(null);
+    setModelErrorCode(null);
     
     try {
       // Simulate steps for premium feel
@@ -264,15 +261,6 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       
       await new Promise(r => setTimeout(r, 1500));
 
-      // Lazy-load AI service to avoid native module crashes at app startup.
-      let AIService;
-      try {
-        const module = await import('../services/AIService');
-        AIService = module.AIService;
-      } catch (e) {
-        throw new Error("AI Module failed to load. Please rebuild the app.");
-      }
-      
       // Model durumunu kontrol et - iOS için daha güvenli kontrol
       let modelStatus;
       try {
@@ -302,6 +290,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
               : modelErrorCode === 'model_uri_invalid'
                 ? 'Model is not resolving from embedded app assets. Install an internal/release build and retry.'
                 : 'AI model could not be prepared from local app assets.';
+        setModelErrorCode((modelErrorCode as AIModelErrorCode) || null);
         setModelError(message);
         Alert.alert('Model failed to load', message);
         return;
@@ -313,6 +302,8 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     } catch (error) {
       console.error('Analysis error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorCode = (error as any)?.code as AIModelErrorCode | undefined;
+      setModelErrorCode(errorCode || null);
       
       // Daha iyi hata yönetimi
       if (errorMessage.includes('already loading')) {
@@ -385,6 +376,11 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
              isModelLoading ? '⏳ Loading AI models...' :
              '⏳ Preparing on-device model...'}
           </Text>
+          {modelDiagnostics ? (
+            <Text style={styles.modelDebugText}>
+              native module: {modelDiagnostics?.nativeModuleAvailable === true ? 'available' : modelDiagnostics?.nativeModuleAvailable === false ? 'missing' : 'unknown'}
+            </Text>
+          ) : null}
           {modelDiagnostics?.lastErrorCode ? (
             <Text style={styles.modelDebugText}>
               Last model error: {modelDiagnostics.lastErrorCode}
@@ -395,9 +391,14 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
           <Surface style={[styles.infoBox, { borderColor: '#FF6B6B', marginBottom: 14 }]} elevation={1}>
             <MaterialCommunityIcons name="alert" size={24} color="#FF6B6B" />
             <Text style={[styles.infoText, { color: '#FCA5A5' }]}>{modelError}</Text>
+            {modelErrorCode ? (
+              <Text style={styles.modelDebugText}>
+                error code: {modelErrorCode}
+              </Text>
+            ) : null}
             {modelDiagnostics ? (
               <Text style={styles.modelDebugText}>
-                dashboard: {modelDiagnostics?.dashboard?.loaded ? 'loaded' : 'not-loaded'} | ocr: {modelDiagnostics?.ocr?.loaded ? 'loaded' : 'not-loaded'}
+                dashboard: {modelDiagnostics?.dashboard?.loaded ? 'loaded' : 'not-loaded'} ({modelDiagnostics?.dashboard?.sizeBytes || 0} B) | ocr: {modelDiagnostics?.ocr?.loaded ? 'loaded' : 'not-loaded'} ({modelDiagnostics?.ocr?.sizeBytes || 0} B)
               </Text>
             ) : null}
             <TouchableOpacity onPress={retryLoading} style={{ marginTop: 10 }}>

@@ -34,6 +34,67 @@ export class RadarService {
     promise: Promise<(RadarLocation & { distance: number })[]>;
   } | null = null;
 
+  private static distancePointToSegmentMeters(
+    pointLat: number,
+    pointLon: number,
+    aLat: number,
+    aLon: number,
+    bLat: number,
+    bLon: number
+  ): number {
+    const toXY = (lat: number, lon: number) => {
+      const x = lon * 111320 * Math.cos((lat * Math.PI) / 180);
+      const y = lat * 110540;
+      return { x, y };
+    };
+    const p = toXY(pointLat, pointLon);
+    const a = toXY(aLat, aLon);
+    const b = toXY(bLat, bLon);
+    const abx = b.x - a.x;
+    const aby = b.y - a.y;
+    const apx = p.x - a.x;
+    const apy = p.y - a.y;
+    const denom = abx * abx + aby * aby;
+    const t = denom <= 0 ? 0 : Math.max(0, Math.min(1, (apx * abx + apy * aby) / denom));
+    const cx = a.x + abx * t;
+    const cy = a.y + aby * t;
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  private static minDistanceToRouteMeters(
+    radar: { latitude: number; longitude: number },
+    routeCoords: { latitude: number; longitude: number }[]
+  ): number {
+    if (routeCoords.length < 2) {
+      return (
+        LocationService.calculateDistanceSync(
+          radar.latitude,
+          radar.longitude,
+          routeCoords[0]?.latitude || radar.latitude,
+          routeCoords[0]?.longitude || radar.longitude
+        ) * 1000
+      );
+    }
+    let minMeters = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < routeCoords.length - 1; i += 1) {
+      const a = routeCoords[i];
+      const b = routeCoords[i + 1];
+      const d = this.distancePointToSegmentMeters(
+        radar.latitude,
+        radar.longitude,
+        a.latitude,
+        a.longitude,
+        b.latitude,
+        b.longitude
+      );
+      if (d < minMeters) minMeters = d;
+      if (minMeters <= 120) break;
+    }
+    return minMeters;
+  }
+
   /**
    * Fetches real radar data from OpenStreetMap using Overpass API
    */
@@ -187,23 +248,11 @@ export class RadarService {
           };
         }).filter((radar: RadarLocation) => radar.type !== 'police');
 
-        // 3. Filter radars that are actually near the route (within 2.0km)
+        // 3. Filter radars that are actually near the route corridor (within 120m)
         const filteredRadars: RadarLocation[] = [];
         for (const radar of radars) {
-          let isNearRoute = false;
-          // Check more points for better accuracy on long routes
-          const sampleStep = Math.max(1, Math.floor(routeCoords.length / 150));
-          for (let i = 0; i < routeCoords.length; i += sampleStep) {
-            const dist = LocationService.calculateDistanceSync(
-              radar.latitude, radar.longitude,
-              routeCoords[i].latitude, routeCoords[i].longitude
-            );
-            if (dist < 2.0) { // 2.0 kilometers
-              isNearRoute = true;
-              break;
-            }
-          }
-          if (isNearRoute) filteredRadars.push(radar);
+          const corridorMeters = this.minDistanceToRouteMeters(radar, routeCoords);
+          if (corridorMeters <= 120) filteredRadars.push(radar);
         }
 
         return filteredRadars;
@@ -356,33 +405,6 @@ export class RadarService {
 
         let processedRadars = this.improveAccuracy(allRadars);
 
-        // --- CRITICAL DATA FIX: INJECT SYNTHETIC RADARS IF DENSITY IS LOW ---
-        // This ensures the "premium feel" of a populated map even in areas with sparse OSM data
-        if (processedRadars.length < 5) {
-            const mockCount = 15 - processedRadars.length;
-            for (let i = 0; i < mockCount; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = Math.random() * (radius * 0.8 / 111.32); // Convert km to degree approx
-                const typeProb = Math.random();
-                let type: RadarLocation['type'] = 'speed_camera';
-                if (typeProb > 0.6) type = 'fixed'; // increased prob for fixed
-                else if (typeProb > 0.3) type = 'red_light';
-
-                processedRadars.push({
-                    id: `mock-${Date.now()}-${i}`,
-                    latitude: latitude + (dist * Math.cos(angle)),
-                    longitude: longitude + (dist * Math.sin(angle)),
-                    type,
-                    confidence: 0.9,
-                    lastConfirmed: new Date(),
-                    reportedBy: 'System AI',
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                    speedLimit: Math.random() > 0.5 ? (Math.floor(Math.random() * 6) + 3) * 10 : undefined
-                });
-            }
-        }
-        
         this.nearbyCache = {
           timestamp: Date.now(),
           latitude,

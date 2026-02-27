@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text, Platform, Keyboard } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { AdService } from '../services/AdService';
+import { AdService, getGoogleMobileAdsModule } from '../services/AdService';
 
 interface AdBannerProps {
   size?: any;
@@ -9,7 +9,6 @@ interface AdBannerProps {
   suppressAds?: boolean;
 }
 
-let cachedGoogleMobileAds: any | undefined;
 const isTruthyFlag = (value?: string) => value === '1' || value === 'true' || value === 'yes';
 const isAdDebugEnabled = () => __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG);
 const isAdDebugOverlayEnabled = () =>
@@ -18,17 +17,6 @@ const shouldForceTestAdUnits = () =>
   __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_ADMOB_FORCE_TEST_IDS);
 const shouldFallbackToTestOnFailure = () =>
   isTruthyFlag(process.env.EXPO_PUBLIC_ADMOB_FALLBACK_TO_TEST_ON_ERROR);
-
-const loadGoogleMobileAdsBannerModules = () => {
-  let root: any = null;
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    root = require('react-native-google-mobile-ads');
-  } catch {}
-
-  return { root };
-};
 
 const describeError = (error: unknown): string => {
   if (!error) return 'Unknown error';
@@ -39,24 +27,6 @@ const describeError = (error: unknown): string => {
   }
   return String(error);
 };
-
-function getGoogleMobileAds(): any | null {
-  if (cachedGoogleMobileAds !== undefined) return cachedGoogleMobileAds;
-  try {
-    const { root } = loadGoogleMobileAdsBannerModules();
-    cachedGoogleMobileAds = {
-      BannerAd: root?.BannerAd,
-      BannerAdSize: root?.BannerAdSize,
-      TestIds: root?.TestIds,
-    };
-  } catch (error) {
-    if (__DEV__) {
-      console.log('Google Mobile Ads banner module unavailable:', error);
-    }
-    cachedGoogleMobileAds = null;
-  }
-  return cachedGoogleMobileAds;
-}
 
 const AdBanner: React.FC<AdBannerProps> = ({ size, unitId, suppressAds = false }) => {
   let isFocused = true;
@@ -150,7 +120,7 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId, suppressAds = false }
   }
 
   const debugState = AdService.getAdsDebugState();
-  const googleMobileAds = getGoogleMobileAds();
+  const googleMobileAds = getGoogleMobileAdsModule();
   const BannerAd = googleMobileAds?.BannerAd;
   const BannerAdSize = googleMobileAds?.BannerAdSize;
   const TestIds = googleMobileAds?.TestIds;

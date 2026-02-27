@@ -122,7 +122,7 @@ export function RadarDrivingShell({
         <IconButton icon="cog" iconColor="#fff" onPress={onOpenSettings} />
       </View>
 
-      {hasArrived ? (
+      {hasArrived && activeTab !== 'Map' ? (
         <Animated.View
           style={styles.navigationProgress}
           entering={FadeInUp.duration(300)}
@@ -182,25 +182,23 @@ export function RadarDrivingShell({
         </Animated.View>
       ) : null}
 
-      {activeTab !== 'Map' && !isMapNavigationActive && (
-        <View style={styles.tabBar}>
-          {(['Basic', 'Map', 'Graphic'] as TabType[]).map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tabItem, activeTab === tab && styles.activeTabItem]}
-              onPress={() => {
-                if (tab === 'Graphic' && !canUsePro) {
-                  onOpenSubscription();
-                  return;
-                }
-                setActiveTab(tab);
-              }}
-            >
-              <Text style={[styles.tabText, activeTab === tab && { color: '#FF5252' }]}>{tab}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+      <View style={styles.tabBar}>
+        {(['Basic', 'Map', 'Graphic'] as TabType[]).map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tabItem, activeTab === tab && styles.activeTabItem]}
+            onPress={() => {
+              if (tab === 'Graphic' && !canUsePro) {
+                onOpenSubscription();
+                return;
+              }
+              setActiveTab(tab);
+            }}
+          >
+            <Text style={[styles.tabText, activeTab === tab && { color: '#FF5252' }]}>{tab}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <View style={{ flex: 1 }}>
         <View style={{ flex: 1, display: activeTab === 'Basic' ? 'flex' : 'none' }}>

@@ -7,6 +7,7 @@ interface RadarState {
   activeAlerts: RadarAlert[];
   isDetecting: boolean;
   isRouteGuidanceActive: boolean;
+  routeGuidancePath: Array<{ latitude: number; longitude: number }>;
   currentLocation: { 
     latitude: number; 
     longitude: number;
@@ -23,6 +24,7 @@ interface RadarState {
   acknowledgeAlert: (id: string) => void;
   setDetecting: (detecting: boolean) => void;
   setRouteGuidanceActive: (active: boolean) => void;
+  setRouteGuidancePath: (coords: Array<{ latitude: number; longitude: number }>) => void;
   setCurrentLocation: (location: { 
     latitude: number; 
     longitude: number;
@@ -38,6 +40,7 @@ export const useRadarStore = create<RadarState>()(
     activeAlerts: [],
     isDetecting: false,
     isRouteGuidanceActive: false,
+    routeGuidancePath: [],
     currentLocation: null,
 
     setRadarLocations: (locations) => {
@@ -80,6 +83,10 @@ export const useRadarStore = create<RadarState>()(
 
     setRouteGuidanceActive: (active) => {
       set({ isRouteGuidanceActive: active });
+    },
+
+    setRouteGuidancePath: (coords) => {
+      set({ routeGuidancePath: coords });
     },
 
     setCurrentLocation: (location) => {
