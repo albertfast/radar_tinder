@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView from 'react-native-maps';
@@ -142,11 +142,11 @@ export function RadarMapTab({
     const lastLocation = lastSpeedLimitLocationRef.current;
     const movedMeters = lastLocation
       ? LocationService.calculateDistanceSync(
-          currentLocation.latitude,
-          currentLocation.longitude,
-          lastLocation.latitude,
-          lastLocation.longitude
-        ) * 1000
+        currentLocation.latitude,
+        currentLocation.longitude,
+        lastLocation.latitude,
+        lastLocation.longitude
+      ) * 1000
       : Number.POSITIVE_INFINITY;
 
     if (now - lastSpeedLimitFetchAtRef.current < 20000 && movedMeters < 120) {
@@ -241,23 +241,9 @@ export function RadarMapTab({
         style={[styles.mapOverlay, { top: mapOverlayTop, left: mapOverlayInset, right: mapOverlayInset }]}
         pointerEvents="box-none"
       >
-        <View style={[localStyles.speedHud, { borderColor: speedGlow, shadowColor: speedTone }]}>
-          <View style={localStyles.speedHudRow}>
-            <Text style={[localStyles.speedHudValue, { color: speedTone }]}>{currentSpeedDisplay}</Text>
-            <Text style={localStyles.speedHudUnit}>{speedUnitLabel}</Text>
-          </View>
-          <Text style={localStyles.speedHudMeta}>
-            Limit: {speedLimitDisplay ?? '--'} {speedUnitLabel}
-          </Text>
-          {speedLimitSource ? (
-            <Text style={localStyles.speedHudSource}>
-              {speedLimitSource === 'roads_api' ? 'Roads API' : 'Fallback'}
-            </Text>
-          ) : null}
-        </View>
-
         {routeCoords.length === 0 ? (
           <>
+            {/* Full-width search row at top */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: mapControlGap }}>
               <View style={{ flex: 1 }}>
                 <TextInput
@@ -300,10 +286,10 @@ export function RadarMapTab({
               </View>
 
               <TouchableOpacity
-                style={[styles.iconBtn, { backgroundColor: '#4ECDC4', padding: 12 }]}
+                style={[styles.iconBtn, { backgroundColor: '#2979FF', padding: 12 }]}
                 onPress={handleNavigate}
               >
-                <Text style={{ color: '#04111D', fontWeight: 'bold' }}>GO</Text>
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>GO</Text>
               </TouchableOpacity>
 
               {destination.length > 0 && (
@@ -319,7 +305,7 @@ export function RadarMapTab({
                 style={[styles.iconBtn, { backgroundColor: 'rgba(0,0,0,0.8)', padding: 12 }]}
                 onPress={centerMap}
               >
-                <MaterialCommunityIcons name="crosshairs-gps" size={24} color="#4ECDC4" />
+                <MaterialCommunityIcons name="crosshairs-gps" size={24} color="#2979FF" />
               </TouchableOpacity>
             </View>
 
@@ -463,35 +449,38 @@ export function RadarMapTab({
         <AdBanner suppressAds={suppressAds} />
       </View>
 
+      {/* ─── Right: removed zoom +/- (user request) ─── */}
+
+      {/* ─── Speed HUD – bottom left, above left controls ─── */}
       <View
         style={[
-          styles.mapControls,
+          localStyles.speedHudWrap,
           {
-            right: mapOverlayInset,
-            bottom: mapControlsBottom,
+            position: 'absolute',
+            left: mapOverlayInset,
+            bottom: mapControlsBottom + mapControlSize * 3 + mapControlGap * 3 + 12,
           },
         ]}
+        pointerEvents="none"
       >
-        <TouchableOpacity
-          style={[
-            styles.mapControlButton,
-            { width: mapControlSize, height: mapControlSize, marginBottom: mapControlGap },
-          ]}
-          onPress={() => zoomMap(1)}
-        >
-          <MaterialCommunityIcons name="plus" size={getResponsiveFontSize(20)} color="white" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.mapControlButton,
-            { width: mapControlSize, height: mapControlSize },
-          ]}
-          onPress={() => zoomMap(-1)}
-        >
-          <MaterialCommunityIcons name="minus" size={getResponsiveFontSize(20)} color="white" />
-        </TouchableOpacity>
+        <View style={[localStyles.speedMain, { borderColor: speedTone, shadowColor: speedTone }]}>
+          <Text style={[localStyles.speedValue, { color: speedTone }]}>{currentSpeedDisplay}</Text>
+          <Text style={localStyles.speedUnit}>{speedUnitLabel}</Text>
+          {overspeedRatio > 0 && (
+            <View style={[localStyles.overspeedBadge, { backgroundColor: speedTone }]}>
+              <Text style={localStyles.overspeedBadgeText}>+{Math.round(overspeedRatio * 100)}%</Text>
+            </View>
+          )}
+        </View>
+        <View style={localStyles.limitBadge}>
+          <Text style={localStyles.limitLabel}>LIMIT</Text>
+          <Text style={localStyles.limitValue}>{speedLimitDisplay ?? '--'}</Text>
+          {speedLimitSource === 'fallback' && (
+            <Text style={localStyles.limitSource}>est</Text>
+          )}
+        </View>
       </View>
+
     </View>
   );
 }
@@ -499,43 +488,77 @@ export function RadarMapTab({
 export type { RadarMapTabProps };
 
 const localStyles = StyleSheet.create({
-  speedHud: {
+  // Outer wrapper – top-right, row: speed main + limit badge
+  speedHudWrap: {
     alignSelf: 'flex-end',
-    marginBottom: 8,
-    borderRadius: 12,
-    paddingHorizontal: getResponsivePadding(12),
-    paddingVertical: getResponsivePadding(8),
-    backgroundColor: 'rgba(3,10,24,0.9)',
-    borderWidth: 1,
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  speedHudRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 5,
+    gap: 6,
+    marginBottom: 8,
   },
-  speedHudValue: {
-    fontSize: 24,
+  // Main speed box
+  speedMain: {
+    borderRadius: 16,
+    paddingHorizontal: getResponsivePadding(14),
+    paddingVertical: getResponsivePadding(10),
+    backgroundColor: 'rgba(3,10,24,0.92)',
+    borderWidth: 2,
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 },
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  speedValue: {
+    fontSize: 42,
     fontWeight: '900',
-    lineHeight: 24,
+    lineHeight: 44,
+    letterSpacing: -1,
   },
-  speedHudUnit: {
-    color: '#cbd5e1',
+  speedUnit: {
+    color: '#94a3b8',
     fontSize: 12,
     fontWeight: '700',
-    marginBottom: 2,
+    marginTop: -2,
   },
-  speedHudMeta: {
-    color: '#bae6fd',
+  overspeedBadge: {
+    marginTop: 6,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignItems: 'center',
+  },
+  overspeedBadgeText: {
+    color: '#000',
+    fontWeight: '800',
     fontSize: 11,
-    fontWeight: '600',
-    marginTop: 4,
   },
-  speedHudSource: {
-    color: '#94a3b8',
-    fontSize: 10,
-    marginTop: 2,
+  // Speed limit box (smaller, to the right)
+  limitBadge: {
+    borderRadius: 12,
+    paddingHorizontal: getResponsivePadding(10),
+    paddingVertical: getResponsivePadding(8),
+    backgroundColor: 'rgba(3,10,24,0.88)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    minWidth: 52,
+  },
+  limitLabel: {
+    color: '#64748b',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  limitValue: {
+    color: '#e2e8f0',
+    fontSize: 22,
+    fontWeight: '800',
+    lineHeight: 26,
+  },
+  limitSource: {
+    color: '#475569',
+    fontSize: 9,
+    marginTop: 1,
   },
 });
