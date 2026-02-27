@@ -162,7 +162,7 @@ export function useRadarNavigation({
         longitude: item.longitude,
         qualityScore: item.qualityScore,
       }));
-      AsyncStorage.setItem(RECENT_DESTINATIONS_KEY, JSON.stringify(serializable)).catch(() => {});
+      AsyncStorage.setItem(RECENT_DESTINATIONS_KEY, JSON.stringify(serializable)).catch(() => { });
       return next;
     });
   }, []);
@@ -199,7 +199,7 @@ export function useRadarNavigation({
           setRecentDestinations(normalized);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       isMounted = false;
     };
@@ -260,9 +260,9 @@ export function useRadarNavigation({
           countryCode: searchCountryCodeRef.current,
           focusLocation: focusLocation
             ? {
-                latitude: focusLocation.latitude,
-                longitude: focusLocation.longitude,
-              }
+              latitude: focusLocation.latitude,
+              longitude: focusLocation.longitude,
+            }
             : undefined,
         });
         if (requestId !== searchRequestIdRef.current) return;
@@ -342,9 +342,9 @@ export function useRadarNavigation({
         const resolvedDestinationCoord =
           primaryLeg?.end_location?.lat && primaryLeg?.end_location?.lng
             ? {
-                latitude: primaryLeg.end_location.lat,
-                longitude: primaryLeg.end_location.lng,
-              }
+              latitude: primaryLeg.end_location.lat,
+              longitude: primaryLeg.end_location.lng,
+            }
             : params?.destinationCoord || null;
 
         if (primaryLeg) {
@@ -363,8 +363,8 @@ export function useRadarNavigation({
           label: resolvedDestinationLabel,
           queryValue:
             resolvedDestinationCoord &&
-            Number.isFinite(resolvedDestinationCoord.latitude) &&
-            Number.isFinite(resolvedDestinationCoord.longitude)
+              Number.isFinite(resolvedDestinationCoord.latitude) &&
+              Number.isFinite(resolvedDestinationCoord.longitude)
               ? `${resolvedDestinationCoord.latitude},${resolvedDestinationCoord.longitude}`
               : finalDest,
           latitude: resolvedDestinationCoord?.latitude ?? Number.NaN,
@@ -411,11 +411,11 @@ export function useRadarNavigation({
         const fallbackHeading =
           res.coordinates.length > 1
             ? LocationService.calculateBearing(
-                res.coordinates[0].latitude,
-                res.coordinates[0].longitude,
-                res.coordinates[1].latitude,
-                res.coordinates[1].longitude
-              )
+              res.coordinates[0].latitude,
+              res.coordinates[0].longitude,
+              res.coordinates[1].latitude,
+              res.coordinates[1].longitude
+            )
             : 0;
         const tightFollowHeading =
           typeof loc.heading === 'number' && Number.isFinite(loc.heading) ? loc.heading : fallbackHeading;
@@ -571,7 +571,7 @@ export function useRadarNavigation({
   const resetRoute = useCallback(async () => {
     try {
       await saveTripIfNeeded();
-    } catch (error) {}
+    } catch (error) { }
 
     setDestination('');
     setSuggestions([]);
@@ -729,15 +729,25 @@ export function useRadarNavigation({
             stepForCue.endLocation.latitude,
             stepForCue.endLocation.longitude
           ) * 1000;
-        const cueThresholds = [500, 200, 80];
+        // Early cue at ~0.5 mi (800m), medium at ~0.2 mi (320m), immediate at ~250 ft (75m)
+        const cueThresholds = [800, 320, 75];
         for (const threshold of cueThresholds) {
           const cueKey = `${nextStepIndex}:${threshold}`;
           if (!announcedTurnCueRef.current[cueKey] && stepDistanceMeters <= threshold) {
             const instruction = stepForCue.instruction || 'follow the route';
-            const spokenText =
-              threshold <= 80
-                ? `Now, ${instruction}.`
-                : `In ${Math.max(20, Math.round(stepDistanceMeters))} meters, ${instruction}.`;
+            let distancePhrase = '';
+            if (threshold > 200) {
+              const miles = stepDistanceMeters / 1609.344;
+              distancePhrase = miles >= 0.1
+                ? `In ${miles.toFixed(1)} miles`
+                : `In ${Math.round(stepDistanceMeters * 3.28084)} feet`;
+            } else if (threshold > 100) {
+              const feet = Math.round(stepDistanceMeters * 3.28084);
+              distancePhrase = `In ${feet} feet`;
+            }
+            const spokenText = threshold <= 75
+              ? `Now, ${instruction}.`
+              : `${distancePhrase}, ${instruction}.`;
             Speech.stop();
             Speech.speak(spokenText, {
               language: 'en-US',

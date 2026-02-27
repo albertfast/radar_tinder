@@ -27,216 +27,229 @@ const toValidCoordinate = (value: any): LatLng | null => {
 
 // Optimized Marker (moved here or kept in same file)
 const OptimizedMarker = React.memo(({ coordinate, type, speedLimit, onPress }: any) => {
-    // ... logic (can copy from RadarScreen or keep simplistic)
-    return (
-        <Marker
-          coordinate={coordinate}
-          tracksViewChanges={false} // Force false for stability, or use the timer logic if image issues persist
-          anchor={{ x: 0.5, y: 0.5 }}
-          onPress={onPress}
-        >
-            <View style={[styles.markerBadge, { backgroundColor: type === 'police' ? '#F44336' : '#FF5252' }]}>
-                {type === 'fixed' && speedLimit ? (
-                    <Text style={{color:'white', fontSize:12, fontWeight:'bold'}}>{speedLimit}</Text>
-                ) : (
-                    <MaterialCommunityIcons 
-                      name={type === 'police' ? "police-badge" : "camera"} 
-                      size={20} 
-                      color="white" 
-                    />
-                )}
-            </View>
-        </Marker>
-    );
+  // ... logic (can copy from RadarScreen or keep simplistic)
+  return (
+    <Marker
+      coordinate={coordinate}
+      tracksViewChanges={false} // Force false for stability, or use the timer logic if image issues persist
+      anchor={{ x: 0.5, y: 0.5 }}
+      onPress={onPress}
+    >
+      <View style={[styles.markerBadge, { backgroundColor: type === 'police' ? '#F44336' : '#FF5252' }]}>
+        {type === 'fixed' && speedLimit ? (
+          <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>{speedLimit}</Text>
+        ) : (
+          <MaterialCommunityIcons
+            name={type === 'police' ? "police-badge" : "camera"}
+            size={20}
+            color="white"
+          />
+        )}
+      </View>
+    </Marker>
+  );
 });
 
 const RadarMap = React.memo(({
-    location,
-    radars,
-    routeCoords,
-    mapRef,
-    showsUserLocation = true,
-    onRadarPress,
-    destinationPoint,
-    mapPadding,
-    onMapTouchStart,
-    mapInteractionEnabled = true,
-    onMapTap,
+  location,
+  radars,
+  routeCoords,
+  mapRef,
+  showsUserLocation = true,
+  onRadarPress,
+  destinationPoint,
+  mapPadding,
+  onMapTouchStart,
+  mapInteractionEnabled = true,
+  onMapTap,
 }: any) => {
-    const safeLocation = useMemo(() => toValidCoordinate(location), [location]);
-    const initialRegionRef = useRef({
-      latitude: safeLocation?.latitude ?? 37.7749,
-      longitude: safeLocation?.longitude ?? -122.4194,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    });
-    const initialRegion = initialRegionRef.current;
+  const safeLocation = useMemo(() => toValidCoordinate(location), [location]);
+  const initialRegionRef = useRef({
+    latitude: safeLocation?.latitude ?? 37.7749,
+    longitude: safeLocation?.longitude ?? -122.4194,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
+  });
+  const initialRegion = initialRegionRef.current;
 
-    const routeInputLength = Array.isArray(routeCoords) ? routeCoords.length : 0;
-    const sanitizedRouteCoords = useMemo(() => {
-      if (!Array.isArray(routeCoords)) {
-        return [] as LatLng[];
-      }
-      return routeCoords
-        .map((point: any) => toValidCoordinate(point))
-        .filter((point: LatLng | null): point is LatLng => point !== null);
-    }, [routeCoords]);
-    const invalidRouteCoordCount = Math.max(0, routeInputLength - sanitizedRouteCoords.length);
+  const routeInputLength = Array.isArray(routeCoords) ? routeCoords.length : 0;
+  const sanitizedRouteCoords = useMemo(() => {
+    if (!Array.isArray(routeCoords)) {
+      return [] as LatLng[];
+    }
+    return routeCoords
+      .map((point: any) => toValidCoordinate(point))
+      .filter((point: LatLng | null): point is LatLng => point !== null);
+  }, [routeCoords]);
+  const invalidRouteCoordCount = Math.max(0, routeInputLength - sanitizedRouteCoords.length);
 
-    const sanitizedRadars = useMemo(() => {
-      const validEntries: Array<{ key: string | number; radar: any; coordinate: LatLng }> = [];
-      let invalidCount = 0;
+  const sanitizedRadars = useMemo(() => {
+    const validEntries: Array<{ key: string | number; radar: any; coordinate: LatLng }> = [];
+    let invalidCount = 0;
 
-      if (!Array.isArray(radars)) {
-        return { validEntries, invalidCount };
-      }
-
-      radars.forEach((radar: any, index: number) => {
-        const coordinate = toValidCoordinate({
-          latitude: radar?.latitude,
-          longitude: radar?.longitude,
-        });
-
-        if (!coordinate) {
-          invalidCount += 1;
-          return;
-        }
-
-        validEntries.push({
-          key: radar?.id || index,
-          radar,
-          coordinate,
-        });
-      });
-
+    if (!Array.isArray(radars)) {
       return { validEntries, invalidCount };
-    }, [radars]);
+    }
 
-    const sanitizedDestination = useMemo(() => toValidCoordinate(destinationPoint), [destinationPoint]);
-    const invalidDestinationPoint = Boolean(destinationPoint) && !sanitizedDestination;
-
-    const finalDestination = useMemo(() => {
-      if (sanitizedDestination) {
-        return sanitizedDestination;
-      }
-      return sanitizedRouteCoords.length > 0 ? sanitizedRouteCoords[sanitizedRouteCoords.length - 1] : null;
-    }, [sanitizedDestination, sanitizedRouteCoords]);
-
-    const mapChildren = useMemo(() => {
-      const children: React.ReactElement[] = [];
-
-      if (sanitizedRouteCoords.length > 0) {
-        children.push(
-          <Polyline
-            key="route-polyline"
-            coordinates={sanitizedRouteCoords}
-            strokeWidth={getResponsiveWidth(6)}
-            strokeColor="#4ECDC4"
-            lineCap="round"
-            lineJoin="round"
-            zIndex={10}
-          />
-        );
-      }
-
-      if (finalDestination) {
-        children.push(
-          <Marker key="route-destination" coordinate={finalDestination} anchor={{ x: 0.5, y: 1 }}>
-            <View style={styles.destinationMarker}>
-              <MaterialCommunityIcons name="flag-checkered" size={16} color="#0B1424" />
-            </View>
-          </Marker>
-        );
-      }
-
-      sanitizedRadars.validEntries.forEach(({ key, radar, coordinate }) => {
-        children.push(
-          <OptimizedMarker
-            key={key}
-            coordinate={coordinate}
-            type={radar?.type}
-            speedLimit={radar?.speedLimit}
-            onPress={() => onRadarPress?.(radar)}
-          />
-        );
+    radars.forEach((radar: any, index: number) => {
+      const coordinate = toValidCoordinate({
+        latitude: radar?.latitude,
+        longitude: radar?.longitude,
       });
 
-      return children;
-    }, [finalDestination, onRadarPress, sanitizedRadars.validEntries, sanitizedRouteCoords]);
-
-    const invalidSummaryRef = useRef('');
-    const invalidRadarCount = sanitizedRadars.invalidCount;
-    useEffect(() => {
-      if (!MAP_COORD_TRACE_ENABLED) return;
-
-      const summary = `route:${invalidRouteCoordCount}|radar:${invalidRadarCount}|dest:${invalidDestinationPoint ? 1 : 0}`;
-      if (summary === invalidSummaryRef.current) return;
-      invalidSummaryRef.current = summary;
-
-      if (invalidRouteCoordCount > 0 || invalidRadarCount > 0 || invalidDestinationPoint) {
-        console.debug('[RadarMap] Dropped invalid map coordinates', {
-          route: invalidRouteCoordCount,
-          radars: invalidRadarCount,
-          destination: invalidDestinationPoint ? 1 : 0,
-        });
+      if (!coordinate) {
+        invalidCount += 1;
+        return;
       }
-    }, [invalidDestinationPoint, invalidRadarCount, invalidRouteCoordCount]);
 
-    const padding = mapPadding || { top: 200, right: 40, bottom: 280, left: 40 };
+      validEntries.push({
+        key: radar?.id || index,
+        radar,
+        coordinate,
+      });
+    });
 
-    return (
-        <MapView
-            ref={mapRef}
-            style={StyleSheet.absoluteFill}
-            customMapStyle={modernMapStyle}
-            provider={PROVIDER_GOOGLE}
-            initialRegion={initialRegion}
-            showsUserLocation={showsUserLocation}
-            showsMyLocationButton={false}
-            userLocationUpdateInterval={1000}
-            userLocationFastestInterval={500}
-            showsCompass={false}
-            showsTraffic
-            mapPadding={padding}
-            pitchEnabled={mapInteractionEnabled}
-            rotateEnabled={mapInteractionEnabled}
-            zoomEnabled={mapInteractionEnabled}
-            scrollEnabled={mapInteractionEnabled}
-            toolbarEnabled={false}
-            zoomControlEnabled={false}
-            moveOnMarkerPress={false}
-            onPanDrag={() => {
-              if (mapInteractionEnabled) onMapTouchStart?.();
-            }}
-            onPress={() => {
-              if (!mapInteractionEnabled) return;
-              onMapTap?.();
-            }}
-        >
-            {mapChildren}
-        </MapView>
-    );
+    return { validEntries, invalidCount };
+  }, [radars]);
+
+  const sanitizedDestination = useMemo(() => toValidCoordinate(destinationPoint), [destinationPoint]);
+  const invalidDestinationPoint = Boolean(destinationPoint) && !sanitizedDestination;
+
+  const finalDestination = useMemo(() => {
+    if (sanitizedDestination) {
+      return sanitizedDestination;
+    }
+    return sanitizedRouteCoords.length > 0 ? sanitizedRouteCoords[sanitizedRouteCoords.length - 1] : null;
+  }, [sanitizedDestination, sanitizedRouteCoords]);
+
+  const mapChildren = useMemo(() => {
+    const children: React.ReactElement[] = [];
+
+    if (sanitizedRouteCoords.length > 0) {
+      // White casing – premium navigation look (like Apple Maps / Google Maps)
+      children.push(
+        <Polyline
+          key="route-casing"
+          coordinates={sanitizedRouteCoords}
+          strokeWidth={getResponsiveWidth(12)}
+          strokeColor="rgba(255,255,255,0.75)"
+          lineCap="round"
+          lineJoin="round"
+          zIndex={9}
+        />
+      );
+      // Vivid electric blue inner fill
+      children.push(
+        <Polyline
+          key="route-polyline"
+          coordinates={sanitizedRouteCoords}
+          strokeWidth={getResponsiveWidth(7)}
+          strokeColor="#2979FF"
+          lineCap="round"
+          lineJoin="round"
+          zIndex={10}
+        />
+      );
+    }
+
+    if (finalDestination) {
+      children.push(
+        <Marker key="route-destination" coordinate={finalDestination} anchor={{ x: 0.5, y: 1 }}>
+          <View style={styles.destinationMarker}>
+            <MaterialCommunityIcons name="flag-checkered" size={16} color="#0B1424" />
+          </View>
+        </Marker>
+      );
+    }
+
+    sanitizedRadars.validEntries.forEach(({ key, radar, coordinate }) => {
+      children.push(
+        <OptimizedMarker
+          key={key}
+          coordinate={coordinate}
+          type={radar?.type}
+          speedLimit={radar?.speedLimit}
+          onPress={() => onRadarPress?.(radar)}
+        />
+      );
+    });
+
+    return children;
+  }, [finalDestination, onRadarPress, sanitizedRadars.validEntries, sanitizedRouteCoords]);
+
+  const invalidSummaryRef = useRef('');
+  const invalidRadarCount = sanitizedRadars.invalidCount;
+  useEffect(() => {
+    if (!MAP_COORD_TRACE_ENABLED) return;
+
+    const summary = `route:${invalidRouteCoordCount}|radar:${invalidRadarCount}|dest:${invalidDestinationPoint ? 1 : 0}`;
+    if (summary === invalidSummaryRef.current) return;
+    invalidSummaryRef.current = summary;
+
+    if (invalidRouteCoordCount > 0 || invalidRadarCount > 0 || invalidDestinationPoint) {
+      console.debug('[RadarMap] Dropped invalid map coordinates', {
+        route: invalidRouteCoordCount,
+        radars: invalidRadarCount,
+        destination: invalidDestinationPoint ? 1 : 0,
+      });
+    }
+  }, [invalidDestinationPoint, invalidRadarCount, invalidRouteCoordCount]);
+
+  const padding = mapPadding || { top: 200, right: 40, bottom: 280, left: 40 };
+
+  return (
+    <MapView
+      ref={mapRef}
+      style={StyleSheet.absoluteFill}
+      customMapStyle={modernMapStyle}
+      provider={PROVIDER_GOOGLE}
+      initialRegion={initialRegion}
+      showsUserLocation={showsUserLocation}
+      showsMyLocationButton={false}
+      userLocationUpdateInterval={1000}
+      userLocationFastestInterval={500}
+      showsCompass={false}
+      showsTraffic
+      mapPadding={padding}
+      pitchEnabled={mapInteractionEnabled}
+      rotateEnabled={mapInteractionEnabled}
+      zoomEnabled={mapInteractionEnabled}
+      scrollEnabled={mapInteractionEnabled}
+      toolbarEnabled={false}
+      zoomControlEnabled={false}
+      moveOnMarkerPress={false}
+      onPanDrag={() => {
+        if (mapInteractionEnabled) onMapTouchStart?.();
+      }}
+      onPress={() => {
+        if (!mapInteractionEnabled) return;
+        onMapTap?.();
+      }}
+    >
+      {mapChildren}
+    </MapView>
+  );
 }, (prev, next) => {
-    // Custom comparison to prevent re-renders on minor updates if needed
-    // For now, let's rely on React.memo shallow diff or standard behavior
-    // If location changes slightly (user moving), we WANT to re-render user location dot, 
-    // BUT MapView handles user location internally via showsUserLocation={true}.
-    // We only need to re-render if radars or route change.
-    
-    // Changing props: location (used for initialRegion only? No, maybe updates?), radars.
-    
-    // Actually, passing `location` prop to MapView usually isn't needed if showsUserLocation={true} 
-    // handles the dot. We only used it for initialRegion.
-    
-    return (
-        prev.radars === next.radars && 
-        prev.routeCoords === next.routeCoords &&
-        prev.destinationPoint?.latitude === next.destinationPoint?.latitude &&
-        prev.destinationPoint?.longitude === next.destinationPoint?.longitude &&
-        prev.mapPadding === next.mapPadding &&
-        prev.mapInteractionEnabled === next.mapInteractionEnabled
-        // Ignore location changes as MapView handles user location dot and camera is controlled via ref
-    );
+  // Custom comparison to prevent re-renders on minor updates if needed
+  // For now, let's rely on React.memo shallow diff or standard behavior
+  // If location changes slightly (user moving), we WANT to re-render user location dot, 
+  // BUT MapView handles user location internally via showsUserLocation={true}.
+  // We only need to re-render if radars or route change.
+
+  // Changing props: location (used for initialRegion only? No, maybe updates?), radars.
+
+  // Actually, passing `location` prop to MapView usually isn't needed if showsUserLocation={true} 
+  // handles the dot. We only used it for initialRegion.
+
+  return (
+    prev.radars === next.radars &&
+    prev.routeCoords === next.routeCoords &&
+    prev.destinationPoint?.latitude === next.destinationPoint?.latitude &&
+    prev.destinationPoint?.longitude === next.destinationPoint?.longitude &&
+    prev.mapPadding === next.mapPadding &&
+    prev.mapInteractionEnabled === next.mapInteractionEnabled
+    // Ignore location changes as MapView handles user location dot and camera is controlled via ref
+  );
 });
 
 const styles = StyleSheet.create({
