@@ -13,17 +13,39 @@ const extraPaths = [
 const findInPnpm = (pkg) => {
   const pnpmDir = path.join(nodeModules, '.pnpm');
   if (!fs.existsSync(pnpmDir)) return null;
-  const entries = fs.readdirSync(pnpmDir).filter((e) => e.includes(`${pkg}@`));
-  for (const entry of entries) {
-    const candidate = path.join(pnpmDir, entry, 'node_modules', pkg);
-    if (fs.existsSync(path.join(candidate, 'package.json'))) {
-      return candidate;
+  try {
+    const entries = fs.readdirSync(pnpmDir).filter((e) => e.includes(`${pkg}@`));
+    for (const entry of entries) {
+      const candidate = path.join(pnpmDir, entry, 'node_modules', pkg);
+      if (fs.existsSync(path.join(candidate, 'package.json'))) {
+        return candidate;
+      }
+    }
+  } catch (e) {
+    // EPERM or other error scanning .pnpm - fall through
+  }
+  return null;
+};
+
+const resolveViaSymlink = (pkg) => {
+  // pnpm creates symlinks: node_modules/pkg -> .pnpm/.../node_modules/pkg
+  // Use realpathSync to follow the symlink to the real store path (no EPERM)
+  const linkPath = path.join(nodeModules, pkg);
+  if (fs.existsSync(linkPath)) {
+    try {
+      const real = fs.realpathSync(linkPath);
+      if (fs.existsSync(path.join(real, 'package.json'))) return real;
+    } catch (e) {
+      // ignore
     }
   }
   return null;
 };
 
 const resolvePackageDir = (pkg) => {
+  // Try symlink resolution first (works even when .pnpm scandir returns EPERM)
+  const viaSymlink = resolveViaSymlink(pkg);
+  if (viaSymlink) return viaSymlink;
   try {
     return path.dirname(require.resolve(`${pkg}/package.json`, { paths: extraPaths }));
   } catch {
@@ -787,6 +809,28 @@ const patchExpoDevLauncherBridgeForRN84 = () => {
     fs.writeFileSync(controllerPath, controllerSource);
     console.log('Patched expo-dev-launcher EXDevLauncherController.m packager connection access for RN 0.84');
   }
+
+  // Patch autoSetupStart to not throw when autoSetupPrepare was never called.
+  // This happens when APP_DEBUG=false in ExpoDevLauncherReactDelegateHandler.createReactRootView,
+  // causing autoSetupPrepare to never run, then autoSetupStart crashes with an NSException.
+  // Fix: gracefully skip (log + return) instead of throwing.
+  const controllerSource2 = fs.readFileSync(controllerPath, 'utf8');
+  const throwBlock =
+    '    @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:@"[EXDevLauncherController autoSetupStart:] was called before autoSetupPrepare:.' +
+    ' Make sure you\'ve set up expo-modules correctly in AppDelegate and are using ReactDelegate to create a bridge before calling [super application:didFinishLaunchingWithOptions:]." userInfo:nil];';
+  const gracefulSkip =
+    '    // autoSetupPrepare was not called before autoSetupStart (e.g. APP_DEBUG=false in\n' +
+    '    // ExpoDevLauncherReactDelegateHandler.createReactRootView returned nil early).\n' +
+    '    // Skip dev-launcher initialization gracefully instead of crashing.\n' +
+    '    NSLog(@"[EXDevLauncherController] autoSetupStart: skipping because autoSetupPrepare was not called (non-debug build or APP_DEBUG=false). The app will launch normally without expo-dev-launcher.");';
+
+  if (controllerSource2.includes(throwBlock)) {
+    const patched2 = controllerSource2.replace(throwBlock, gracefulSkip);
+    fs.writeFileSync(controllerPath, patched2);
+    console.log('Patched expo-dev-launcher EXDevLauncherController.m autoSetupStart to not throw when delegate is nil');
+  } else if (!controllerSource2.includes('autoSetupPrepare was not called before autoSetupStart')) {
+    console.warn('prepare-patches: EXDevLauncherController.m autoSetupStart block did not match; skipping graceful-nil patch');
+  }
 };
 
 const restoreExpoModulesCoreJSIUtils = () => {
@@ -909,7 +953,7 @@ const patchLottieReactNativeCodegen = () => {
 
   // Create placeholder header files if they don't exist
   const headerFiles = ['States.h', 'ShadowNodes.h', 'RCTComponentViewHelpers.h', 'Props.h', 'EventEmitters.h', 'ComponentDescriptors.h'];
-  
+
   for (const headerFile of headerFiles) {
     const headerPath = path.join(codegenDir, headerFile);
     if (!fs.existsSync(headerPath)) {
@@ -975,6 +1019,118 @@ const patchReactNativeXcodeMetroIpWriteGuard = () => {
   }
 };
 
+const patchExpoDevLauncherAutoSetupPrepare = () => {
+  const pkg = 'expo-dev-launcher';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const handlerPath = path.join(
+    resolvedDir,
+    'ios',
+    'ReactDelegateHandler',
+    'ExpoDevLauncherReactDelegateHandler.swift'
+  );
+  if (!fs.existsSync(handlerPath)) {
+    console.warn(`prepare-patches: missing file ${handlerPath}`);
+    return;
+  }
+
+  let source = fs.readFileSync(handlerPath, 'utf8');
+
+  // The original code checks APP_DEBUG BEFORE calling autoSetupPrepare.
+  // If APP_DEBUG is false (e.g. in a non-debug build or before EXAppDefines loads),
+  // autoSetupPrepare is never called. Later, ExpoDevLauncherAppDelegateSubscriber
+  // calls autoSetupStart which throws because the delegate was never set.
+  //
+  // Fix: always call autoSetupPrepare first (and still bail early if !APP_DEBUG).
+  const originalBlock =
+    '    if !EXAppDefines.APP_DEBUG {\n' +
+    '      return nil\n' +
+    '    }\n' +
+    '\n' +
+    '    self.reactDelegate = reactDelegate\n' +
+    '    self.launchOptions = launchOptions\n' +
+    '    EXDevLauncherController.sharedInstance().autoSetupPrepare(self, launchOptions: launchOptions)';
+
+  const patchedBlock =
+    '    // Always call autoSetupPrepare first so that the delegate is set before\n' +
+    '    // ExpoDevLauncherAppDelegateSubscriber.application() calls autoSetupStart.\n' +
+    '    // Without this, if APP_DEBUG is false the delegate is never set and autoSetupStart throws.\n' +
+    '    self.reactDelegate = reactDelegate\n' +
+    '    self.launchOptions = launchOptions\n' +
+    '    EXDevLauncherController.sharedInstance().autoSetupPrepare(self, launchOptions: launchOptions)\n' +
+    '\n' +
+    '    if !EXAppDefines.APP_DEBUG {\n' +
+    '      return nil\n' +
+    '    }';
+
+  if (source.includes(originalBlock)) {
+    source = source.replace(originalBlock, patchedBlock);
+    fs.writeFileSync(handlerPath, source);
+    console.log(
+      'Patched expo-dev-launcher ExpoDevLauncherReactDelegateHandler.swift: ' +
+      'moved autoSetupPrepare before APP_DEBUG guard to fix autoSetupStart crash'
+    );
+  } else if (!source.includes('// Always call autoSetupPrepare first')) {
+    console.warn(
+      'prepare-patches: ExpoDevLauncherReactDelegateHandler.swift did not match expected pattern; ' +
+      'skipping autoSetupPrepare patch'
+    );
+  }
+};
+
+const patchExpoUpdatesReactDelegateHandler = () => {
+  const pkg = 'expo-updates';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const handlerPath = path.join(
+    resolvedDir,
+    'ios', 'EXUpdates', 'ReactDelegateHandler',
+    'ExpoUpdatesReactDelegateHandler.swift'
+  );
+  if (!fs.existsSync(handlerPath)) {
+    console.warn(`prepare-patches: missing file ${handlerPath}`);
+    return;
+  }
+
+  let source = fs.readFileSync(handlerPath, 'utf8');
+
+  // bundleURL(reactDelegate:) calls AppController.sharedInstance.launchAssetUrl() unconditionally.
+  // When createReactRootView returns nil early (isActiveController=false, e.g. apps not using
+  // custom expo-updates initialization), the AppController may not have been initialized yet.
+  // Accessing sharedInstance before initialization hits a Swift assertionFailure (SIGTRAP crash).
+  // Fix: guard with AppController.isInitialized() and return nil if not ready.
+  const originalBundleURL =
+    '  public override func bundleURL(reactDelegate: ExpoReactDelegate) -> URL? {\n' +
+    '    AppController.sharedInstance.launchAssetUrl()\n' +
+    '  }';
+  const patchedBundleURL =
+    '  public override func bundleURL(reactDelegate: ExpoReactDelegate) -> URL? {\n' +
+    '    // Guard against accessing sharedInstance before initialization.\n' +
+    '    // This can happen when createReactRootView returns nil early (e.g. isActiveController=false)\n' +
+    '    // but bundleURL is still called by the React delegate chain.\n' +
+    '    guard AppController.isInitialized() else {\n' +
+    '      return nil\n' +
+    '    }\n' +
+    '    return AppController.sharedInstance.launchAssetUrl()\n' +
+    '  }';
+
+  if (source.includes(originalBundleURL)) {
+    source = source.replace(originalBundleURL, patchedBundleURL);
+    fs.writeFileSync(handlerPath, source);
+    console.log('Patched expo-updates ExpoUpdatesReactDelegateHandler.swift: guarded bundleURL against uninitialized AppController');
+  } else if (!source.includes('AppController.isInitialized()')) {
+    console.warn('prepare-patches: ExpoUpdatesReactDelegateHandler.swift bundleURL did not match; skipping guard patch');
+  }
+};
+
 for (const pkg of packages) {
   try {
     const resolvedDir = resolvePackageDir(pkg);
@@ -1000,6 +1156,8 @@ patchRNFBAnalyticsForModules();
 patchExpoHmrWindowLocationGuard();
 patchExpoDevMenuPackagerConnectionForRN84();
 patchExpoDevLauncherBridgeForRN84();
+patchExpoDevLauncherAutoSetupPrepare();
 restoreExpoModulesCoreJSIUtils();
 patchLottieReactNativeCodegen();
 patchReactNativeXcodeMetroIpWriteGuard();
+patchExpoUpdatesReactDelegateHandler();

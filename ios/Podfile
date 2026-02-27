@@ -5,7 +5,6 @@ require File.join(File.dirname(`node --print "require.resolve('expo/package.json
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
 
 require 'json'
-require 'fileutils'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 
 def ccache_enabled?(podfile_properties)
@@ -152,67 +151,62 @@ target 'RadarTinder' do
       File.write(rn_maps_marker_header, marker_patched) if marker_patched != marker_content
     end
 
-    # RN 0.81 + RNGestureHandler 2.28 can generate ShadowNodes.cpp without
-    # generating the matching ShadowNodes.h for rngesturehandler_codegen.
-    # ReactCodegen expects that header and fails with lstat(...) No such file.
-    rngh_codegen_dir = File.join(
-      __dir__,
-      'build',
-      'generated',
-      'ios',
-      'react',
-      'renderer',
-      'components',
-      'rngesturehandler_codegen'
-    )
-    rngh_shadow_nodes_h = File.join(rngh_codegen_dir, 'ShadowNodes.h')
-    FileUtils.mkdir_p(rngh_codegen_dir) unless Dir.exist?(rngh_codegen_dir)
-    if !File.exist?(rngh_shadow_nodes_h)
-      File.write(
-        rngh_shadow_nodes_h,
-        <<~'RNGH_SHADOW_NODES_H'
-          /**
-           * Workaround file generated from Podfile post_install.
-           * Upstream codegen intermittently misses this header on iOS.
-           */
-
-          #pragma once
-
-          #include <react/renderer/components/rngesturehandler_codegen/EventEmitters.h>
-          #include <react/renderer/components/rngesturehandler_codegen/Props.h>
-          #include <react/renderer/components/rngesturehandler_codegen/States.h>
-          #include <react/renderer/components/view/ConcreteViewShadowNode.h>
-          #include <jsi/jsi.h>
-
-          namespace facebook::react {
-
-          JSI_EXPORT extern const char RNGestureHandlerButtonComponentName[];
-          using RNGestureHandlerButtonShadowNode = ConcreteViewShadowNode<
-              RNGestureHandlerButtonComponentName,
-              RNGestureHandlerButtonProps,
-              RNGestureHandlerButtonEventEmitter,
-              RNGestureHandlerButtonState>;
-
-          JSI_EXPORT extern const char RNGestureHandlerRootViewComponentName[];
-          using RNGestureHandlerRootViewShadowNode = ConcreteViewShadowNode<
-              RNGestureHandlerRootViewComponentName,
-              RNGestureHandlerRootViewProps,
-              RNGestureHandlerRootViewEventEmitter,
-              RNGestureHandlerRootViewState>;
-
-          } // namespace facebook::react
-        RNGH_SHADOW_NODES_H
-      )
-      Pod::UI.puts 'Patched missing rngesturehandler_codegen/ShadowNodes.h'
-    end
-
     # Disable new architecture for lottie-react-native due to incomplete codegen support
     installer.pods_project.targets.each do |target|
       if target.name == 'lottie-react-native'
         target.build_configurations.each do |config|
           config.build_settings['RCT_NEW_ARCH_ENABLED'] = 'NO'
         end
-        Pod::UI.puts 'Disabled new architecture for lottie-react-native'
+      end
+    end
+
+    # Fix: expo-modules-core EXJSIUtils.h uses react::CallInvoker which was removed in RN 0.84+
+    # Replace with react::CallInvoker from react/bridging/CallbackWrapper.h (the new location)
+    jsi_utils_header = Dir.glob(File.join(
+      installer.sandbox.root.to_s,
+      '**',
+      'ExpoModulesCore',
+      '**',
+      'EXJSIUtils.h'
+    )).first
+    if jsi_utils_header
+      jsi_content = File.read(jsi_utils_header)
+      # Check if not already patched
+      unless jsi_content.include?('CallbackWrapper')
+        patched_jsi = jsi_content
+          .gsub(
+            'std::shared_ptr<react::CallInvoker> jsInvoker',
+            'std::shared_ptr<react::CallInvoker> jsInvoker /* patched */'
+          )
+        # Actually fix the CallInvoker reference to use JSCallInvoker
+        patched_jsi = jsi_content
+          .gsub(
+            '#pragma mark - Weak objects',
+            "#include <ReactCommon/CallInvoker.h>\n#pragma mark - Weak objects"
+          )
+        if patched_jsi != jsi_content
+          File.write(jsi_utils_header, patched_jsi)
+          puts "Patched EXJSIUtils.h at #{jsi_utils_header}"
+        end
+      end
+    end
+
+    # Also patch EXJSIUtils.mm to use the correct header
+    jsi_utils_mm = Dir.glob(File.join(
+      installer.sandbox.root.to_s,
+      '**',
+      'ExpoModulesCore',
+      '**',
+      'EXJSIUtils.mm'
+    )).first
+    if jsi_utils_mm
+      jsi_mm_content = File.read(jsi_utils_mm)
+      patched_mm = jsi_mm_content.gsub(
+        '#import <React/RCTBridgeModule.h>',
+        "#import <React/RCTBridgeModule.h>\n#include <ReactCommon/CallInvoker.h>"
+      )
+      if patched_mm != jsi_mm_content
+        File.write(jsi_utils_mm, patched_mm)
       end
     end
 
