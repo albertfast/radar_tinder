@@ -110,6 +110,23 @@ const SubscriptionScreen = ({ navigation }: any) => {
         trial: trialActive,
       });
 
+      const paywallStatus = await SubscriptionService.presentPaywall();
+      if (paywallStatus === 'purchased' || paywallStatus === 'restored') {
+        await AnalyticsService.trackEvent('subscription_success', {
+          source: 'revenuecat_paywall',
+          status: paywallStatus,
+        });
+        Alert.alert('Success', 'Your subscription is active.');
+        navigation.goBack();
+        return;
+      }
+      if (paywallStatus === 'cancelled') {
+        return;
+      }
+      if (paywallStatus === 'error') {
+        Alert.alert('Paywall Error', 'Paywall could not be opened. Trying package checkout...');
+      }
+
       const offering = await SubscriptionService.getOfferings();
       const availablePackages: PurchasesPackage[] = offering?.availablePackages || [];
       if (availablePackages.length === 0) {

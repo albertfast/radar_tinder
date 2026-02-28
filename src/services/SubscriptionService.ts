@@ -14,7 +14,21 @@ type PurchasesBindings = {
   LOG_LEVEL: any;
 };
 
+type PurchasesUIBindings = {
+  RevenueCatUI: any;
+  PAYWALL_RESULT: any;
+};
+
+export type PaywallPresentationStatus =
+  | 'purchased'
+  | 'restored'
+  | 'cancelled'
+  | 'error'
+  | 'not_presented'
+  | 'unavailable';
+
 let cachedPurchasesBindings: PurchasesBindings | null | undefined;
+let cachedPurchasesUIBindings: PurchasesUIBindings | null | undefined;
 const getPurchasesBindings = (): PurchasesBindings | null => {
   if (cachedPurchasesBindings !== undefined) return cachedPurchasesBindings;
 
@@ -35,6 +49,28 @@ const getPurchasesBindings = (): PurchasesBindings | null => {
   }
 
   return cachedPurchasesBindings;
+};
+
+const getPurchasesUIBindings = (): PurchasesUIBindings | null => {
+  if (cachedPurchasesUIBindings !== undefined) return cachedPurchasesUIBindings;
+
+  if (!NativeModules?.RNPurchases) {
+    cachedPurchasesUIBindings = null;
+    return cachedPurchasesUIBindings;
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const purchasesUIModule = require('react-native-purchases-ui');
+    cachedPurchasesUIBindings = {
+      RevenueCatUI: purchasesUIModule?.default ?? purchasesUIModule,
+      PAYWALL_RESULT: purchasesUIModule?.PAYWALL_RESULT ?? {},
+    };
+  } catch {
+    cachedPurchasesUIBindings = null;
+  }
+
+  return cachedPurchasesUIBindings;
 };
 
 export class SubscriptionService {
@@ -162,6 +198,63 @@ export class SubscriptionService {
     } catch (error: any) {
       console.error('Error restoring purchases:', error);
       return false;
+    }
+  }
+
+  static async presentPaywall(): Promise<PaywallPresentationStatus> {
+    try {
+      if (!this.isInitialized) {
+        await this.init();
+      }
+      if (!this.hasValidConfig()) {
+        return 'unavailable';
+      }
+
+      const bindings = getPurchasesBindings();
+      const uiBindings = getPurchasesUIBindings();
+      if (!bindings?.Purchases || !uiBindings?.RevenueCatUI) {
+        return 'unavailable';
+      }
+
+      const paywallResult = await uiBindings.RevenueCatUI.presentPaywall();
+      const knownResultEntries = Object.entries(uiBindings.PAYWALL_RESULT || {});
+      const matchedResultName =
+        knownResultEntries.find(([, value]) => value === paywallResult)?.[0] ||
+        (typeof paywallResult === 'string' ? paywallResult : '');
+      const normalizedResultName = String(matchedResultName).toUpperCase();
+
+      if (normalizedResultName === 'PURCHASED') {
+        const customerInfo = await bindings.Purchases.getCustomerInfo();
+        if (customerInfo) {
+          await this.updateUserSubscriptionStatus(customerInfo);
+        }
+        return 'purchased';
+      }
+
+      if (normalizedResultName === 'RESTORED') {
+        const customerInfo = await bindings.Purchases.getCustomerInfo();
+        if (customerInfo) {
+          await this.updateUserSubscriptionStatus(customerInfo);
+        }
+        return 'restored';
+      }
+
+      if (normalizedResultName === 'CANCELLED') {
+        return 'cancelled';
+      }
+
+      if (normalizedResultName === 'NOT_PRESENTED') {
+        return 'not_presented';
+      }
+
+      if (normalizedResultName === 'ERROR') {
+        return 'error';
+      }
+
+      return 'not_presented';
+    } catch (error) {
+      console.error('Error presenting RevenueCat paywall:', error);
+      return 'error';
     }
   }
 

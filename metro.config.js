@@ -36,8 +36,14 @@ module.exports = (() => {
       ? resolver.blockList
       : [resolver.blockList]
     : [];
+  const resolvedPlatforms = Array.isArray(resolver.platforms)
+    ? resolver.platforms.includes('native')
+      ? resolver.platforms
+      : [...resolver.platforms, 'native']
+    : ['ios', 'android', 'native'];
   config.resolver = {
     ...resolver,
+    platforms: resolvedPlatforms,
     assetExts: [...resolver.assetExts.filter((ext) => ext !== 'svg'), 'onnx', 'data', 'bin'],
     sourceExts: [...resolver.sourceExts, 'svg'],
     nodeModulesPaths: [

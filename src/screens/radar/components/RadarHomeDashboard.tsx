@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   FlatList,
   ScrollView,
@@ -9,6 +9,12 @@ import {
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import { formatDistance, formatSpeed } from '../../../utils/format';
 import { getResponsiveHeight } from '../../../constants/layout';
 import AdBanner from '../../../components/AdBanner';
@@ -152,6 +158,26 @@ export function RadarHomeDashboard({
   pauseRadarAnimation,
   showHomeAd,
 }: RadarHomeDashboardProps) {
+  const legacyHomeRadarMode: RadarRendererMode = 'legacy2d';
+  const heroPulse = useSharedValue(0);
+  const heroSweep = useSharedValue(0);
+
+  useEffect(() => {
+    if (pauseRadarAnimation) return;
+    heroPulse.value = withRepeat(withTiming(1, { duration: 2600 }), -1, true);
+    heroSweep.value = withRepeat(withTiming(360, { duration: 5200 }), -1, false);
+  }, [heroPulse, heroSweep, pauseRadarAnimation]);
+
+  const pulseAuraStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 0.84 + heroPulse.value * 0.24 }],
+    opacity: 0.22 - heroPulse.value * 0.14,
+  }));
+
+  const sweepAuraStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${heroSweep.value}deg` }],
+    opacity: 0.28,
+  }));
+
   const homeBottomInset = tabBarInset + Math.max(28, Math.round(width * 0.08));
   const isCompactWidth = width <= 420;
   const heroVerticalPadding = isCompactWidth ? 10 : 14;
@@ -301,6 +327,44 @@ export function RadarHomeDashboard({
           </View>
 
           <View style={styles.radarShell}>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                {
+                  position: 'absolute',
+                  width: radarAnimationSize * 1.02,
+                  height: radarAnimationSize * 1.02,
+                  borderRadius: (radarAnimationSize * 1.02) / 2,
+                  borderWidth: 1,
+                  borderColor: 'rgba(78,205,196,0.28)',
+                },
+                pulseAuraStyle,
+              ]}
+            />
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                {
+                  position: 'absolute',
+                  width: radarAnimationSize * 0.98,
+                  height: radarAnimationSize * 0.98,
+                  borderRadius: (radarAnimationSize * 0.98) / 2,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                },
+                sweepAuraStyle,
+              ]}
+            >
+              <View
+                style={{
+                  width: radarAnimationSize * 0.42,
+                  height: 2,
+                  borderRadius: 2,
+                  backgroundColor: 'rgba(78,205,196,0.65)',
+                  transform: [{ translateX: radarAnimationSize * 0.2 }],
+                }}
+              />
+            </Animated.View>
             <View
               style={[
                 styles.radarAura,
@@ -313,7 +377,7 @@ export function RadarHomeDashboard({
             />
             <RadarAnimation
               size={radarAnimationSize}
-              rendererMode={radarRendererMode}
+              rendererMode={legacyHomeRadarMode}
               artPreset="contour_orbit"
               signalLevel={radarSignalLevel}
               dangerLevel={radarDangerLevel}

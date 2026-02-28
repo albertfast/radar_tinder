@@ -82,6 +82,127 @@ export const formatRadarLabel = (type?: RadarLocation['type']) => {
   }
 };
 
+const STREET_TOKEN =
+  /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|way|hwy|highway|pkwy|parkway|ct|court|pl|place|trl|trail)\b/i;
+
+const cleanAddressPart = (value: string) =>
+  value
+    .replace(/\b\d{5}(?:-\d{4})?\b/g, '')
+    .replace(/\b(usa|united states)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const stripLeadingHouseNumber = (value: string) => value.replace(/^\d+[A-Za-z-]*\s+/, '').trim();
+
+const extractHouseAndStreet = (value: string) => {
+  const match = value.match(/^(\d+[A-Za-z-]*)\s+(.+)$/);
+  if (!match) return null;
+  const houseNumber = match[1];
+  const street = cleanAddressPart(match[2]);
+  if (!street || !STREET_TOKEN.test(street)) return null;
+  return { houseNumber, street };
+};
+
+const extractIntersectionParts = (value: string): [string, string] | null => {
+  const normalized = cleanAddressPart(value);
+  const directSplit = normalized
+    .split(/\s(?:&|and|\/|at)\s/i)
+    .map((part) => stripLeadingHouseNumber(part.trim()))
+    .filter(Boolean);
+  if (directSplit.length >= 2 && STREET_TOKEN.test(directSplit[0]) && STREET_TOKEN.test(directSplit[1])) {
+    return [directSplit[0], directSplit[1]];
+  }
+  return null;
+};
+
+export const describeRadarLocation = (label?: string | null) => {
+  if (!label) return '';
+  const parts = String(label)
+    .split(',')
+    .map((part) => cleanAddressPart(part))
+    .filter(Boolean);
+  if (!parts.length) return '';
+
+  const first = parts[0] || '';
+  const second = parts[1] || '';
+
+  const explicitIntersection = extractIntersectionParts(first);
+  if (explicitIntersection) {
+    return `Corner of ${explicitIntersection[0]} & ${explicitIntersection[1]}`;
+  }
+
+  const firstStreet = stripLeadingHouseNumber(first);
+  const secondStreet = stripLeadingHouseNumber(second);
+  if (
+    firstStreet &&
+    secondStreet &&
+    STREET_TOKEN.test(firstStreet) &&
+    STREET_TOKEN.test(secondStreet) &&
+    firstStreet.toLowerCase() !== secondStreet.toLowerCase()
+  ) {
+    return `Corner of ${firstStreet} & ${secondStreet}`;
+  }
+
+  const houseAndStreet = extractHouseAndStreet(first);
+  if (houseAndStreet) {
+    if (secondStreet && STREET_TOKEN.test(secondStreet)) {
+      return `Near ${houseAndStreet.houseNumber} ${houseAndStreet.street}, by ${secondStreet}`;
+    }
+    return `Near ${houseAndStreet.houseNumber} ${houseAndStreet.street}`;
+  }
+
+  if (firstStreet && STREET_TOKEN.test(firstStreet)) {
+    if (secondStreet && STREET_TOKEN.test(secondStreet)) {
+      return `${firstStreet}, approaching ${secondStreet}`;
+    }
+    return `Along ${firstStreet}`;
+  }
+
+  return first;
+};
+
+export const describeRadarApproach = (
+  distanceKm: number,
+  unitSystem: 'metric' | 'imperial'
+) => {
+  const km = Number(distanceKm);
+  if (!Number.isFinite(km) || km < 0) return 'Position being refined';
+
+  const meters = km * 1000;
+  if (unitSystem === 'imperial') {
+    const feet = meters * 3.28084;
+    if (feet < 250) return 'Immediate alert zone';
+    if (feet < 850) return 'Very close ahead';
+    if (feet < 2600) return 'Approaching quickly';
+    if (feet < 5280) return 'Ahead on route';
+    return 'Within scan range';
+  }
+
+  if (meters < 80) return 'Immediate alert zone';
+  if (meters < 260) return 'Very close ahead';
+  if (meters < 800) return 'Approaching quickly';
+  if (meters < 1600) return 'Ahead on route';
+  return 'Within scan range';
+};
+
+export const formatRadarDistanceAdaptive = (
+  distanceKm: number,
+  unitSystem: 'metric' | 'imperial'
+) => {
+  const km = Number(distanceKm);
+  if (!Number.isFinite(km) || km < 0) return '—';
+  const meters = km * 1000;
+
+  if (unitSystem === 'imperial') {
+    const feet = meters * 3.28084;
+    if (feet < 1000) return `${Math.round(feet)} ft`;
+    return `${(km * 0.621371).toFixed(1)} mi`;
+  }
+
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${km.toFixed(1)} km`;
+};
+
 export const extractShortStreetLabel = (label?: string | null) => {
   if (!label) return '';
   const parts = label
