@@ -39,6 +39,23 @@ export class SupabaseService {
     return !isSupabaseEnvMissingError(error);
   }
 
+  private static isUsernameConstraintError(error: any): boolean {
+    if (!error || String(error.code ?? '') !== '23505') return false;
+    const combined = `${String(error.message ?? '')} ${String(error.details ?? '')}`.toLowerCase();
+    return combined.includes('profiles_username_key') || combined.includes('username');
+  }
+
+  private static isNearbyRadarsLegacySignatureError(error: any): boolean {
+    if (!error || error.code !== 'PGRST202') return false;
+    const message = String(error.message ?? '');
+    const details = String(error.details ?? '');
+    const combined = `${message} ${details}`.toLowerCase();
+    return (
+      combined.includes('get_nearby_radars') &&
+      (combined.includes('min_confidence') || combined.includes('verified_only'))
+    );
+  }
+
   private static normalizeTrip(row: any) {
     return {
       id: row?.id,
@@ -152,16 +169,26 @@ export class SupabaseService {
   ) {
     if (!this.ensureSupabaseAvailable('getNearbyRadars')) return [];
     try {
-      const { data, error } = await supabase.rpc('get_nearby_radars', {
+      const baseArgs = {
         lat: latitude,
         long: longitude,
         radius_meters: radiusMeters,
+      };
+      const extendedArgs = {
+        ...baseArgs,
         min_confidence: options?.minConfidence ?? 0,
         verified_only: options?.verifiedOnly ?? false,
-      });
+      };
+
+      let { data, error } = await supabase.rpc('get_nearby_radars', extendedArgs);
+      if (error && this.isNearbyRadarsLegacySignatureError(error)) {
+        const legacyResult = await supabase.rpc('get_nearby_radars', baseArgs);
+        data = legacyResult.data;
+        error = legacyResult.error;
+      }
 
       if (error) throw error;
-      return data;
+      return data ?? [];
     } catch (error) {
       if (!this.shouldLogError(error)) return [];
       const now = Date.now();
@@ -315,8 +342,33 @@ export class SupabaseService {
       if (error) throw error;
       return data;
     } catch (error) {
+      if (this.isUsernameConstraintError(error)) {
+        console.warn('Supabase updateProfile: username already taken.');
+        return null;
+      }
       if (this.shouldLogError(error)) {
         console.error('Supabase updateProfile error:', error);
+      }
+      return null;
+    }
+  }
+
+  static async isUsernameAvailable(username: string, excludeUserId?: string): Promise<boolean | null> {
+    if (!this.ensureSupabaseAvailable('isUsernameAvailable')) return null;
+    const clean = String(username || '').trim();
+    if (!clean) return false;
+
+    try {
+      let query = supabase.from('profiles').select('id').eq('username', clean).limit(1);
+      if (excludeUserId) {
+        query = query.neq('id', excludeUserId);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      return !data || data.length === 0;
+    } catch (error) {
+      if (this.shouldLogError(error)) {
+        console.warn('Supabase isUsernameAvailable check failed:', error);
       }
       return null;
     }

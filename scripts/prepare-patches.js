@@ -572,6 +572,36 @@ const patchExpoHmrWindowLocationGuard = () => {
   }
 };
 
+const patchExpoAsyncRequireSetupWebOnly = () => {
+  const pkg = 'expo';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const setupPath = path.join(resolvedDir, 'src', 'async-require', 'setup.ts');
+  if (!fs.existsSync(setupPath)) {
+    console.warn(`prepare-patches: missing file ${setupPath}`);
+    return;
+  }
+
+  let source = fs.readFileSync(setupPath, 'utf8');
+  const original = source;
+
+  if (!source.includes("typeof document !== 'undefined'")) {
+    source = source.replace(
+      "typeof window !== 'undefined'",
+      "typeof window !== 'undefined' &&\n  typeof document !== 'undefined' &&\n  typeof window.location !== 'undefined'"
+    );
+  }
+
+  if (source !== original) {
+    fs.writeFileSync(setupPath, source);
+    console.log('Patched expo async-require setup.ts to skip web-only setup outside DOM environments');
+  }
+};
+
 const patchExpoDevMenuPackagerConnectionForRN84 = () => {
   const pkg = 'expo-dev-menu';
   const resolvedDir = resolvePackageDir(pkg);
@@ -1295,6 +1325,7 @@ patchExpoModulesCoreForRN81();
 patchExpoReactActivityDelegateWrapperForRN81();
 patchRNFBCrashlyticsForModules();
 patchRNFBAnalyticsForModules();
+patchExpoAsyncRequireSetupWebOnly();
 patchExpoHmrWindowLocationGuard();
 patchExpoDevMenuPackagerConnectionForRN84();
 patchExpoDevLauncherBridgeForRN84();

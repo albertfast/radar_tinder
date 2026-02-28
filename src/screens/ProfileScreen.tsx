@@ -8,6 +8,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { Text, Surface, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -113,16 +114,44 @@ const ProfileScreen = ({ navigation }: any) => {
 
   const handleUsernameSave = async () => {
     const clean = username.trim();
-    if (!clean) return;
-    updateUser({ username: clean, name: clean, displayName: clean });
-    if (user?.id) {
-      try {
-        await SupabaseService.updateProfile(user.id, {
-          username: clean,
-          display_name: clean,
-        });
-      } catch (error) {}
+    if (!clean) {
+      Alert.alert('Username', 'Please enter a username.');
+      return;
     }
+
+    const currentUsername = (user?.username || user?.name || '').trim();
+    if (clean.toLowerCase() === currentUsername.toLowerCase()) {
+      return;
+    }
+
+    if (!user?.id) {
+      updateUser({ username: clean, name: clean, displayName: clean });
+      return;
+    }
+
+    const available = await SupabaseService.isUsernameAvailable(clean, user.id);
+    if (available === false) {
+      Alert.alert('Username unavailable', 'This username is already in use. Please choose another one.');
+      return;
+    }
+
+    const updated = await SupabaseService.updateProfile(user.id, {
+      username: clean,
+      display_name: clean,
+    });
+
+    if (updated) {
+      updateUser({ username: clean, name: clean, displayName: clean });
+      return;
+    }
+
+    const availableAfterFail = await SupabaseService.isUsernameAvailable(clean, user.id);
+    if (availableAfterFail === false) {
+      Alert.alert('Username unavailable', 'This username was just taken. Please choose another one.');
+    } else {
+      Alert.alert('Save failed', 'Could not update username right now. Please try again.');
+    }
+    setUsername(currentUsername);
   };
 
   return (

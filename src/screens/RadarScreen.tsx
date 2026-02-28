@@ -39,7 +39,7 @@ import { useMapInputState } from './radar/hooks/useMapInputState';
 import { useDrivingSession } from './radar/hooks/useDrivingSession';
 import { useRadarDataSync } from './radar/hooks/useRadarDataSync';
 import { useRadarNavigation } from './radar/hooks/useRadarNavigation';
-const MAP_INPUT_TAP_GUARD_MS = 800;
+const MAP_INPUT_TAP_GUARD_MS = 2200;
 const RadarScreen = ({ navigation, route }: any) => {
   const { user, refreshProfile, normalizeAccessState } = useAuthStore();
   const canUsePro = hasProAccess(user);
@@ -433,6 +433,7 @@ const RadarScreen = ({ navigation, route }: any) => {
             unitSystem={unitSystem}
             nearbyRadars={dataSync.nearbyRadars}
             tabBarInset={tabBarInset}
+            currentLocation={dataSync.currentLocation}
           />
         }
         mapContent={

@@ -255,7 +255,7 @@ export function RadarMapTab({
 
       <View
         style={[styles.mapOverlay, { top: mapOverlayTop, left: mapOverlayInset, right: mapOverlayInset }]}
-        pointerEvents="box-none"
+        pointerEvents="auto"
       >
         {routeCoords.length === 0 ? (
           <>
@@ -284,7 +284,13 @@ export function RadarMapTab({
                   keyboardType="default"
                   autoFocus={false}
                   showSoftInputOnFocus
-                  onPressIn={handleInputPressIn}
+                  onTouchStart={(event) => {
+                    event.stopPropagation();
+                  }}
+                  onPressIn={() => {
+                    handleInputPressIn();
+                    destinationInputRef.current?.focus();
+                  }}
                   onFocus={() =>
                     handleInputFocus({
                       isDestinationEmpty: !destination.trim(),
