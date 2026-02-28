@@ -126,28 +126,42 @@ const RadarMap = React.memo(({
     const children: React.ReactElement[] = [];
 
     if (sanitizedRouteCoords.length > 0) {
-      // White casing – premium navigation look (like Apple Maps / Google Maps)
+      const routeCasingColor = 'rgba(6, 14, 28, 0.92)';
+      const routeFillColor = '#34F5E4';
+
       children.push(
         <Polyline
           key="route-casing"
           coordinates={sanitizedRouteCoords}
           strokeWidth={getResponsiveWidth(12)}
-          strokeColor="rgba(255,255,255,0.75)"
+          strokeColor={routeCasingColor}
           lineCap="round"
           lineJoin="round"
           zIndex={9}
         />
       );
-      // Vivid electric blue inner fill
+
       children.push(
         <Polyline
           key="route-polyline"
           coordinates={sanitizedRouteCoords}
           strokeWidth={getResponsiveWidth(7)}
-          strokeColor="#2979FF"
+          strokeColor={routeFillColor}
           lineCap="round"
           lineJoin="round"
           zIndex={10}
+        />
+      );
+
+      children.push(
+        <Polyline
+          key="route-highlight"
+          coordinates={sanitizedRouteCoords}
+          strokeWidth={getResponsiveWidth(3)}
+          strokeColor="rgba(190, 255, 248, 0.92)"
+          lineCap="round"
+          lineJoin="round"
+          zIndex={11}
         />
       );
     }
@@ -209,7 +223,7 @@ const RadarMap = React.memo(({
       userLocationUpdateInterval={1000}
       userLocationFastestInterval={500}
       showsCompass={false}
-      showsTraffic
+      showsTraffic={false}
       mapPadding={padding}
       pitchEnabled={mapInteractionEnabled}
       rotateEnabled={mapInteractionEnabled}

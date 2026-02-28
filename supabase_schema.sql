@@ -18,13 +18,20 @@ create table if not exists public.radars (
 
 create index if not exists radars_location_idx on public.radars using gist (location);
 
-create or replace function public.get_nearby_radars(lat float, long float, radius_meters float)
+create or replace function public.get_nearby_radars(
+  lat float,
+  long float,
+  radius_meters float,
+  min_confidence float default 0,
+  verified_only boolean default false
+)
 returns table (
   id uuid,
   type text,
   latitude float,
   longitude float,
   confidence float,
+  verified boolean,
   dist_meters float
 )
 language plpgsql
@@ -39,9 +46,12 @@ begin
     st_y(r.location::geometry) as latitude,
     st_x(r.location::geometry) as longitude,
     r.confidence,
+    r.verified,
     st_distance(r.location, st_point(long, lat)::geography) as dist_meters
   from public.radars r
   where st_dwithin(r.location, st_point(long, lat)::geography, radius_meters)
+    and coalesce(r.confidence, 0) >= coalesce(min_confidence, 0)
+    and (not coalesce(verified_only, false) or coalesce(r.verified, false) = true)
   order by dist_meters;
 end;
 $$;
@@ -277,7 +287,7 @@ $$;
 
 grant execute on function public.get_leaderboard(int) to anon, authenticated;
 grant execute on function public.get_email_for_username(text) to anon, authenticated;
-grant execute on function public.get_nearby_radars(float, float, float) to anon, authenticated;
+grant execute on function public.get_nearby_radars(float, float, float, float, boolean) to anon, authenticated;
 grant execute on function public.confirm_nearby_report(float, float, float, text) to authenticated;
 
 -- Grant select on tables for direct queries and RPC functions

@@ -32,7 +32,16 @@ const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 const MISSING_ENV_MESSAGE =
   'Missing Supabase env: set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_KEY in build/runtime environment.';
 
-const createMissingEnvError = () => new Error(MISSING_ENV_MESSAGE);
+const createMissingEnvError = () => {
+  const error = new Error(MISSING_ENV_MESSAGE) as Error & {
+    code?: string;
+    isSupabaseEnvMissing?: boolean;
+  };
+  error.name = 'SupabaseEnvMissingError';
+  error.code = 'SUPABASE_ENV_MISSING';
+  error.isSupabaseEnvMissing = true;
+  return error;
+};
 
 const createUnavailableSupabaseClient = () => {
   const fail = async () => ({ data: null, error: createMissingEnvError() });
@@ -92,7 +101,7 @@ if (__DEV__) {
 }
 
 if (!isSupabaseConfigured) {
-  console.error(MISSING_ENV_MESSAGE);
+  console.warn(MISSING_ENV_MESSAGE);
 }
 
 export const supabase = isSupabaseConfigured
@@ -114,4 +123,15 @@ export const supabase = isSupabaseConfigured
     )
   : createUnavailableSupabaseClient();
 
-export { isSupabaseConfigured };
+export { isSupabaseConfigured, MISSING_ENV_MESSAGE };
+
+export const isSupabaseEnvMissingError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false;
+  const value = error as { code?: string; name?: string; message?: string; isSupabaseEnvMissing?: boolean };
+  return (
+    value.isSupabaseEnvMissing === true ||
+    value.code === 'SUPABASE_ENV_MISSING' ||
+    value.name === 'SupabaseEnvMissingError' ||
+    value.message === MISSING_ENV_MESSAGE
+  );
+};

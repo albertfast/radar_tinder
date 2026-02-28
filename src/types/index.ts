@@ -56,6 +56,9 @@ export interface RadarAlert {
   estimatedTime: number;
   severity: 'low' | 'medium' | 'high';
   locationLabel?: string;
+  routeMatched?: boolean;
+  corridorDistanceMeters?: number;
+  etaSeconds?: number;
   routeMatchScore?: number;
   headingDeltaDeg?: number | null;
   acknowledged: boolean;
@@ -70,6 +73,8 @@ export interface AddressSuggestion {
   longitude: number;
   source: 'recent' | 'nominatim' | 'google';
   qualityScore: number;
+  matchKind?: 'local_prefix' | 'google' | 'nominatim';
+  distanceKmFromUser?: number;
 }
 
 export interface SubscriptionPlan {

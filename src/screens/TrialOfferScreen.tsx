@@ -137,7 +137,7 @@ const TrialOfferScreen = ({ navigation }: any) => {
 
   // Auto-scrolling logic
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     
     // Start auto-scroll after a slight delay
     const startAutoScroll = () => {

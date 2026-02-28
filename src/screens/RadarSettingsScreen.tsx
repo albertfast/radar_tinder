@@ -14,12 +14,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Speech from 'expo-speech';
 import * as Haptics from 'expo-haptics';
 import { useSettingsStore } from '../store/settingsStore';
 import { useAuthStore } from '../store/authStore';
 import { SupabaseService } from '../services/SupabaseService';
 import { NotificationService } from '../services/NotificationService';
+import { VoiceGuidanceService } from '../services/VoiceGuidanceService';
 import { ANIMATION_TIMING } from '../utils/animationConstants';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
@@ -96,13 +96,13 @@ const RadarSettingsScreen = ({ navigation }: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     }
     if (voiceWarningsEnabled && warningVolume > 0) {
-      Speech.stop();
-      Speech.speak('Speed camera ahead. Eight hundred feet. Drive carefully.', {
-        language: 'en-US',
-        rate: 0.95,
-        pitch: 1,
-        volume: warningVolume / 100,
-      });
+      await VoiceGuidanceService.speak(
+        'Speed camera ahead. Eight hundred feet. Drive carefully.',
+        {
+          cooldownKey: 'settings_preview_alert',
+          cooldownMs: 1200,
+        }
+      );
       return;
     }
     Alert.alert(
@@ -114,6 +114,7 @@ const RadarSettingsScreen = ({ navigation }: any) => {
   const handleVoiceToggle = (enabled: boolean) => {
     setVoiceWarningsEnabled(enabled);
     if (!enabled || warningVolume <= 0) {
+      VoiceGuidanceService.stop().catch(() => {});
       NotificationService.silenceAllAudioNow().catch(() => {});
     }
   };
@@ -121,6 +122,7 @@ const RadarSettingsScreen = ({ navigation }: any) => {
   const handleVolumeChange = (value: number) => {
     setWarningVolume(value);
     if (value <= 0 || !voiceWarningsEnabled) {
+      VoiceGuidanceService.stop().catch(() => {});
       NotificationService.silenceAllAudioNow().catch(() => {});
     }
   };
@@ -140,6 +142,7 @@ const RadarSettingsScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     if (!voiceWarningsEnabled || warningVolume <= 0) {
+      VoiceGuidanceService.syncMuteState().catch(() => {});
       NotificationService.silenceAllAudioNow().catch(() => {});
     }
   }, [voiceWarningsEnabled, warningVolume]);

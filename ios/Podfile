@@ -91,7 +91,14 @@ target 'RadarTinder' do
         # Some pods (RNFirebase, etc.) import React headers and fail under framework modular checks.
         build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
         build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
+        deployment_target = build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        if deployment_target && deployment_target.to_s.match?(/^\d+(\.\d+)?$/) && deployment_target.to_f < 12.0
+          build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
+        end
         if build_config.name == 'Release'
+          # Reduce third-party dependency warning noise in Release without muting app target warnings.
+          build_config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+          build_config.build_settings['SWIFT_SUPPRESS_WARNINGS'] = 'YES'
           # Ensure Release archives emit dSYMs so App Store symbol upload succeeds.
           build_config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
           build_config.build_settings['GCC_GENERATE_DEBUGGING_SYMBOLS'] = 'YES'

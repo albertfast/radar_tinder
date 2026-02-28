@@ -5,19 +5,41 @@ import { SupabaseService } from './SupabaseService';
 import { useAuthStore } from '../store/authStore';
 import { hasProAccess } from '../utils/access';
 
-// Real-time radar data service
+type NearbyRadar = RadarLocation & { distance: number };
+
+type RouteRelevanceParams = {
+  radar: { latitude: number; longitude: number; distance?: number };
+  currentLocation: { latitude: number; longitude: number; heading?: number | null };
+  routeCoords: Array<{ latitude: number; longitude: number }>;
+  speedKph: number;
+  maxCorridorMeters?: number;
+  maxHeadingDeltaDeg?: number;
+  etaSecondsWindow?: [number, number];
+};
+
+type RouteRelevanceResult = {
+  routeMatched: boolean;
+  corridorDistanceMeters?: number;
+  headingDeltaDeg?: number | null;
+  etaSeconds: number;
+  isRelevant: boolean;
+};
 
 export class RadarService {
-  // Use a more reliable mirror list
   private static OVERPASS_MIRRORS = [
     'https://overpass-api.de/api/interpreter',
     'https://lz4.overpass-api.de/api/interpreter',
     'https://z.overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
-    'https://overpass.nchc.org.tw/api/interpreter'
+    'https://overpass.nchc.org.tw/api/interpreter',
   ];
+
   private static NEARBY_CACHE_TTL_MS = 30000;
   private static NEARBY_CACHE_DISTANCE_KM = 0.5;
+  private static SUPABASE_MIN_CONFIDENCE = 0.55;
+  private static SOURCE_TELEMETRY_THROTTLE_MS = 20000;
+  private static lastSourceTelemetryAt = 0;
+
   private static nearbyCache: {
     timestamp: number;
     latitude: number;
@@ -31,7 +53,7 @@ export class RadarService {
     latitude: number;
     longitude: number;
     radius: number;
-    promise: Promise<(RadarLocation & { distance: number })[]>;
+    promise: Promise<NearbyRadar[]>;
   } | null = null;
 
   private static distancePointToSegmentMeters(
@@ -47,9 +69,11 @@ export class RadarService {
       const y = lat * 110540;
       return { x, y };
     };
+
     const p = toXY(pointLat, pointLon);
     const a = toXY(aLat, aLon);
     const b = toXY(bLat, bLon);
+
     const abx = b.x - a.x;
     const aby = b.y - a.y;
     const apx = p.x - a.x;
@@ -60,23 +84,26 @@ export class RadarService {
     const cy = a.y + aby * t;
     const dx = p.x - cx;
     const dy = p.y - cy;
+
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  private static minDistanceToRouteMeters(
+  static minDistanceToRouteMeters(
     radar: { latitude: number; longitude: number },
-    routeCoords: { latitude: number; longitude: number }[]
+    routeCoords: Array<{ latitude: number; longitude: number }>
   ): number {
-    if (routeCoords.length < 2) {
+    if (!routeCoords.length) return Number.POSITIVE_INFINITY;
+    if (routeCoords.length === 1) {
       return (
         LocationService.calculateDistanceSync(
           radar.latitude,
           radar.longitude,
-          routeCoords[0]?.latitude || radar.latitude,
-          routeCoords[0]?.longitude || radar.longitude
+          routeCoords[0].latitude,
+          routeCoords[0].longitude
         ) * 1000
       );
     }
+
     let minMeters = Number.POSITIVE_INFINITY;
     for (let i = 0; i < routeCoords.length - 1; i += 1) {
       const a = routeCoords[i];
@@ -92,16 +119,85 @@ export class RadarService {
       if (d < minMeters) minMeters = d;
       if (minMeters <= 120) break;
     }
+
     return minMeters;
   }
 
-  /**
-   * Fetches real radar data from OpenStreetMap using Overpass API
-   */
-  static async fetchRealRadarsFromOSM(latitude: number, longitude: number, radiusKm: number = 10): Promise<RadarLocation[]> {
-    const radiusMeters = Math.min(radiusKm * 1000, 10000); // Cap at 10km for coverage/perf
-    
-    // Expanded query to include more enforcement types
+  private static logSourceTelemetry(payload: {
+    osmCount: number;
+    supabaseCount: number;
+    googleCount: number;
+    mergedCount: number;
+    latitude: number;
+    longitude: number;
+    radiusKm: number;
+  }) {
+    const now = Date.now();
+    if (now - this.lastSourceTelemetryAt < this.SOURCE_TELEMETRY_THROTTLE_MS) return;
+    this.lastSourceTelemetryAt = now;
+    console.info('[RadarService] source_stats', payload);
+  }
+
+  private static shouldSuppressTrafficSignalNoise(tags: any): boolean {
+    if (!tags) return false;
+    const enforcement = String(tags.enforcement || '').toLowerCase();
+    const cameraType = String(tags['camera:type'] || '').toLowerCase();
+    const highway = String(tags.highway || '').toLowerCase();
+    const hasSpeedSignal =
+      enforcement === 'maxspeed' ||
+      enforcement === 'speed' ||
+      cameraType.includes('speed') ||
+      highway === 'speed_camera';
+
+    return enforcement === 'traffic_signals' && !hasSpeedSignal;
+  }
+
+  private static parseMaxspeed(tags: any): number | undefined {
+    const raw = String(tags?.maxspeed || '').trim().toLowerCase();
+    if (!raw) return undefined;
+    const m = raw.match(/(\d{2,3})/);
+    if (!m) return undefined;
+    const value = Number(m[1]);
+    return Number.isFinite(value) && value > 0 ? value : undefined;
+  }
+
+  private static mapOsmElementToRadar(element: any): RadarLocation | null {
+    const lat = element?.lat ?? element?.center?.lat;
+    const lon = element?.lon ?? element?.center?.lon ?? element?.center?.lng;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+    const tags = element?.tags || {};
+    if (this.shouldSuppressTrafficSignalNoise(tags)) {
+      return null;
+    }
+
+    let type: RadarLocation['type'] = 'speed_camera';
+    if (tags?.enforcement === 'traffic_signals') {
+      type = 'red_light';
+    } else if (tags?.enforcement === 'maxspeed') {
+      type = 'fixed';
+    }
+
+    return {
+      id: `osm-${element.id}`,
+      latitude: Number(lat),
+      longitude: Number(lon),
+      type,
+      speedLimit: this.parseMaxspeed(tags),
+      confidence: 1.0,
+      lastConfirmed: new Date(),
+      reportedBy: 'OpenStreetMap',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  static async fetchRealRadarsFromOSM(
+    latitude: number,
+    longitude: number,
+    radiusKm: number = 10
+  ): Promise<RadarLocation[]> {
+    const radiusMeters = Math.min(radiusKm * 1000, 10000);
     const query = `
       [out:json][timeout:30];
       (
@@ -119,16 +215,16 @@ export class RadarService {
       );
       out center;
     `;
-    
+
     for (const baseUrl of this.OVERPASS_MIRRORS) {
       try {
         const url = `${baseUrl}?data=${encodeURIComponent(query)}`;
         const response = await fetch(url, {
           method: 'GET',
           headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'RadarDetectorApp/1.0'
-          }
+            Accept: 'application/json',
+            'User-Agent': 'RadarDetectorApp/1.0',
+          },
         });
 
         if (!response.ok) {
@@ -144,48 +240,26 @@ export class RadarService {
         }
 
         const data = await response.json();
-        if (!data || !data.elements) continue;
-
-        return data.elements.map((el: any) => {
-          const lat = el.lat ?? el.center?.lat;
-          const lon = el.lon ?? el.center?.lon ?? el.center?.lng;
-          if (lat === undefined || lon === undefined) return null;
-          let type: RadarLocation['type'] = 'speed_camera';
-          
-          if (el.tags?.enforcement === 'traffic_signals') {
-            type = 'red_light';
-          } else if (el.tags?.enforcement === 'maxspeed') {
-            type = 'fixed';
-          }
-
-          return {
-            id: `osm-${el.id}`,
-            latitude: lat,
-            longitude: lon,
-            type,
-            speedLimit: el.tags?.maxspeed ? parseInt(el.tags.maxspeed) : undefined,
-            confidence: 1.0,
-            lastConfirmed: new Date(),
-            reportedBy: 'OpenStreetMap',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-        }).filter(Boolean) as RadarLocation[];
-      } catch (error) {
-        console.warn(`Error with OSM mirror ${baseUrl}:`, (error as any).message);
+        const elements = Array.isArray(data?.elements) ? data.elements : [];
+        const mapped = elements
+          .map((el: any) => this.mapOsmElementToRadar(el))
+          .filter((item: RadarLocation | null): item is RadarLocation => Boolean(item));
+        if (mapped.length > 0) {
+          return mapped;
+        }
+      } catch (error: any) {
+        console.warn(`Error with OSM mirror ${baseUrl}:`, error?.message || error);
       }
     }
 
     return [];
   }
 
-  /**
-   * Fetches radars along a route by querying a bounding box and filtering
-   */
-  static async getRadarsAlongRoute(routeCoords: {latitude: number, longitude: number}[]): Promise<RadarLocation[]> {
+  static async getRadarsAlongRoute(
+    routeCoords: { latitude: number; longitude: number }[]
+  ): Promise<RadarLocation[]> {
     if (routeCoords.length === 0) return [];
 
-    // 1. Calculate bounding box
     let minLat = routeCoords[0].latitude;
     let maxLat = routeCoords[0].latitude;
     let minLon = routeCoords[0].longitude;
@@ -198,11 +272,9 @@ export class RadarService {
       if (coord.longitude > maxLon) maxLon = coord.longitude;
     }
 
-    // Add a larger buffer (approx 5km)
     const buffer = 0.05;
     const bbox = `${minLat - buffer},${minLon - buffer},${maxLat + buffer},${maxLon + buffer}`;
 
-    // 2. Query OSM for the entire bounding box
     const query = `
       [out:json][timeout:30];
       (
@@ -227,32 +299,18 @@ export class RadarService {
         if (!response.ok) continue;
 
         const data = await response.json();
-        if (!data || !data.elements) continue;
+        const elements = Array.isArray(data?.elements) ? data.elements : [];
 
-        const radars = data.elements.map((el: any) => {
-          let type: RadarLocation['type'] = 'speed_camera';
-          if (el.tags?.enforcement === 'traffic_signals') type = 'red_light';
-          else if (el.tags?.enforcement === 'maxspeed') type = 'fixed';
+        const radars = elements
+          .map((el: any) => this.mapOsmElementToRadar(el))
+          .filter((item: RadarLocation | null): item is RadarLocation => Boolean(item));
 
-          return {
-            id: `osm-${el.id}`,
-            latitude: el.lat || (el.center ? el.center.lat : 0),
-            longitude: el.lon || (el.center ? el.center.lng : 0),
-            type,
-            speedLimit: el.tags?.maxspeed ? parseInt(el.tags.maxspeed) : undefined,
-            confidence: 1.0,
-            lastConfirmed: new Date(),
-            reportedBy: 'OpenStreetMap',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-        }).filter((radar: RadarLocation) => radar.type !== 'police');
-
-        // 3. Filter radars that are actually near the route corridor (within 120m)
         const filteredRadars: RadarLocation[] = [];
         for (const radar of radars) {
           const corridorMeters = this.minDistanceToRouteMeters(radar, routeCoords);
-          if (corridorMeters <= 120) filteredRadars.push(radar);
+          if (corridorMeters <= 120) {
+            filteredRadars.push(radar);
+          }
         }
 
         return filteredRadars;
@@ -264,16 +322,102 @@ export class RadarService {
     return [];
   }
 
+  static evaluateRouteRelevance(params: RouteRelevanceParams): RouteRelevanceResult {
+    const maxCorridorMeters = params.maxCorridorMeters ?? 120;
+    const maxHeadingDeltaDeg = params.maxHeadingDeltaDeg ?? 55;
+    const etaWindow = params.etaSecondsWindow || [10, 90];
+
+    const distanceKm =
+      typeof params.radar.distance === 'number'
+        ? params.radar.distance
+        : LocationService.calculateDistanceSync(
+            params.currentLocation.latitude,
+            params.currentLocation.longitude,
+            params.radar.latitude,
+            params.radar.longitude
+          );
+
+    const corridorDistanceMeters =
+      params.routeCoords.length > 0
+        ? this.minDistanceToRouteMeters(params.radar, params.routeCoords)
+        : undefined;
+
+    const routeMatched =
+      corridorDistanceMeters === undefined || corridorDistanceMeters <= maxCorridorMeters;
+
+    let headingDeltaDeg: number | null = null;
+    const currentHeading = params.currentLocation.heading;
+    if (typeof currentHeading === 'number' && Number.isFinite(currentHeading)) {
+      const bearing = LocationService.calculateBearing(
+        params.currentLocation.latitude,
+        params.currentLocation.longitude,
+        params.radar.latitude,
+        params.radar.longitude
+      );
+      const diff = Math.abs((bearing - currentHeading + 540) % 360 - 180);
+      headingDeltaDeg = Number(diff.toFixed(1));
+    }
+
+    const headingMatched =
+      headingDeltaDeg === null || headingDeltaDeg <= maxHeadingDeltaDeg;
+
+    const safeSpeedKph = Math.max(5, Number.isFinite(params.speedKph) ? params.speedKph : 5);
+    const etaSeconds = (distanceKm / safeSpeedKph) * 3600;
+    const etaMatched = etaSeconds >= etaWindow[0] && etaSeconds <= etaWindow[1];
+
+    return {
+      routeMatched,
+      corridorDistanceMeters,
+      headingDeltaDeg,
+      etaSeconds,
+      isRelevant: routeMatched && headingMatched && etaMatched,
+    };
+  }
+
+  static filterRouteRelevantRadars(
+    radars: NearbyRadar[],
+    params: {
+      currentLocation: { latitude: number; longitude: number; heading?: number | null };
+      routeCoords: Array<{ latitude: number; longitude: number }>;
+      speedKph: number;
+      maxCorridorMeters?: number;
+      maxHeadingDeltaDeg?: number;
+      etaSecondsWindow?: [number, number];
+      requireEtaWindow?: boolean;
+    }
+  ): Array<NearbyRadar & RouteRelevanceResult> {
+    const requireEtaWindow = params.requireEtaWindow !== false;
+
+    return radars
+      .map((radar) => {
+        const relevance = this.evaluateRouteRelevance({
+          radar,
+          currentLocation: params.currentLocation,
+          routeCoords: params.routeCoords,
+          speedKph: params.speedKph,
+          maxCorridorMeters: params.maxCorridorMeters,
+          maxHeadingDeltaDeg: params.maxHeadingDeltaDeg,
+          etaSecondsWindow: requireEtaWindow ? params.etaSecondsWindow : [0, Number.MAX_SAFE_INTEGER],
+        });
+
+        return {
+          ...radar,
+          ...relevance,
+        };
+      })
+      .filter((item) => item.isRelevant)
+      .sort((a, b) => a.distance - b.distance);
+  }
+
   private static getCachedNearbyRadars(
     latitude: number,
     longitude: number,
     radius: number
-  ): (RadarLocation & { distance: number })[] | null {
+  ): NearbyRadar[] | null {
     if (!this.nearbyCache) return null;
 
     const ageMs = Date.now() - this.nearbyCache.timestamp;
     if (ageMs > this.NEARBY_CACHE_TTL_MS) return null;
-
     if (radius > this.nearbyCache.radius) return null;
 
     const distanceKm = LocationService.calculateDistanceSync(
@@ -284,7 +428,7 @@ export class RadarService {
     );
     if (distanceKm > this.NEARBY_CACHE_DISTANCE_KM) return null;
 
-    const nearbyRadars: (RadarLocation & { distance: number })[] = [];
+    const nearbyRadars: NearbyRadar[] = [];
     for (const radar of this.nearbyCache.radars) {
       const distance = LocationService.calculateDistanceSync(
         latitude,
@@ -304,7 +448,7 @@ export class RadarService {
     latitude: number,
     longitude: number,
     radius: number = 10
-  ): Promise<(RadarLocation & { distance: number })[]> {
+  ): Promise<NearbyRadar[]> {
     try {
       const cached = this.getCachedNearbyRadars(latitude, longitude, radius);
       if (cached) return cached;
@@ -331,7 +475,12 @@ export class RadarService {
             return inflightResult
               .map((r) => ({
                 ...r,
-                distance: LocationService.calculateDistanceSync(latitude, longitude, r.latitude, r.longitude),
+                distance: LocationService.calculateDistanceSync(
+                  latitude,
+                  longitude,
+                  r.latitude,
+                  r.longitude
+                ),
               }))
               .filter((r) => r.distance <= radius)
               .sort((a, b) => a.distance - b.distance);
@@ -342,7 +491,10 @@ export class RadarService {
       const request = (async () => {
         const [osmResult, supabaseResult, googlePlacesResult] = await Promise.allSettled([
           this.fetchRealRadarsFromOSM(latitude, longitude, radius),
-          SupabaseService.getNearbyRadars(latitude, longitude, radius * 1000),
+          SupabaseService.getNearbyRadars(latitude, longitude, radius * 1000, {
+            minConfidence: this.SUPABASE_MIN_CONFIDENCE,
+            verifiedOnly: true,
+          }),
           GoogleMapsService.searchNearbyPlaces(latitude, longitude, radius * 1000),
         ]);
 
@@ -350,80 +502,86 @@ export class RadarService {
         const supabaseRadars = supabaseResult.status === 'fulfilled' ? supabaseResult.value : [];
         const googlePlaces = googlePlacesResult.status === 'fulfilled' ? googlePlacesResult.value : [];
 
-        // Map Supabase radars to RadarLocation type
         const mappedSupabaseRadars: RadarLocation[] = (supabaseRadars || [])
           .map((r: any) => ({
             id: r.id,
             latitude: r.latitude,
             longitude: r.longitude,
             type: r.type as any,
-            confidence: r.confidence,
-            lastConfirmed: new Date(), // Ideally from DB
-            reportedBy: 'user', // Ideally from DB
-            createdAt: new Date(), // Ideally from DB
+            confidence: Number(r.confidence) || 0.5,
+            verified: Boolean(r.verified),
+            lastConfirmed: new Date(),
+            reportedBy: 'user',
+            createdAt: new Date(),
             updatedAt: new Date(),
           }))
           .filter((r: RadarLocation) => r.type !== 'police');
 
-        let allRadars: RadarLocation[] = [...osmRadars, ...mappedSupabaseRadars];
+        const allRadars: RadarLocation[] = [...osmRadars, ...mappedSupabaseRadars];
 
-        // 2. Process Google Places results
         for (const place of googlePlaces) {
-          const exists = allRadars.some(r => 
-            Math.abs(r.latitude - place.geometry.location.lat) < 0.001 &&
-            Math.abs(r.longitude - place.geometry.location.lng) < 0.001
+          const exists = allRadars.some(
+            (r) =>
+              Math.abs(r.latitude - place.geometry.location.lat) < 0.001 &&
+              Math.abs(r.longitude - place.geometry.location.lng) < 0.001
           );
+          if (exists) continue;
 
-          if (!exists) {
-            if (place.types.includes('police')) {
-              continue;
-            }
-            let type: RadarLocation['type'] = 'speed_camera';
-            
-            if (place.types.includes('traffic_signals')) {
-              type = 'red_light';
-            }
+          if (place.types.includes('police')) continue;
 
-            const newRadar: RadarLocation = {
-              id: `google-${place.place_id}`,
-              latitude: place.geometry.location.lat,
-              longitude: place.geometry.location.lng,
-              type,
-              confidence: 0.8,
-              lastConfirmed: new Date(),
-              reportedBy: 'Google Maps',
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            };
-            allRadars.push(newRadar);
+          const hasSpeedSignal =
+            place.types.includes('speed_camera') ||
+            /speed|radar|camera/i.test(`${place.name || ''} ${place.vicinity || ''}`);
+          const isTrafficSignalOnly =
+            place.types.includes('traffic_signals') && !hasSpeedSignal;
+          if (isTrafficSignalOnly) continue;
+
+          let type: RadarLocation['type'] = 'speed_camera';
+          if (place.types.includes('traffic_signals')) {
+            type = 'red_light';
           }
+
+          allRadars.push({
+            id: `google-${place.place_id}`,
+            latitude: place.geometry.location.lat,
+            longitude: place.geometry.location.lng,
+            type,
+            confidence: 0.8,
+            lastConfirmed: new Date(),
+            reportedBy: 'Google Maps',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
         }
 
-        // 3. Apply Accuracy Scoring & Deduplication & FEATURE GATING
         const user = useAuthStore.getState().user;
         const isPro = hasProAccess(user);
 
-        let processedRadars = this.improveAccuracy(allRadars);
+        const processedRadars = this.improveAccuracy(allRadars);
+
+        this.logSourceTelemetry({
+          osmCount: osmRadars.length,
+          supabaseCount: mappedSupabaseRadars.length,
+          googleCount: googlePlaces.length,
+          mergedCount: processedRadars.length,
+          latitude,
+          longitude,
+          radiusKm: radius,
+        });
 
         this.nearbyCache = {
           timestamp: Date.now(),
           latitude,
           longitude,
           radius,
-          radars: processedRadars.filter(r => {
-               // SHOW ALL FOR PRO/ADMIN
-               if (isPro) return true;
-               
-               // STRICTLY HIDE POLICE per user feedback
-               if (r.type === 'police') return false;
-               
-               return true;
+          radars: processedRadars.filter((r) => {
+            if (isPro) return true;
+            if (r.type === 'police') return false;
+            return true;
           }),
         };
 
-        // 4. Calculate precise distances and sort
-        const nearbyRadars: (RadarLocation & { distance: number })[] = [];
-        
+        const nearbyRadars: NearbyRadar[] = [];
         for (const radar of this.nearbyCache.radars) {
           const straightDistance = LocationService.calculateDistanceSync(
             latitude,
@@ -440,7 +598,6 @@ export class RadarService {
           }
         }
 
-        // Sort by distance (closest first)
         return nearbyRadars.sort((a, b) => a.distance - b.distance);
       })();
 
@@ -459,37 +616,29 @@ export class RadarService {
           this.inflightNearby = null;
         }
       }
-
     } catch (error) {
       console.error('Error getting nearby radars:', error);
-      return []; 
+      return [];
     }
   }
 
-  /**
-   * Merges duplicate radars and calculates a confidence score
-   */
   private static improveAccuracy(radars: RadarLocation[]): RadarLocation[] {
     const uniqueRadars: RadarLocation[] = [];
-    const threshold = 0.0005; // ~50 meters
+    const threshold = 0.0005;
 
     for (const radar of radars) {
-      const existingIndex = uniqueRadars.findIndex(r => 
-        Math.abs(r.latitude - radar.latitude) < threshold &&
-        Math.abs(r.longitude - radar.longitude) < threshold
+      const existingIndex = uniqueRadars.findIndex(
+        (r) =>
+          Math.abs(r.latitude - radar.latitude) < threshold &&
+          Math.abs(r.longitude - radar.longitude) < threshold
       );
 
       if (existingIndex !== -1) {
-        // Merge logic: Boost confidence if multiple sources report same location
         const existing = uniqueRadars[existingIndex];
-        
-        // Boost confidence
-        let newConfidence = existing.confidence;
-        if (radar.reportedBy !== existing.reportedBy) {
-           newConfidence = Math.min(existing.confidence + 0.2, 1.0);
-        }
-
-        // Prefer data with speed limit
+        const newConfidence =
+          radar.reportedBy !== existing.reportedBy
+            ? Math.min(existing.confidence + 0.2, 1.0)
+            : existing.confidence;
         const speedLimit = existing.speedLimit || radar.speedLimit;
 
         uniqueRadars[existingIndex] = {
@@ -497,30 +646,31 @@ export class RadarService {
           confidence: newConfidence,
           speedLimit,
           reports: (existing.reports || 0) + (radar.reports || 1),
-          lastConfirmed: new Date() // Refresh confirmation
+          lastConfirmed: new Date(),
         };
       } else {
         uniqueRadars.push(radar);
       }
     }
 
-    // Filter out low confidence user reports and noisy police entries
-    return uniqueRadars.filter(r => r.confidence >= 0.4 && r.type !== 'police');
+    return uniqueRadars.filter((r) => r.confidence >= 0.4 && r.type !== 'police');
   }
 
   static async reportRadarLocation(
     radarData: Omit<RadarLocation, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<RadarLocation> {
-    const result = await SupabaseService.reportRadar({
+    const result = (await SupabaseService.reportRadar({
       latitude: radarData.latitude,
       longitude: radarData.longitude,
       type: radarData.type,
       confidence: radarData.confidence,
       reportedBy: radarData.reportedBy,
-    }) as any;
+    })) as any;
+
     if (!result) {
       throw new Error('Failed to submit radar report');
     }
+
     this.nearbyCache = null;
 
     return {
@@ -538,7 +688,7 @@ export class RadarService {
 
   static async confirmRadarLocation(
     radarId: string,
-    userId: string
+    _userId: string
   ): Promise<RadarLocation> {
     const radar = (await this.getNearbyRadars(0, 0, 100)).find((r) => r.id === radarId);
     if (!radar) throw new Error('Radar not found');
@@ -550,11 +700,10 @@ export class RadarService {
     byType: Record<string, number>;
     averageConfidence: number;
   }> {
-    // This would ideally come from a backend
     return {
-        totalRadars: 0,
-        byType: {},
-        averageConfidence: 0
+      totalRadars: 0,
+      byType: {},
+      averageConfidence: 0,
     };
   }
 }

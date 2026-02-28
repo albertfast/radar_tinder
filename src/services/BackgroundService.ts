@@ -259,11 +259,21 @@ export class BackgroundService {
 
   private static toShortLocationLabel(label?: string | null): string {
     if (!label) return '';
-    return label
+    const parts = label
       .split(',')
-      .slice(0, 2)
-      .join(', ')
-      .trim();
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return '';
+
+    const stripHouseNumber = (value: string) => value.replace(/^\d+[A-Za-z-]*\s+/, '').trim();
+    const first = stripHouseNumber(parts[0]);
+    const second = parts[1] ? stripHouseNumber(parts[1]) : '';
+    const streetToken = /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|way)\b/i;
+    if (first && second && streetToken.test(first) && streetToken.test(second)) {
+      return `${first} & ${second}`;
+    }
+
+    return [first || parts[0], second].filter(Boolean).slice(0, 2).join(', ');
   }
 
   private static normalizeHeading(heading: number | null | undefined): number | null {
@@ -532,22 +542,19 @@ export class BackgroundService {
       const alerts = [];
       for (const radar of nearbyRadars) {
         const distance = radar.distance || 0;
-        const corridorMeters =
-          isRouteGuidanceActive && routeGuidancePath.length > 0
-            ? this.minDistanceToRouteMeters(radar, routeGuidancePath)
-            : null;
-        const isRouteMatched = corridorMeters === null || corridorMeters <= 120;
-        let isHeadingTowards = true;
-        if (location.heading !== null && location.heading !== undefined) {
-          const bearing = LocationService.calculateBearing(
-            location.latitude,
-            location.longitude,
-            radar.latitude,
-            radar.longitude
-          );
-          const diff = Math.abs((bearing - location.heading + 540) % 360 - 180);
-          isHeadingTowards = diff <= 55;
-        }
+        const relevance = RadarService.evaluateRouteRelevance({
+          radar,
+          currentLocation: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            heading: location.heading,
+          },
+          routeCoords: routeGuidancePath,
+          speedKph: speedKph || 5,
+          maxCorridorMeters: 120,
+          maxHeadingDeltaDeg: 55,
+          etaSecondsWindow: [10, 90],
+        });
 
         let threshold = baseThreshold;
         const isMobileRadar = radar.type === 'mobile' || radar.type === 'traffic_enforcement' || radar.type === 'police';
@@ -555,40 +562,25 @@ export class BackgroundService {
           threshold = Math.max(threshold, 4.0);
         }
 
-        const etaSeconds = ((distance / (speedKph || 60)) * 3600);
-        const isEtaInWindow = etaSeconds >= 10 && etaSeconds <= 90;
-        if (distance < threshold && isHeadingTowards && isEtaInWindow && isRouteMatched) {
+        if (distance < threshold && relevance.isRelevant) {
           const distanceScore = 1 - Math.min(distance / Math.max(threshold, 0.1), 1);
           const corridorScore =
-            corridorMeters == null
+            relevance.corridorDistanceMeters == null
               ? 1
-              : 1 - Math.min(corridorMeters / 120, 1);
+              : 1 - Math.min(relevance.corridorDistanceMeters / 120, 1);
           alerts.push({
             id: `alert-${radar.id}`,
             radarId: radar.id,
             userId: user.id,
             type: radar.type,
             distance: distance,
-            estimatedTime: distance / (speedKph || 60),
+            estimatedTime: relevance.etaSeconds / 60,
             severity: distance < (threshold / 2) ? 'high' : 'medium',
+            routeMatched: relevance.routeMatched,
+            corridorDistanceMeters: relevance.corridorDistanceMeters,
+            etaSeconds: relevance.etaSeconds,
             routeMatchScore: Number(((distanceScore * 0.55) + (corridorScore * 0.45)).toFixed(3)),
-            headingDeltaDeg:
-              location.heading !== null && location.heading !== undefined
-                ? Number(
-                    Math.abs(
-                      (LocationService.calculateBearing(
-                        location.latitude,
-                        location.longitude,
-                        radar.latitude,
-                        radar.longitude
-                      ) -
-                        location.heading +
-                        540) %
-                        360 -
-                        180
-                    ).toFixed(1)
-                  )
-                : null,
+            headingDeltaDeg: relevance.headingDeltaDeg ?? null,
             acknowledged: false,
             createdAt: new Date(),
           });

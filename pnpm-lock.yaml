@@ -56,6 +56,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.28.9
         version: 5.90.21(react@19.1.0)
+      eas:
+        specifier: ^0.1.0
+        version: 0.1.0
       eas-cli:
         specifier: ^18.0.1
         version: 18.0.5(@types/node@25.3.2)(typescript@5.9.3)
@@ -2482,6 +2485,10 @@ packages:
     resolution: {integrity: sha512-Od+ElX1rmajbZef0z9bEZfMBjio9LF4bw2ZpxjrMJGsRuAGFSy4TRXaj1FxwQIt4o9fjhYjBj8Zexseb0jpa4Q==}
     engines: {node: '>=20.0.0'}
     hasBin: true
+
+  eas@0.1.0:
+    resolution: {integrity: sha512-w88fTTTkfDLHwcaVW8wiYjOtnBBToguzc6AyIldD1vOrCRTKxhQEDS8oIE7nWeSJ+kCoIeoHd79Mhwvntydixg==}
+    engines: {node: '>=0.10.0'}
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
@@ -8255,6 +8262,8 @@ snapshots:
       - react-native-b4a
       - supports-color
       - typescript
+
+  eas@0.1.0: {}
 
   eastasianwidth@0.2.0: {}
 

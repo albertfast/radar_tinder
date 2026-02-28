@@ -1,9 +1,10 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { AppState, Platform } from 'react-native';
-import * as Speech from 'expo-speech';
 import { RadarAlert } from '../types';
 import { useSettingsStore } from '../store/settingsStore';
+import { VoiceGuidanceService } from './VoiceGuidanceService';
+import { formatDistance } from '../utils/format';
 
 type RadarAlertOptions = {
   playSound?: boolean;
@@ -149,7 +150,7 @@ export class NotificationService {
       if (hasDistance) {
         const etaPart = hasEta ? ` ETA: ${alert.estimatedTime.toFixed(1)} min` : '';
         const locationPart = shortLocation ? ` near ${shortLocation}` : '';
-        body = `${radarLabel} ${alert.distance.toFixed(1)} km ahead${locationPart}.${etaPart}`;
+        body = `${radarLabel} ${formatDistance(alert.distance, settings.unitSystem)} ahead${locationPart}.${etaPart}`;
       }
 
       await Notifications.scheduleNotificationAsync({
@@ -207,7 +208,7 @@ export class NotificationService {
 
   static async silenceAllAudioNow(): Promise<void> {
     try {
-      Speech.stop();
+      await VoiceGuidanceService.stop();
     } catch {}
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
