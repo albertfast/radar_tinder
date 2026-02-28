@@ -11,12 +11,13 @@ import { TabType } from '../../types';
 import { radarScreenStyles as styles } from '../../styles/radarScreenStyles';
 
 type IncidentOption = {
-  id: 'radar' | 'police' | 'crash' | 'roadwork';
+  id: 'radar' | 'police' | 'crash' | 'roadwork' | 'missed';
   label: string;
   emoji: string;
   icon: string;
   color: string;
   reportType: RadarLocation['type'];
+  reportTag?: 'default' | 'missed_camera';
 };
 
 const INCIDENT_OPTIONS: IncidentOption[] = [
@@ -52,6 +53,15 @@ const INCIDENT_OPTIONS: IncidentOption[] = [
     color: '#F59E0B',
     reportType: 'mobile',
   },
+  {
+    id: 'missed',
+    label: 'Missed Camera',
+    emoji: '🎯',
+    icon: 'camera-alert',
+    color: '#F97316',
+    reportType: 'speed_camera',
+    reportTag: 'missed_camera',
+  },
 ];
 
 type RadarDrivingShellProps = {
@@ -78,7 +88,7 @@ type RadarDrivingShellProps = {
   floatingFabBottom: number;
   reportModalVisible: boolean;
   setReportModalVisible: (visible: boolean) => void;
-  onReportRadar: (type: RadarLocation['type']) => void;
+  onReportRadar: (type: RadarLocation['type'], reportTag?: 'default' | 'missed_camera') => void;
 };
 
 export function RadarDrivingShell({
@@ -240,7 +250,7 @@ export function RadarDrivingShell({
               {INCIDENT_OPTIONS.map((option) => (
                 <TouchableOpacity
                   key={option.id}
-                  onPress={() => onReportRadar(option.reportType)}
+                  onPress={() => onReportRadar(option.reportType, option.reportTag || 'default')}
                   style={{
                     width: '48%',
                     borderRadius: 18,

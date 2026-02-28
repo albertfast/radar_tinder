@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView from 'react-native-maps';
-import * as Speech from 'expo-speech';
 import { AddressSuggestion } from '../../../types';
 import { AdService } from '../../../services/AdService';
+import { AddressSuggestionService } from '../../../services/AddressSuggestionService';
 import { GoogleMapsService } from '../../../services/GoogleMapsService';
 import { LocationService } from '../../../services/LocationService';
 import { RadarService } from '../../../services/RadarService';
-import { RECENT_DESTINATIONS_KEY } from '../constants';
+import { VoiceGuidanceService } from '../../../services/VoiceGuidanceService';
+import { AUTOCOMPLETE_V2_ENABLED, RECENT_DESTINATIONS_KEY } from '../constants';
 import { NavStep, RouteMeta, TabType } from '../types';
 import { isHighwayManeuver, stripHtml } from '../utils/radarFormatters';
 
@@ -74,7 +75,7 @@ export function useRadarNavigation({
   const [distanceToDestinationMeters, setDistanceToDestinationMeters] = useState<number | null>(null);
   const [hasArrived, setHasArrived] = useState(false);
 
-  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequestIdRef = useRef(0);
   const searchCountryCodeRef = useRef<string | undefined>(undefined);
   const rerouteConsecutiveOffRouteRef = useRef(0);
@@ -86,6 +87,8 @@ export function useRadarNavigation({
   const destinationCloseTickRef = useRef(0);
   const hasArrivalAnnouncementRef = useRef(false);
   const hasArrivedRef = useRef(false);
+  const bootstrapLocationAttemptedRef = useRef(false);
+  const voiceRouteSessionRef = useRef('');
 
   useEffect(() => {
     hasArrivedRef.current = hasArrived;
@@ -142,7 +145,9 @@ export function useRadarNavigation({
           : cleanedLabel),
       source: 'recent',
       qualityScore: Math.max(40, suggestion.qualityScore || 0),
+      matchKind: suggestion.matchKind || 'local_prefix',
     };
+    AddressSuggestionService.registerResolvedSuggestion(normalized);
 
     setRecentDestinations((prev) => {
       const deduped = [
@@ -206,6 +211,29 @@ export function useRadarNavigation({
   }, [toRecentSuggestion]);
 
   useEffect(() => {
+    if (bootstrapLocationAttemptedRef.current) return;
+    if (currentLocationRef.current || currentLocation) return;
+    bootstrapLocationAttemptedRef.current = true;
+
+    let cancelled = false;
+    LocationService.getCurrentLocation()
+      .then((loc) => {
+        if (cancelled || !loc) return;
+        setCurrentLocation(loc);
+        currentLocationRef.current = {
+          ...loc,
+          heading: null,
+          speed: null,
+        };
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentLocation, currentLocationRef, setCurrentLocation]);
+
+  useEffect(() => {
     return () => {
       if (searchTimerRef.current) {
         clearTimeout(searchTimerRef.current);
@@ -243,10 +271,23 @@ export function useRadarNavigation({
         return;
       }
 
-      const localMatches = recentDestinations
-        .filter((item) => item.label.toLowerCase().includes(query))
-        .map((item) => ({ ...item, qualityScore: Math.max(item.qualityScore, 45) }))
-        .slice(0, 6);
+      const focusLocation = currentLocationRef.current || currentLocation;
+      const localMatches = AUTOCOMPLETE_V2_ENABLED
+        ? AddressSuggestionService.getInstantSuggestions(
+            text,
+            recentDestinations,
+            focusLocation
+              ? {
+                  latitude: focusLocation.latitude,
+                  longitude: focusLocation.longitude,
+                }
+              : undefined,
+            6
+          )
+        : recentDestinations
+            .filter((item) => item.label.toLowerCase().includes(query))
+            .map((item) => ({ ...item, qualityScore: Math.max(item.qualityScore, 45) }))
+            .slice(0, 6);
       setSuggestions(localMatches);
 
       if (query.length < 2) return;
@@ -255,21 +296,32 @@ export function useRadarNavigation({
       searchRequestIdRef.current = requestId;
 
       searchTimerRef.current = setTimeout(async () => {
-        const focusLocation = currentLocationRef.current || currentLocation;
-        const results = await GoogleMapsService.getGeocodeSuggestions(text, {
-          countryCode: searchCountryCodeRef.current,
-          focusLocation: focusLocation
-            ? {
-              latitude: focusLocation.latitude,
-              longitude: focusLocation.longitude,
+        const focus = currentLocationRef.current || currentLocation;
+        const focusPayload = focus
+          ? {
+              latitude: focus.latitude,
+              longitude: focus.longitude,
             }
-            : undefined,
-        });
+          : undefined;
+        const results = AUTOCOMPLETE_V2_ENABLED
+          ? (
+              await AddressSuggestionService.getHybridSuggestions({
+                query: text,
+                recentDestinations,
+                countryCode: searchCountryCodeRef.current,
+                focusLocation: focusPayload,
+                limit: 6,
+              })
+            ).merged
+          : await GoogleMapsService.getGeocodeSuggestions(text, {
+              countryCode: searchCountryCodeRef.current,
+              focusLocation: focusPayload,
+            });
         if (requestId !== searchRequestIdRef.current) return;
         if (results.length > 0) {
           setSuggestions(mergeSuggestions(results, localMatches));
         }
-      }, 600);
+      }, AUTOCOMPLETE_V2_ENABLED ? 260 : 600);
     },
     [currentLocation, currentLocationRef, mergeSuggestions, recentDestinations]
   );
@@ -279,17 +331,40 @@ export function useRadarNavigation({
       if (!canUsePro && AdService.shouldShowAds()) {
         await AdService.showInterstitial();
       }
-      const finalDest = (targetDest || destination).trim();
+      let finalDest = (targetDest || destination).trim();
+      let resolvedParams = params;
+      if (AUTOCOMPLETE_V2_ENABLED && !targetDest) {
+        const topSuggestion = suggestions[0];
+        if (AddressSuggestionService.shouldAutoResolveTopSuggestion(finalDest, topSuggestion)) {
+          finalDest = topSuggestion?.queryValue || topSuggestion?.label || finalDest;
+          resolvedParams = {
+            ...params,
+            destinationLabel: topSuggestion?.label || params?.destinationLabel,
+            destinationCoord:
+              Number.isFinite(topSuggestion?.latitude) && Number.isFinite(topSuggestion?.longitude)
+                ? {
+                    latitude: Number(topSuggestion?.latitude),
+                    longitude: Number(topSuggestion?.longitude),
+                  }
+                : params?.destinationCoord,
+          };
+          if (topSuggestion?.label) {
+            setDestination(topSuggestion.label);
+          }
+        }
+      }
       if (!finalDest) {
         console.warn('No destination provided');
         return;
       }
       setRouteMeta(null);
-      setDestinationCoord(params?.destinationCoord || null);
+      setDestinationCoord(resolvedParams?.destinationCoord || null);
       rerouteConsecutiveOffRouteRef.current = 0;
       destinationCloseTickRef.current = 0;
       hasArrivalAnnouncementRef.current = false;
       hasArrivedRef.current = false;
+      voiceRouteSessionRef.current = `route-${Date.now()}`;
+      VoiceGuidanceService.resetCooldown(`route:${voiceRouteSessionRef.current}`);
       setArrivalState('none');
       setDistanceToDestinationMeters(null);
       setHasArrived(false);
@@ -338,20 +413,25 @@ export function useRadarNavigation({
 
         setRouteCoords(res.coordinates);
         const primaryLeg = res?.legs?.[0];
-        const resolvedDestinationLabel = primaryLeg?.end_address || params?.destinationLabel || finalDest;
+        const resolvedDestinationLabel =
+          primaryLeg?.end_address || resolvedParams?.destinationLabel || finalDest;
         const resolvedDestinationCoord =
           primaryLeg?.end_location?.lat && primaryLeg?.end_location?.lng
             ? {
               latitude: primaryLeg.end_location.lat,
               longitude: primaryLeg.end_location.lng,
             }
-            : params?.destinationCoord || null;
+            : resolvedParams?.destinationCoord || null;
 
         if (primaryLeg) {
           setRouteMeta({
             etaText: primaryLeg.duration?.text || 'ETA —',
             distanceText: primaryLeg.distance?.text || 'Distance —',
             destinationLabel: resolvedDestinationLabel,
+            distanceMeters:
+              typeof primaryLeg.distance?.value === 'number' ? primaryLeg.distance.value : null,
+            durationSeconds:
+              typeof primaryLeg.duration?.value === 'number' ? primaryLeg.duration.value : null,
           });
         } else {
           setRouteMeta(null);
@@ -371,6 +451,17 @@ export function useRadarNavigation({
           longitude: resolvedDestinationCoord?.longitude ?? Number.NaN,
           source: 'recent',
           qualityScore: 60,
+        });
+        AddressSuggestionService.registerResolvedSuggestion({
+          label: resolvedDestinationLabel,
+          queryValue:
+            resolvedDestinationCoord &&
+            Number.isFinite(resolvedDestinationCoord.latitude) &&
+            Number.isFinite(resolvedDestinationCoord.longitude)
+              ? `${resolvedDestinationCoord.latitude},${resolvedDestinationCoord.longitude}`
+              : finalDest,
+          latitude: resolvedDestinationCoord?.latitude ?? Number.NaN,
+          longitude: resolvedDestinationCoord?.longitude ?? Number.NaN,
         });
 
         await startDrivingSession({ setActiveTab, activateMapTab: true, source: 'navigate' });
@@ -452,6 +543,7 @@ export function useRadarNavigation({
       setCurrentLocation,
       setNearbyRadars,
       startDrivingSession,
+      suggestions,
     ]
   );
 
@@ -589,6 +681,8 @@ export function useRadarNavigation({
     destinationCloseTickRef.current = 0;
     hasArrivalAnnouncementRef.current = false;
     hasArrivedRef.current = false;
+    voiceRouteSessionRef.current = '';
+    VoiceGuidanceService.stop().catch(() => {});
     setArrivalState('none');
     setDistanceToDestinationMeters(null);
     setHasArrived(false);
@@ -729,32 +823,32 @@ export function useRadarNavigation({
             stepForCue.endLocation.latitude,
             stepForCue.endLocation.longitude
           ) * 1000;
-        // Early cue at ~0.5 mi (800m), medium at ~0.2 mi (320m), immediate at ~250 ft (75m)
-        const cueThresholds = [800, 320, 75];
-        for (const threshold of cueThresholds) {
-          const cueKey = `${nextStepIndex}:${threshold}`;
-          if (!announcedTurnCueRef.current[cueKey] && stepDistanceMeters <= threshold) {
+        const isHighway = isHighwayManeuver(stepForCue);
+        const cuePlan = isHighway
+          ? [
+              { key: 'prep', threshold: 450 },
+              { key: 'action', threshold: 90 },
+            ]
+          : [
+              { key: 'prep', threshold: 250 },
+              { key: 'action', threshold: 60 },
+            ];
+        for (const cue of cuePlan) {
+          const cueKey = `${voiceRouteSessionRef.current}:${nextStepIndex}:${cue.key}`;
+          if (!announcedTurnCueRef.current[cueKey] && stepDistanceMeters <= cue.threshold) {
             const instruction = stepForCue.instruction || 'follow the route';
-            let distancePhrase = '';
-            if (threshold > 200) {
-              const miles = stepDistanceMeters / 1609.344;
-              distancePhrase = miles >= 0.1
-                ? `In ${miles.toFixed(1)} miles`
-                : `In ${Math.round(stepDistanceMeters * 3.28084)} feet`;
-            } else if (threshold > 100) {
-              const feet = Math.round(stepDistanceMeters * 3.28084);
-              distancePhrase = `In ${feet} feet`;
-            }
-            const spokenText = threshold <= 75
-              ? `Now, ${instruction}.`
-              : `${distancePhrase}, ${instruction}.`;
-            Speech.stop();
-            Speech.speak(spokenText, {
-              language: 'en-US',
-              rate: 0.95,
-              pitch: 1,
+            const spokenText =
+              cue.key === 'action'
+                ? `Now, ${instruction}.`
+                : `Prepare to ${instruction.toLowerCase()}.`;
+            VoiceGuidanceService.speak(spokenText, {
+              cooldownKey: `route:${cueKey}`,
+              cooldownMs: cue.key === 'action' ? 4500 : 9000,
+            }).then((didSpeak) => {
+              if (didSpeak) {
+                announcedTurnCueRef.current[cueKey] = true;
+              }
             });
-            announcedTurnCueRef.current[cueKey] = true;
           }
         }
       }
@@ -796,11 +890,9 @@ export function useRadarNavigation({
 
             if (!hasArrivalAnnouncementRef.current) {
               hasArrivalAnnouncementRef.current = true;
-              Speech.stop();
-              Speech.speak('You have arrived.', {
-                language: 'en-US',
-                rate: 0.95,
-                pitch: 1,
+              VoiceGuidanceService.speak('You have arrived.', {
+                cooldownKey: `route:${voiceRouteSessionRef.current}:arrived`,
+                cooldownMs: 15000,
               });
             }
           } else if (distanceToDestination <= 150) {
@@ -866,6 +958,14 @@ export function useRadarNavigation({
             etaText: leg.duration?.text || routeMeta?.etaText || 'ETA —',
             distanceText: leg.distance?.text || routeMeta?.distanceText || 'Distance —',
             destinationLabel: leg.end_address || routeMeta?.destinationLabel || destination,
+            distanceMeters:
+              typeof leg.distance?.value === 'number'
+                ? leg.distance.value
+                : routeMeta?.distanceMeters ?? null,
+            durationSeconds:
+              typeof leg.duration?.value === 'number'
+                ? leg.duration.value
+                : routeMeta?.durationSeconds ?? null,
           });
           if (leg.end_location?.lat && leg.end_location?.lng) {
             setDestinationCoord({ latitude: leg.end_location.lat, longitude: leg.end_location.lng });

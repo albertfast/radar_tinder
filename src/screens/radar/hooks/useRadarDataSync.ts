@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapView from 'react-native-maps';
 import * as Haptics from 'expo-haptics';
-import * as Speech from 'expo-speech';
 import { RadarAlert } from '../../../types';
 import { useRadarStore } from '../../../store/radarStore';
 import { useSettingsStore } from '../../../store/settingsStore';
@@ -9,9 +8,10 @@ import { RadarService } from '../../../services/RadarService';
 import { LocationService } from '../../../services/LocationService';
 import { GoogleMapsService } from '../../../services/GoogleMapsService';
 import { NotificationService } from '../../../services/NotificationService';
+import { VoiceGuidanceService } from '../../../services/VoiceGuidanceService';
 import { formatDistance } from '../../../utils/format';
 import { useSpeedSmoothing } from './useSpeedSmoothing';
-import { MAP_TRACE_ENABLED } from '../constants';
+import { MAP_TRACE_ENABLED, ROUTE_RELEVANCE_V2_ENABLED } from '../constants';
 import { TabType } from '../types';
 import { extractShortStreetLabel, formatRadarLabel } from '../utils/radarFormatters';
 
@@ -86,6 +86,11 @@ export function useRadarDataSync({
     calculateDistanceSync: LocationService.calculateDistanceSync,
   });
 
+  const currentSpeedRef = useRef(currentSpeed);
+  useEffect(() => {
+    currentSpeedRef.current = currentSpeed;
+  }, [currentSpeed]);
+
   const nearbyRadarsRef = useRef<any[]>([]);
   const lastCameraUpdateRef = useRef(0);
   const lastCameraCenterRef = useRef<{ latitude: number; longitude: number } | null>(null);
@@ -129,6 +134,33 @@ export function useRadarDataSync({
     return true;
   }, []);
 
+  const applyRouteRelevanceFilter = useCallback(
+    (incoming: any[], loc: { latitude: number; longitude: number; heading?: number | null }) => {
+      if (!ROUTE_RELEVANCE_V2_ENABLED) return incoming;
+      const routeState = useRadarStore.getState();
+      if (!routeState.isRouteGuidanceActive || routeState.routeGuidancePath.length < 2) {
+        return incoming;
+      }
+
+      const relevant = RadarService.filterRouteRelevantRadars(incoming, {
+        currentLocation: {
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          heading: typeof loc.heading === 'number' ? loc.heading : null,
+        },
+        routeCoords: routeState.routeGuidancePath,
+        speedKph: Math.max(currentSpeedRef.current || 0, 8),
+        maxCorridorMeters: 120,
+        maxHeadingDeltaDeg: 55,
+        etaSecondsWindow: [10, 90],
+        requireEtaWindow: true,
+      });
+
+      return relevant;
+    },
+    []
+  );
+
   const updateNearbyRadarsState = useCallback(
     (incoming: any[]) => {
       setNearbyRadars((prev) => {
@@ -170,12 +202,9 @@ export function useRadarDataSync({
         ? ` near ${activeAlert.locationLabel.split(',').slice(0, 2).join(', ')}`
         : '';
       const message = `${formatRadarLabel(activeAlert.type)} ahead${locationSuffix}. ${distanceText}. Estimated ${etaMinutes} minutes.`;
-      Speech.stop();
-      Speech.speak(message, {
-        language: 'en-US',
-        pitch: 1,
-        rate: 0.95,
-        volume: warningVolume / 100,
+      VoiceGuidanceService.speak(message, {
+        cooldownKey: `active_alert:${activeAlert.id}`,
+        cooldownMs: 6000,
       });
     }
   }, [
@@ -190,8 +219,9 @@ export function useRadarDataSync({
 
   useEffect(() => {
     if (!voicePlaybackEnabled) {
+      VoiceGuidanceService.syncMuteState().catch(() => {});
       NotificationService.silenceAllAudioNow().catch(() => {
-        Speech.stop();
+        VoiceGuidanceService.stop().catch(() => {});
       });
     }
   }, [voicePlaybackEnabled]);
@@ -230,7 +260,7 @@ export function useRadarDataSync({
         } else {
           setClosestRadarHint('');
         }
-      } catch (error) {
+      } catch {
         if (!cancelled) {
           setClosestRadarHint('');
         }
@@ -263,7 +293,7 @@ export function useRadarDataSync({
             if (prev[radar.id] === shortLabel) return prev;
             return { ...prev, [radar.id]: shortLabel };
           });
-        } catch (error) {
+        } catch {
           // Ignore reverse geocode failures for non-critical hints.
         } finally {
           delete radarHintRequestRef.current[radar.id];
@@ -347,7 +377,7 @@ export function useRadarDataSync({
           if (headingDelta > 180) headingDelta = 360 - headingDelta;
         }
         const shouldUpdateUiLocation =
-          !previousUiLocation || movedMeters >= 4 || headingDelta >= 10 || now - lastUiLocationUpdateAtRef.current >= 900;
+          !previousUiLocation || movedMeters >= 2.5 || headingDelta >= 6 || now - lastUiLocationUpdateAtRef.current >= 600;
 
         if (shouldUpdateUiLocation && allowUiLocationUpdates) {
           lastUiLocationRef.current = locationWithHeading;
@@ -379,10 +409,10 @@ export function useRadarDataSync({
 
           const shouldAnimateCamera =
             !lastCameraCenter ||
-            movedFromCameraMeters >= 4 ||
-            cameraHeadingDelta >= 6;
+            movedFromCameraMeters >= 2.5 ||
+            cameraHeadingDelta >= 4;
 
-          if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= 700) {
+          if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= 450) {
             mapRef.current?.animateCamera(
               {
                 center: {
@@ -391,9 +421,9 @@ export function useRadarDataSync({
                 },
                 pitch: 62,
                 heading: targetHeading,
-                zoom: 18.2,
+                zoom: 18.35,
               },
-              { duration: 650 }
+              { duration: 420 }
             );
             lastCameraCenterRef.current = {
               latitude: locationWithHeading.latitude,
@@ -456,15 +486,21 @@ export function useRadarDataSync({
   useEffect(() => {
     const fetchNearby = async () => {
       const loc = currentLocationRef.current || (await LocationService.getCurrentLocation());
-      if (loc) {
-        const radars = await RadarService.getNearbyRadars(loc.latitude, loc.longitude, 10);
-        updateNearbyRadarsState(radars);
-      }
+      if (!loc) return;
+
+      const radars = await RadarService.getNearbyRadars(loc.latitude, loc.longitude, 10);
+      const filtered = applyRouteRelevanceFilter(radars, {
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        heading: typeof loc.heading === 'number' ? loc.heading : null,
+      });
+      updateNearbyRadarsState(filtered);
     };
+
     fetchNearby();
     const interval = setInterval(fetchNearby, 15000);
     return () => clearInterval(interval);
-  }, [updateNearbyRadarsState]);
+  }, [applyRouteRelevanceFilter, updateNearbyRadarsState]);
 
   return {
     currentLocation,

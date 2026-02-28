@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import 'react-native-url-polyfill/auto';
 
-import { supabase } from '../../utils/supabase';
+import { isSupabaseConfigured, isSupabaseEnvMissingError, supabase } from '../../utils/supabase';
 
 type TripPayload = {
   userId: string;
@@ -22,6 +22,22 @@ type QueuedTripPayload = TripPayload & {
 export class SupabaseService {
   private static TRIP_QUEUE_KEY = 'pending_trip_queue_v1';
   private static isTripQueueProcessing = false;
+  private static lastNearbyRadarsErrorAt = 0;
+  private static NEARBY_RADAR_ERROR_THROTTLE_MS = 60000;
+  private static missingEnvWarned = false;
+
+  private static ensureSupabaseAvailable(context: string): boolean {
+    if (isSupabaseConfigured) return true;
+    if (!this.missingEnvWarned) {
+      this.missingEnvWarned = true;
+      console.warn(`[SupabaseService] ${context} skipped: Supabase env is not configured.`);
+    }
+    return false;
+  }
+
+  private static shouldLogError(error: unknown): boolean {
+    return !isSupabaseEnvMissingError(error);
+  }
 
   private static normalizeTrip(row: any) {
     return {
@@ -128,19 +144,33 @@ export class SupabaseService {
    * @param longitude User's longitude
    * @param radiusMeters Search radius in meters
    */
-  static async getNearbyRadars(latitude: number, longitude: number, radiusMeters: number) {
+  static async getNearbyRadars(
+    latitude: number,
+    longitude: number,
+    radiusMeters: number,
+    options?: { minConfidence?: number; verifiedOnly?: boolean }
+  ) {
+    if (!this.ensureSupabaseAvailable('getNearbyRadars')) return [];
     try {
-      // Call a Postgres function (RPC) that uses PostGIS st_dwithin
       const { data, error } = await supabase.rpc('get_nearby_radars', {
         lat: latitude,
         long: longitude,
         radius_meters: radiusMeters,
+        min_confidence: options?.minConfidence ?? 0,
+        verified_only: options?.verifiedOnly ?? false,
       });
 
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Supabase getNearbyRadars error:', error);
+      if (!this.shouldLogError(error)) return [];
+      const now = Date.now();
+      if (now - this.lastNearbyRadarsErrorAt > this.NEARBY_RADAR_ERROR_THROTTLE_MS) {
+        this.lastNearbyRadarsErrorAt = now;
+        console.error('Supabase getNearbyRadars error:', error);
+      } else {
+        console.warn('Supabase getNearbyRadars degraded; using fallback sources.');
+      }
       return [];
     }
   }
@@ -150,6 +180,7 @@ export class SupabaseService {
    * Returns { radarId, reportId } when successful.
    */
   static async reportRadar(radarData: any) {
+    if (!this.ensureSupabaseAvailable('reportRadar')) return null;
     try {
       const { data: radarRow, error: radarError } = await supabase
         .from('radars')
@@ -182,7 +213,9 @@ export class SupabaseService {
       if (reportError) throw reportError;
       return { radarId: radarRow?.id ?? null, reportId: reportRow?.id ?? null };
     } catch (error) {
-      console.error('Supabase reportRadar error:', error);
+      if (this.shouldLogError(error)) {
+        console.error('Supabase reportRadar error:', error);
+      }
       return null;
     }
   }
@@ -191,6 +224,7 @@ export class SupabaseService {
    * Fetches user profile
    */
   static async getProfile(userId: string) {
+    if (!this.ensureSupabaseAvailable('getProfile')) return null;
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -201,6 +235,7 @@ export class SupabaseService {
       if (error) throw error;
       return data;
     } catch (error: any) {
+      if (isSupabaseEnvMissingError(error)) return null;
       // PGRST116 is "The result contains 0 rows" when using .single()
       // We are now using .maybeSingle() so this shouldn't happen, but good to keep safe.
       if (error.code !== 'PGRST116') {
@@ -214,6 +249,7 @@ export class SupabaseService {
    * Fetches top users for leaderboard
    */
   static async getLeaderboard(limit: number = 20) {
+    if (!this.ensureSupabaseAvailable('getLeaderboard')) return [];
     try {
       const { data: rpcData, error: rpcError } = await supabase.rpc('get_leaderboard', {
         limit_count: limit,
@@ -232,7 +268,9 @@ export class SupabaseService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Supabase getLeaderboard error:', error);
+      if (this.shouldLogError(error)) {
+        console.error('Supabase getLeaderboard error:', error);
+      }
       return [];
     }
   }
@@ -243,6 +281,7 @@ export class SupabaseService {
     radiusMeters: number;
     type?: string | null;
   }) {
+    if (!this.ensureSupabaseAvailable('confirmNearbyReport')) return null;
     try {
       const { data, error } = await supabase.rpc('confirm_nearby_report', {
         p_lat: params.latitude,
@@ -254,12 +293,17 @@ export class SupabaseService {
       if (error) throw error;
       return data ?? null;
     } catch (error) {
-      console.error('Supabase confirmNearbyReport error:', error);
+      if (this.shouldLogError(error)) {
+        console.error('Supabase confirmNearbyReport error:', error);
+      }
       return null;
     }
   }
 
   static async updateProfile(userId: string, updates: any) {
+    if (!this.ensureSupabaseAvailable('updateProfile')) {
+      return { id: userId, ...updates, _localOnly: true };
+    }
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -271,12 +315,15 @@ export class SupabaseService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Supabase updateProfile error:', error);
+      if (this.shouldLogError(error)) {
+        console.error('Supabase updateProfile error:', error);
+      }
       return null;
     }
   }
 
   static async getEmailForUsername(username: string): Promise<string | null> {
+    if (!this.ensureSupabaseAvailable('getEmailForUsername')) return null;
     try {
       const { data, error } = await supabase.rpc('get_email_for_username', {
         p_username: username,
@@ -285,12 +332,17 @@ export class SupabaseService {
       if (error) throw error;
       return data ?? null;
     } catch (error) {
-      console.error('Supabase getEmailForUsername error:', error);
+      if (this.shouldLogError(error)) {
+        console.error('Supabase getEmailForUsername error:', error);
+      }
       return null;
     }
   }
 
   static async upsertProfile(userId: string, updates: any) {
+    if (!this.ensureSupabaseAvailable('upsertProfile')) {
+      return { id: userId, ...updates, _localOnly: true };
+    }
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -301,17 +353,22 @@ export class SupabaseService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Supabase upsertProfile error:', error);
+      if (this.shouldLogError(error)) {
+        console.error('Supabase upsertProfile error:', error);
+      }
       return null;
     }
   }
 
   static async createTrip(params: TripPayload) {
+    if (!this.ensureSupabaseAvailable('createTrip')) return null;
     try {
       await this.flushQueuedTrips();
       return await this.insertTrip(params);
     } catch (error) {
-      console.error('Supabase createTrip error:', error);
+      if (this.shouldLogError(error)) {
+        console.error('Supabase createTrip error:', error);
+      }
       await this.enqueueTrip(params);
       return null;
     }
@@ -326,6 +383,7 @@ export class SupabaseService {
    * Fetches user's trip history from Supabase
    */
   static async getUserTrips(userId?: string) {
+    if (!this.ensureSupabaseAvailable('getUserTrips')) return [];
     try {
       await this.flushQueuedTrips();
       let query = supabase
@@ -340,7 +398,9 @@ export class SupabaseService {
       if (error) throw error;
       return (data || []).map((row: any) => this.normalizeTrip(row));
     } catch (error) {
-      console.error('Supabase getUserTrips error:', error);
+      if (this.shouldLogError(error)) {
+        console.error('Supabase getUserTrips error:', error);
+      }
       return [];
     }
   }

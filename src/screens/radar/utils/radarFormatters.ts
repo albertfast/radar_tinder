@@ -84,14 +84,26 @@ export const formatRadarLabel = (type?: RadarLocation['type']) => {
 
 export const extractShortStreetLabel = (label?: string | null) => {
   if (!label) return '';
-  const firstSegment = label
+  const parts = label
     .split(',')
     .map((part) => part.trim())
-    .find(Boolean);
-  if (!firstSegment) return '';
-  const noZip = firstSegment.replace(/\b\d{5}(?:-\d{4})?\b/g, '').trim();
-  const noHouseNumber = noZip.replace(/^\d+[A-Za-z-]*\s+/, '').trim();
-  return noHouseNumber || noZip || firstSegment;
+    .filter(Boolean);
+  if (!parts.length) return '';
+
+  const streetToken = /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|way)\b/i;
+  const sanitize = (value: string) =>
+    value
+      .replace(/\b\d{5}(?:-\d{4})?\b/g, '')
+      .replace(/^\d+[A-Za-z-]*\s+/, '')
+      .trim();
+
+  const first = sanitize(parts[0]);
+  const second = parts[1] ? sanitize(parts[1]) : '';
+  if (first && second && streetToken.test(first) && streetToken.test(second)) {
+    return `${first} & ${second}`;
+  }
+
+  return first || sanitize(parts[0]);
 };
 
 export const canConfirmRadar = (radar?: RadarLocation) => {

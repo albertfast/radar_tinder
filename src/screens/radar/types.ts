@@ -11,6 +11,8 @@ export type RouteMeta = {
   etaText: string;
   distanceText: string;
   destinationLabel: string;
+  distanceMeters?: number | null;
+  durationSeconds?: number | null;
 };
 
 export type ProFeature = {

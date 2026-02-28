@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView from 'react-native-maps';
@@ -14,6 +14,8 @@ import { NavStep, RouteMeta } from '../../types';
 import { radarScreenStyles as styles } from '../../styles/radarScreenStyles';
 import { GoogleMapsService } from '../../../../services/GoogleMapsService';
 import { LocationService } from '../../../../services/LocationService';
+import { formatDistance } from '../../../../utils/format';
+import { SPEED_LIMIT_V2_ENABLED } from '../../constants';
 
 type RadarMapTabProps = {
   currentLocation: any;
@@ -116,7 +118,6 @@ export function RadarMapTab({
   mapControlSize,
   followHeading,
   compassRotation,
-  zoomMap,
   resumeFollowMode,
   arrivalState,
   distanceToDestinationMeters,
@@ -132,24 +133,30 @@ export function RadarMapTab({
   unitSystem,
 }: RadarMapTabProps) {
   const [speedLimit, setSpeedLimit] = useState<{ value: number; units: 'KPH' | 'MPH' } | null>(null);
-  const [speedLimitSource, setSpeedLimitSource] = useState<'roads_api' | 'fallback' | null>(null);
+  const [speedLimitSource, setSpeedLimitSource] = useState<'roads_api' | 'osm' | 'unknown' | null>(null);
   const lastSpeedLimitFetchAtRef = useRef(0);
   const lastSpeedLimitLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
     if (!currentLocation) return;
+    if (!SPEED_LIMIT_V2_ENABLED) {
+      setSpeedLimit(null);
+      setSpeedLimitSource('unknown');
+      return;
+    }
+
     const now = Date.now();
     const lastLocation = lastSpeedLimitLocationRef.current;
     const movedMeters = lastLocation
       ? LocationService.calculateDistanceSync(
-        currentLocation.latitude,
-        currentLocation.longitude,
-        lastLocation.latitude,
-        lastLocation.longitude
-      ) * 1000
+          currentLocation.latitude,
+          currentLocation.longitude,
+          lastLocation.latitude,
+          lastLocation.longitude
+        ) * 1000
       : Number.POSITIVE_INFINITY;
 
-    if (now - lastSpeedLimitFetchAtRef.current < 20000 && movedMeters < 120) {
+    if (now - lastSpeedLimitFetchAtRef.current < 18000 && movedMeters < 90) {
       return;
     }
 
@@ -166,7 +173,11 @@ export function RadarMapTab({
         currentLocation.longitude
       );
       if (cancelled) return;
-      if (!result) return;
+      if (!result || result.speedLimit <= 0) {
+        setSpeedLimit(null);
+        setSpeedLimitSource(result?.source || 'unknown');
+        return;
+      }
       setSpeedLimit({ value: result.speedLimit, units: result.units });
       setSpeedLimitSource(result.source);
     })();
@@ -194,26 +205,31 @@ export function RadarMapTab({
     speedLimitDisplay && speedLimitDisplay > 0
       ? (currentSpeedDisplay - speedLimitDisplay) / speedLimitDisplay
       : 0;
-  const speedTone = overspeedRatio > 0.1 ? '#ef4444' : overspeedRatio > 0.05 ? '#f97316' : overspeedRatio > 0 ? '#facc15' : '#67e8f9';
-  const speedGlow =
+  const speedTone =
     overspeedRatio > 0.1
-      ? 'rgba(239,68,68,0.45)'
+      ? '#ef4444'
       : overspeedRatio > 0.05
-        ? 'rgba(249,115,22,0.45)'
+        ? '#f97316'
         : overspeedRatio > 0
-          ? 'rgba(250,204,21,0.4)'
-          : 'rgba(56,189,248,0.3)';
+          ? '#facc15'
+          : '#67e8f9';
 
   const arrivalDistanceLabel =
     distanceToDestinationMeters != null ? formatStepDistance(distanceToDestinationMeters) : null;
   const activeStep = navSteps[currentStepIndex];
   const currentStepDistance = formatStepDistance(getStepDistanceMeters(activeStep)) || '...';
   const stepInstruction = activeStep?.instruction || 'Follow the highlighted route';
+  const routeDistanceLabel = useMemo(() => {
+    if (typeof routeMeta?.distanceMeters === 'number' && Number.isFinite(routeMeta.distanceMeters)) {
+      return formatDistance(Math.max(0, routeMeta.distanceMeters / 1000), unitSystem);
+    }
+    return routeMeta?.distanceText || '';
+  }, [routeMeta?.distanceMeters, routeMeta?.distanceText, unitSystem]);
   const summaryDistance = hasArrived
     ? 'Arrived'
     : arrivalState === 'approaching' && arrivalDistanceLabel
       ? arrivalDistanceLabel
-      : routeMeta?.distanceText || arrivalDistanceLabel || '—';
+      : routeDistanceLabel || arrivalDistanceLabel || '—';
   const summaryEta = hasArrived ? 'ETA 0 min' : `ETA ${routeMeta?.etaText || '—'}`;
   const summaryDestination = hasArrived
     ? 'Destination reached'
@@ -243,7 +259,6 @@ export function RadarMapTab({
       >
         {routeCoords.length === 0 ? (
           <>
-            {/* Full-width search row at top */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: mapControlGap }}>
               <View style={{ flex: 1 }}>
                 <TextInput
@@ -449,21 +464,18 @@ export function RadarMapTab({
         <AdBanner suppressAds={suppressAds} />
       </View>
 
-      {/* ─── Right: removed zoom +/- (user request) ─── */}
-
-      {/* ─── Speed HUD – bottom left, above left controls ─── */}
       <View
         style={[
           localStyles.speedHudWrap,
           {
             position: 'absolute',
-            left: mapOverlayInset,
-            bottom: mapControlsBottom + mapControlSize * 3 + mapControlGap * 3 + 12,
+            right: mapOverlayInset,
+            bottom: mapControlsBottom + 4,
           },
         ]}
         pointerEvents="none"
       >
-        <View style={[localStyles.speedMain, { borderColor: speedTone, shadowColor: speedTone }]}>
+        <View style={[localStyles.speedMain, { borderColor: speedTone, shadowColor: speedTone }]}> 
           <Text style={[localStyles.speedValue, { color: speedTone }]}>{currentSpeedDisplay}</Text>
           <Text style={localStyles.speedUnit}>{speedUnitLabel}</Text>
           {overspeedRatio > 0 && (
@@ -475,12 +487,11 @@ export function RadarMapTab({
         <View style={localStyles.limitBadge}>
           <Text style={localStyles.limitLabel}>LIMIT</Text>
           <Text style={localStyles.limitValue}>{speedLimitDisplay ?? '--'}</Text>
-          {speedLimitSource === 'fallback' && (
-            <Text style={localStyles.limitSource}>est</Text>
-          )}
+          <Text style={localStyles.limitUnit}>{speedUnitLabel}</Text>
+          {speedLimitSource === 'osm' && <Text style={localStyles.limitSource}>PUBLIC</Text>}
+          {speedLimitSource === 'unknown' && <Text style={localStyles.limitSource}>UNKNOWN</Text>}
         </View>
       </View>
-
     </View>
   );
 }
@@ -488,26 +499,24 @@ export function RadarMapTab({
 export type { RadarMapTabProps };
 
 const localStyles = StyleSheet.create({
-  // Outer wrapper – top-right, row: speed main + limit badge
   speedHudWrap: {
     alignSelf: 'flex-end',
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'flex-end',
-    gap: 6,
+    gap: 8,
     marginBottom: 8,
   },
-  // Main speed box
   speedMain: {
     borderRadius: 16,
-    paddingHorizontal: getResponsivePadding(14),
-    paddingVertical: getResponsivePadding(10),
+    paddingHorizontal: getResponsivePadding(18),
+    paddingVertical: getResponsivePadding(12),
     backgroundColor: 'rgba(3,10,24,0.92)',
     borderWidth: 2,
     shadowOpacity: 0.55,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 0 },
     alignItems: 'center',
-    minWidth: 80,
+    minWidth: 104,
   },
   speedValue: {
     fontSize: 42,
@@ -533,16 +542,15 @@ const localStyles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 11,
   },
-  // Speed limit box (smaller, to the right)
   limitBadge: {
-    borderRadius: 12,
-    paddingHorizontal: getResponsivePadding(10),
-    paddingVertical: getResponsivePadding(8),
+    borderRadius: 14,
+    paddingHorizontal: getResponsivePadding(14),
+    paddingVertical: getResponsivePadding(10),
     backgroundColor: 'rgba(3,10,24,0.88)',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
-    minWidth: 52,
+    minWidth: 92,
   },
   limitLabel: {
     color: '#64748b',
@@ -552,13 +560,19 @@ const localStyles = StyleSheet.create({
   },
   limitValue: {
     color: '#e2e8f0',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
-    lineHeight: 26,
+    lineHeight: 28,
+  },
+  limitUnit: {
+    color: '#64748b',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: -1,
   },
   limitSource: {
     color: '#475569',
-    fontSize: 9,
-    marginTop: 1,
+    fontSize: 8,
+    marginTop: 2,
   },
 });

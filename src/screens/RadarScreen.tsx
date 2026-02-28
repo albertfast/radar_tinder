@@ -354,21 +354,36 @@ const RadarScreen = ({ navigation, route }: any) => {
     navigation.getParent?.()?.navigate('Home');
   }, [navigation, navigationState]);
 
-  const onReportRadar = useCallback(async (type: RadarLocation['type']) => {
+  const onReportRadar = useCallback(async (type: RadarLocation['type'], reportTag: 'default' | 'missed_camera' = 'default') => {
     setReportModalVisible(false);
     if (!user) return alert('Please log in to report hazards.');
     const loc = dataSync.currentLocationRef.current || await LocationService.getCurrentLocation().catch(() => null);
     if (!loc) return alert('Location unavailable. Please enable location services.');
     try {
-      await RadarService.reportRadarLocation({ latitude: loc.latitude, longitude: loc.longitude, type, confidence: 0.7, lastConfirmed: new Date(), reportedBy: user.id });
+      await RadarService.reportRadarLocation({
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        type,
+        confidence: reportTag === 'missed_camera' ? 0.75 : 0.7,
+        lastConfirmed: new Date(),
+        reportedBy: user.id,
+      });
       const refreshed = await RadarService.getNearbyRadars(loc.latitude, loc.longitude, 10);
       dataSync.updateNearbyRadarsState(refreshed);
       await refreshProfile();
-      alert('Report sent. Nearby drivers will be notified.');
+      alert(
+        reportTag === 'missed_camera'
+          ? 'Missed camera feedback sent. We will use it to improve trap coverage.'
+          : 'Report sent. Nearby drivers will be notified.'
+      );
     } catch {
       try {
         await OfflineService.saveRadarLocationOffline({ id: `offline-${Date.now()}`, latitude: loc.latitude, longitude: loc.longitude, type, confidence: 0.7, lastConfirmed: new Date(), reportedBy: user.id, createdAt: new Date(), updatedAt: new Date() } as any);
-        alert('Saved offline. Will sync when online.');
+        alert(
+          reportTag === 'missed_camera'
+            ? 'Missed camera feedback saved offline. It will sync when online.'
+            : 'Saved offline. Will sync when online.'
+        );
       } catch {
         alert('Failed to report hazard. Please try again.');
       }

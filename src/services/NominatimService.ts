@@ -186,6 +186,10 @@ export class NominatimService {
         longitude: lon,
         source: 'nominatim',
         qualityScore,
+        matchKind: 'nominatim',
+        distanceKmFromUser: focusLocation
+          ? this.distanceKm(focusLocation.latitude, focusLocation.longitude, lat, lon)
+          : undefined,
       };
 
       const existing = dedupe.get(dedupeKey);

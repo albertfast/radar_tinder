@@ -290,7 +290,7 @@ export default function App() {
           <QueryClientProvider client={queryClient}>
             <PaperProvider theme={combinedDarkTheme}>
               <NavigationContainer
-                theme={combinedDarkTheme}
+                theme={combinedDarkTheme as any}
                 linking={{
                   prefixes: [prefix, 'radartinder://'],
                   config: {

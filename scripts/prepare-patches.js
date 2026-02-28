@@ -53,6 +53,43 @@ const resolvePackageDir = (pkg) => {
   }
 };
 
+const parseSemver = (version) => {
+  const match = String(version || '').match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (!match) {
+    return { major: 0, minor: 0, patch: 0 };
+  }
+  return {
+    major: Number(match[1]) || 0,
+    minor: Number(match[2]) || 0,
+    patch: Number(match[3]) || 0,
+  };
+};
+
+const isVersionAtLeast = (current, min) => {
+  if (current.major !== min.major) return current.major > min.major;
+  if (current.minor !== min.minor) return current.minor > min.minor;
+  return current.patch >= min.patch;
+};
+
+const getReactNativeVersion = () => {
+  const rnDir = resolvePackageDir('react-native');
+  if (!rnDir) return { major: 0, minor: 0, patch: 0 };
+  try {
+    const rnPkgJsonPath = path.join(rnDir, 'package.json');
+    const rnPkgJson = JSON.parse(fs.readFileSync(rnPkgJsonPath, 'utf8'));
+    return parseSemver(rnPkgJson.version);
+  } catch {
+    return { major: 0, minor: 0, patch: 0 };
+  }
+};
+
+const reactNativeVersion = getReactNativeVersion();
+const isReactNative84OrHigher = isVersionAtLeast(reactNativeVersion, {
+  major: 0,
+  minor: 84,
+  patch: 0,
+});
+
 const patchExpoModulesCoreForRN81 = () => {
   const pkg = 'expo-modules-core';
   const resolvedDir = resolvePackageDir(pkg);
@@ -552,6 +589,75 @@ const patchExpoDevMenuPackagerConnectionForRN84 = () => {
   let handlerSource = fs.readFileSync(handlerPath, 'utf8');
   const originalHandler = handlerSource;
 
+  const rn81CompatibleRegisterMethod = `
+  func registerHandlersIfNeeded() {
+#if DEBUG
+    guard !arePackagerHandlersRegistered else {
+      return
+    }
+
+    RCTPackagerConnection
+      .shared()
+      .addNotificationHandler(
+        self.sendDevCommandNotificationHandler,
+        queue: DispatchQueue.main,
+        forMethod: "sendDevCommand"
+      )
+
+    RCTPackagerConnection
+      .shared()
+      .addNotificationHandler(
+        self.devMenuNotificationHanlder,
+        queue: DispatchQueue.main,
+        forMethod: "devMenu"
+      )
+
+    arePackagerHandlersRegistered = true
+#endif
+  }
+`;
+
+  if (!isReactNative84OrHigher) {
+    const rn84RegisterMethodRegex =
+      /[\r\n]+\s*func registerHandlersIfNeeded\(\) \{[\s\S]*?arePackagerHandlersRegistered = true[\s\S]*?#endif[\s\S]*?\n\s*\}/m;
+    if (rn84RegisterMethodRegex.test(handlerSource)) {
+      handlerSource = handlerSource.replace(rn84RegisterMethodRegex, `\n${rn81CompatibleRegisterMethod}`);
+    }
+
+    if (handlerSource.includes('let devSettings = manager?.currentBridge?.devSettings')) {
+      handlerSource = handlerSource.replace(
+        /guard !arePackagerHandlersRegistered, let devSettings = manager\?\.currentBridge\?\.devSettings else \{[\s\S]*?arePackagerHandlersRegistered = true/m,
+        `guard !arePackagerHandlersRegistered else {
+      return
+    }
+
+    RCTPackagerConnection
+      .shared()
+      .addNotificationHandler(
+        self.sendDevCommandNotificationHandler,
+        queue: DispatchQueue.main,
+        forMethod: "sendDevCommand"
+      )
+
+    RCTPackagerConnection
+      .shared()
+      .addNotificationHandler(
+        self.devMenuNotificationHanlder,
+        queue: DispatchQueue.main,
+        forMethod: "devMenu"
+      )
+
+    arePackagerHandlersRegistered = true`
+      );
+    }
+
+    if (handlerSource !== originalHandler) {
+      fs.writeFileSync(handlerPath, handlerSource);
+      console.log('Patched expo-dev-menu DevMenuPackagerConnectionHandler.swift for RN <= 0.83 compatibility');
+    }
+    return;
+  }
+
   if (!handlerSource.includes('private var arePackagerHandlersRegistered = false')) {
     handlerSource = handlerSource.replace(
       '  private static var suppressRNDevMenu = true',
@@ -793,6 +899,28 @@ const patchExpoDevLauncherBridgeForRN84 = () => {
     return;
   }
 
+  if (!isReactNative84OrHigher) {
+    let controllerSourceLegacy = fs.readFileSync(controllerPath, 'utf8');
+    const originalLegacy = controllerSourceLegacy;
+
+    controllerSourceLegacy = controllerSourceLegacy.replace(
+      '[self.appBridge.devSettings.packagerConnection setSocketConnectionURL:url];',
+      '[[RCTPackagerConnection sharedPackagerConnection] setSocketConnectionURL:url];'
+    );
+    controllerSourceLegacy = controllerSourceLegacy.replace(
+      '[self.appBridge.devSettings.packagerConnection setSocketConnectionURL:bundleUrl];',
+      '[[RCTPackagerConnection sharedPackagerConnection] setSocketConnectionURL:bundleUrl];'
+    );
+
+    if (controllerSourceLegacy !== originalLegacy) {
+      fs.writeFileSync(controllerPath, controllerSourceLegacy);
+      console.log(
+        'Patched expo-dev-launcher EXDevLauncherController.m for RN <= 0.83 packager connection compatibility'
+      );
+    }
+    return;
+  }
+
   let controllerSource = fs.readFileSync(controllerPath, 'utf8');
   const originalControllerSource = controllerSource;
 
@@ -987,6 +1115,16 @@ const patchReactNativeXcodeMetroIpWriteGuard = () => {
     '  fi',
   ].join('\n');
 
+  const hermesWarningNeedle =
+    '  "$HERMES_CLI_PATH" -emit-binary -max-diagnostic-width=80 $EXTRA_COMPILER_ARGS -out "$DEST/$BUNDLE_NAME.jsbundle" "$BUNDLE_FILE"';
+  const hermesWarningPatch = [
+    '  HERMES_WARNING_ARGS=',
+    '  if [[ "${CONFIGURATION:-}" == *Release* ]]; then',
+    '    HERMES_WARNING_ARGS=-w',
+    '  fi',
+    '  "$HERMES_CLI_PATH" -emit-binary -max-diagnostic-width=80 $HERMES_WARNING_ARGS $EXTRA_COMPILER_ARGS -out "$DEST/$BUNDLE_NAME.jsbundle" "$BUNDLE_FILE"',
+  ].join('\n');
+
   let patchedAny = false;
   const visited = new Set();
 
@@ -1008,6 +1146,10 @@ const patchReactNativeXcodeMetroIpWriteGuard = () => {
       source = source.replace(writeNeedle, writePatch);
     }
 
+    if (source.includes(hermesWarningNeedle) && !source.includes('HERMES_WARNING_ARGS')) {
+      source = source.replace(hermesWarningNeedle, hermesWarningPatch);
+    }
+
     if (source !== original) {
       fs.writeFileSync(scriptPath, source);
       patchedAny = true;
@@ -1015,7 +1157,7 @@ const patchReactNativeXcodeMetroIpWriteGuard = () => {
   }
 
   if (patchedAny) {
-    console.log('Patched react-native react-native-xcode.sh Metro IP file write guard');
+    console.log('Patched react-native react-native-xcode.sh Metro IP and Hermes warning guards');
   }
 };
 
