@@ -41,6 +41,67 @@ type UseRadarNavigationParams = {
   logRouteSteps: (payload: { destination: string; points: number; steps: NavStep[] }) => void;
 };
 
+const projectForwardCoordinate = (
+  latitude: number,
+  longitude: number,
+  bearingDeg: number,
+  distanceMeters: number
+) => {
+  const earthRadiusMeters = 6378137;
+  const angularDistance = distanceMeters / earthRadiusMeters;
+  const bearingRad = (bearingDeg * Math.PI) / 180;
+  const latitudeRad = (latitude * Math.PI) / 180;
+  const longitudeRad = (longitude * Math.PI) / 180;
+
+  const projectedLatitude = Math.asin(
+    Math.sin(latitudeRad) * Math.cos(angularDistance) +
+      Math.cos(latitudeRad) * Math.sin(angularDistance) * Math.cos(bearingRad)
+  );
+  const projectedLongitude =
+    longitudeRad +
+    Math.atan2(
+      Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(latitudeRad),
+      Math.cos(angularDistance) - Math.sin(latitudeRad) * Math.sin(projectedLatitude)
+    );
+
+  return {
+    latitude: (projectedLatitude * 180) / Math.PI,
+    longitude: (projectedLongitude * 180) / Math.PI,
+  };
+};
+
+const sliceRouteAroundIndexByDistance = (
+  coords: Array<{ latitude: number; longitude: number }>,
+  centerIndex: number,
+  behindMeters: number,
+  aheadMeters: number
+) => {
+  if (!Array.isArray(coords) || coords.length < 2) return coords;
+
+  let start = Math.min(Math.max(centerIndex, 0), coords.length - 1);
+  let traveledBehind = 0;
+  while (start > 0 && traveledBehind < behindMeters) {
+    const from = coords[start];
+    const to = coords[start - 1];
+    traveledBehind +=
+      LocationService.calculateDistanceSync(from.latitude, from.longitude, to.latitude, to.longitude) * 1000;
+    start -= 1;
+  }
+
+  let end = Math.min(Math.max(centerIndex, 0), coords.length - 1);
+  let traveledAhead = 0;
+  while (end < coords.length - 1 && traveledAhead < aheadMeters) {
+    const from = coords[end];
+    const to = coords[end + 1];
+    traveledAhead +=
+      LocationService.calculateDistanceSync(from.latitude, from.longitude, to.latitude, to.longitude) * 1000;
+    end += 1;
+  }
+
+  const segment = coords.slice(start, end + 1);
+  return segment.length > 1 ? segment : coords.slice(Math.max(0, start - 1), Math.min(coords.length, end + 2));
+};
+
 export function useRadarNavigation({
   canUsePro,
   mapRef,
@@ -521,32 +582,76 @@ export function useRadarNavigation({
             : 0;
         const tightFollowHeading =
           typeof loc.heading === 'number' && Number.isFinite(loc.heading) ? loc.heading : fallbackHeading;
-        try {
-          mapRef.current?.fitToCoordinates(res.coordinates, {
-            edgePadding: {
-              top: 140,
-              right: 34,
-              bottom: 280,
-              left: 34,
+        const applyRouteCamera = (): boolean => {
+          if (!mapRef.current) return false;
+          const closestRouteIndex = res.coordinates.reduce(
+            (
+              bestIndex: number,
+              coordinate: { latitude: number; longitude: number },
+              index: number
+            ) => {
+            const bestCoordinate = res.coordinates[bestIndex];
+            const bestDistanceKm = LocationService.calculateDistanceSync(
+              loc.latitude,
+              loc.longitude,
+              bestCoordinate.latitude,
+              bestCoordinate.longitude
+            );
+            const nextDistanceKm = LocationService.calculateDistanceSync(
+              loc.latitude,
+              loc.longitude,
+              coordinate.latitude,
+              coordinate.longitude
+            );
+            return nextDistanceKm < bestDistanceKm ? index : bestIndex;
             },
-            animated: true,
-          });
-        } catch {}
-
-        setTimeout(() => {
-          mapRef.current?.animateCamera(
-            {
-              center: {
-                latitude: loc.latitude,
-                longitude: loc.longitude,
-              },
-              zoom: 18.2,
-              pitch: 64,
-              heading: tightFollowHeading,
-            },
-            { duration: 650 }
+            0
           );
-        }, 650);
+          const fitCoords = sliceRouteAroundIndexByDistance(res.coordinates, closestRouteIndex, 240, 1050);
+          try {
+            mapRef.current.fitToCoordinates(fitCoords, {
+              edgePadding: {
+                top: 112,
+                right: 34,
+                bottom: 220,
+                left: 34,
+              },
+              animated: true,
+            });
+          } catch {}
+
+          setTimeout(() => {
+            const followCenter = projectForwardCoordinate(
+              loc.latitude,
+              loc.longitude,
+              tightFollowHeading,
+              78
+            );
+            mapRef.current?.animateCamera(
+              {
+                center: {
+                  latitude: followCenter.latitude,
+                  longitude: followCenter.longitude,
+                },
+                zoom: 19.14,
+                pitch: 62,
+                heading: tightFollowHeading,
+              },
+              { duration: 460 }
+            );
+          }, 320);
+          return true;
+        };
+
+        if (!applyRouteCamera()) {
+          let attempts = 0;
+          const retryApply = () => {
+            attempts += 1;
+            if (applyRouteCamera() || attempts >= 8) return;
+            setTimeout(retryApply, 180);
+          };
+          setTimeout(retryApply, 180);
+        }
         hasCenteredMapRef.current = true;
       } catch (error) {
         console.error('Navigation failed:', error);

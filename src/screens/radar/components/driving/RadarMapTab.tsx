@@ -262,10 +262,16 @@ export function RadarMapTab({
   const summaryDestination = hasArrived
     ? 'Destination reached'
     : routeMeta?.destinationLabel || destination || 'Destination';
-  const speedHudBottom = Math.max(
-    mapAdBottom + 6,
-    mapControlsBottom - mapControlSize - mapControlGap - 10
-  );
+  const speedHudEstimatedHeight = SPEED_HUD_V2_ENABLED ? 72 : 120;
+  const speedHudBottomCeiling = mapControlsBottom - speedHudEstimatedHeight - mapControlGap - 4;
+  const speedHudBottomBySummary = isMapNavigationActive ? mapNavDockBottom + 116 : 0;
+  const speedHudFloorBottom = hideMapAd || suppressAds ? 12 : mapAdBottom + 6;
+  const speedHudPreferredBottom =
+    Math.max(speedHudFloorBottom, speedHudBottomBySummary) +
+    (SPEED_HUD_V2_ENABLED ? getResponsivePadding(6) : 0);
+  const speedHudBottom = isMapNavigationActive
+    ? Math.max(8, Math.min(speedHudBottomCeiling, speedHudPreferredBottom))
+    : Math.max(8, speedHudBottomCeiling);
 
   return (
     <View style={{ flex: 1 }}>
@@ -546,7 +552,7 @@ export function RadarMapTab({
           </Text>
           <Text style={[localStyles.speedValue, { color: speedTone }]}>{currentSpeedDisplay}</Text>
           <Text style={localStyles.speedUnit}>{speedUnitLabel}</Text>
-          {overspeedRatio > 0 && (
+          {!SPEED_HUD_V2_ENABLED && overspeedRatio > 0 && (
             <View style={[localStyles.overspeedBadge, { backgroundColor: speedTone }]}>
               <Text style={localStyles.overspeedBadgeText}>+{Math.round(overspeedRatio * 100)}%</Text>
             </View>
@@ -556,11 +562,13 @@ export function RadarMapTab({
           <Text style={localStyles.limitLabel}>LIMIT</Text>
           <Text style={localStyles.limitValue}>{speedLimitDisplay ?? '--'}</Text>
           <Text style={localStyles.limitUnit}>{speedUnitLabel}</Text>
-          {speedLimitSource === 'osm' && <Text style={localStyles.limitSource}>PUBLIC</Text>}
-          {speedLimitSource === 'roads_unavailable' && (
+          {!SPEED_HUD_V2_ENABLED && speedLimitSource === 'osm' && <Text style={localStyles.limitSource}>PUBLIC</Text>}
+          {!SPEED_HUD_V2_ENABLED && speedLimitSource === 'roads_unavailable' && (
             <Text style={localStyles.limitSource}>ROADS OFF</Text>
           )}
-          {speedLimitSource === 'unknown' && <Text style={localStyles.limitSource}>UNKNOWN</Text>}
+          {!SPEED_HUD_V2_ENABLED && speedLimitSource === 'unknown' && (
+            <Text style={localStyles.limitSource}>UNKNOWN</Text>
+          )}
         </View>
       </View>
     </View>
@@ -572,8 +580,8 @@ export type { RadarMapTabProps };
 const localStyles = StyleSheet.create({
   speedHudWrap: {
     flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 8,
+    alignItems: 'center',
+    gap: 6,
   },
   speedHudWrapLegacy: {
     alignSelf: 'flex-end',
@@ -582,18 +590,18 @@ const localStyles = StyleSheet.create({
     gap: 8,
   },
   speedMain: {
-    borderRadius: 14,
-    paddingHorizontal: getResponsivePadding(10),
-    paddingVertical: getResponsivePadding(10),
+    borderRadius: 12,
+    paddingHorizontal: getResponsivePadding(6),
+    paddingVertical: getResponsivePadding(6),
     backgroundColor: 'rgba(3,10,24,0.92)',
     borderWidth: 2,
     shadowOpacity: 0.55,
-    shadowRadius: 12,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },
     alignItems: 'center',
     justifyContent: 'center',
-    width: 86,
-    minHeight: 104,
+    width: 72,
+    height: 72,
   },
   speedMainLegacy: {
     borderRadius: 16,
@@ -609,9 +617,9 @@ const localStyles = StyleSheet.create({
   },
   speedTitle: {
     color: '#64748b',
-    fontSize: 8,
+    fontSize: 6,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
   },
   speedTitleLegacy: {
     color: '#64748b',
@@ -620,16 +628,16 @@ const localStyles = StyleSheet.create({
     letterSpacing: 1,
   },
   speedValue: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: '900',
-    lineHeight: 30,
-    letterSpacing: -1,
+    lineHeight: 22,
+    letterSpacing: -0.5,
   },
   speedUnit: {
     color: '#94a3b8',
-    fontSize: 9,
+    fontSize: 7,
     fontWeight: '700',
-    marginTop: 1,
+    marginTop: 0,
   },
   overspeedBadge: {
     marginTop: 5,
@@ -644,16 +652,16 @@ const localStyles = StyleSheet.create({
     fontSize: 9,
   },
   limitBadge: {
-    borderRadius: 14,
-    paddingHorizontal: getResponsivePadding(10),
-    paddingVertical: getResponsivePadding(10),
+    borderRadius: 12,
+    paddingHorizontal: getResponsivePadding(6),
+    paddingVertical: getResponsivePadding(6),
     backgroundColor: 'rgba(3,10,24,0.88)',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 86,
-    minHeight: 104,
+    width: 72,
+    height: 72,
   },
   limitBadgeLegacy: {
     borderRadius: 14,
@@ -667,26 +675,26 @@ const localStyles = StyleSheet.create({
   },
   limitLabel: {
     color: '#64748b',
-    fontSize: 8,
+    fontSize: 6,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
   },
   limitValue: {
     color: '#e2e8f0',
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: '800',
-    lineHeight: 30,
+    lineHeight: 22,
   },
   limitUnit: {
     color: '#64748b',
-    fontSize: 9,
+    fontSize: 7,
     fontWeight: '700',
-    marginTop: 1,
+    marginTop: 0,
   },
   limitSource: {
     color: '#475569',
-    fontSize: 8,
-    marginTop: 2,
+    fontSize: 7,
+    marginTop: 1,
   },
   centerRouteButton: {
     position: 'absolute',

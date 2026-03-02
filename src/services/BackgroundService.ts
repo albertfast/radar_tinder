@@ -395,6 +395,7 @@ export class BackgroundService {
           longitude: number;
           heading?: number | null;
           speed?: number | null;
+          accuracy?: number | null;
         }
       | null,
     next: {
@@ -402,6 +403,7 @@ export class BackgroundService {
       longitude: number;
       heading: number | null;
       speed: number | null;
+      accuracy?: number | null;
     },
     nowMs: number
   ): boolean {
@@ -426,11 +428,27 @@ export class BackgroundService {
     const previousSpeed = typeof previous.speed === 'number' && Number.isFinite(previous.speed) ? previous.speed : 0;
     const nextSpeed = typeof next.speed === 'number' && Number.isFinite(next.speed) ? next.speed : 0;
     const speedDelta = Math.abs(nextSpeed - previousSpeed);
+    const nextSpeedKph = Math.max(0, nextSpeed * 3.6);
+    const lowAccuracy = typeof next.accuracy === 'number' && Number.isFinite(next.accuracy) && next.accuracy > 55;
     const elapsedSinceLastUpdate = this.lastLocationUpdate
       ? nowMs - this.lastLocationUpdate.timestamp
       : Number.POSITIVE_INFINITY;
 
-    return movedMeters >= 3 || headingDelta >= 8 || speedDelta >= 0.8 || elapsedSinceLastUpdate >= 1500;
+    const minMovedMeters =
+      nextSpeedKph >= 90 ? 2.2 : nextSpeedKph >= 50 ? 1.6 : nextSpeedKph >= 20 ? 1.0 : 0.7;
+    const minHeadingDelta = nextSpeedKph >= 50 ? 4 : 6;
+    const minElapsedMs = nextSpeedKph >= 90 ? 350 : nextSpeedKph >= 50 ? 450 : 700;
+
+    if (lowAccuracy && movedMeters < 5 && elapsedSinceLastUpdate < 900) {
+      return false;
+    }
+
+    return (
+      movedMeters >= minMovedMeters ||
+      headingDelta >= minHeadingDelta ||
+      speedDelta >= 0.35 ||
+      elapsedSinceLastUpdate >= minElapsedMs
+    );
   }
 
   private static async handleLocationUpdate(location: {
@@ -456,13 +474,55 @@ export class BackgroundService {
       const now = Date.now();
       const previousUpdate = this.lastLocationUpdate;
       if (previousUpdate) {
-        const distanceKm = LocationService.calculateDistanceSync(
+        const movedMeters =
+          LocationService.calculateDistanceSync(
+            location.latitude,
+            location.longitude,
+            previousUpdate.latitude,
+            previousUpdate.longitude
+          ) * 1000;
+        const elapsedMs = now - previousUpdate.timestamp;
+        const speedFromSensorKph =
+          typeof location.speed === 'number' && Number.isFinite(location.speed) && location.speed >= 0
+            ? location.speed * 3.6
+            : null;
+        const lowSignal =
+          typeof location.accuracy === 'number' && Number.isFinite(location.accuracy) && location.accuracy > 65;
+        const tinyMovement =
+          movedMeters < 0.9 &&
+          elapsedMs < 900 &&
+          (speedFromSensorKph == null || speedFromSensorKph < 18);
+        if (tinyMovement || (lowSignal && movedMeters < 4 && elapsedMs < 1200)) {
+          return;
+        }
+
+        const distanceKm = movedMeters / 1000;
+        if (distanceKm > 0.35 && elapsedMs < 2000 && (speedFromSensorKph == null || speedFromSensorKph < 45)) {
+          // Ignore likely GPS jumps that would create jittery camera snaps.
+          return;
+        }
+
+        const previousAccuracy =
+          typeof previousUpdate.accuracy === 'number' && Number.isFinite(previousUpdate.accuracy)
+            ? previousUpdate.accuracy
+            : null;
+        if (
+          previousAccuracy != null &&
+          typeof location.accuracy === 'number' &&
+          Number.isFinite(location.accuracy) &&
+          location.accuracy > previousAccuracy + 45 &&
+          movedMeters < 12
+        ) {
+          return;
+        }
+
+        const prevDistanceKm = LocationService.calculateDistanceSync(
           location.latitude,
           location.longitude,
           previousUpdate.latitude,
           previousUpdate.longitude
         );
-        if (distanceKm < 0.02 && now - previousUpdate.timestamp < 3000) {
+        if (prevDistanceKm < 0.00035 && elapsedMs < 550) {
           return;
         }
       }
@@ -634,23 +694,23 @@ export class BackgroundService {
       const alerts = [];
       for (const radar of nearbyRadars) {
         const distance = radar.distance || 0;
-        const relevance = RadarService.evaluateRouteRelevance({
-          radar,
-          currentLocation: {
-            latitude: normalizedLocation.latitude,
-            longitude: normalizedLocation.longitude,
-            heading: normalizedHeading,
-          },
-          routeCoords: routeMode ? routeGuidancePath : [],
-          speedKph: hasReliableSpeed ? speedKph : 5,
-          maxCorridorMeters: routeMode ? 120 : 240,
-          maxHeadingDeltaDeg: routeMode ? 55 : 75,
-          etaSecondsWindow: hasReliableSpeed
-            ? routeMode
-              ? [10, 90]
-              : [8, 220]
-            : [0, Number.MAX_SAFE_INTEGER],
-        });
+          const relevance = RadarService.evaluateRouteRelevance({
+            radar,
+            currentLocation: {
+              latitude: normalizedLocation.latitude,
+              longitude: normalizedLocation.longitude,
+              heading: normalizedHeading,
+            },
+            routeCoords: routeMode ? routeGuidancePath : [],
+            speedKph: hasReliableSpeed ? speedKph : 5,
+            maxCorridorMeters: routeMode ? 170 : 240,
+            maxHeadingDeltaDeg: routeMode ? 70 : 75,
+            etaSecondsWindow: hasReliableSpeed
+              ? routeMode
+                ? [5, 240]
+                : [8, 220]
+              : [0, Number.MAX_SAFE_INTEGER],
+          });
 
         let threshold = baseThreshold;
         const isMobileRadar =
@@ -659,7 +719,7 @@ export class BackgroundService {
           threshold = Math.max(threshold, routeMode ? 4.0 : 5.0);
         }
 
-        const headingMatched = relevance.headingDeltaDeg == null || relevance.headingDeltaDeg <= (routeMode ? 55 : 75);
+        const headingMatched = relevance.headingDeltaDeg == null || relevance.headingDeltaDeg <= (routeMode ? 70 : 75);
         const relevanceMatched = routeMode
           ? relevance.isRelevant
           : headingMatched && (hasReliableSpeed ? relevance.etaSeconds <= 220 : true);

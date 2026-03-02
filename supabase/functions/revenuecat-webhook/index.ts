@@ -63,6 +63,25 @@ const parseEventTimestampIso = (event: Record<string, any>): string | null => {
   return null;
 };
 
+const extractMissingProfileColumn = (error: any): string | null => {
+  if (!error) return null;
+  const code = String(error.code || '');
+  const message = `${String(error.message || '')} ${String(error.details || '')}`;
+  if (code === 'PGRST204') {
+    const postgrestMatch = message.match(/Could not find the '([^']+)' column/i);
+    if (postgrestMatch?.[1]) return postgrestMatch[1];
+  }
+  if (code === '42703') {
+    const prefixedMatch = message.match(/profiles\.([a-zA-Z0-9_]+)/i);
+    if (prefixedMatch?.[1]) return prefixedMatch[1];
+    const genericMatch = message.match(
+      /column\s+["']?(?:public\.)?(?:profiles\.)?([a-zA-Z0-9_]+)["']?\s+does not exist/i
+    );
+    if (genericMatch?.[1]) return genericMatch[1];
+  }
+  return null;
+};
+
 Deno.serve(async (request) => {
   if (request.method !== 'POST') {
     return jsonResponse(405, { error: 'method_not_allowed' });
@@ -152,17 +171,27 @@ Deno.serve(async (request) => {
   }
 
   if (isUuid(appUserId)) {
-    const { error: profileUpdateError } = await supabase
-      .from('profiles')
-      .update({
-        subscription_type: subscriptionType,
-        ads_removed: hasRemoveAds,
-        subscription_expires_at: expirationIso,
-        rc_customer_id: appUserId,
-        account_link_required_until: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', appUserId);
+    let profilePayload: Record<string, unknown> = {
+      subscription_type: subscriptionType,
+      ads_removed: hasRemoveAds,
+      subscription_expires_at: expirationIso,
+      rc_customer_id: appUserId,
+      account_link_required_until: null,
+      updated_at: new Date().toISOString(),
+    };
+    let profileUpdateError: any = null;
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const result = await supabase.from('profiles').update(profilePayload).eq('id', appUserId);
+      profileUpdateError = result.error;
+      if (!profileUpdateError) break;
+
+      const missingColumn = extractMissingProfileColumn(profileUpdateError);
+      if (!missingColumn || !(missingColumn in profilePayload)) {
+        break;
+      }
+      delete profilePayload[missingColumn];
+    }
 
     if (profileUpdateError) {
       return jsonResponse(500, {

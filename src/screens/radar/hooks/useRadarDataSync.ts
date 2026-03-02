@@ -58,6 +58,35 @@ const calculateBearing = (
   return normalizeHeading(angle);
 };
 
+const projectForwardCoordinate = (
+  latitude: number,
+  longitude: number,
+  bearingDeg: number,
+  distanceMeters: number
+) => {
+  const earthRadiusMeters = 6378137;
+  const angularDistance = distanceMeters / earthRadiusMeters;
+  const bearingRad = (bearingDeg * Math.PI) / 180;
+  const latitudeRad = (latitude * Math.PI) / 180;
+  const longitudeRad = (longitude * Math.PI) / 180;
+
+  const projectedLatitude = Math.asin(
+    Math.sin(latitudeRad) * Math.cos(angularDistance) +
+      Math.cos(latitudeRad) * Math.sin(angularDistance) * Math.cos(bearingRad)
+  );
+  const projectedLongitude =
+    longitudeRad +
+    Math.atan2(
+      Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(latitudeRad),
+      Math.cos(angularDistance) - Math.sin(latitudeRad) * Math.sin(projectedLatitude)
+    );
+
+  return {
+    latitude: (projectedLatitude * 180) / Math.PI,
+    longitude: (projectedLongitude * 180) / Math.PI,
+  };
+};
+
 export function useRadarDataSync({
   currentLocation,
   setCurrentLocation,
@@ -103,6 +132,7 @@ export function useRadarDataSync({
   const radarHintRequestRef = useRef<Record<string, boolean>>({});
   const previousHeadingLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const lastValidHeadingRef = useRef(0);
+  const smoothedLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
     currentLocationRef.current = currentLocation;
@@ -149,14 +179,14 @@ export function useRadarDataSync({
           heading: typeof loc.heading === 'number' ? loc.heading : null,
         },
         routeCoords: routeState.routeGuidancePath,
-        speedKph: Math.max(currentSpeedRef.current || 0, 8),
-        maxCorridorMeters: 120,
-        maxHeadingDeltaDeg: 55,
-        etaSecondsWindow: [10, 90],
-        requireEtaWindow: true,
+        speedKph: Math.max(currentSpeedRef.current || 0, 10),
+        maxCorridorMeters: 180,
+        maxHeadingDeltaDeg: 75,
+        etaSecondsWindow: [0, 3600],
+        requireEtaWindow: false,
       });
 
-      return relevant;
+      return relevant.length > 0 ? relevant : incoming;
     },
     []
   );
@@ -349,8 +379,38 @@ export function useRadarDataSync({
           longitude: location.longitude,
         };
 
+        const previousSmoothed = smoothedLocationRef.current;
+        const sampleSpeedKph =
+          typeof location.speed === 'number' && Number.isFinite(location.speed) && location.speed >= 0
+            ? location.speed * 3.6
+            : Math.max(0, currentSpeedRef.current || 0);
+        let smoothedLatitude = location.latitude;
+        let smoothedLongitude = location.longitude;
+        if (previousSmoothed) {
+          const baseAlpha =
+            sampleSpeedKph >= 90 ? 0.86 : sampleSpeedKph >= 60 ? 0.8 : sampleSpeedKph >= 30 ? 0.72 : 0.6;
+          const jumpMeters =
+            LocationService.calculateDistanceSync(
+              previousSmoothed.latitude,
+              previousSmoothed.longitude,
+              location.latitude,
+              location.longitude
+            ) * 1000;
+          const spikeAlpha = jumpMeters > 90 && sampleSpeedKph < 35 ? 0.3 : baseAlpha;
+          smoothedLatitude =
+            previousSmoothed.latitude + (location.latitude - previousSmoothed.latitude) * spikeAlpha;
+          smoothedLongitude =
+            previousSmoothed.longitude + (location.longitude - previousSmoothed.longitude) * spikeAlpha;
+        }
+        smoothedLocationRef.current = {
+          latitude: smoothedLatitude,
+          longitude: smoothedLongitude,
+        };
+
         const locationWithHeading = {
           ...location,
+          latitude: smoothedLatitude,
+          longitude: smoothedLongitude,
           heading: lastValidHeadingRef.current,
         };
 
@@ -376,8 +436,15 @@ export function useRadarDataSync({
           headingDelta = Math.abs(nextHeading - previousHeading);
           if (headingDelta > 180) headingDelta = 360 - headingDelta;
         }
+        const uiUpdateIntervalMs =
+          sampleSpeedKph >= 90 ? 220 : sampleSpeedKph >= 60 ? 280 : sampleSpeedKph >= 30 ? 350 : 500;
+        const uiMoveThresholdMeters =
+          sampleSpeedKph >= 90 ? 1.8 : sampleSpeedKph >= 60 ? 1.4 : sampleSpeedKph >= 30 ? 1.0 : 0.6;
         const shouldUpdateUiLocation =
-          !previousUiLocation || movedMeters >= 2.5 || headingDelta >= 6 || now - lastUiLocationUpdateAtRef.current >= 600;
+          !previousUiLocation ||
+          movedMeters >= uiMoveThresholdMeters ||
+          headingDelta >= 3 ||
+          now - lastUiLocationUpdateAtRef.current >= uiUpdateIntervalMs;
 
         if (shouldUpdateUiLocation && allowUiLocationUpdates) {
           lastUiLocationRef.current = locationWithHeading;
@@ -407,27 +474,42 @@ export function useRadarDataSync({
             if (cameraHeadingDelta > 180) cameraHeadingDelta = 360 - cameraHeadingDelta;
           }
 
+          const cameraUpdateIntervalMs =
+            sampleSpeedKph >= 90 ? 180 : sampleSpeedKph >= 60 ? 220 : sampleSpeedKph >= 30 ? 280 : 380;
+          const cameraMoveThresholdMeters =
+            sampleSpeedKph >= 90 ? 2.4 : sampleSpeedKph >= 60 ? 1.9 : sampleSpeedKph >= 30 ? 1.3 : 0.8;
+
           const shouldAnimateCamera =
             !lastCameraCenter ||
-            movedFromCameraMeters >= 2.5 ||
-            cameraHeadingDelta >= 4;
+            movedFromCameraMeters >= cameraMoveThresholdMeters ||
+            cameraHeadingDelta >= 3;
 
-          if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= 450) {
+          if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= cameraUpdateIntervalMs) {
+            const lookAheadMeters = Math.max(
+              42,
+              Math.min(84, 52 + Math.round((currentSpeedRef.current || 0) * 0.55))
+            );
+            const followCenter = projectForwardCoordinate(
+              locationWithHeading.latitude,
+              locationWithHeading.longitude,
+              targetHeading,
+              lookAheadMeters
+            );
             mapRef.current?.animateCamera(
               {
                 center: {
-                  latitude: locationWithHeading.latitude,
-                  longitude: locationWithHeading.longitude,
+                  latitude: followCenter.latitude,
+                  longitude: followCenter.longitude,
                 },
                 pitch: 62,
                 heading: targetHeading,
-                zoom: 18.35,
+                zoom: 19.12,
               },
-              { duration: 420 }
+              { duration: 260 }
             );
             lastCameraCenterRef.current = {
-              latitude: locationWithHeading.latitude,
-              longitude: locationWithHeading.longitude,
+              latitude: followCenter.latitude,
+              longitude: followCenter.longitude,
             };
             lastCameraHeadingRef.current = targetHeading;
             lastCameraUpdateRef.current = now;
@@ -464,18 +546,21 @@ export function useRadarDataSync({
         followHeading && typeof currentLocation.heading === 'number' && Number.isFinite(currentLocation.heading)
           ? currentLocation.heading
           : 0;
+      const initialCenter = followHeading
+        ? projectForwardCoordinate(currentLocation.latitude, currentLocation.longitude, initialHeading, 58)
+        : { latitude: currentLocation.latitude, longitude: currentLocation.longitude };
       mapRef.current.animateCamera(
         {
-          center: { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
-          zoom: 17.8,
-          pitch: 60,
+          center: initialCenter,
+          zoom: 19.02,
+          pitch: 61,
           heading: initialHeading,
         },
-        { duration: 650 }
+        { duration: 420 }
       );
       lastCameraCenterRef.current = {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
+        latitude: initialCenter.latitude,
+        longitude: initialCenter.longitude,
       };
       lastCameraHeadingRef.current = initialHeading;
       lastCameraUpdateRef.current = Date.now();
