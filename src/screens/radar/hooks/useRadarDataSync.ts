@@ -121,6 +121,7 @@ export function useRadarDataSync({
   }, [currentSpeed]);
 
   const nearbyRadarsRef = useRef<any[]>([]);
+  const syncedStoreRadarsRef = useRef<any[]>([]);
   const lastCameraUpdateRef = useRef(0);
   const lastCameraCenterRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const lastCameraHeadingRef = useRef<number | null>(null);
@@ -193,17 +194,22 @@ export function useRadarDataSync({
 
   const updateNearbyRadarsState = useCallback(
     (incoming: any[]) => {
-      setNearbyRadars((prev) => {
-        if (hasSameRadarSnapshot(prev, incoming)) {
-          return prev;
-        }
-        nearbyRadarsRef.current = incoming;
-        setRadarLocations(incoming);
-        return incoming;
-      });
+      if (hasSameRadarSnapshot(nearbyRadarsRef.current, incoming)) return;
+      nearbyRadarsRef.current = incoming;
+      setNearbyRadars(incoming);
     },
-    [hasSameRadarSnapshot, setRadarLocations]
+    [hasSameRadarSnapshot]
   );
+
+  useEffect(() => {
+    nearbyRadarsRef.current = nearbyRadars;
+  }, [nearbyRadars]);
+
+  useEffect(() => {
+    if (hasSameRadarSnapshot(syncedStoreRadarsRef.current, nearbyRadars)) return;
+    syncedStoreRadarsRef.current = nearbyRadars;
+    setRadarLocations(nearbyRadars);
+  }, [hasSameRadarSnapshot, nearbyRadars, setRadarLocations]);
 
   useEffect(() => {
     if (!hasHydrated) return;

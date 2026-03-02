@@ -138,10 +138,15 @@ export class SubscriptionService {
       Platform.OS === 'android'
         ? 'EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY'
         : 'EXPO_PUBLIC_REVENUECAT_IOS_API_KEY';
-    console.error(
-      `[RevenueCat] invalid credentials (${context}). Verify ${platformKeyName} and RevenueCat app mapping for package com.radartinder.app.`,
-      error
-    );
+    const message = `[RevenueCat] invalid credentials (${context}). Verify ${platformKeyName} and RevenueCat app mapping for package com.radartinder.app.`;
+    if (__DEV__ && Platform.OS === 'android') {
+      console.warn(
+        `${message} Local sideloaded debug builds can fail Play credential checks; validate purchases with Play Internal Testing installs.`,
+        error
+      );
+      return;
+    }
+    console.error(message, error);
   }
 
   private static async hydrateFromSnapshotIfAvailable(): Promise<boolean> {
