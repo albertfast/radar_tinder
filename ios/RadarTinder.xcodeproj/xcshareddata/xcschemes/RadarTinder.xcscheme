@@ -32,9 +32,20 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "00E356ED1AD99517003FC87E"
+               BlueprintIdentifier = "D2DCE3182F560E3E00F56E9A"
                BuildableName = "RadarTinderTests.xctest"
                BlueprintName = "RadarTinderTests"
+               ReferencedContainer = "container:RadarTinder.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D2DCE3252F560E8500F56E9A"
+               BuildableName = "RadarTinderUITests.xctest"
+               BlueprintName = "RadarTinderUITests"
                ReferencedContainer = "container:RadarTinder.xcodeproj">
             </BuildableReference>
          </TestableReference>

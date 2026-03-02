@@ -1,0 +1,957 @@
+
+Showing All Errors Only
+
+Build target RadarTinderUITests of project RadarTinder with configuration Debug
+note: Run script build phase '[Expo] Configure project' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'RadarTinderUITests' from project 'RadarTinder')
+
+
+Ld /Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RadarTinderUITests-Runner.app/PlugIns/RadarTinderUITests.xctest/RadarTinderUITests normal (in target 'RadarTinderUITests' from project 'RadarTinder')
+    cd /Volumes/devssd/Projects/radar_tinder/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios26.2 -bundle -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.2.sdk -O0 -L/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos -L/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.2.sdk/usr/lib/swift -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/AppAuth -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/DoubleConversion -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/EASClient -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/EXAV -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/EXApplication -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/EXConstants -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/EXImageLoader -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/EXJSONUtils -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/EXManifests -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/EXNotifications -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/EXStructuredHeaders -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/EXTaskManager -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/EXUpdates -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/EXUpdatesInterface -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/Expo -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoAdapterGoogleSignIn -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoAppleAuthentication -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoAsset -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoBlur -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoCamera -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoCrypto -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoDevice -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoFileSystem -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoFont -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoHaptics -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoImageManipulator -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoImagePicker -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoKeepAwake -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoLinearGradient -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoLinking -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoLocation -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoModulesCore -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoSQLite -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoSecureStore -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoSensors -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoSpeech -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoSplashScreen -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ExpoSystemUI -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/FirebaseAppCheckInterop -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/FirebaseAuth -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/FirebaseAuthInterop -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/FirebaseCore -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/FirebaseCoreExtension -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/FirebaseCoreInternal -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/FirebaseCrashlytics -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/FirebaseInstallations -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/FirebaseRemoteConfigInterop -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/FirebaseSessions -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/GTMAppAuth -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/GTMSessionFetcher -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/Google-Maps-iOS-Utils -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/GoogleDataTransport -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/GoogleSignIn -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/GoogleUtilities -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/PromisesObjC -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/PromisesSwift -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/PurchasesHybridCommon -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/PurchasesHybridCommonUI -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RCT-Folly -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RCTDeprecation -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RCTTypeSafety -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNCAsyncStorage -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNFBAnalytics -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNFBApp -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNFBAuth -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNFBCrashlytics -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNFS -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNGestureHandler -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNGoogleMobileAds -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNGoogleSignin -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNPaywalls -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNPurchases -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNReanimated -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNSVG -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNScreens -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RNWorklets -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ReachabilitySwift -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-Core -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-CoreModules -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-Fabric -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-FabricComponents -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-FabricImage -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-ImageManager -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-Mapbuffer -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-NativeModulesApple -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RCTAnimation -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RCTAppDelegate -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RCTBlob -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RCTFBReactNativeSpec -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RCTFabric -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RCTImage -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RCTLinking -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RCTNetwork -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RCTRuntime -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RCTSettings -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RCTText -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RCTVibration -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RuntimeApple -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RuntimeCore -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-RuntimeHermes -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-cxxreact -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-debug -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-defaultsnativemodule -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-domnativemodule -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-featureflags -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-featureflagsnativemodule -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-graphics -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-hermes -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-idlecallbacksnativemodule -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-jserrorhandler -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-jsi -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-jsiexecutor -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-jsinspector -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-jsinspectorcdp -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-jsinspectornetwork -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-jsinspectortracing -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-jsitooling -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-logger -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-microtasksnativemodule -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-oscompat -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-perflogger -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-performancetimeline -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-rendererconsistency -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-renderercss -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-rendererdebug -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-runtimeexecutor -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-runtimescheduler -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/React-utils -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ReactAppDependencyProvider -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ReactCodegen -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ReactCommon -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RecaptchaInterop -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RevenueCat -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RevenueCatUI -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/SDWebImage -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/SDWebImageWebPCoder -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/SocketRocket -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/UMAppLoader -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/Yoga -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/ZXingObjC -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/expo-dev-launcher -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/expo-dev-menu -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/expo-dev-menu-interface -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/fmt -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/glog -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/libwebp -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/lottie-ios -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/lottie-react-native -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/nanopb -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/onnxruntime-react-native -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/react-native-google-maps -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/react-native-keyboard-controller -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/react-native-maps -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/react-native-safe-area-context -F/Volumes/devssd/Projects/radar_tinder/ios/Pods/FirebaseAnalytics/Frameworks -F/Volumes/devssd/Projects/radar_tinder/ios/Pods/Google-Mobile-Ads-SDK/Frameworks/GoogleMobileAdsFramework -F/Volumes/devssd/Projects/radar_tinder/ios/Pods/GoogleAppMeasurement/Frameworks -F/Volumes/devssd/Projects/radar_tinder/ios/Pods/GoogleMaps/Base/Frameworks -F/Volumes/devssd/Projects/radar_tinder/ios/Pods/GoogleMaps/Maps/Frameworks -F/Volumes/devssd/Projects/radar_tinder/ios/Pods/GoogleUserMessagingPlatform/Frameworks/Release -F/Volumes/devssd/Projects/radar_tinder/ios/Pods/hermes-engine/destroot/Library/Frameworks/universal -F/Volumes/devssd/Projects/radar_tinder/ios/Pods/onnxruntime-c -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/XCFrameworkIntermediates/FirebaseAnalytics/Core -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/XCFrameworkIntermediates/FirebaseAnalytics/IdentitySupport -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/XCFrameworkIntermediates/Google-Mobile-Ads-SDK -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/XCFrameworkIntermediates/GoogleAppMeasurement/Core -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/XCFrameworkIntermediates/GoogleAppMeasurement/IdentitySupport -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/XCFrameworkIntermediates/GoogleMaps/Base -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/XCFrameworkIntermediates/GoogleMaps/Maps -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/XCFrameworkIntermediates/GoogleUserMessagingPlatform -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/XCFrameworkIntermediates/hermes-engine/Pre-built -F/Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/XCFrameworkIntermediates/onnxruntime-c -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.2.sdk/Developer/Library/Frameworks -filelist /Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Intermediates.noindex/RadarTinder.build/Debug-iphoneos/RadarTinderUITests.build/Objects-normal/arm64/RadarTinderUITests.LinkFileList -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @loader_path/Frameworks -dead_strip -Xlinker -object_path_lto -Xlinker /Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Intermediates.noindex/RadarTinder.build/Debug-iphoneos/RadarTinderUITests.build/Objects-normal/arm64/RadarTinderUITests_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Intermediates.noindex/RadarTinder.build/Debug-iphoneos/RadarTinderUITests.build/Objects-normal/arm64/RadarTinderUITests_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphoneos -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Intermediates.noindex/RadarTinder.build/Debug-iphoneos/RadarTinderUITests.build/Objects-normal/arm64/RadarTinderUITests.swiftmodule -ObjC -lc++ -lc++abi -licucore -lsqlite3 -lz -framework AVFoundation -framework Accelerate -framework AudioToolbox -framework CFNetwork -framework Contacts -framework CoreData -framework CoreGraphics -framework CoreImage -framework CoreLocation -framework CoreMedia -framework CoreTelephony -framework CoreText -framework CoreVideo -framework Foundation -framework GLKit -framework ImageIO -framework JavaScriptCore -framework LocalAuthentication -framework MediaPlayer -framework MessageUI -framework Metal -framework MobileCoreServices -framework Network -framework OpenGLES -framework QuartzCore -framework SafariServices -framework Security -framework StoreKit -framework SwiftUI -framework SystemConfiguration -framework UIKit -framework WebKit -framework hermes -Xlinker -needed_framework -Xlinker XCTest -framework XCTest -Xlinker -needed-lXCTestSwiftSupport -lXCTestSwiftSupport -framework Pods_RadarTinderUITests -Xlinker -no_adhoc_codesign -o /Volumes/devssd/BuildCache/RadarTinder-dxkptnsncukpeeeoowouyrpiehhy/Build/Products/Debug-iphoneos/RadarTinderUITests-Runner.app/PlugIns/RadarTinderUITests.xctest/RadarTinderUITests
+
+ld: warning: Could not find or use auto-linked framework 'CoreAudioTypes': framework 'CoreAudioTypes' not found
+ld: warning: Could not find or use auto-linked framework 'UIUtilities': framework 'UIUtilities' not found
+ld: warning: Could not parse or use implicit file '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/SwiftUICore.framework/SwiftUICore.tbd': cannot link directly with 'SwiftUICore' because product being built is not an allowed client of it
+Undefined symbols for architecture arm64:
+  "_OBJC_CLASS_$_RCTBundleAssetImageLoader", referenced from:
+       in React_RCTAppDelegate[4](RCTAppSetupUtils.o)
+  "_OBJC_CLASS_$_RCTColorSpaceUtils", referenced from:
+       in React_RCTAppDelegate[6](RCTReactNativeFactory.o)
+  "_OBJC_CLASS_$_RCTComponentViewFactory", referenced from:
+       in ExpoModulesCore[21](EXNativeModulesProxy.o)
+  "_OBJC_CLASS_$_RCTDataRequestHandler", referenced from:
+       in React_RCTAppDelegate[4](RCTAppSetupUtils.o)
+  "_OBJC_CLASS_$_RCTDevMenu", referenced from:
+       in EXDevLauncher[4](EXDevLauncherController.o)
+  "_OBJC_CLASS_$_RCTDevSettings", referenced from:
+      _OBJC_CLASS_$_EXDevLauncherRCTDevSettings in EXDevLauncher[9](EXDevLauncherRCTDevSettings.o)
+       in EXDevMenu[11](DevMenuDevOptionsDelegate.o)
+  "_OBJC_CLASS_$_RCTEventDispatcher", referenced from:
+       in EXDevMenu[16](DevMenuManager.o)
+  "_OBJC_CLASS_$_RCTFabricSurface", referenced from:
+       in React_RCTAppDelegate[4](RCTAppSetupUtils.o)
+  "_OBJC_CLASS_$_RCTFileRequestHandler", referenced from:
+       in React_RCTAppDelegate[4](RCTAppSetupUtils.o)
+  "_OBJC_CLASS_$_RCTGIFImageDecoder", referenced from:
+       in React_RCTAppDelegate[4](RCTAppSetupUtils.o)
+  "_OBJC_CLASS_$_RCTHTTPRequestHandler", referenced from:
+       in React_RCTAppDelegate[4](RCTAppSetupUtils.o)
+  "_OBJC_CLASS_$_RCTHost", referenced from:
+       in React_RCTAppDelegate[7](RCTRootViewFactory.o)
+  "_OBJC_CLASS_$_RCTImageLoader", referenced from:
+       in React_RCTAppDelegate[4](RCTAppSetupUtils.o)
+  "_OBJC_CLASS_$_RCTLogBox", referenced from:
+       in EXDevLauncher[38](EXDevLauncherRedBoxInterceptor.o)
+  "_OBJC_CLASS_$_RCTModuleProviders", referenced from:
+       in ReactAppDependencyProvider[3](RCTAppDependencyProvider.o)
+  "_OBJC_CLASS_$_RCTModulesConformingToProtocolsProvider", referenced from:
+       in ReactAppDependencyProvider[3](RCTAppDependencyProvider.o)
+  "_OBJC_CLASS_$_RCTNetworking", referenced from:
+       in React_RCTAppDelegate[4](RCTAppSetupUtils.o)
+  "_OBJC_CLASS_$_RCTPerfMonitor", referenced from:
+       in EXDevMenu[11](DevMenuDevOptionsDelegate.o)
+  "_OBJC_CLASS_$_RCTRedBox", referenced from:
+       in EXDevLauncher[38](EXDevLauncherRedBoxInterceptor.o)
+  "_OBJC_CLASS_$_RCTSurfacePresenterBridgeAdapter", referenced from:
+       in React_RCTAppDelegate[7](RCTRootViewFactory.o)
+  "_OBJC_CLASS_$_RCTThirdPartyComponentsProvider", referenced from:
+       in ReactAppDependencyProvider[3](RCTAppDependencyProvider.o)
+  "_OBJC_CLASS_$_RCTTurboModuleManager", referenced from:
+       in React_RCTAppDelegate[7](RCTRootViewFactory.o)
+  "_OBJC_CLASS_$_RCTUnstableModulesRequiringMainQueueSetupProvider", referenced from:
+       in ReactAppDependencyProvider[3](RCTAppDependencyProvider.o)
+  "_OBJC_CLASS_$_RCTViewComponentView", referenced from:
+      _OBJC_CLASS_$_ExpoFabricViewObjC in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "_OBJC_CLASS_$_SRWebSocket", referenced from:
+       in React[26](RCTCxxInspectorWebSocketAdapter.o)
+  "_OBJC_IVAR_$_RCTViewComponentView._eventEmitter", referenced from:
+      -[ExpoFabricViewObjC dispatchEvent:payload:] in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "_OBJC_IVAR_$_RCTViewComponentView._props", referenced from:
+      -[ExpoFabricViewObjC initWithFrame:] in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      -[ExpoFabricViewObjC finalizeUpdates:] in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "_OBJC_METACLASS_$_RCTDevSettings", referenced from:
+      _OBJC_METACLASS_$_EXDevLauncherRCTDevSettings in EXDevLauncher[9](EXDevLauncherRCTDevSettings.o)
+  "_OBJC_METACLASS_$_RCTViewComponentView", referenced from:
+      _OBJC_METACLASS_$_ExpoFabricViewObjC in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "_RCTCoreModulesClassProvider", referenced from:
+      -[RCTReactNativeFactory getModuleClassFromName:] in React_RCTAppDelegate[6](RCTReactNativeFactory.o)
+  "_RCTOverrideAppearancePreference", referenced from:
+      -[EXDevLauncherController _applyUserInterfaceStyle:] in EXDevLauncher[4](EXDevLauncherController.o)
+  "_WebPConfigInitInternal", referenced from:
+      _WebPConfigPreset in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPDecode", referenced from:
+      -[SDImageWebPCoder sd_createWebpImageWithData:colorSpace:scaledSize:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPDemuxDelete", referenced from:
+      -[SDImageWebPCoder dealloc] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder updateIncrementalData:finished:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder initWithAnimatedImageData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      ...
+  "_WebPDemuxGetChunk", referenced from:
+      -[SDImageWebPCoder sd_createColorSpaceWithDemuxer:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPDemuxGetFrame", referenced from:
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder scanAndCheckFramesValidWithDemuxer:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder safeStaticImageFrame] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder safeAnimatedImageFrameAtIndex:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder safeAnimatedImageFrameAtIndex:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder safeAnimatedImageFrameAtIndex:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPDemuxGetI", referenced from:
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder sd_blendWebpImageWithCanvas:demuxer:iterator:colorSpace:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder sd_drawnWebpImageWithCanvas:demuxer:iterator:colorSpace:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      ...
+  "_WebPDemuxInternal", referenced from:
+      _WebPDemux in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      _WebPDemuxPartial in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPDemuxNextFrame", referenced from:
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder scanAndCheckFramesValidWithDemuxer:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder safeAnimatedImageFrameAtIndex:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPDemuxReleaseChunkIterator", referenced from:
+      -[SDImageWebPCoder sd_createColorSpaceWithDemuxer:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPDemuxReleaseIterator", referenced from:
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder decodedImageWithData:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder scanAndCheckFramesValidWithDemuxer:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder scanAndCheckFramesValidWithDemuxer:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder safeStaticImageFrame] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder safeStaticImageFrame] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      ...
+  "_WebPEncode", referenced from:
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPFree", referenced from:
+      _FreeImageData in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      _WebPDataClear in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPGetFeaturesInternal", referenced from:
+      _WebPGetFeatures in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPIDecGetRGB", referenced from:
+      -[SDImageWebPCoder incrementalDecodedImageWithOptions:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPIDelete", referenced from:
+      -[SDImageWebPCoder dealloc] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPINewRGB", referenced from:
+      -[SDImageWebPCoder initIncrementalWithOptions:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPIUpdate", referenced from:
+      -[SDImageWebPCoder updateIncrementalData:finished:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPInitDecoderConfigInternal", referenced from:
+      _WebPInitDecoderConfig in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPMalloc", referenced from:
+      -[SDImageWebPCoder sd_createWebpImageWithData:colorSpace:scaledSize:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPMemoryWrite", referenced from:
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPMemoryWriterClear", referenced from:
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPMemoryWriterInit", referenced from:
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPMuxAssemble", referenced from:
+      -[SDImageWebPCoder encodedDataWithFrames:loopCount:format:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPMuxDelete", referenced from:
+      -[SDImageWebPCoder encodedDataWithFrames:loopCount:format:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder encodedDataWithFrames:loopCount:format:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder encodedDataWithFrames:loopCount:format:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPMuxPushFrame", referenced from:
+      -[SDImageWebPCoder encodedDataWithFrames:loopCount:format:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPMuxSetAnimationParams", referenced from:
+      -[SDImageWebPCoder encodedDataWithFrames:loopCount:format:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPMuxSetChunk", referenced from:
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPMuxSetImage", referenced from:
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPNewInternal", referenced from:
+      _WebPMuxNew in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPPictureFree", referenced from:
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPPictureImportRGB", referenced from:
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPPictureImportRGBA", referenced from:
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPPictureInitInternal", referenced from:
+      _WebPPictureInit in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "_WebPPictureRescale", referenced from:
+      -[SDImageWebPCoder sd_encodedWebpDataWithImage:orientation:quality:maxPixelSize:maxFileSize:options:] in SDWebImageWebPCoder[3](SDImageWebPCoder.o)
+  "RCTRuntimeExecutorFromBridge(RCTBridge*)", referenced from:
+      -[RCTRootViewFactory jsExecutorFactoryForBridge:] in React_RCTAppDelegate[7](RCTRootViewFactory.o)
+  "folly::toJson(folly::dynamic const&)", referenced from:
+      facebook::react::(anonymous namespace)::RCTObjcExecutor::RCTObjcExecutor(id<RCTJavaScriptExecutor>, void (NSError*) block_pointer, std::__1::shared_ptr<facebook::react::MessageQueueThread>, std::__1<facebook::react::ExecutorDelegate>) in React[68](RCTObjcExecutor.o)
+  "folly::dynamic::destroy()", referenced from:
+      folly::dynamic::~dynamic() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "folly::dynamic::TypeInfo<folly::dynamic::ObjectImpl>::name", referenced from:
+      folly::dynamic::ObjectImpl& folly::dynamic::get<folly::dynamic::ObjectImpl>() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "folly::dynamic::TypeInfo<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>>::name", referenced from:
+      std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>& folly::dynamic::get<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>>() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "folly::dynamic::TypeInfo<std::__1::vector<folly::dynamic, std::__1::allocator<folly::dynamic>>>::name", referenced from:
+      std::__1::vector<folly::dynamic, std::__1::allocator<folly::dynamic>>& folly::dynamic::get<std::__1::vector<folly::dynamic, std::__1::allocator<folly::dynamic>>>() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "folly::dynamic::TypeInfo<bool>::name", referenced from:
+      bool& folly::dynamic::get<bool>() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "folly::dynamic::TypeInfo<double>::name", referenced from:
+      double& folly::dynamic::get<double>() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "folly::dynamic::TypeInfo<long long>::name", referenced from:
+      long long& folly::dynamic::get<long long>() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "folly::dynamic::dynamic(folly::dynamic&&)", referenced from:
+      folly::dynamic folly::dynamic::array<folly::dynamic>(folly::dynamic&&) in React[22](RCTCxxBridge.o)
+      -[RCTCxxMethod invokeWithBridge:module:arguments:] in React[27](RCTCxxMethod.o)
+      -[RCTCxxMethod invokeWithBridge:module:arguments:] in React[27](RCTCxxMethod.o)
+      folly::dynamic* std::__1::construct_at[abi:de200100]<folly::dynamic, folly::dynamic, folly::dynamic*>(folly::dynamic*, folly::dynamic&&) in React[27](RCTCxxMethod.o)
+      facebook::react::RCTNativeModule::invoke(unsigned int, folly::dynamic&&, int) in React[67](RCTNativeModule.o)
+      std::__1::__optional_destruct_base<folly::dynamic, false>::__optional_destruct_base[abi:de200100]<folly::dynamic>(std::__1::in_place_t, folly::dynamic&&) in React[67](RCTNativeModule.o)
+      facebook::react::(anonymous namespace)::RCTObjcExecutor::RCTObjcExecutor(id<RCTJavaScriptExecutor>, void (NSError*) block_pointer, std::__1::shared_ptr<facebook::react::MessageQueueThread>, std::__1<facebook::react::ExecutorDelegate>) in React[68](RCTObjcExecutor.o)
+      ...
+  "folly::dynamic::dynamic(folly::dynamic const&)", referenced from:
+      std::__1::__variant_detail::__alt<0ul, folly::dynamic>::__alt[abi:de200100]<folly::dynamic const&>(std::__1::in_place_t, folly::dynamic const&) in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      expo::propsMapFromProps(expo::ExpoViewProps const&, facebook::react::RawProps const&) in ExpoModulesCore[30](ExpoViewProps.o)
+      std::__1::pair<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const, folly::dynamic>::pair[abi:de200100](std::__1::pair<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const, folly::dynamic> const&) in ExpoModulesCore[30](ExpoViewProps.o)
+      folly::dynamic* std::__1::construct_at[abi:de200100]<folly::dynamic, folly::dynamic const&, folly::dynamic*>(folly::dynamic*, folly::dynamic const&) in React[22](RCTCxxBridge.o)
+      facebook::react::RCTNativeModule::invoke(unsigned int, folly::dynamic&&, int)::$_0::$_0($_0 const&) in React[67](RCTNativeModule.o)
+      facebook::react::(anonymous namespace)::RCTObjcExecutor::RCTObjcExecutor(id<RCTJavaScriptExecutor>, void (NSError*) block_pointer, std::__1::shared_ptr<facebook::react::MessageQueueThread>, std::__1<facebook::react::ExecutorDelegate>) in React[68](RCTObjcExecutor.o)
+  "folly::dynamic::operator=(folly::dynamic&&)", referenced from:
+      expo::propsMapFromProps(expo::ExpoViewProps const&, facebook::react::RawProps const&) in ExpoModulesCore[30](ExpoViewProps.o)
+      std::__1::enable_if<!std::is_convertible<folly::dynamic, std::__1::__wrap_iter<folly::dynamic*>>::value, void>::type folly::dynamic::insert<folly::dynamic, folly::dynamic>(folly::dynamic&&, folly::dynamic&&) in React[68](RCTObjcExecutor.o)
+  "folly::TypeError::TypeError(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&, folly::dynamic::Type)", referenced from:
+      void folly::detail::throw_exception_<folly::TypeError, char const*, folly::dynamic::Type>(char const*, folly::dynamic::Type) in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "folly::operator==(folly::dynamic const&, folly::dynamic const&)", referenced from:
+      std::__1::equal_to<folly::dynamic>::operator()[abi:de200100](folly::dynamic const&, folly::dynamic const&) const in React[68](RCTObjcExecutor.o)
+  "google::LogMessage::stream()", referenced from:
+      facebook::react::ConcreteState<expo::ExpoViewState>::updateState(std::__1::function<std::__1::shared_ptr<void const> (expo::ExpoViewState const&)>) const::'lambda'(std::__1::shared_ptr<void const> const&)::operator()(std::__1::shared_ptr<void const> const&) const in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState>::getStateData() const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::createState(facebook::react::ShadowNodeFamily const&, std::__1::shared_ptr<void const> const&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState>::getConcreteProps() const in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      facebook::react::DispatchMessageQueueThread::runOnQueueSync(std::__1::function<void ()>&&) in React[29](RCTCxxUtils.o)
+      ...
+  "google::LogMessage::LogMessage(char const*, int, int)", referenced from:
+      facebook::react::ConcreteState<expo::ExpoViewState>::updateState(std::__1::function<std::__1::shared_ptr<void const> (expo::ExpoViewState const&)>) const::'lambda'(std::__1::shared_ptr<void const> const&)::operator()(std::__1::shared_ptr<void const> const&) const in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState>::getStateData() const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::createState(facebook::react::ShadowNodeFamily const&, std::__1::shared_ptr<void const> const&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState>::getConcreteProps() const in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "google::LogMessage::~LogMessage()", referenced from:
+      facebook::react::ConcreteState<expo::ExpoViewState>::updateState(std::__1::function<std::__1::shared_ptr<void const> (expo::ExpoViewState const&)>) const::'lambda'(std::__1::shared_ptr<void const> const&)::operator()(std::__1::shared_ptr<void const> const&) const in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      facebook::react::ConcreteState<expo::ExpoViewState>::updateState(std::__1::function<std::__1::shared_ptr<void const> (expo::ExpoViewState const&)>) const::'lambda'(std::__1::shared_ptr<void const> const&)::operator()(std::__1::shared_ptr<void const> const&) const in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState>::getStateData() const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState>::getStateData() const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      ...
+  "google::FlushLogFiles(int)", referenced from:
+      facebook::react::ConcreteState<expo::ExpoViewState>::updateState(std::__1::function<std::__1::shared_ptr<void const> (expo::ExpoViewState const&)>) const::'lambda'(std::__1::shared_ptr<void const> const&)::operator()(std::__1::shared_ptr<void const> const&) const in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState>::getStateData() const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::createState(facebook::react::ShadowNodeFamily const&, std::__1::shared_ptr<void const> const&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState>::getConcreteProps() const in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "google::LogMessageFatal::LogMessageFatal(char const*, int)", referenced from:
+      facebook::react::DispatchMessageQueueThread::runOnQueueSync(std::__1::function<void ()>&&) in React[29](RCTCxxUtils.o)
+      facebook::react::DispatchMessageQueueThread::quitSynchronous() in React[29](RCTCxxUtils.o)
+  "google::LogMessageFatal::~LogMessageFatal()", referenced from:
+      facebook::react::DispatchMessageQueueThread::runOnQueueSync(std::__1::function<void ()>&&) in React[29](RCTCxxUtils.o)
+      facebook::react::DispatchMessageQueueThread::runOnQueueSync(std::__1::function<void ()>&&) in React[29](RCTCxxUtils.o)
+      facebook::react::DispatchMessageQueueThread::quitSynchronous() in React[29](RCTCxxUtils.o)
+      facebook::react::DispatchMessageQueueThread::quitSynchronous() in React[29](RCTCxxUtils.o)
+  "facebook::react::JSExecutor::getRuntimeTargetDelegate()", referenced from:
+      vtable for facebook::react::(anonymous namespace)::RCTObjcExecutor in React[68](RCTObjcExecutor.o)
+  "facebook::react::EventTarget::EventTarget(std::__1::shared_ptr<facebook::react::InstanceHandle const>, int)", referenced from:
+      facebook::react::EventTarget* std::__1::construct_at[abi:de200100]<facebook::react::EventTarget, std::__1::shared_ptr<facebook::react::InstanceHandle const> const&, int const&, facebook::react::EventTarget*>(facebook::react::EventTarget*, std::__1::shared_ptr<facebook::react::InstanceHandle const> const&, int const&) in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::ReactMarker::logMarkerDone(facebook::react::ReactMarker::ReactMarkerId, double)", referenced from:
+      -[RCTPerformanceLogger markStartForTag:] in React[73](RCTPerformanceLogger.o)
+      -[RCTPerformanceLogger markStopForTag:] in React[73](RCTPerformanceLogger.o)
+  "facebook::react::ReactMarker::logTaggedMarkerImpl", referenced from:
+      registerPerformanceLoggerHooks(RCTPerformanceLogger*) in React[22](RCTCxxBridge.o)
+  "facebook::react::ReactMarker::logTaggedMarkerImplMutex", referenced from:
+      registerPerformanceLoggerHooks(RCTPerformanceLogger*) in React[22](RCTCxxBridge.o)
+  "facebook::react::EventEmitter::EventEmitter(std::__1::shared_ptr<facebook::react::EventTarget const>, std::__1::weak_ptr<facebook::react::EventDispatcher const>)", referenced from:
+      facebook::react::TouchEventEmitter::TouchEventEmitter(std::__1::shared_ptr<facebook::react::EventTarget const>, std::__1::weak_ptr<facebook::react::EventDispatcher const>) in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::BaseViewProps::setProp(facebook::react::PropsParserContext const&, unsigned int, char const*, facebook::react::RawValue const&)", referenced from:
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::cloneProps(facebook::react::PropsParserContext const&, std::__1::shared_ptr<facebook::react::Props const> const&, facebook::react::RawProps) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::BaseViewProps::BaseViewProps(facebook::react::PropsParserContext const&, facebook::react::BaseViewProps const&, facebook::react::RawProps const&, std::__1::function<bool (std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&)> const&)", referenced from:
+      expo::ExpoViewProps::ExpoViewProps(facebook::react::PropsParserContext const&, expo::ExpoViewProps const&, facebook::react::RawProps const&) in ExpoModulesCore[30](ExpoViewProps.o)
+      expo::ExpoViewProps::ExpoViewProps(facebook::react::PropsParserContext const&, expo::ExpoViewProps const&, facebook::react::RawProps const&) in ExpoModulesCore[30](ExpoViewProps.o)
+  "facebook::react::ModuleRegistry::moduleNames()", referenced from:
+      facebook::react::(anonymous namespace)::RCTObjcExecutor::RCTObjcExecutor(id<RCTJavaScriptExecutor>, void (NSError*) block_pointer, std::__1::shared_ptr<facebook::react::MessageQueueThread>, std::__1<facebook::react::ExecutorDelegate>) in React[68](RCTObjcExecutor.o)
+  "facebook::react::ModuleRegistry::registerModules(std::__1::vector<std::__1::unique_ptr<facebook::react::NativeModule, std::__1::default_delete<facebook::react::NativeModule>>, std::__1::allocator<std::__1::unique_ptr<facebook::react::NativeModule, std::__1::default_delete<facebook::react::NativeModule>>>>)", referenced from:
+      -[RCTCxxBridge registerAdditionalModuleClasses:] in React[22](RCTCxxBridge.o)
+  "facebook::react::ModuleRegistry::getConfig(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&)", referenced from:
+      facebook::react::(anonymous namespace)::RCTObjcExecutor::RCTObjcExecutor(id<RCTJavaScriptExecutor>, void (NSError*) block_pointer, std::__1::shared_ptr<facebook::react::MessageQueueThread>, std::__1<facebook::react::ExecutorDelegate>) in React[68](RCTObjcExecutor.o)
+  "facebook::react::ModuleRegistry::ModuleRegistry(std::__1::vector<std::__1::unique_ptr<facebook::react::NativeModule, std::__1::default_delete<facebook::react::NativeModule>>, std::__1::allocator<std::__1::unique_ptr<facebook::react::NativeModule, std::__1::default_delete<facebook::react::NativeModule>>>>, std::__1::function<bool (std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&)>)", referenced from:
+      facebook::react::ModuleRegistry* std::__1::construct_at[abi:de200100]<facebook::react::ModuleRegistry, std::__1::vector<std::__1::unique_ptr<facebook::react::NativeModule, std::__1::default_delete<facebook::react::NativeModule>>, std::__1::allocator<std::__1::unique_ptr<facebook::react::NativeModule, std::__1::default_delete<facebook::react::NativeModule>>>>, std::__1::function<bool (std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&)>&, facebook::react::ModuleRegistry*>(facebook::react::ModuleRegistry*, std::__1::vector<std::__1::unique_ptr<facebook::react::NativeModule, std::__1::default_delete<facebook::react::NativeModule>>, std::__1::allocator<std::__1::unique_ptr<facebook::react::NativeModule, std::__1::default_delete<facebook::react::NativeModule>>>>&&, std::__1::function<bool (std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&)>&) in React[22](RCTCxxBridge.o)
+  "facebook::react::RawPropsParser::postPrepare()", referenced from:
+      void facebook::react::RawPropsParser::prepare<expo::ExpoViewProps>() in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::LongLivedObject::allowRelease()", referenced from:
+      vtable for facebook::react::CallbackWrapper in ExpoModulesCore[13](EXJSIConversions.o)
+  "facebook::react::RuntimeScheduler::handleTaskErrorDefault(facebook::jsi::Runtime&, facebook::jsi::JSError&)", referenced from:
+      facebook::react::RuntimeScheduler* std::__1::construct_at[abi:de200100]<facebook::react::RuntimeScheduler, std::__1::function<void (std::__1::function<void (facebook::jsi::Runtime&)>&&)>, facebook::react::RuntimeScheduler*>(facebook::react::RuntimeScheduler*, std::__1::function<void (std::__1::function<void (facebook::jsi::Runtime&)>&&)>&&) in React_RCTAppDelegate[7](RCTRootViewFactory.o)
+  "facebook::react::RuntimeScheduler::RuntimeScheduler(std::__1::function<void (std::__1::function<void (facebook::jsi::Runtime&)>&&)>, std::__1::function<facebook::react::HighResTimeStamp ()>, std::__1::function<void (facebook::jsi::Runtime&, facebook::jsi::JSError&)>)", referenced from:
+      facebook::react::RuntimeScheduler* std::__1::construct_at[abi:de200100]<facebook::react::RuntimeScheduler, std::__1::function<void (std::__1::function<void (facebook::jsi::Runtime&)>&&)>, facebook::react::RuntimeScheduler*>(facebook::react::RuntimeScheduler*, std::__1::function<void (std::__1::function<void (facebook::jsi::Runtime&)>&&)>&&) in React_RCTAppDelegate[7](RCTRootViewFactory.o)
+  "facebook::react::ShadowNodeFamily::ShadowNodeFamily(facebook::react::ShadowNodeFamilyFragment const&, std::__1::shared_ptr<facebook::react::EventEmitter const>, std::__1::weak_ptr<facebook::react::EventDispatcher const>, facebook::react::ComponentDescriptor const&)", referenced from:
+      facebook::react::ShadowNodeFamily* std::__1::construct_at[abi:de200100]<facebook::react::ShadowNodeFamily, facebook::react::ShadowNodeFamilyFragment const&, std::__1::shared_ptr<expo::ExpoViewEventEmitter const>&, std::__1::weak_ptr<facebook::react::EventDispatcher const> const&, facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode> const&, facebook::react::ShadowNodeFamily*>(facebook::react::ShadowNodeFamily*, facebook::react::ShadowNodeFamilyFragment const&, std::__1::shared_ptr<expo::ExpoViewEventEmitter const>&, std::__1::weak_ptr<facebook::react::EventDispatcher const> const&, facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode> const&) in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::ShadowNodeFamily::~ShadowNodeFamily()", referenced from:
+      void std::__1::__destroy_at[abi:de200100]<facebook::react::ShadowNodeFamily, 0>(facebook::react::ShadowNodeFamily*) in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::bindNativeLogger(facebook::jsi::Runtime&, std::__1::function<void (std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&, unsigned int)>)", referenced from:
+      facebook::react::RCTJSIExecutorRuntimeInstaller(std::__1::function<void (facebook::jsi::Runtime&)>)::$_0::operator()(facebook::jsi::Runtime&) const in React[47](RCTJSIExecutorRuntimeInstaller.o)
+  "facebook::react::RAMBundleRegistry::multipleBundlesRegistry(std::__1::unique_ptr<facebook::react::JSModulesUnbundle, std::__1::default_delete<facebook::react::JSModulesUnbundle>>, std::__1::function<std::__1::unique_ptr<facebook::react::JSModulesUnbundle, std::__1::default_delete<facebook::react::JSModulesUnbundle>> (std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>)>)", referenced from:
+      ___51-[RCTCxxBridge executeApplicationScript:url:async:]_block_invoke in React[22](RCTCxxBridge.o)
+  "facebook::react::JSIndexedRAMBundle::buildFactory()", referenced from:
+      ___51-[RCTCxxBridge executeApplicationScript:url:async:]_block_invoke in React[22](RCTCxxBridge.o)
+  "facebook::react::JSIndexedRAMBundle::getStartupCode()", referenced from:
+      ___51-[RCTCxxBridge executeApplicationScript:url:async:]_block_invoke in React[22](RCTCxxBridge.o)
+  "facebook::react::JSIndexedRAMBundle::JSIndexedRAMBundle(char const*)", referenced from:
+      std::__1::unique_ptr<facebook::react::JSIndexedRAMBundle, std::__1::default_delete<facebook::react::JSIndexedRAMBundle>> std::__1::make_unique[abi:de200100]<facebook::react::JSIndexedRAMBundle, char const*, 0>(char const*&&) in React[22](RCTCxxBridge.o)
+  "facebook::react::jsinspector_modern::HostTarget::sendCommand(facebook::react::jsinspector_modern::HostCommand)", referenced from:
+      ____ZN27RCTBridgeHostTargetDelegate28onSetPausedInDebuggerMessageERKN8facebook5react18jsinspector_modern18HostTargetDelegate40OverlaySetPausedInDebuggerMessageRequestE_block_invoke in React[8](RCTBridge.o)
+  "facebook::react::jsinspector_modern::HostTarget::create(facebook::react::jsinspector_modern::HostTargetDelegate&, std::__1::function<void (std::__1::function<void ()>&&)>)", referenced from:
+      -[RCTBridge setUp] in React[8](RCTBridge.o)
+  "facebook::react::jsinspector_modern::HostTarget::connect(std::__1::unique_ptr<facebook::react::jsinspector_modern::IRemoteConnection, std::__1::default_delete<facebook::react::jsinspector_modern::IRemoteConnection>>)", referenced from:
+      -[RCTBridge setUp]::$_1::operator()(std::__1::unique_ptr<facebook::react::jsinspector_modern::IRemoteConnection, std::__1::default_delete<facebook::react::jsinspector_modern::IRemoteConnection>>) const in React[8](RCTBridge.o)
+  "facebook::react::jsinspector_modern::InspectorFlags::getInstance()", referenced from:
+      -[RCTBridge didReceiveReloadCommand] in React[8](RCTBridge.o)
+      -[RCTBridge setUp] in React[8](RCTBridge.o)
+      +[RCTBundleURLProvider jsBundleURLForBundleRoot:packagerHost:packagerScheme:enableDev:enableMinification:inlineSourceMap:modulesOnly:runModule:additionalOptions:] in React[13](RCTBundleURLProvider.o)
+      getInspectorDeviceId() in React[43](RCTInspectorDevServerHelper.o)
+      +[RCTInspectorDevServerHelper disableDebugger] in React[43](RCTInspectorDevServerHelper.o)
+      getInspectorDeviceUrl(NSURL*) in React[43](RCTInspectorDevServerHelper.o)
+  "facebook::react::jsinspector_modern::HostTargetDelegate::~HostTargetDelegate()", referenced from:
+      RCTBridgeHostTargetDelegate::RCTBridgeHostTargetDelegate(RCTBridge*) in React[8](RCTBridge.o)
+      RCTBridgeHostTargetDelegate::~RCTBridgeHostTargetDelegate() in React[8](RCTBridge.o)
+  "facebook::react::jsinspector_modern::getInspectorInstance()", referenced from:
+      ___20-[RCTBridge dealloc]_block_invoke in React[8](RCTBridge.o)
+      -[RCTBridge setUp] in React[8](RCTBridge.o)
+  "facebook::react::jsinspector_modern::InstanceTargetDelegate::~InstanceTargetDelegate()", referenced from:
+      facebook::react::Instance::Instance() in React[22](RCTCxxBridge.o)
+  "facebook::react::jsinspector_modern::InspectorPackagerConnection::closeQuietly()", referenced from:
+      -[RCTCxxInspectorPackagerConnection closeQuietly] in React[24](RCTCxxInspectorPackagerConnection.o)
+  "facebook::react::jsinspector_modern::InspectorPackagerConnection::sendEventToAllConnections(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>)", referenced from:
+      -[RCTCxxInspectorPackagerConnection sendEventToAllConnections:] in React[24](RCTCxxInspectorPackagerConnection.o)
+  "facebook::react::jsinspector_modern::InspectorPackagerConnection::connect()", referenced from:
+      -[RCTCxxInspectorPackagerConnection connect] in React[24](RCTCxxInspectorPackagerConnection.o)
+  "facebook::react::jsinspector_modern::InspectorPackagerConnection::InspectorPackagerConnection(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, std::__1::unique_ptr<facebook::react::jsinspector_modern::InspectorPackagerConnectionDelegate, std::__1::default_delete<facebook::react::jsinspector_modern::InspectorPackagerConnectionDelegate>>)", referenced from:
+      std::__1::unique_ptr<facebook::react::jsinspector_modern::InspectorPackagerConnection, std::__1::default_delete<facebook::react::jsinspector_modern::InspectorPackagerConnection>> std::__1::make_unique[abi:de200100]<facebook::react::jsinspector_modern::InspectorPackagerConnection, char const*, char const*, char const*, std::__1::unique_ptr<facebook::react::jsinspector_modern::RCTCxxInspectorPackagerConnectionDelegate, std::__1::default_delete<facebook::react::jsinspector_modern::RCTCxxInspectorPackagerConnectionDelegate>>, 0>(char const*&&, char const*&&, char const*&&, std::__1::unique_ptr<facebook::react::jsinspector_modern::RCTCxxInspectorPackagerConnectionDelegate, std::__1::default_delete<facebook::react::jsinspector_modern::RCTCxxInspectorPackagerConnectionDelegate>>&&) in React[24](RCTCxxInspectorPackagerConnection.o)
+  "facebook::react::ComponentDescriptor::ComponentDescriptor(facebook::react::ComponentDescriptorParameters const&, facebook::react::RawPropsParser&&)", referenced from:
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::ConcreteComponentDescriptor(facebook::react::ComponentDescriptorParameters const&, facebook::react::RawPropsParser&&) in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::DefaultTurboModules::getTurboModule(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&, std::__1::shared_ptr<facebook::react::CallInvoker> const&)", referenced from:
+      -[RCTDefaultReactNativeFactoryDelegate getTurboModule:jsInvoker:] in React_RCTAppDelegate[5](RCTDefaultReactNativeFactoryDelegate.o)
+      -[RCTReactNativeFactory getTurboModule:jsInvoker:] in React_RCTAppDelegate[6](RCTReactNativeFactory.o)
+  "facebook::react::parseTypeFromHeader(facebook::react::BundleHeader const&)", referenced from:
+      ___51-[RCTCxxBridge executeApplicationScript:url:async:]_block_invoke in React[22](RCTCxxBridge.o)
+      +[RCTJavaScriptLoader attemptSynchronousLoadOfBundleAtURL:sourceLength:error:] in React[46](RCTJavaScriptLoader.o)
+  "facebook::react::HermesExecutorFactory::defaultRuntimeConfig()", referenced from:
+      facebook::react::HermesExecutorFactory* std::__1::construct_at[abi:de200100]<facebook::react::HermesExecutorFactory, std::__1::function<void (facebook::jsi::Runtime&)>&, facebook::react::HermesExecutorFactory*>(facebook::react::HermesExecutorFactory*, std::__1::function<void (facebook::jsi::Runtime&)>&) in React[22](RCTCxxBridge.o)
+      std::__1::unique_ptr<facebook::react::HermesExecutorFactory, std::__1::default_delete<facebook::react::HermesExecutorFactory>> std::__1::make_unique[abi:de200100]<facebook::react::HermesExecutorFactory, std::__1::function<void (facebook::jsi::Runtime&)>, 0>(std::__1::function<void (facebook::jsi::Runtime&)>&&) in React_RCTAppDelegate[4](RCTAppSetupUtils.o)
+  "facebook::react::ReactNativeFeatureFlags::useRawPropsJsiValue()", referenced from:
+      expo::ExpoViewComponentDescriptor::ExpoViewComponentDescriptor(facebook::react::ComponentDescriptorParameters const&) in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::ReactNativeFeatureFlags::enableCppPropsIteratorSetter()", referenced from:
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::cloneProps(facebook::react::PropsParserContext const&, std::__1::shared_ptr<facebook::react::Props const> const&, facebook::react::RawProps) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::ReactNativeFeatureFlags::disableMainQueueSyncDispatchIOS()", referenced from:
+      _RCTUnsafeExecuteOnMainQueueSyncWithError in React[118](RCTUtils.o)
+      RCTUnsafeExecuteOnMainQueueOnceSync(long*, void () block_pointer) in React[118](RCTUtils.o)
+  "facebook::react::ReactNativeFeatureFlags::enableMainQueueCoordinatorOnIOS()", referenced from:
+      _RCTUnsafeExecuteOnMainQueueSyncWithError in React[118](RCTUtils.o)
+      RCTUnsafeExecuteOnMainQueueOnceSync(long*, void () block_pointer) in React[118](RCTUtils.o)
+  "facebook::react::ReactNativeFeatureFlags::useNativeViewConfigsInBridgelessMode()", referenced from:
+      +[RCTComponentData viewConfigForViewMangerClass:] in React[16](RCTComponentData.o)
+      _RCTModuleConstantsForDestructuredComponent in React[115](RCTUIManager.o)
+  "facebook::react::ReactNativeFeatureFlags::override(std::__1::unique_ptr<facebook::react::ReactNativeFeatureFlagsProvider, std::__1::default_delete<facebook::react::ReactNativeFeatureFlagsProvider>>)", referenced from:
+      ___44-[RCTReactNativeFactory _setUpFeatureFlags:]_block_invoke in React_RCTAppDelegate[6](RCTReactNativeFactory.o)
+      ___44-[RCTReactNativeFactory _setUpFeatureFlags:]_block_invoke in React_RCTAppDelegate[6](RCTReactNativeFactory.o)
+      ___44-[RCTReactNativeFactory _setUpFeatureFlags:]_block_invoke in React_RCTAppDelegate[6](RCTReactNativeFactory.o)
+  "facebook::react::RuntimeSchedulerBinding::createAndInstallIfNeeded(facebook::jsi::Runtime&, std::__1::shared_ptr<facebook::react::RuntimeScheduler> const&)", referenced from:
+      RCTAppSetupDefaultJsExecutorFactory(RCTBridge*, RCTTurboModuleManager*, std::__1::shared_ptr<facebook::react::RuntimeScheduler> const&)::$_0::operator()(facebook::jsi::Runtime&) const in React_RCTAppDelegate[4](RCTAppSetupUtils.o)
+      RCTAppSetupJsExecutorFactoryForOldArch(RCTBridge*, std::__1::shared_ptr<facebook::react::RuntimeScheduler> const&)::$_0::operator()(facebook::jsi::Runtime&) const in React_RCTAppDelegate[4](RCTAppSetupUtils.o)
+  "facebook::react::convertFollyDynamicToId(folly::dynamic const&)", referenced from:
+      -[RCTCxxMethod invokeWithBridge:module:arguments:] in React[27](RCTCxxMethod.o)
+      ___50-[RCTCxxMethod invokeWithBridge:module:arguments:]_block_invoke in React[27](RCTCxxMethod.o)
+      ___50-[RCTCxxMethod invokeWithBridge:module:arguments:]_block_invoke.7 in React[27](RCTCxxMethod.o)
+      -[RCTCxxModule getConstants] in React[28](RCTCxxModule.o)
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+      facebook::react::(anonymous namespace)::RCTObjcExecutor::callFunction(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&, folly::dynamic const&) in React[68](RCTObjcExecutor.o)
+      facebook::react::(anonymous namespace)::RCTObjcExecutor::invokeCallback(double, folly::dynamic const&) in React[68](RCTObjcExecutor.o)
+      ...
+  "facebook::react::convertIdToFollyDynamic(objc_object*)", referenced from:
+      ___53-[RCTCxxBridge enqueueJSCall:method:args:completion:]_block_invoke in React[22](RCTCxxBridge.o)
+      ___37-[RCTCxxBridge enqueueCallback:args:]_block_invoke in React[22](RCTCxxBridge.o)
+      -[RCTCxxMethod invokeWithBridge:module:arguments:] in React[27](RCTCxxMethod.o)
+      facebook::react::RCTNativeModule::getConstants() in React[67](RCTNativeModule.o)
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+      facebook::react::(anonymous namespace)::RCTObjcExecutor::RCTObjcExecutor(id<RCTJavaScriptExecutor>, void (NSError*) block_pointer, std::__1::shared_ptr<facebook::react::MessageQueueThread>, std::__1<facebook::react::ExecutorDelegate>)::'block-literal'::'lambda'()::operator()() const in React[68](RCTObjcExecutor.o)
+  "facebook::react::createPromiseAsJSIValue(facebook::jsi::Runtime&, std::__1::function<void (facebook::jsi::Runtime&, std::__1::shared_ptr<facebook::react::Promise>)>&&)", referenced from:
+      ___59-[EXJavaScriptRuntime createAsyncFunction:argsCount:block:]_block_invoke in ExpoModulesCore[8](EXJavaScriptRuntime.o)
+  "facebook::react::YogaLayoutableShadowNode::layoutTree(facebook::react::LayoutContext, facebook::react::LayoutConstraints)", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::YogaLayoutableShadowNode::appendChild(std::__1::shared_ptr<facebook::react::ShadowNode const> const&)", referenced from:
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::appendChild(std::__1::shared_ptr<facebook::react::ShadowNode const> const&, std::__1::shared_ptr<facebook::react::ShadowNode const> const&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::YogaLayoutableShadowNode::dirtyLayout()", referenced from:
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::YogaLayoutableShadowNode::replaceChild(facebook::react::ShadowNode const&, std::__1::shared_ptr<facebook::react::ShadowNode const> const&, unsigned long)", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::YogaLayoutableShadowNode::completeClone(facebook::react::ShadowNode const&, facebook::react::ShadowNodeFragment const&)", referenced from:
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::cloneShadowNode(facebook::react::ShadowNode const&, facebook::react::ShadowNodeFragment const&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::YogaLayoutableShadowNode::updateYogaProps()", referenced from:
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::YogaLayoutableShadowNode::layout(facebook::react::LayoutContext)", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::YogaLayoutableShadowNode::YogaLayoutableShadowNode(facebook::react::ShadowNode const&, facebook::react::ShadowNodeFragment const&)", referenced from:
+      facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState>::ConcreteShadowNode(facebook::react::ShadowNode const&, facebook::react::ShadowNodeFragment const&) in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::YogaLayoutableShadowNode::YogaLayoutableShadowNode(facebook::react::ShadowNodeFragment const&, std::__1::shared_ptr<facebook::react::ShadowNodeFamily const> const&, facebook::react::ShadowNodeTraits)", referenced from:
+      facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState>::ConcreteShadowNode(facebook::react::ShadowNodeFragment const&, std::__1::shared_ptr<facebook::react::ShadowNodeFamily const> const&, facebook::react::ShadowNodeTraits) in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::LongLivedObjectCollection::add(std::__1::shared_ptr<facebook::react::LongLivedObject>)", referenced from:
+      facebook::react::CallbackWrapper::createWeak(facebook::jsi::Function&&, facebook::jsi::Runtime&, std::__1::shared_ptr<facebook::react::CallInvoker>) in ExpoModulesCore[13](EXJSIConversions.o)
+  "facebook::react::LongLivedObjectCollection::get(facebook::jsi::Runtime&)", referenced from:
+      facebook::react::CallbackWrapper::createWeak(facebook::jsi::Function&&, facebook::jsi::Runtime&, std::__1::shared_ptr<facebook::react::CallInvoker>) in ExpoModulesCore[13](EXJSIConversions.o)
+  "facebook::react::RuntimeSchedulerCallInvoker::RuntimeSchedulerCallInvoker(std::__1::weak_ptr<facebook::react::RuntimeScheduler>)", referenced from:
+      facebook::react::RuntimeSchedulerCallInvoker* std::__1::construct_at[abi:de200100]<facebook::react::RuntimeSchedulerCallInvoker, std::__1::shared_ptr<facebook::react::RuntimeScheduler>&, facebook::react::RuntimeSchedulerCallInvoker*>(facebook::react::RuntimeSchedulerCallInvoker*, std::__1::shared_ptr<facebook::react::RuntimeScheduler>&) in React_RCTAppDelegate[7](RCTRootViewFactory.o)
+  "facebook::react::BridgeNativeModulePerfLogger::moduleCreateEnd(char const*, int)", referenced from:
+      -[RCTModuleData instance] in React[62](RCTModuleData.o)
+  "facebook::react::BridgeNativeModulePerfLogger::moduleCreateFail(char const*, int)", referenced from:
+      -[RCTModuleData instance] in React[62](RCTModuleData.o)
+  "facebook::react::BridgeNativeModulePerfLogger::moduleCreateStart(char const*, int)", referenced from:
+      -[RCTModuleData instance] in React[62](RCTModuleData.o)
+  "facebook::react::BridgeNativeModulePerfLogger::syncMethodCallEnd(char const*, char const*)", referenced from:
+      facebook::react::RCTNativeModule::invoke(unsigned int, folly::dynamic&&, int) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::asyncMethodCallEnd(char const*, char const*)", referenced from:
+      facebook::react::RCTNativeModule::invoke(unsigned int, folly::dynamic&&, int) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::syncMethodCallFail(char const*, char const*)", referenced from:
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::moduleDataCreateEnd(char const*, int)", referenced from:
+      -[RCTCxxBridge _registerModulesForClasses:lazilyDiscovered:] in React[22](RCTCxxBridge.o)
+      -[RCTCxxBridge registerExtraModules] in React[22](RCTCxxBridge.o)
+  "facebook::react::BridgeNativeModulePerfLogger::syncMethodCallStart(char const*, char const*)", referenced from:
+      facebook::react::RCTNativeModule::invoke(unsigned int, folly::dynamic&&, int) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::asyncMethodCallStart(char const*, char const*)", referenced from:
+      facebook::react::RCTNativeModule::invoke(unsigned int, folly::dynamic&&, int) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::moduleCreateCacheHit(char const*, int)", referenced from:
+      -[RCTModuleData instance] in React[62](RCTModuleData.o)
+  "facebook::react::BridgeNativeModulePerfLogger::moduleCreateSetUpEnd(char const*, int)", referenced from:
+      -[RCTModuleData setUpInstanceAndBridge:] in React[62](RCTModuleData.o)
+  "facebook::react::BridgeNativeModulePerfLogger::moduleDataCreateStart(char const*, int)", referenced from:
+      -[RCTCxxBridge _registerModulesForClasses:lazilyDiscovered:] in React[22](RCTCxxBridge.o)
+      -[RCTCxxBridge registerExtraModules] in React[22](RCTCxxBridge.o)
+  "facebook::react::BridgeNativeModulePerfLogger::moduleCreateSetUpStart(char const*, int)", referenced from:
+      -[RCTModuleData setUpInstanceAndBridge:] in React[62](RCTModuleData.o)
+  "facebook::react::BridgeNativeModulePerfLogger::asyncMethodCallDispatch(char const*, char const*)", referenced from:
+      facebook::react::RCTNativeModule::invoke(unsigned int, folly::dynamic&&, int) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::moduleCreateConstructEnd(char const*, int)", referenced from:
+      -[RCTModuleData setUpInstanceAndBridge:] in React[62](RCTModuleData.o)
+  "facebook::react::BridgeNativeModulePerfLogger::moduleCreateConstructStart(char const*, int)", referenced from:
+      -[RCTModuleData setUpInstanceAndBridge:] in React[62](RCTModuleData.o)
+  "facebook::react::BridgeNativeModulePerfLogger::moduleJSRequireEndingStart(char const*)", referenced from:
+      -[RCTModuleData gatherConstantsAndSignalJSRequireEnding:] in React[62](RCTModuleData.o)
+      -[RCTModuleData gatherConstantsAndSignalJSRequireEnding:] in React[62](RCTModuleData.o)
+  "facebook::react::BridgeNativeModulePerfLogger::syncMethodCallExecutionEnd(char const*, char const*)", referenced from:
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::asyncMethodCallExecutionEnd(char const*, char const*, int)", referenced from:
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::asyncMethodCallExecutionFail(char const*, char const*, int)", referenced from:
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::syncMethodCallExecutionStart(char const*, char const*)", referenced from:
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::asyncMethodCallExecutionStart(char const*, char const*, int)", referenced from:
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::syncMethodCallArgConversionEnd(char const*, char const*)", referenced from:
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::syncMethodCallArgConversionStart(char const*, char const*)", referenced from:
+      facebook::react::RCTNativeModule::invoke(unsigned int, folly::dynamic&&, int) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::syncMethodCallReturnConversionEnd(char const*, char const*)", referenced from:
+      facebook::react::RCTNativeModule::invoke(unsigned int, folly::dynamic&&, int) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::syncMethodCallReturnConversionStart(char const*, char const*)", referenced from:
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::asyncMethodCallExecutionArgConversionEnd(char const*, char const*, int)", referenced from:
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+  "facebook::react::BridgeNativeModulePerfLogger::asyncMethodCallExecutionArgConversionStart(char const*, char const*, int)", referenced from:
+      facebook::react::invokeInner(RCTBridge*, RCTModuleData*, unsigned int, folly::dynamic const&, int, (anonymous namespace)::SchedulingContext) in React[67](RCTNativeModule.o)
+  "facebook::react::unsafeExecuteOnMainThreadSync(std::__1::function<void ()>)", referenced from:
+      _RCTUnsafeExecuteOnMainQueueSyncWithError in React[118](RCTUtils.o)
+      RCTUnsafeExecuteOnMainQueueOnceSync(long*, void () block_pointer) in React[118](RCTUtils.o)
+  "facebook::react::State::State(std::__1::shared_ptr<void const>, std::__1::weak_ptr<facebook::react::ShadowNodeFamily const>)", referenced from:
+      facebook::react::ConcreteState<expo::ExpoViewState>::ConcreteState(std::__1::shared_ptr<expo::ExpoViewState const>, std::__1::weak_ptr<facebook::react::ShadowNodeFamily const>) in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::State::State(std::__1::shared_ptr<void const>, facebook::react::State const&)", referenced from:
+      facebook::react::ConcreteState<expo::ExpoViewState>::ConcreteState(std::__1::shared_ptr<expo::ExpoViewState const>, facebook::react::State const&) in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::Instance::isBatchActive()", referenced from:
+      -[RCTCxxBridge isBatchActive] in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::isInspectable()", referenced from:
+      -[RCTCxxBridge isInspectable] in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::loadRAMBundle(std::__1::unique_ptr<facebook::react::RAMBundleRegistry, std::__1::default_delete<facebook::react::RAMBundleRegistry>>, std::__1::unique_ptr<facebook::react::JSBigString const, std::__1::default_delete<facebook::react::JSBigString const>>, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, bool)", referenced from:
+      ___51-[RCTCxxBridge executeApplicationScript:url:async:]_block_invoke in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::callJSCallback(unsigned long long, folly::dynamic&&)", referenced from:
+      ___37-[RCTCxxBridge enqueueCallback:args:]_block_invoke in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::callJSFunction(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>&&, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>&&, folly::dynamic&&)", referenced from:
+      ___53-[RCTCxxBridge enqueueJSCall:method:args:completion:]_block_invoke in React[22](RCTCxxBridge.o)
+      -[RCTCxxBridge _immediatelyCallTimer:] in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::registerBundle(unsigned int, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&)", referenced from:
+      -[RCTCxxBridge registerSegmentWithId:path:] in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::getJSCallInvoker()", referenced from:
+      -[RCTCxxBridge jsCallInvoker] in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::initializeBridge(std::__1::unique_ptr<facebook::react::InstanceCallback, std::__1::default_delete<facebook::react::InstanceCallback>>, std::__1::shared_ptr<facebook::react::JSExecutorFactory>, std::__1::shared_ptr<facebook::react::MessageQueueThread>, std::__1::shared_ptr<facebook::react::ModuleRegistry>, facebook::react::jsinspector_modern::HostTarget*)", referenced from:
+      -[RCTCxxBridge _initializeBridgeLocked:parentInspectorTarget:] in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::getModuleRegistry()", referenced from:
+      -[RCTCxxBridge registerAdditionalModuleClasses:] in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::setGlobalVariable(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, std::__1::unique_ptr<facebook::react::JSBigString const, std::__1::default_delete<facebook::react::JSBigString const>>)", referenced from:
+      -[RCTCxxBridge _initializeBridge:parentInspectorTarget:] in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::getJavaScriptContext()", referenced from:
+      -[RCTCxxBridge runtime] in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::handleMemoryPressure(int)", referenced from:
+      -[RCTCxxBridge handleMemoryWarning] in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::loadScriptFromString(std::__1::unique_ptr<facebook::react::JSBigString const, std::__1::default_delete<facebook::react::JSBigString const>>, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, bool)", referenced from:
+      ___51-[RCTCxxBridge executeApplicationScript:url:async:]_block_invoke in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::unregisterFromInspector()", referenced from:
+      -[RCTCxxBridge invalidate] in React[22](RCTCxxBridge.o)
+  "facebook::react::Instance::getDecoratedNativeMethodCallInvoker(std::__1::shared_ptr<facebook::react::NativeMethodCallInvoker>)", referenced from:
+      -[RCTCxxBridge decorateNativeMethodCallInvoker:] in React[22](RCTCxxBridge.o)
+  "facebook::react::RawProps::parse(facebook::react::RawPropsParser const&)", referenced from:
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::cloneProps(facebook::react::PropsParserContext const&, std::__1::shared_ptr<facebook::react::Props const> const&, facebook::react::RawProps) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      void facebook::react::RawPropsParser::prepare<expo::ExpoViewProps>() in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::Sealable::Sealable()", referenced from:
+      expo::ExpoViewProps::ExpoViewProps() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      expo::ExpoViewProps::ExpoViewProps(facebook::react::PropsParserContext const&, expo::ExpoViewProps const&, facebook::react::RawProps const&) in ExpoModulesCore[30](ExpoViewProps.o)
+  "facebook::react::Sealable::~Sealable()", referenced from:
+      expo::ExpoViewProps::ExpoViewProps() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      facebook::react::BaseViewProps::~BaseViewProps() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      facebook::react::YogaStylableProps::~YogaStylableProps() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      facebook::react::Props::~Props() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      expo::ExpoViewProps::~ExpoViewProps() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      facebook::react::ShadowNode::~ShadowNode() in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      expo::ExpoViewProps::ExpoViewProps(facebook::react::PropsParserContext const&, expo::ExpoViewProps const&, facebook::react::RawProps const&) in ExpoModulesCore[30](ExpoViewProps.o)
+      ...
+  "folly::dynamic::hash() const", referenced from:
+      folly::detail::DynamicHasher::operator()(folly::dynamic const&) const in React[68](RCTObjcExecutor.o)
+  "folly::dynamic::size() const", referenced from:
+      (anonymous namespace)::convertFollyDynamicToId(folly::dynamic const&) in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      (anonymous namespace)::convertFollyDynamicToId(folly::dynamic const&) in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      (anonymous namespace)::convertFollyDynamicToId(folly::dynamic const&) in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      -[RCTCxxMethod invokeWithBridge:module:arguments:] in React[27](RCTCxxMethod.o)
+  "facebook::react::ShadowNode::getDebugName() const", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::ShadowNode::getDebugValue() const", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::ShadowNode::getDebugChildren() const", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::ShadowNode::getComponentHandle() const", referenced from:
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::ShadowNode::transferRuntimeShadowNodeReference(std::__1::shared_ptr<facebook::react::ShadowNode const> const&, facebook::react::ShadowNodeFragment const&) const", referenced from:
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::cloneShadowNode(facebook::react::ShadowNode const&, facebook::react::ShadowNodeFragment const&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::ShadowNode::getProps() const", referenced from:
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::EventEmitter::dispatchEvent(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, std::__1::function<facebook::jsi::Value (facebook::jsi::Runtime&)> const&, facebook::react::RawEvent::Category) const", referenced from:
+      expo::ExpoViewEventEmitter::dispatch(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, std::__1::function<facebook::jsi::Value (facebook::jsi::Runtime&)>) const in ExpoModulesCore[29](ExpoViewEventEmitter.o)
+  "facebook::react::EventEmitter::setShadowNodeFamily(std::__1::weak_ptr<facebook::react::ShadowNodeFamily const>) const", referenced from:
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::createFamily(facebook::react::ShadowNodeFamilyFragment const&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::BaseViewProps::getDebugProps() const", referenced from:
+      vtable for expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::BaseViewProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "facebook::react::BaseViewProps::resolveTransform(facebook::react::LayoutMetrics const&) const", referenced from:
+      facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState>::getTransform() const in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::ShadowNodeFamily::dispatchRawState(facebook::react::StateUpdate&&) const", referenced from:
+      facebook::react::ConcreteState<expo::ExpoViewState>::updateState(std::__1::function<std::__1::shared_ptr<void const> (expo::ExpoViewState const&)>) const in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "facebook::react::ShadowNodeFamily::getMostRecentState() const", referenced from:
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::createState(facebook::react::ShadowNodeFamily const&, std::__1::shared_ptr<void const> const&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::YogaStylableProps::getDebugProps() const", referenced from:
+      construction vtable for facebook::react::YogaStylableProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "facebook::react::jsinspector_modern::InspectorFlags::getFuseboxEnabled() const", referenced from:
+      -[RCTBridge didReceiveReloadCommand] in React[8](RCTBridge.o)
+      -[RCTBridge setUp] in React[8](RCTBridge.o)
+      +[RCTBundleURLProvider jsBundleURLForBundleRoot:packagerHost:packagerScheme:enableDev:enableMinification:inlineSourceMap:modulesOnly:runModule:additionalOptions:] in React[13](RCTBundleURLProvider.o)
+      getInspectorDeviceId() in React[43](RCTInspectorDevServerHelper.o)
+      +[RCTInspectorDevServerHelper disableDebugger] in React[43](RCTInspectorDevServerHelper.o)
+  "facebook::react::jsinspector_modern::InspectorFlags::getIsProfilingBuild() const", referenced from:
+      getInspectorDeviceUrl(NSURL*) in React[43](RCTInspectorDevServerHelper.o)
+  "facebook::react::jsinspector_modern::InspectorPackagerConnection::isConnected() const", referenced from:
+      -[RCTCxxInspectorPackagerConnection isConnected] in React[24](RCTCxxInspectorPackagerConnection.o)
+  "facebook::react::LayoutableShadowNode::getTransform() const", referenced from:
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::LayoutableShadowNode::getDebugProps() const", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::LayoutableShadowNode::measureContent(facebook::react::LayoutContext const&, facebook::react::LayoutConstraints const&) const", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::LayoutableShadowNode::canBeTouchTarget() const", referenced from:
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::LayoutableShadowNode::getLayoutMetrics() const", referenced from:
+      facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState>::getTransform() const in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::LayoutableShadowNode::getContentOriginOffset(bool) const", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::LayoutableShadowNode::canChildrenBeTouchTarget() const", referenced from:
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::LayoutableShadowNode::measure(facebook::react::LayoutContext const&, facebook::react::LayoutConstraints const&) const", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::LayoutableShadowNode::baseline(facebook::react::LayoutContext const&, facebook::react::Size) const", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::DebugStringConvertible::getDebugName() const", referenced from:
+      vtable for expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::BaseViewProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::YogaStylableProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::Props-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "facebook::react::DebugStringConvertible::getDebugValue() const", referenced from:
+      vtable for expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::BaseViewProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::YogaStylableProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::Props-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "facebook::react::DebugStringConvertible::getDebugChildren() const", referenced from:
+      vtable for expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::BaseViewProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::YogaStylableProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::Props-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "facebook::react::DebugStringConvertible::getDebugDescription(facebook::react::DebugStringConvertibleOptions) const", referenced from:
+      vtable for expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::BaseViewProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::YogaStylableProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::Props-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      ...
+  "facebook::react::DebugStringConvertible::getDebugPropsDescription(facebook::react::DebugStringConvertibleOptions) const", referenced from:
+      vtable for expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::BaseViewProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::YogaStylableProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::Props-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      ...
+  "facebook::react::DebugStringConvertible::getDebugChildrenDescription(facebook::react::DebugStringConvertibleOptions) const", referenced from:
+      vtable for expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::BaseViewProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::YogaStylableProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      construction vtable for facebook::react::Props-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      ...
+  "facebook::react::YogaLayoutableShadowNode::getIsLayoutClean() const", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::YogaLayoutableShadowNode::shouldNewRevisionDirtyMeasurement(facebook::react::ShadowNode const&, facebook::react::ShadowNodeFragment const&) const", referenced from:
+      vtable for expo::ExpoViewShadowNode in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteViewShadowNode<&expo::ExpoViewComponentName, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+      vtable for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[31](ExpoViewShadowNode.o)
+  "facebook::react::YogaLayoutableShadowNode::setSize(facebook::react::Size) const", referenced from:
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::Props::getDebugProps() const", referenced from:
+      construction vtable for facebook::react::Props-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "facebook::react::RawProps::isEmpty() const", referenced from:
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::cloneProps(facebook::react::PropsParserContext const&, std::__1::shared_ptr<facebook::react::Props const> const&, facebook::react::RawProps) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "facebook::react::RawProps::operator folly::dynamic() const", referenced from:
+      facebook::react::ConcreteComponentDescriptor<expo::ExpoViewShadowNode>::cloneProps(facebook::react::PropsParserContext const&, std::__1::shared_ptr<facebook::react::Props const> const&, facebook::react::RawProps) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      expo::propsMapFromProps(expo::ExpoViewProps const&, facebook::react::RawProps const&) in ExpoModulesCore[30](ExpoViewProps.o)
+  "typeinfo for facebook::react::JSExecutor", referenced from:
+      typeinfo for facebook::react::(anonymous namespace)::RCTObjcExecutor in React[68](RCTObjcExecutor.o)
+  "typeinfo for facebook::react::ShadowNode", referenced from:
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+      expo::ExpoViewComponentDescriptor::adopt(facebook::react::ShadowNode&) const in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "typeinfo for facebook::react::BaseViewProps", referenced from:
+      construction vtable for facebook::react::BaseViewProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+      typeinfo for expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "typeinfo for facebook::react::LongLivedObject", referenced from:
+      typeinfo for facebook::react::CallbackWrapper in ExpoModulesCore[13](EXJSIConversions.o)
+  "typeinfo for facebook::react::YogaStylableProps", referenced from:
+      construction vtable for facebook::react::YogaStylableProps-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "typeinfo for facebook::react::jsinspector_modern::HostTargetDelegate", referenced from:
+      typeinfo for RCTBridgeHostTargetDelegate in React[8](RCTBridge.o)
+  "typeinfo for facebook::react::YogaLayoutableShadowNode", referenced from:
+      typeinfo for facebook::react::ConcreteShadowNode<&expo::ExpoViewComponentName, facebook::react::YogaLayoutableShadowNode, expo::ExpoViewProps, expo::ExpoViewEventEmitter, expo::ExpoViewState> in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+  "typeinfo for facebook::react::Props", referenced from:
+      construction vtable for facebook::react::Props-in-expo::ExpoViewProps in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "VTT for facebook::react::BaseViewProps", referenced from:
+      facebook::react::BaseViewProps::~BaseViewProps() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "VTT for facebook::react::YogaStylableProps", referenced from:
+      facebook::react::YogaStylableProps::~YogaStylableProps() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "VTT for facebook::react::Props", referenced from:
+      facebook::react::Props::~Props() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+  "vtable for facebook::react::JSExecutor", referenced from:
+      facebook::react::JSExecutor::JSExecutor() in React[68](RCTObjcExecutor.o)
+      facebook::react::JSExecutor::~JSExecutor() in React[68](RCTObjcExecutor.o)
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "vtable for facebook::react::ShadowNode", referenced from:
+      facebook::react::ShadowNode::~ShadowNode() in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "vtable for facebook::react::CxxNativeModule", referenced from:
+      facebook::react::CxxNativeModule::CxxNativeModule(std::__1::weak_ptr<facebook::react::Instance>, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, std::__1::function<std::__1::unique_ptr<facebook::xplat::module::CxxModule, std::__1::default_delete<facebook::xplat::module::CxxModule>> ()>, std::__1::shared_ptr<facebook::react::MessageQueueThread>) in React[29](RCTCxxUtils.o)
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "vtable for facebook::react::LongLivedObject", referenced from:
+      facebook::react::LongLivedObject::LongLivedObject(facebook::jsi::Runtime&) in ExpoModulesCore[13](EXJSIConversions.o)
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "vtable for facebook::react::jsinspector_modern::HostTargetDelegate", referenced from:
+      facebook::react::jsinspector_modern::HostTargetDelegate::HostTargetDelegate() in React[8](RCTBridge.o)
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "vtable for facebook::react::jsinspector_modern::InstanceTargetDelegate", referenced from:
+      facebook::react::jsinspector_modern::InstanceTargetDelegate::InstanceTargetDelegate() in React[22](RCTCxxBridge.o)
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "vtable for facebook::react::jsinspector_modern::FallbackRuntimeTargetDelegate", referenced from:
+      facebook::react::jsinspector_modern::FallbackRuntimeTargetDelegate::~FallbackRuntimeTargetDelegate() in React[68](RCTObjcExecutor.o)
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "vtable for facebook::react::HermesExecutorFactory", referenced from:
+      facebook::react::HermesExecutorFactory::HermesExecutorFactory(std::__1::function<void (facebook::jsi::Runtime&)>, std::__1::function<void (std::__1::function<void ()> const&, std::__1::function<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> ()>)> const&, hermes::vm::RuntimeConfig) in React[22](RCTCxxBridge.o)
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "vtable for facebook::react::DebugStringConvertible", referenced from:
+      facebook::react::DebugStringConvertible::DebugStringConvertible() in ExpoModulesCore[25](ExpoFabricViewObjC.o)
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "vtable for facebook::react::YogaLayoutableShadowNode", referenced from:
+      facebook::react::YogaLayoutableShadowNode::~YogaLayoutableShadowNode() in ExpoModulesCore[28](ExpoViewComponentDescriptor.o)
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "vtable for facebook::react::Instance::JSCallInvoker", referenced from:
+      facebook::react::Instance::JSCallInvoker::JSCallInvoker() in React[22](RCTCxxBridge.o)
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "vtable for facebook::react::Instance", referenced from:
+      facebook::react::Instance::Instance() in React[22](RCTCxxBridge.o)
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "_js_runtime_factory_destroy", referenced from:
+      -[RCTRootViewFactory createJSRuntimeFactory] in React_RCTAppDelegate[7](RCTRootViewFactory.o)
+  "_jsrt_create_hermes_factory", referenced from:
+      -[RCTDefaultReactNativeFactoryDelegate createJSRuntimeFactory] in React_RCTAppDelegate[5](RCTDefaultReactNativeFactoryDelegate.o)
+ld: symbol(s) not found for architecture arm64
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+
+Undefined symbol: _OBJC_CLASS_$_RCTBundleAssetImageLoader
+
+Undefined symbol: _OBJC_CLASS_$_RCTColorSpaceUtils
+
+Undefined symbol: _OBJC_CLASS_$_RCTComponentViewFactory
+
+Undefined symbol: _OBJC_CLASS_$_RCTDataRequestHandler
+
+Undefined symbol: _OBJC_CLASS_$_RCTDevMenu
+
+Undefined symbol: _OBJC_CLASS_$_RCTDevSettings
+
+Undefined symbol: _OBJC_CLASS_$_RCTEventDispatcher
+
+Undefined symbol: _OBJC_CLASS_$_RCTFabricSurface
+
+Undefined symbol: _OBJC_CLASS_$_RCTFileRequestHandler
+
+Undefined symbol: _OBJC_CLASS_$_RCTGIFImageDecoder
+
+Undefined symbol: _OBJC_CLASS_$_RCTHTTPRequestHandler
+
+Undefined symbol: _OBJC_CLASS_$_RCTHost
+
+Undefined symbol: _OBJC_CLASS_$_RCTImageLoader
+
+Undefined symbol: _OBJC_CLASS_$_RCTLogBox
+
+Undefined symbol: _OBJC_CLASS_$_RCTModuleProviders
+
+Undefined symbol: _OBJC_CLASS_$_RCTModulesConformingToProtocolsProvider
+
+Undefined symbol: _OBJC_CLASS_$_RCTNetworking
+
+Undefined symbol: _OBJC_CLASS_$_RCTPerfMonitor
+
+Undefined symbol: _OBJC_CLASS_$_RCTRedBox
+
+Undefined symbol: _OBJC_CLASS_$_RCTSurfacePresenterBridgeAdapter
+
+Undefined symbol: _OBJC_CLASS_$_RCTThirdPartyComponentsProvider
+
+Undefined symbol: _OBJC_CLASS_$_RCTTurboModuleManager
+
+Undefined symbol: _OBJC_CLASS_$_RCTUnstableModulesRequiringMainQueueSetupProvider
+
+Undefined symbol: _OBJC_CLASS_$_RCTViewComponentView
+
+Undefined symbol: _OBJC_CLASS_$_SRWebSocket
+
+Undefined symbol: _OBJC_IVAR_$_RCTViewComponentView._eventEmitter
+
+Undefined symbol: _OBJC_IVAR_$_RCTViewComponentView._props
+
+Undefined symbol: _OBJC_METACLASS_$_RCTDevSettings
+
+Undefined symbol: _OBJC_METACLASS_$_RCTViewComponentView
+
+Undefined symbol: _RCTCoreModulesClassProvider
+
+Undefined symbol: _RCTOverrideAppearancePreference
+
+Undefined symbol: _WebPConfigInitInternal
+
+Undefined symbol: _WebPDecode
+
+Undefined symbol: _WebPDemuxDelete
+
+Undefined symbol: _WebPDemuxGetChunk
+
+Undefined symbol: _WebPDemuxGetFrame
+
+Undefined symbol: _WebPDemuxGetI
+
+Undefined symbol: _WebPDemuxInternal
+
+Undefined symbol: _WebPDemuxNextFrame
+
+Undefined symbol: _WebPDemuxReleaseChunkIterator
+
+Undefined symbol: _WebPDemuxReleaseIterator
+
+Undefined symbol: _WebPEncode
+
+Undefined symbol: _WebPFree
+
+Undefined symbol: _WebPGetFeaturesInternal
+
+Undefined symbol: _WebPIDecGetRGB
+
+Undefined symbol: _WebPIDelete
+
+Undefined symbol: _WebPINewRGB
+
+Undefined symbol: _WebPIUpdate
+
+Undefined symbol: _WebPInitDecoderConfigInternal
+
+Undefined symbol: _WebPMalloc
+
+Undefined symbol: _WebPMemoryWrite
+
+Undefined symbol: _WebPMemoryWriterClear
+
+Undefined symbol: _WebPMemoryWriterInit
+
+Undefined symbol: _WebPMuxAssemble
+
+Undefined symbol: _WebPMuxDelete
+
+Undefined symbol: _WebPMuxPushFrame
+
+Undefined symbol: _WebPMuxSetAnimationParams
+
+Undefined symbol: _WebPMuxSetChunk
+
+Undefined symbol: _WebPMuxSetImage
+
+Undefined symbol: _WebPNewInternal
+
+Undefined symbol: _WebPPictureFree
+
+Undefined symbol: _WebPPictureImportRGB
+
+Undefined symbol: _WebPPictureImportRGBA
+
+Undefined symbol: _WebPPictureInitInternal
+
+Undefined symbol: _WebPPictureRescale
+
+Undefined symbol: RCTRuntimeExecutorFromBridge(RCTBridge*)
+
+Undefined symbol: folly::toJson(folly::dynamic const&)
+
+Undefined symbol: folly::dynamic::destroy()
+
+Undefined symbol: folly::dynamic::TypeInfo<folly::dynamic::ObjectImpl>::name
+
+Undefined symbol: folly::dynamic::TypeInfo<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>>::name
+
+Undefined symbol: folly::dynamic::TypeInfo<std::__1::vector<folly::dynamic, std::__1::allocator<folly::dynamic>>>::name
+
+Undefined symbol: folly::dynamic::TypeInfo<bool>::name
+
+Undefined symbol: folly::dynamic::TypeInfo<double>::name
+
+Undefined symbol: folly::dynamic::TypeInfo<long long>::name
+
+Undefined symbol: folly::dynamic::dynamic(folly::dynamic&&)
+
+Undefined symbol: folly::dynamic::dynamic(folly::dynamic const&)
+
+Undefined symbol: folly::dynamic::operator=(folly::dynamic&&)
+
+Undefined symbol: folly::TypeError::TypeError(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&, folly::dynamic::Type)
+
+Undefined symbol: folly::operator==(folly::dynamic const&, folly::dynamic const&)
+
+Undefined symbol: google::LogMessage::stream()
+
+Undefined symbol: google::LogMessage::LogMessage(char const*, int, int)
+
+Undefined symbol: google::LogMessage::~LogMessage()
+
+Undefined symbol: google::FlushLogFiles(int)
+
+Undefined symbol: google::LogMessageFatal::LogMessageFatal(char const*, int)
+
+Undefined symbol: google::LogMessageFatal::~LogMessageFatal()
+
+Undefined symbol: facebook::react::JSExecutor::getRuntimeTargetDelegate()
+
+Undefined symbol: facebook::react::EventTarget::EventTarget(std::__1::shared_ptr<facebook::react::InstanceHandle const>, int)
+
+Undefined symbol: facebook::react::ReactMarker::logMarkerDone(facebook::react::ReactMarker::ReactMarkerId, double)
+
+Undefined symbol: facebook::react::ReactMarker::logTaggedMarkerImpl
+
+Undefined symbol: facebook::react::ReactMarker::logTaggedMarkerImplMutex
+
+Undefined symbol: facebook::react::EventEmitter::EventEmitter(std::__1::shared_ptr<facebook::react::EventTarget const>, std::__1::weak_ptr<facebook::react::EventDispatcher const>)
+
+Undefined symbol: facebook::react::BaseViewProps::setProp(facebook::react::PropsParserContext const&, unsigned int, char const*, facebook::react::RawValue const&)
+
+Undefined symbol: facebook::react::BaseViewProps::BaseViewProps(facebook::react::PropsParserContext const&, facebook::react::BaseViewProps const&, facebook::react::RawProps const&, std::__1::function<bool (std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&)> const&)
+
+Undefined symbol: facebook::react::ModuleRegistry::moduleNames()
+
+Undefined symbol: facebook::react::ModuleRegistry::registerModules(std::__1::vector<std::__1::unique_ptr<facebook::react::NativeModule, std::__1::default_delete<facebook::react::NativeModule>>, std::__1::allocator<std::__1::unique_ptr<facebook::react::NativeModule, std::__1::default_delete<facebook::react::NativeModule>>>>)
+
+Undefined symbol: facebook::react::ModuleRegistry::getConfig(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&)
+
+Undefined symbol: facebook::react::ModuleRegistry::ModuleRegistry(std::__1::vector<std::__1::unique_ptr<facebook::react::NativeModule, std::__1::default_delete<facebook::react::NativeModule>>, std::__1::allocator<std::__1::unique_ptr<facebook::react::NativeModule, std::__1::default_delete<facebook::react::NativeModule>>>>, std::__1::function<bool (std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&)>)
+
+Undefined symbol: facebook::react::RawPropsParser::postPrepare()
+
+Undefined symbol: facebook::react::LongLivedObject::allowRelease()
+
+Undefined symbol: facebook::react::RuntimeScheduler::handleTaskErrorDefault(facebook::jsi::Runtime&, facebook::jsi::JSError&)
+
+Linker command failed with exit code 1 (use -v to see invocation)
+
+
+
+Build failed    3/2/26, 11:11 AM    69.4 seconds
