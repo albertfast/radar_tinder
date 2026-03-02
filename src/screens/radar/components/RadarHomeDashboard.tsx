@@ -17,7 +17,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { formatDistance, formatSpeed } from '../../../utils/format';
 import { getResponsiveHeight } from '../../../constants/layout';
-import AdBanner from '../../../components/AdBanner';
 import { RadarAnimation, type RadarRendererMode } from '../../../components/RadarAnimation';
 
 type ProFeature = {
@@ -58,7 +57,6 @@ type RadarHomeDashboardProps = {
   onOpenAlerts: () => void;
   onToggleVoiceWarnings: () => void;
   pauseRadarAnimation: boolean;
-  showHomeAd: boolean;
 };
 
 type StatPillProps = {
@@ -156,7 +154,6 @@ export function RadarHomeDashboard({
   onOpenAlerts,
   onToggleVoiceWarnings,
   pauseRadarAnimation,
-  showHomeAd,
 }: RadarHomeDashboardProps) {
   const legacyHomeRadarMode: RadarRendererMode = 'legacy2d';
   const heroPulse = useSharedValue(0);
@@ -185,11 +182,11 @@ export function RadarHomeDashboard({
   const buttonBottomSpacing = isCompactWidth ? getResponsiveHeight(8) : getResponsiveHeight(10);
   const contentBottomPadding = Math.max(
     homeBottomInset,
-    showHomeAd ? getResponsiveHeight(82) : getResponsiveHeight(52)
+    getResponsiveHeight(52)
   );
   const quickPanelMinHeight = Math.max(
     getResponsiveHeight(118),
-    Math.round(tabBarInset * (showHomeAd ? 0.96 : 0.86))
+    Math.round(tabBarInset * 0.86)
   );
 
   return (
@@ -269,17 +266,6 @@ export function RadarHomeDashboard({
             </LinearGradient>
           </View>
         )}
-
-        {showHomeAd ? (
-          <View
-            style={[
-              styles.homeAdContainer,
-              { minHeight: 62, justifyContent: 'center' },
-            ]}
-          >
-            <AdBanner />
-          </View>
-        ) : null}
 
         <View style={[styles.heroCard, { marginTop: heroTopMargin, paddingVertical: heroVerticalPadding }]}>
           <LinearGradient

@@ -23,7 +23,6 @@ import { VoiceGuidanceService } from '../services/VoiceGuidanceService';
 import { ANIMATION_TIMING } from '../utils/animationConstants';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
-import AdBanner from '../components/AdBanner';
 
 const RadarSettingsScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
@@ -357,9 +356,6 @@ const RadarSettingsScreen = ({ navigation }: any) => {
           Settings are stored on device. Distance unit syncs to profile when logged in.
         </Text>
 
-        <View style={styles.adContainer}>
-          <AdBanner />
-        </View>
       </ScrollView>
     </View>
   );

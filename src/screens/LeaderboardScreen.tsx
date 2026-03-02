@@ -12,7 +12,6 @@ import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
 import { HapticPatterns } from '../utils/hapticFeedback';
 import { supabase } from '../../utils/supabase';
 import Radar3DView from '../components/Radar3DView';
-import AdBanner from '../components/AdBanner';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 interface LeaderboardUser {
@@ -377,10 +376,6 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
               </View>
 
               {renderPodium()}
-
-              <View style={styles.adContainer}>
-                <AdBanner />
-              </View>
 
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionLabel}>YOUR IMPACT</Text>

@@ -15,7 +15,7 @@ import { LocationService } from '../services/LocationService';
 import { AdService } from '../services/AdService';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { formatDistance } from '../utils/format';
-import { hasProAccess, shouldShowHomeAds } from '../utils/access';
+import { hasProAccess } from '../utils/access';
 import { RadarAlert, RadarLocation } from '../types';
 import { RadarGraphicView } from './components/RadarGraphicView';
 import { RadarHomeDashboard } from './radar/components/RadarHomeDashboard';
@@ -269,7 +269,6 @@ const RadarScreen = ({ navigation, route }: any) => {
     }
     return navigationState.routeCoords.slice(routeRenderStartIndex);
   }, [navigationState.routeCoords, routeRenderStartIndex]);
-  const showHomeAd = hasHydrated && shouldShowHomeAds(user);
   const nearestRadarSummary = dataSync.closestRadar
     ? (dataSync.closestRadarHint ? `${formatDistance(dataSync.closestRadar.distance, unitSystem)} at ${dataSync.closestRadarHint}` : formatDistance(dataSync.closestRadar.distance, unitSystem))
     : 'Scanning...';
@@ -297,9 +296,9 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, [isScreenFocused, normalizeAccessState]);
 
   useEffect(() => {
-    AdService.setNavigationAdsSuppressed(isTurnByTurnActive);
-    return () => AdService.setNavigationAdsSuppressed(false);
-  }, [isTurnByTurnActive]);
+    AdService.markDrivingState(driving.isDriving, isTurnByTurnActive);
+    return () => AdService.markDrivingState(false, false);
+  }, [driving.isDriving, isTurnByTurnActive]);
 
   useEffect(() => {
     const adsDebug = AdService.getAdsDebugState();
@@ -461,11 +460,16 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   const toggleDrivingMode = useCallback(async () => {
     if (!driving.isDriving) {
-      await driving.startDrivingSession({ setActiveTab, activateMapTab: true, source: 'manual' });
+      await driving.startDrivingSession({
+        setActiveTab,
+        activateMapTab: true,
+        source: 'manual',
+        hasActiveRoute: navigationState.routeCoords.length > 0,
+      });
       return;
     }
-    await driving.stopDrivingSession({ setActiveTab, showInterstitial: true });
-  }, [driving]);
+    await driving.stopDrivingSession({ setActiveTab });
+  }, [driving, navigationState.routeCoords.length]);
 
   const centerMap = useCallback(async () => {
     let location = dataSync.currentLocation;
@@ -822,7 +826,6 @@ const RadarScreen = ({ navigation, route }: any) => {
       onOpenAlerts={() => navigation.navigate('Alerts')}
       onToggleVoiceWarnings={toggleVoiceWarnings}
       pauseRadarAnimation={false}
-      showHomeAd={showHomeAd}
     />
   );
 };

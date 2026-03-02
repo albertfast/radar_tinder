@@ -20,7 +20,6 @@ import { hasProAccess } from '../utils/access';
 import ProGate from '../components/ProGate';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AdBanner from '../components/AdBanner';
 import { AIService, AIModelErrorCode } from '../services/AIService';
 
 // Suppress specific warnings that might cause crashes
@@ -529,9 +528,6 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
           </Text>
         </Surface>
 
-        <View style={styles.adContainer}>
-          <AdBanner />
-        </View>
       </ScrollView>
     </View>
     </ErrorBoundary>

@@ -5,28 +5,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
-import AdBanner from './AdBanner';
 
 interface ProGateProps {
   title?: string;
   subtitle?: string;
   onUpgrade?: () => void;
-  adUnitId?: string;
 }
 
 const ProGate: React.FC<ProGateProps> = ({
   title = 'Pro Feature',
   subtitle = 'Upgrade to unlock this feature.',
   onUpgrade,
-  adUnitId,
 }) => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const maxContentWidth = Math.min(width - 32, 560);
-  const featureGateAdUnitId =
-    adUnitId ||
-    process.env.EXPO_PUBLIC_ADMOB_LOCKED_FEATURE_UNIT_ID ||
-    'ca-app-pub-9670547831022880/5261007755';
 
   return (
     <View style={styles.container}>
@@ -52,10 +45,6 @@ const ProGate: React.FC<ProGateProps> = ({
               <Text style={styles.ctaText}>Upgrade to Pro</Text>
             </TouchableOpacity>
           ) : null}
-        </View>
-
-        <View style={[styles.featureAdWrap, { width: maxContentWidth }]}>
-          <AdBanner size="MEDIUM_RECTANGLE" unitId={featureGateAdUnitId} />
         </View>
       </ScrollView>
     </View>
@@ -95,16 +84,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ctaText: { color: '#0B1424', fontWeight: '800', fontSize: 13 },
-  featureAdWrap: {
-    marginTop: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: 'rgba(15,23,42,0.45)',
-    paddingVertical: 8,
-  },
 });
 
 export default ProGate;
