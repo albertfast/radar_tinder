@@ -23,6 +23,30 @@ success() {
   echo "[OK] $1"
 }
 
+has_cmd() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+match_any() {
+  local pattern="$1"
+  shift
+  if has_cmd rg; then
+    rg -q "$pattern" "$@"
+  else
+    grep -Eq "$pattern" "$@"
+  fi
+}
+
+extract_setting_line() {
+  local pattern="$1"
+  local file="$2"
+  if has_cmd rg; then
+    rg "$pattern" "$file" | head -n1
+  else
+    grep -E "$pattern" "$file" | head -n1
+  fi
+}
+
 info "Running iOS archive preflight checks..."
 info "Project root: ${ROOT_DIR}"
 
@@ -38,19 +62,19 @@ if ! diff "${PODFILE_LOCK_PATH}" "${PODS_MANIFEST_PATH}" >/dev/null 2>&1; then
 fi
 success "Pods are in sync."
 
-if rg -n "/Users/.*/Downloads/radar_tinder" "${PBXPROJ_PATH}" "${PODFILE_LOCK_PATH}" >/dev/null 2>&1; then
+if match_any "/Users/.*/Downloads/radar_tinder" "${PBXPROJ_PATH}" "${PODFILE_LOCK_PATH}"; then
   fail "Detected stale absolute path from another checkout (Downloads/radar_tinder). Reinstall pods in this repo."
 fi
 success "No stale absolute checkout path detected."
 
-rg -q 'BUNDLE_COMMAND=.*export:embed' "${PBXPROJ_PATH}" || \
+match_any 'BUNDLE_COMMAND=.*export:embed' "${PBXPROJ_PATH}" || \
   fail "Bundle phase does not use Expo embed bundle command (export:embed)."
-rg -q 'export PROJECT_ROOT=.*PROJECT_DIR' "${PBXPROJ_PATH}" || \
+match_any 'export PROJECT_ROOT=.*PROJECT_DIR' "${PBXPROJ_PATH}" || \
   fail "Bundle phase PROJECT_ROOT does not resolve to repo root."
 success "Bundle React Native phase looks correct."
 
 [[ -f "${IOS_DIR}/.xcode.env" ]] || fail ".xcode.env missing in ios/"
-if ! rg -q 'NODE_BINARY=' "${IOS_DIR}/.xcode.env" "${IOS_DIR}/.xcode.env.local" 2>/dev/null; then
+if ! match_any 'NODE_BINARY=' "${IOS_DIR}/.xcode.env" "${IOS_DIR}/.xcode.env.local" 2>/dev/null; then
   fail "NODE_BINARY is not configured in ios/.xcode.env(.local)."
 fi
 success "NODE_BINARY configuration found."
@@ -67,8 +91,8 @@ if ! xcodebuild \
 fi
 
 EXPECTED_PROJECT_DIR="${IOS_DIR}"
-ACTUAL_PROJECT_DIR="$(rg '^[[:space:]]*PROJECT_DIR = ' "${BUILD_SETTINGS_FILE}" | head -n1 | sed -E 's/^[[:space:]]*PROJECT_DIR = //')"
-ACTUAL_SRCROOT="$(rg '^[[:space:]]*SRCROOT = ' "${BUILD_SETTINGS_FILE}" | head -n1 | sed -E 's/^[[:space:]]*SRCROOT = //')"
+ACTUAL_PROJECT_DIR="$(extract_setting_line '^[[:space:]]*PROJECT_DIR = ' "${BUILD_SETTINGS_FILE}" | sed -E 's/^[[:space:]]*PROJECT_DIR = //')"
+ACTUAL_SRCROOT="$(extract_setting_line '^[[:space:]]*SRCROOT = ' "${BUILD_SETTINGS_FILE}" | sed -E 's/^[[:space:]]*SRCROOT = //')"
 
 [[ -n "${ACTUAL_PROJECT_DIR}" ]] || fail "Unable to resolve PROJECT_DIR from xcodebuild settings."
 [[ "${ACTUAL_PROJECT_DIR}" == "${EXPECTED_PROJECT_DIR}" ]] || \
