@@ -24,30 +24,45 @@ const PrivacyScreen = ({ navigation }: any) => {
         scrollEventThrottle={16}
       >
         <Text style={styles.text}>
-          <Text style={styles.bold}>Last Updated: December 21, 2025</Text>{"\n\n"}
-          
-          The Amasaki Team respects your privacy and is committed to protecting your personal data. This Privacy Policy explains how we collect, use, and share information about you when you use Radar Tinder.{"\n\n"}
+          <Text style={styles.bold}>Effective Date: January 2026</Text>{"\n\n"}
+
+          This Privacy Policy explains how <Text style={styles.bold}>Aether Labs</Text> collects, uses, and protects information across our mobile applications, including Radar Tinder.{"\n\n"}
 
           <Text style={styles.bold}>1. Information We Collect</Text>{"\n"}
-          - <Text style={styles.bold}>Location Data:</Text> We collect precise location data to provide navigation and radar detection services.{"\n"}
-          - <Text style={styles.bold}>User Data:</Text> We collect information you provide, such as your name, email, and vehicle details.{"\n"}
-          - <Text style={styles.bold}>Usage Data:</Text> We collect data on how you interact with the app to improve our services.{"\n\n"}
+          <Text style={styles.bold}>Location Data:</Text> Used for navigation, alerts, and map-based features when you grant permission.{"\n"}
+          <Text style={styles.bold}>Camera Access:</Text> Used for optional visual features and user-initiated capture.{"\n"}
+          <Text style={styles.bold}>Microphone Access:</Text> Used only for optional audio or voice features triggered by you.{"\n"}
+          <Text style={styles.bold}>Photos and Media:</Text> We access only the files you explicitly select.{"\n"}
+          <Text style={styles.bold}>Bluetooth:</Text> May be used for nearby-device features relevant to app functionality.{"\n"}
+          <Text style={styles.bold}>Account Information:</Text> Basic account data such as email for authentication and account management.{"\n"}
+          <Text style={styles.bold}>Usage and Diagnostics:</Text> Anonymous or pseudonymous technical telemetry to improve reliability and performance.{"\n\n"}
 
-          <Text style={styles.bold}>2. How We Use Your Information</Text>{"\n"}
-          We use your information to:{"\n"}
-          - Provide and improve our services.{"\n"}
-          - Personalize your experience.{"\n"}
-          - Process payments for premium subscriptions.{"\n"}
-          - Communicate with you about updates and offers.{"\n\n"}
+          <Text style={styles.bold}>2. How We Use Information</Text>{"\n"}
+          - Provide, maintain, and improve app functionality{"\n"}
+          - Enable navigation, detection, and premium features{"\n"}
+          - Support subscriptions, fraud prevention, and security{"\n"}
+          - Diagnose crashes and service quality issues{"\n\n"}
 
           <Text style={styles.bold}>3. Data Sharing</Text>{"\n"}
-          We do not sell your personal data. We may share data with third-party service providers who assist us in operating our app, conducting our business, or serving our users.{"\n\n"}
+          We do not sell personal data. Data may be processed by trusted service providers strictly required to operate the service (such as analytics, payments, authentication, and cloud infrastructure).{"\n\n"}
 
-          <Text style={styles.bold}>4. Data Security</Text>{"\n"}
-          We implement appropriate security measures to protect your personal information. However, no method of transmission over the Internet is 100% secure.{"\n\n"}
+          <Text style={styles.bold}>4. Safety and Legal Notice</Text>{"\n"}
+          Radar and traffic information may be delayed, incomplete, or inaccurate. You remain solely responsible for safe driving, legal compliance, and decisions taken while using the app. The app is an assistance tool and does not replace official traffic controls, law enforcement instructions, or your duty of care.{"\n\n"}
 
-          <Text style={styles.bold}>5. Contact Us</Text>{"\n"}
-          If you have any questions about this Privacy Policy, please contact the Amasaki Team at privacy@amasaki.com.
+          <Text style={styles.bold}>5. Data Security</Text>{"\n"}
+          We apply reasonable technical and organizational safeguards, but no system can be guaranteed fully secure.{"\n\n"}
+
+          <Text style={styles.bold}>6. Children’s Privacy</Text>{"\n"}
+          Our services are not directed to children under 13, and we do not knowingly collect personal data from children.{"\n\n"}
+
+          <Text style={styles.bold}>7. Your Controls</Text>{"\n"}
+          You can manage permissions (location, camera, microphone, Bluetooth, notifications) in your device settings at any time.{"\n\n"}
+
+          <Text style={styles.bold}>8. Changes to This Policy</Text>{"\n"}
+          We may update this policy from time to time. Continued use after updates means you accept the revised policy.{"\n\n"}
+
+          <Text style={styles.bold}>9. Contact</Text>{"\n"}
+          Aether Labs — aetherlabsapps@gmail.com
         </Text>
       </ScrollView>
     </View>

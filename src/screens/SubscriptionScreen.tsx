@@ -302,8 +302,16 @@ const SubscriptionScreen = ({ navigation }: any) => {
         </TouchableOpacity>
 
         <Text style={styles.termsText}>
-          Recurring billing. Free trial applies to the yearly plan only. Cancel anytime.
-          By continuing you agree to our Terms of Service and Privacy Policy.
+          Recurring billing. Free trial applies to the yearly plan only. Cancel anytime.{"\n"}
+          By continuing you agree to our{' '}
+          <Text style={styles.termsLink} onPress={() => navigation.navigate('Terms')}>
+            Terms of Service
+          </Text>
+          {' '}and{' '}
+          <Text style={styles.termsLink} onPress={() => navigation.navigate('Privacy')}>
+            Privacy Policy
+          </Text>
+          .
         </Text>
       </ScrollView>
     </View>
@@ -401,6 +409,7 @@ const styles = StyleSheet.create({
   subscribeSubtext: { color: '#1E293B', fontSize: 12, marginTop: 6, fontWeight: '700' },
 
   termsText: { color: '#64748B', fontSize: 11, textAlign: 'center', marginTop: 20, lineHeight: 16 },
+  termsLink: { color: '#9BDCF8', textDecorationLine: 'underline' },
 });
 
 export default SubscriptionScreen;

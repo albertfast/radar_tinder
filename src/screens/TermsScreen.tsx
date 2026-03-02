@@ -24,27 +24,42 @@ const TermsScreen = ({ navigation }: any) => {
         scrollEventThrottle={16}
       >
         <Text style={styles.text}>
-          <Text style={styles.bold}>Last Updated: December 21, 2025</Text>{"\n\n"}
-          
-          Welcome to Radar Tinder. By accessing or using our mobile application, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our services.{"\n\n"}
+          <Text style={styles.bold}>Effective Date: January 2026</Text>{"\n\n"}
 
-          <Text style={styles.bold}>1. Use of Service</Text>{"\n"}
-          Radar Tinder provides real-time radar detection and navigation assistance. You agree to use the application responsibly and in compliance with all local traffic laws and regulations. The Amasaki Team is not responsible for any traffic violations or accidents that may occur while using the app.{"\n\n"}
+          These Terms and Conditions govern the use of mobile applications published by <Text style={styles.bold}>Aether Labs</Text>, including Radar Tinder. By downloading or using the app, you agree to these Terms.{"\n\n"}
 
-          <Text style={styles.bold}>2. User Accounts</Text>{"\n"}
-          To access certain features, you may be required to create an account. You are responsible for maintaining the confidentiality of your account information and for all activities that occur under your account.{"\n\n"}
+          <Text style={styles.bold}>1. Use of the Application</Text>{"\n"}
+          You must use the app only for lawful purposes and in accordance with applicable traffic and safety laws. You are solely responsible for your driving decisions and conduct.{"\n\n"}
 
-          <Text style={styles.bold}>3. Premium Subscriptions</Text>{"\n"}
-          We offer premium features under "PRO" subscriptions. Subscriptions are billed on a recurring basis. You may cancel your subscription at any time through your account settings.{"\n\n"}
+          <Text style={styles.bold}>2. Navigation and Detection Disclaimer</Text>{"\n"}
+          Radar, map, route, and AI-assisted outputs are informational only and may be delayed, unavailable, or inaccurate. They are not guaranteed real-time official enforcement data and must not be relied on as the sole basis for driving decisions.{"\n\n"}
 
-          <Text style={styles.bold}>4. Intellectual Property</Text>{"\n"}
-          All content, features, and functionality of the app are owned by the Amasaki Team and are protected by international copyright, trademark, and other intellectual property laws.{"\n\n"}
+          <Text style={styles.bold}>3. Accounts</Text>{"\n"}
+          Some features require an account. You are responsible for account confidentiality and all activity under your account.{"\n\n"}
 
-          <Text style={styles.bold}>5. Disclaimer</Text>{"\n"}
-          The application is provided "as is" without warranties of any kind. We do not guarantee the accuracy of radar locations or navigation data.{"\n\n"}
+          <Text style={styles.bold}>4. Subscriptions and Payments</Text>{"\n"}
+          Premium features may require paid subscriptions. Billing, renewals, cancellations, and refunds are managed by your app store provider and subject to its terms.{"\n\n"}
 
-          <Text style={styles.bold}>6. Contact Us</Text>{"\n"}
-          If you have any questions about these Terms, please contact the Amasaki Team at support@amasaki.com.
+          <Text style={styles.bold}>5. Intellectual Property</Text>{"\n"}
+          App content, code, and functionality are owned by Aether Labs and protected by intellectual property laws. Unauthorized copying, reverse engineering, resale, or redistribution is prohibited unless permitted by law.{"\n\n"}
+
+          <Text style={styles.bold}>6. Warranty Disclaimer</Text>{"\n"}
+          The app is provided "as is" and "as available" without warranties of any kind, express or implied, including fitness for a particular purpose, availability, and accuracy.{"\n\n"}
+
+          <Text style={styles.bold}>7. Limitation of Liability</Text>{"\n"}
+          To the maximum extent permitted by law, Aether Labs is not liable for indirect, incidental, special, consequential, or punitive damages, including traffic penalties, accidents, loss of data, or loss of profits arising from use of the app.{"\n\n"}
+
+          <Text style={styles.bold}>8. Indemnification</Text>{"\n"}
+          You agree to defend and hold harmless Aether Labs from claims, liabilities, damages, and costs arising out of your misuse of the app or violation of these Terms.{"\n\n"}
+
+          <Text style={styles.bold}>9. Termination</Text>{"\n"}
+          We may suspend or terminate access if these Terms are violated or if required for security, legal, or operational reasons.{"\n\n"}
+
+          <Text style={styles.bold}>10. Changes to Terms</Text>{"\n"}
+          We may update these Terms at any time. Continued use after updates constitutes acceptance of the revised Terms.{"\n\n"}
+
+          <Text style={styles.bold}>11. Contact</Text>{"\n"}
+          Aether Labs — aetherlabsapps@gmail.com
         </Text>
       </ScrollView>
     </View>
