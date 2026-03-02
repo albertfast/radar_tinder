@@ -38,6 +38,14 @@ import { NotificationService } from './src/services/NotificationService';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { supabase } from './utils/supabase';
 import { useSettingsStore } from './src/store/settingsStore';
+import {
+  appVersion,
+  nativeBuildVersion,
+  buildFingerprint,
+  gitCommitShort,
+  buildTimestampMs,
+  runtimeVersion,
+} from './src/utils/buildInfo';
 
 const isTruthyFlag = (value?: string) => value === '1' || value === 'true' || value === 'yes';
 const isAdDebugEnabled = () => __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG);
@@ -120,6 +128,15 @@ export default function App() {
 
   // Optimized service initialization with error boundaries
   useEffect(() => {
+    console.log('[BUILD] App launch context', {
+      appVersion,
+      nativeBuildVersion,
+      runtimeVersion,
+      buildFingerprint,
+      gitCommitShort,
+      buildTimestampMs,
+    });
+
     // Initialize services with proper error isolation
     const initializeServices = async () => {
       // Initialize crash reporting first (but don't let it crash the app)
@@ -176,6 +193,12 @@ export default function App() {
       try {
         await AnalyticsService.trackEvent('app_launch', {
           authenticated: useAuthStore.getState().isAuthenticated,
+          app_version: appVersion,
+          native_build_version: nativeBuildVersion,
+          runtime_version: runtimeVersion,
+          build_fingerprint: buildFingerprint,
+          git_commit_short: gitCommitShort,
+          build_timestamp_ms: buildTimestampMs,
         });
       } catch (error) {
         console.error('Error tracking app launch:', error);

@@ -71,36 +71,21 @@ const projectForwardCoordinate = (
   };
 };
 
-const sliceRouteAroundIndexByDistance = (
+const downsampleRouteCoordinates = (
   coords: Array<{ latitude: number; longitude: number }>,
-  centerIndex: number,
-  behindMeters: number,
-  aheadMeters: number
+  maxPoints: number
 ) => {
-  if (!Array.isArray(coords) || coords.length < 2) return coords;
-
-  let start = Math.min(Math.max(centerIndex, 0), coords.length - 1);
-  let traveledBehind = 0;
-  while (start > 0 && traveledBehind < behindMeters) {
-    const from = coords[start];
-    const to = coords[start - 1];
-    traveledBehind +=
-      LocationService.calculateDistanceSync(from.latitude, from.longitude, to.latitude, to.longitude) * 1000;
-    start -= 1;
+  if (!Array.isArray(coords) || coords.length <= maxPoints) return coords;
+  const step = Math.ceil(coords.length / maxPoints);
+  const sampled: Array<{ latitude: number; longitude: number }> = [];
+  for (let index = 0; index < coords.length; index += step) {
+    sampled.push(coords[index]);
   }
-
-  let end = Math.min(Math.max(centerIndex, 0), coords.length - 1);
-  let traveledAhead = 0;
-  while (end < coords.length - 1 && traveledAhead < aheadMeters) {
-    const from = coords[end];
-    const to = coords[end + 1];
-    traveledAhead +=
-      LocationService.calculateDistanceSync(from.latitude, from.longitude, to.latitude, to.longitude) * 1000;
-    end += 1;
+  const last = coords[coords.length - 1];
+  if (sampled[sampled.length - 1] !== last) {
+    sampled.push(last);
   }
-
-  const segment = coords.slice(start, end + 1);
-  return segment.length > 1 ? segment : coords.slice(Math.max(0, start - 1), Math.min(coords.length, end + 2));
+  return sampled;
 };
 
 const RadarScreen = ({ navigation, route }: any) => {
@@ -130,6 +115,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const hasCenteredMapRef = useRef(false);
   const forceTabRequestRef = useRef<string | null>(null);
   const adsVisibilityReasonRef = useRef('');
+  const adsEligibilityTelemetryRef = useRef('');
 
   const { width, height } = useWindowDimensions();
   const isScreenFocused = useIsFocused();
@@ -240,7 +226,7 @@ const RadarScreen = ({ navigation, route }: any) => {
     ? Math.max(getResponsiveHeight(196), Math.round(height * 0.34))
     : Math.max(110, Math.round(height * 0.22));
   const mapNavDockBottom = isMapNavigationActive
-    ? Math.max(getResponsiveHeight(70), mapOverlayInset + 48)
+    ? Math.max(getResponsiveHeight(100), mapOverlayInset + 72)
     : 0;
   const mapPadding = useMemo(() => ({
     top: isMapNavigationActive ? getResponsiveHeight(120) : getResponsiveHeight(160),
@@ -316,6 +302,43 @@ const RadarScreen = ({ navigation, route }: any) => {
     activeTab,
     isTurnByTurnActive,
     user?.adsRemoved,
+    user?.isAdminSession,
+    user?.subscriptionType,
+  ]);
+
+  useEffect(() => {
+    const snapshot = AdService.getAdsEligibilitySnapshot();
+    const signature = [
+      snapshot.userId || 'guest',
+      snapshot.subscriptionType,
+      snapshot.adsRemoved ? '1' : '0',
+      snapshot.isAdminSession ? '1' : '0',
+      snapshot.shouldShowReason,
+      snapshot.shouldShowAds ? '1' : '0',
+      snapshot.navigationAdsSuppressed ? '1' : '0',
+      snapshot.drivingState.hasActiveRoute ? '1' : '0',
+    ].join('|');
+    if (adsEligibilityTelemetryRef.current === signature) return;
+    adsEligibilityTelemetryRef.current = signature;
+
+    AnalyticsService.trackEvent('ads_eligibility_snapshot', {
+      user_id: snapshot.userId || 'guest',
+      subscription_type: snapshot.subscriptionType,
+      ads_removed: snapshot.adsRemoved,
+      admin_session: snapshot.isAdminSession,
+      admin_user: snapshot.isAdminUser,
+      should_show_home_ads: snapshot.shouldShowHomeAds,
+      should_show_ads: snapshot.shouldShowAds,
+      reason: snapshot.shouldShowReason,
+      route_active: snapshot.drivingState.hasActiveRoute,
+      driving_active: snapshot.drivingState.isDriving,
+      navigation_suppressed: snapshot.navigationAdsSuppressed,
+    }).catch(() => {});
+  }, [
+    driving.isDriving,
+    isTurnByTurnActive,
+    user?.adsRemoved,
+    user?.id,
     user?.isAdminSession,
     user?.subscriptionType,
   ]);
@@ -551,37 +574,19 @@ const RadarScreen = ({ navigation, route }: any) => {
   const centerRoute = useCallback(() => {
     if (!mapRef.current) return;
 
-    if (navigationState.routeCoords.length > 1) {
+    if (routeCoordsForMap.length > 1) {
       setManualPanMode(false);
-      setFollowHeading(true);
+      // "Center Route" should stay in route-overview mode instead of snapping back to heading follow.
+      setFollowHeading(false);
+      let focusCoords = downsampleRouteCoordinates(routeCoordsForMap, 180);
       const currentLoc = dataSync.currentLocation;
-      let focusCoords = navigationState.routeCoords.slice(0, Math.min(navigationState.routeCoords.length, 20));
-      if (currentLoc) {
-        let closestIndex = 0;
-        let minDistanceKm = Number.POSITIVE_INFINITY;
-        for (let index = 0; index < navigationState.routeCoords.length; index += 1) {
-          const coord = navigationState.routeCoords[index];
-          const distanceKm = LocationService.calculateDistanceSync(
-            currentLoc.latitude,
-            currentLoc.longitude,
-            coord.latitude,
-            coord.longitude
-          );
-          if (distanceKm < minDistanceKm) {
-            minDistanceKm = distanceKm;
-            closestIndex = index;
-          }
-        }
-        const nearbySegment = sliceRouteAroundIndexByDistance(
-          navigationState.routeCoords,
-          closestIndex,
-          260,
-          1100
-        );
-        if (nearbySegment.length > 1) {
-          focusCoords = nearbySegment;
-        }
+      if (currentLoc?.latitude != null && currentLoc?.longitude != null) {
+        focusCoords = [
+          { latitude: currentLoc.latitude, longitude: currentLoc.longitude },
+          ...focusCoords,
+        ];
       }
+
       try {
         mapRef.current.fitToCoordinates(focusCoords, {
           edgePadding: {
@@ -593,14 +598,11 @@ const RadarScreen = ({ navigation, route }: any) => {
           animated: true,
         });
       } catch {}
-      setTimeout(() => {
-        centerMap();
-      }, 320);
       return;
     }
 
     centerMap();
-  }, [centerMap, dataSync.currentLocation, mapOverlayInset, navigationState.routeCoords]);
+  }, [centerMap, dataSync.currentLocation, mapOverlayInset, routeCoordsForMap]);
 
   const handleMapTouchStart = useCallback(() => {
     if (mapInput.isMapInputLockActive) return;

@@ -101,6 +101,7 @@ const toIsoOrNull = (value?: Date): string | null => {
 
 export class SubscriptionService {
   private static isInitialized = false;
+  private static initPromise: Promise<void> | null = null;
   private static loggedMissingConfig = false;
   private static customerInfoListenerAttached = false;
   private static lastCustomerInfoSignature = '';
@@ -204,67 +205,80 @@ export class SubscriptionService {
 
   static async init(): Promise<void> {
     if (this.isInitialized) return;
-    if (this.invalidCredentialsDisabled) {
-      this.isInitialized = true;
+    if (this.initPromise) {
+      await this.initPromise;
       return;
     }
 
+    this.initPromise = (async () => {
+      if (this.invalidCredentialsDisabled) {
+        this.isInitialized = true;
+        return;
+      }
+
+      try {
+        const bindings = getPurchasesBindings();
+        if (!bindings?.Purchases) {
+          this.isInitialized = true;
+          if (__DEV__) {
+            console.warn('RevenueCat native module is unavailable. Subscription features are disabled.');
+          }
+          return;
+        }
+
+        if (__DEV__ && bindings.LOG_LEVEL?.DEBUG) {
+          bindings.Purchases.setLogLevel(bindings.LOG_LEVEL.DEBUG);
+        }
+
+        if (!this.hasValidConfig()) {
+          this.isInitialized = true;
+          if (!this.loggedMissingConfig) {
+            this.loggedMissingConfig = true;
+            const expectedHint = EXPECTED_RC_KEY_PREFIX
+              ? `Expected prefix "${EXPECTED_RC_KEY_PREFIX}" for ${Platform.OS}.`
+              : 'No platform key prefix check.';
+            console.warn(
+              `RevenueCat is not configured correctly. Set EXPO_PUBLIC_REVENUECAT_IOS_API_KEY and EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY. ${expectedHint}`
+            );
+          }
+          return;
+        }
+
+        const user = useAuthStore.getState().user;
+        bindings.Purchases.configure({
+          apiKey: REVENUECAT_API_KEY,
+          ...(user?.id ? { appUserID: user.id } : {}),
+        });
+
+        if (user?.id) {
+          const loginResult = await bindings.Purchases.logIn(user.id);
+          if (loginResult?.customerInfo) {
+            await this.updateUserSubscriptionStatus(loginResult.customerInfo, 'init_login');
+          }
+        } else {
+          const customerInfo = await bindings.Purchases.getCustomerInfo();
+          if (customerInfo) {
+            await this.updateUserSubscriptionStatus(customerInfo, 'init_guest');
+          }
+        }
+
+        this.attachCustomerInfoListener();
+        this.isInitialized = true;
+        console.log('RevenueCat initialized');
+      } catch (error) {
+        if (this.isInvalidCredentialsError(error)) {
+          this.markInvalidCredentials(error, 'init');
+          this.isInitialized = true;
+          return;
+        }
+        console.error('Error initializing RevenueCat:', error);
+      }
+    })();
+
     try {
-      const bindings = getPurchasesBindings();
-      if (!bindings?.Purchases) {
-        this.isInitialized = true;
-        if (__DEV__) {
-          console.warn('RevenueCat native module is unavailable. Subscription features are disabled.');
-        }
-        return;
-      }
-
-      if (__DEV__ && bindings.LOG_LEVEL?.DEBUG) {
-        bindings.Purchases.setLogLevel(bindings.LOG_LEVEL.DEBUG);
-      }
-
-      if (!this.hasValidConfig()) {
-        this.isInitialized = true;
-        if (!this.loggedMissingConfig) {
-          this.loggedMissingConfig = true;
-          const expectedHint = EXPECTED_RC_KEY_PREFIX
-            ? `Expected prefix "${EXPECTED_RC_KEY_PREFIX}" for ${Platform.OS}.`
-            : 'No platform key prefix check.';
-          console.warn(
-            `RevenueCat is not configured correctly. Set EXPO_PUBLIC_REVENUECAT_IOS_API_KEY and EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY. ${expectedHint}`
-          );
-        }
-        return;
-      }
-
-      const user = useAuthStore.getState().user;
-      bindings.Purchases.configure({
-        apiKey: REVENUECAT_API_KEY,
-        ...(user?.id ? { appUserID: user.id } : {}),
-      });
-
-      if (user?.id) {
-        const loginResult = await bindings.Purchases.logIn(user.id);
-        if (loginResult?.customerInfo) {
-          await this.updateUserSubscriptionStatus(loginResult.customerInfo, 'init_login');
-        }
-      } else {
-        const customerInfo = await bindings.Purchases.getCustomerInfo();
-        if (customerInfo) {
-          await this.updateUserSubscriptionStatus(customerInfo, 'init_guest');
-        }
-      }
-
-      this.attachCustomerInfoListener();
-      this.isInitialized = true;
-      console.log('RevenueCat initialized');
-    } catch (error) {
-      if (this.isInvalidCredentialsError(error)) {
-        this.markInvalidCredentials(error, 'init');
-        this.isInitialized = true;
-        return;
-      }
-      console.error('Error initializing RevenueCat:', error);
+      await this.initPromise;
+    } finally {
+      this.initPromise = null;
     }
   }
 

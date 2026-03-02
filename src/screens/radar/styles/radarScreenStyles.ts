@@ -279,7 +279,7 @@ export const radarScreenStyles = StyleSheet.create({
   },
   navSummaryEta: {
     color: '#67E8F9',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     marginTop: 2,
   },

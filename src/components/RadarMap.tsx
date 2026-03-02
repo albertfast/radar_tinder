@@ -1,12 +1,57 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { modernMapStyle } from '../utils/modernMapStyle';
 import { getResponsiveWidth, getResponsiveHeight, getResponsiveMargin, getResponsivePadding } from '../constants/layout';
 
 const MAP_COORD_TRACE_ENABLED =
   __DEV__ || /^(1|true|yes)$/i.test(process.env.EXPO_PUBLIC_MAP_TRACE || '');
+
+const ROUTE_VISUAL_TOKENS = Platform.select({
+  ios: {
+    // High-contrast turquoise route for iOS: glow + solid body + bright core.
+    casingColor: 'rgba(0, 246, 226, 0.30)',
+    fillColor: '#00F7E6',
+    highlightColor: 'rgba(245, 255, 254, 0.95)',
+    casingWidth: 8,
+    fillWidth: 5,
+    highlightWidth: 2.4,
+  },
+  default: {
+    casingColor: 'rgba(0, 246, 226, 0.26)',
+    fillColor: '#00F0DD',
+    highlightColor: 'rgba(232, 255, 252, 0.88)',
+    casingWidth: getResponsiveWidth(9),
+    fillWidth: getResponsiveWidth(6),
+    highlightWidth: getResponsiveWidth(2),
+  },
+})!;
+
+const USER_MARKER_TOKENS = {
+  shell: getResponsiveWidth(52),
+  outer: getResponsiveWidth(46),
+  outerBorder: 1.5,
+  inner: getResponsiveWidth(32),
+  plate: getResponsiveWidth(30),
+  plateRadius: getResponsiveWidth(9),
+  arrowWrapWidth: getResponsiveWidth(23),
+  arrowWrapHeight: getResponsiveHeight(30),
+  arrowBodySide: getResponsiveWidth(6),
+  arrowBodyBottom: getResponsiveHeight(18),
+  arrowBodyInnerSide: getResponsiveWidth(3),
+  arrowBodyInnerBottom: getResponsiveHeight(11),
+  arrowBodyInnerOffset: getResponsiveHeight(5),
+  arrowTailWidth: getResponsiveWidth(8),
+  arrowTailHeight: getResponsiveHeight(4),
+  arrowTailRadius: getResponsiveWidth(2),
+  arrowTailBottom: getResponsiveHeight(2),
+  coreSize: getResponsiveWidth(9),
+  coreBorder: 1.5,
+  coreBottom: getResponsiveHeight(10),
+  centerDotSize: getResponsiveWidth(3),
+  centerDotBottom: getResponsiveHeight(13),
+};
 
 type LatLng = { latitude: number; longitude: number };
 
@@ -60,7 +105,7 @@ const OptimizedMarker = React.memo(({ coordinate, type, speedLimit, onPress }: a
 const RadarArrowUserMarker = React.memo(({ coordinate, heading }: { coordinate: LatLng; heading: number }) => (
   <Marker
     coordinate={coordinate}
-    tracksViewChanges
+    tracksViewChanges={false}
     anchor={{ x: 0.5, y: 0.5 }}
     zIndex={60}
   >
@@ -157,18 +202,15 @@ const RadarMap = React.memo(({
     const children: React.ReactElement[] = [];
 
     if (sanitizedRouteCoords.length > 0) {
-      const routeCasingColor = 'rgba(6, 14, 28, 0.92)';
-      const routeFillColor = '#34F5E4';
-
       children.push(
         <Polyline
           key="route-casing"
           coordinates={sanitizedRouteCoords}
-          strokeWidth={getResponsiveWidth(12)}
-          strokeColor={routeCasingColor}
+          strokeWidth={ROUTE_VISUAL_TOKENS.casingWidth}
+          strokeColor={ROUTE_VISUAL_TOKENS.casingColor}
           lineCap="round"
           lineJoin="round"
-          zIndex={9}
+          zIndex={120}
         />
       );
 
@@ -176,11 +218,11 @@ const RadarMap = React.memo(({
         <Polyline
           key="route-polyline"
           coordinates={sanitizedRouteCoords}
-          strokeWidth={getResponsiveWidth(7)}
-          strokeColor={routeFillColor}
+          strokeWidth={ROUTE_VISUAL_TOKENS.fillWidth}
+          strokeColor={ROUTE_VISUAL_TOKENS.fillColor}
           lineCap="round"
           lineJoin="round"
-          zIndex={10}
+          zIndex={121}
         />
       );
 
@@ -188,11 +230,11 @@ const RadarMap = React.memo(({
         <Polyline
           key="route-highlight"
           coordinates={sanitizedRouteCoords}
-          strokeWidth={getResponsiveWidth(3)}
-          strokeColor="rgba(190, 255, 248, 0.92)"
+          strokeWidth={ROUTE_VISUAL_TOKENS.highlightWidth}
+          strokeColor={ROUTE_VISUAL_TOKENS.highlightColor}
           lineCap="round"
           lineJoin="round"
-          zIndex={11}
+          zIndex={122}
         />
       );
     }
@@ -344,95 +386,110 @@ const styles = StyleSheet.create({
     elevation: 6
   },
   userMarkerShell: {
-    width: 108,
-    height: 108,
+    width: USER_MARKER_TOKENS.shell,
+    height: USER_MARKER_TOKENS.shell,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'visible',
   },
   userPulseOuter: {
     position: 'absolute',
-    width: 102,
-    height: 102,
-    borderRadius: 51,
+    width: USER_MARKER_TOKENS.outer,
+    height: USER_MARKER_TOKENS.outer,
+    borderRadius: USER_MARKER_TOKENS.outer / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(34,211,238,0.2)',
-    borderWidth: 2.5,
-    borderColor: 'rgba(103,232,249,0.86)',
+    backgroundColor: 'transparent',
+    borderWidth: USER_MARKER_TOKENS.outerBorder,
+    borderColor: 'rgba(88, 231, 219, 0.62)',
+    shadowColor: 'rgba(88, 231, 219, 0.28)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 1,
   },
   userPulseInner: {
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    backgroundColor: 'rgba(251,146,60,0.26)',
+    width: USER_MARKER_TOKENS.inner,
+    height: USER_MARKER_TOKENS.inner,
+    borderRadius: USER_MARKER_TOKENS.inner / 2,
+    backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: 'rgba(251,146,60,0.84)',
+    borderColor: 'rgba(88, 231, 219, 0.42)',
   },
   userMarkerPlate: {
     position: 'absolute',
-    width: 66,
-    height: 66,
-    borderRadius: 20,
-    backgroundColor: 'rgba(8,47,73,0.92)',
+    width: USER_MARKER_TOKENS.plate,
+    height: USER_MARKER_TOKENS.plate,
+    borderRadius: USER_MARKER_TOKENS.plateRadius,
+    backgroundColor: 'rgba(15,23,42,0.9)',
     borderWidth: 2,
-    borderColor: 'rgba(186,230,253,0.86)',
+    borderColor: 'rgba(88, 231, 219, 0.9)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
   },
   userArrowWrap: {
-    width: 60,
-    height: 72,
+    width: USER_MARKER_TOKENS.arrowWrapWidth,
+    height: USER_MARKER_TOKENS.arrowWrapHeight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   userArrowBody: {
     width: 0,
     height: 0,
-    borderLeftWidth: 18,
-    borderRightWidth: 18,
-    borderBottomWidth: 45,
+    borderLeftWidth: USER_MARKER_TOKENS.arrowBodySide,
+    borderRightWidth: USER_MARKER_TOKENS.arrowBodySide,
+    borderBottomWidth: USER_MARKER_TOKENS.arrowBodyBottom,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: '#A5F3FC',
+    borderBottomColor: 'rgba(88, 231, 219, 0.96)',
   },
   userArrowBodyInner: {
     position: 'absolute',
     width: 0,
     height: 0,
-    borderLeftWidth: 11,
-    borderRightWidth: 11,
-    borderBottomWidth: 30,
+    borderLeftWidth: USER_MARKER_TOKENS.arrowBodyInnerSide,
+    borderRightWidth: USER_MARKER_TOKENS.arrowBodyInnerSide,
+    borderBottomWidth: USER_MARKER_TOKENS.arrowBodyInnerBottom,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: '#FB923C',
-    bottom: 16,
+    borderBottomColor: 'rgba(15,23,42,0.8)',
+    bottom: USER_MARKER_TOKENS.arrowBodyInnerOffset,
   },
   userArrowTail: {
     position: 'absolute',
-    bottom: 8,
-    width: 24,
-    height: 12,
-    borderRadius: 7,
-    backgroundColor: '#082F49',
-    borderWidth: 1.5,
-    borderColor: 'rgba(186,230,253,0.84)',
+    bottom: USER_MARKER_TOKENS.arrowTailBottom,
+    width: USER_MARKER_TOKENS.arrowTailWidth,
+    height: USER_MARKER_TOKENS.arrowTailHeight,
+    borderRadius: USER_MARKER_TOKENS.arrowTailRadius,
+    backgroundColor: 'rgba(15,23,42,0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(88, 231, 219, 0.72)',
   },
   userArrowCore: {
     position: 'absolute',
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#FB923C',
-    borderWidth: 3,
-    borderColor: '#082F49',
-    bottom: 28,
+    width: USER_MARKER_TOKENS.coreSize,
+    height: USER_MARKER_TOKENS.coreSize,
+    borderRadius: USER_MARKER_TOKENS.coreSize / 2,
+    backgroundColor: 'rgba(88, 231, 219, 0.96)',
+    borderWidth: USER_MARKER_TOKENS.coreBorder,
+    borderColor: '#ffffff',
+    bottom: USER_MARKER_TOKENS.coreBottom,
+    shadowColor: 'rgba(88, 231, 219, 0.44)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 3,
+    elevation: 4,
   },
   userCenterDot: {
     position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: USER_MARKER_TOKENS.centerDotSize,
+    height: USER_MARKER_TOKENS.centerDotSize,
+    borderRadius: USER_MARKER_TOKENS.centerDotSize / 2,
     backgroundColor: '#ffffff',
-    bottom: 37,
+    bottom: USER_MARKER_TOKENS.centerDotBottom,
   },
 });
 
