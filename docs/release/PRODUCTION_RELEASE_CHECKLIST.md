@@ -31,6 +31,15 @@ Bu liste, production gönderimi öncesi hızlı ve güvenli final kontroldür.
 - [ ] Xcode Scheme’e `-FIRDebugEnabled` verip Performance loglarını kısa bir testte doğrula.
 - [ ] Firebase Console > Performance dashboard’da ilk event’leri doğrula.
 
+## D.1) iOS Ödeme Gerçekliği (Kritik)
+
+- [ ] TestFlight satın alımlarının Apple sandbox olduğunu doğrula (gerçek karttan çekim yapılmaz).
+- [ ] Gerçek ücretlendirme yalnızca App Store production yayında gerçekleşir.
+- [ ] RevenueCat Dashboard'da iOS ürün ID’lerinin app içi planlarla eşleştiğini doğrula:
+	- Weekly: `pro_subscription_weekly` / `pro_subscription:weekly`
+	- Yearly: `pro_subscription_yearly` / `pro_subscription:yearly`
+	- Remove Ads: `remove_ads`
+
 ## E) iOS Release Akışı
 
 - [ ] Preflight çalıştır:
