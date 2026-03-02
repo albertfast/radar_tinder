@@ -19,8 +19,12 @@ const SubscriptionScreen = ({ navigation }: any) => {
   const [isTrialEnabled, setIsTrialEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
+  const { user } = useAuthStore();
   const trialAvailable = selectedPlan === 'yearly';
   const trialActive = trialAvailable && isTrialEnabled;
+  const successMessage = user?.accountLinkRequiredUntil
+    ? 'Your subscription is active. Link your account within 24h to keep access across devices.'
+    : 'Your subscription is active.';
 
   const plans = {
     adfree: {
@@ -116,7 +120,7 @@ const SubscriptionScreen = ({ navigation }: any) => {
           source: 'revenuecat_paywall',
           status: paywallStatus,
         });
-        Alert.alert('Success', 'Your subscription is active.');
+        Alert.alert('Success', successMessage);
         navigation.goBack();
         return;
       }
@@ -155,7 +159,7 @@ const SubscriptionScreen = ({ navigation }: any) => {
         return;
       }
 
-      Alert.alert('Success', 'Your subscription is active.');
+      Alert.alert('Success', successMessage);
       navigation.goBack();
     } catch (err) {
       console.error('Subscription purchase error:', err);

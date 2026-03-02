@@ -8,6 +8,7 @@ import { GoogleMapsService } from '../../../services/GoogleMapsService';
 import { LocationService } from '../../../services/LocationService';
 import { RadarService } from '../../../services/RadarService';
 import { VoiceGuidanceService } from '../../../services/VoiceGuidanceService';
+import { AnalyticsService } from '../../../services/AnalyticsService';
 import { AUTOCOMPLETE_V2_ENABLED, RECENT_DESTINATIONS_KEY } from '../constants';
 import { NavStep, RouteMeta, TabType } from '../types';
 import { isHighwayManeuver, stripHtml } from '../utils/radarFormatters';
@@ -413,6 +414,7 @@ export function useRadarNavigation({
 
         setRouteCoords(res.coordinates);
         const primaryLeg = res?.legs?.[0];
+        const primaryDuration = primaryLeg?.duration_in_traffic || primaryLeg?.duration;
         const resolvedDestinationLabel =
           primaryLeg?.end_address || resolvedParams?.destinationLabel || finalDest;
         const resolvedDestinationCoord =
@@ -424,15 +426,24 @@ export function useRadarNavigation({
             : resolvedParams?.destinationCoord || null;
 
         if (primaryLeg) {
+          const etaSource = primaryLeg?.duration_in_traffic ? 'duration_in_traffic' : 'duration';
           setRouteMeta({
-            etaText: primaryLeg.duration?.text || 'ETA —',
+            etaText: primaryDuration?.text || primaryLeg.duration?.text || 'ETA —',
             distanceText: primaryLeg.distance?.text || 'Distance —',
             destinationLabel: resolvedDestinationLabel,
             distanceMeters:
               typeof primaryLeg.distance?.value === 'number' ? primaryLeg.distance.value : null,
             durationSeconds:
-              typeof primaryLeg.duration?.value === 'number' ? primaryLeg.duration.value : null,
+              typeof primaryDuration?.value === 'number'
+                ? primaryDuration.value
+                : typeof primaryLeg.duration?.value === 'number'
+                  ? primaryLeg.duration.value
+                  : null,
           });
+          AnalyticsService.trackEvent('eta_source', {
+            source: etaSource,
+            phase: 'initial_route',
+          }).catch(() => {});
         } else {
           setRouteMeta(null);
         }
@@ -502,26 +513,40 @@ export function useRadarNavigation({
         const fallbackHeading =
           res.coordinates.length > 1
             ? LocationService.calculateBearing(
-              res.coordinates[0].latitude,
-              res.coordinates[0].longitude,
-              res.coordinates[1].latitude,
-              res.coordinates[1].longitude
-            )
+                res.coordinates[0].latitude,
+                res.coordinates[0].longitude,
+                res.coordinates[1].latitude,
+                res.coordinates[1].longitude
+              )
             : 0;
         const tightFollowHeading =
           typeof loc.heading === 'number' && Number.isFinite(loc.heading) ? loc.heading : fallbackHeading;
-        mapRef.current?.animateCamera(
-          {
-            center: {
-              latitude: loc.latitude,
-              longitude: loc.longitude,
+        try {
+          mapRef.current?.fitToCoordinates(res.coordinates, {
+            edgePadding: {
+              top: 140,
+              right: 34,
+              bottom: 280,
+              left: 34,
             },
-            zoom: 18.2,
-            pitch: 64,
-            heading: tightFollowHeading,
-          },
-          { duration: 650 }
-        );
+            animated: true,
+          });
+        } catch {}
+
+        setTimeout(() => {
+          mapRef.current?.animateCamera(
+            {
+              center: {
+                latitude: loc.latitude,
+                longitude: loc.longitude,
+              },
+              zoom: 18.2,
+              pitch: 64,
+              heading: tightFollowHeading,
+            },
+            { duration: 650 }
+          );
+        }, 650);
         hasCenteredMapRef.current = true;
       } catch (error) {
         console.error('Navigation failed:', error);
@@ -953,9 +978,11 @@ export function useRadarNavigation({
         setRouteCoords(reroute.coordinates);
 
         const leg = reroute?.legs?.[0];
+        const rerouteDuration = leg?.duration_in_traffic || leg?.duration;
         if (leg) {
+          const etaSource = leg?.duration_in_traffic ? 'duration_in_traffic' : 'duration';
           setRouteMeta({
-            etaText: leg.duration?.text || routeMeta?.etaText || 'ETA —',
+            etaText: rerouteDuration?.text || leg.duration?.text || routeMeta?.etaText || 'ETA —',
             distanceText: leg.distance?.text || routeMeta?.distanceText || 'Distance —',
             destinationLabel: leg.end_address || routeMeta?.destinationLabel || destination,
             distanceMeters:
@@ -963,10 +990,16 @@ export function useRadarNavigation({
                 ? leg.distance.value
                 : routeMeta?.distanceMeters ?? null,
             durationSeconds:
-              typeof leg.duration?.value === 'number'
-                ? leg.duration.value
+              typeof rerouteDuration?.value === 'number'
+                ? rerouteDuration.value
+                : typeof leg.duration?.value === 'number'
+                  ? leg.duration.value
                 : routeMeta?.durationSeconds ?? null,
           });
+          AnalyticsService.trackEvent('eta_source', {
+            source: etaSource,
+            phase: 'reroute',
+          }).catch(() => {});
           if (leg.end_location?.lat && leg.end_location?.lng) {
             setDestinationCoord({ latitude: leg.end_location.lat, longitude: leg.end_location.lng });
           } else if (previousDestination) {

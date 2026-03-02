@@ -44,6 +44,71 @@ const normalizeAdsRemoved = (profile: any): boolean => {
   return false;
 };
 
+const normalizeOptionalDate = (value: unknown): Date | undefined => {
+  if (!value) return undefined;
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+};
+
+const shouldPersistAdminSession =
+  __DEV__ && /^(1|true|yes)$/i.test(process.env.EXPO_PUBLIC_ADMIN_DEBUG_PERSIST || '');
+const allowAdminSession = __DEV__;
+
+const resolveAccessSnapshot = (
+  currentUser: User,
+  profile: any,
+  isAdminSession: boolean
+): {
+  subscriptionType: User['subscriptionType'];
+  adsRemoved: boolean;
+  subscriptionExpiresAt?: Date;
+  accountLinkRequiredUntil?: Date;
+  rcCustomerId?: string;
+} => {
+  const profileSubscriptionType = normalizeSubscriptionType(profile?.subscription_type);
+  const profileAdsRemoved = normalizeAdsRemoved(profile);
+  const profileSubscriptionExpiresAt = normalizeOptionalDate(profile?.subscription_expires_at);
+  const profileAccountLinkRequiredUntil = normalizeOptionalDate(profile?.account_link_required_until);
+  const profileRcCustomerId =
+    typeof profile?.rc_customer_id === 'string' ? profile.rc_customer_id : undefined;
+
+  const localPaidState = currentUser.subscriptionType !== 'free' || Boolean(currentUser.adsRemoved);
+  const profilePaidState = profileSubscriptionType !== 'free' || profileAdsRemoved;
+  const shouldPreferLocalRcState =
+    !isAdminSession &&
+    localPaidState &&
+    !profilePaidState &&
+    Boolean(currentUser.rcCustomerId || profileRcCustomerId);
+
+  if (isAdminSession) {
+    return {
+      subscriptionType: 'pro',
+      adsRemoved: true,
+      subscriptionExpiresAt:
+        profileSubscriptionExpiresAt ?? currentUser.subscriptionExpiresAt ?? undefined,
+      accountLinkRequiredUntil:
+        profileAccountLinkRequiredUntil ?? currentUser.accountLinkRequiredUntil ?? undefined,
+      rcCustomerId: profileRcCustomerId ?? currentUser.rcCustomerId ?? undefined,
+    };
+  }
+
+  return {
+    subscriptionType: shouldPreferLocalRcState
+      ? currentUser.subscriptionType
+      : profileSubscriptionType,
+    adsRemoved: shouldPreferLocalRcState
+      ? Boolean(currentUser.adsRemoved)
+      : profileAdsRemoved,
+    subscriptionExpiresAt: shouldPreferLocalRcState
+      ? currentUser.subscriptionExpiresAt ?? profileSubscriptionExpiresAt ?? undefined
+      : profileSubscriptionExpiresAt ?? currentUser.subscriptionExpiresAt ?? undefined,
+    accountLinkRequiredUntil: shouldPreferLocalRcState
+      ? currentUser.accountLinkRequiredUntil ?? profileAccountLinkRequiredUntil ?? undefined
+      : profileAccountLinkRequiredUntil ?? currentUser.accountLinkRequiredUntil ?? undefined,
+    rcCustomerId: profileRcCustomerId ?? currentUser.rcCustomerId ?? undefined,
+  };
+};
+
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -113,6 +178,10 @@ export const useAuthStore = create<AuthState>()(
               displayName: profile?.display_name,
               name: displayName,
               subscriptionType: normalizeSubscriptionType(profile?.subscription_type),
+              subscriptionExpiresAt: normalizeOptionalDate(profile?.subscription_expires_at),
+              accountLinkRequiredUntil: normalizeOptionalDate(profile?.account_link_required_until),
+              rcCustomerId:
+                typeof profile?.rc_customer_id === 'string' ? profile.rc_customer_id : undefined,
               avatarUrl: profile?.avatar_url,
               profileImage: profile?.avatar_url,
               points: profile?.points || 0,
@@ -215,6 +284,10 @@ export const useAuthStore = create<AuthState>()(
             displayName: profile?.display_name,
             name: displayName,
             subscriptionType: normalizeSubscriptionType(profile?.subscription_type),
+            subscriptionExpiresAt: normalizeOptionalDate(profile?.subscription_expires_at),
+            accountLinkRequiredUntil: normalizeOptionalDate(profile?.account_link_required_until),
+            rcCustomerId:
+              typeof profile?.rc_customer_id === 'string' ? profile.rc_customer_id : undefined,
             avatarUrl: profile?.avatar_url,
             profileImage: profile?.avatar_url,
             points: profile?.points || 0,
@@ -340,6 +413,10 @@ export const useAuthStore = create<AuthState>()(
               displayName: profile?.display_name,
               name: displayName,
               subscriptionType: normalizeSubscriptionType(profile?.subscription_type),
+              subscriptionExpiresAt: normalizeOptionalDate(profile?.subscription_expires_at),
+              accountLinkRequiredUntil: normalizeOptionalDate(profile?.account_link_required_until),
+              rcCustomerId:
+                typeof profile?.rc_customer_id === 'string' ? profile.rc_customer_id : undefined,
               avatarUrl: profile?.avatar_url,
               profileImage: profile?.avatar_url,
               points: profile?.points || 0,
@@ -387,6 +464,10 @@ export const useAuthStore = create<AuthState>()(
             displayName: profile?.display_name,
             name: displayName,
             subscriptionType: normalizeSubscriptionType(profile?.subscription_type),
+            subscriptionExpiresAt: normalizeOptionalDate(profile?.subscription_expires_at),
+            accountLinkRequiredUntil: normalizeOptionalDate(profile?.account_link_required_until),
+            rcCustomerId:
+              typeof profile?.rc_customer_id === 'string' ? profile.rc_customer_id : undefined,
             avatarUrl: profile?.avatar_url,
             profileImage: profile?.avatar_url,
             points: profile?.points || 0,
@@ -422,17 +503,8 @@ export const useAuthStore = create<AuthState>()(
           if (!currentUser) return;
 
           const profile = await SupabaseService.getProfile(currentUser.id);
-          const isAdminSession = Boolean(currentUser.isAdminSession);
-          const profileSubscriptionType = normalizeSubscriptionType(profile?.subscription_type);
-          const profileAdsRemoved = normalizeAdsRemoved(profile);
-
-          const normalizedSubscriptionType = isAdminSession
-            ? 'pro'
-            : profileSubscriptionType;
-
-          const normalizedAdsRemoved = isAdminSession
-            ? true
-            : profileAdsRemoved;
+          const isAdminSession = allowAdminSession && Boolean(currentUser.isAdminSession);
+          const resolvedAccess = resolveAccessSnapshot(currentUser, profile, isAdminSession);
 
           const unitSystem = profile?.unit_system;
           if (unitSystem === 'metric' || unitSystem === 'imperial') {
@@ -451,8 +523,11 @@ export const useAuthStore = create<AuthState>()(
                 currentUser.email.split('@')[0],
               avatarUrl: profile?.avatar_url ?? currentUser.avatarUrl,
               profileImage: profile?.avatar_url ?? currentUser.profileImage,
-              subscriptionType: normalizedSubscriptionType,
-              adsRemoved: normalizedAdsRemoved,
+              subscriptionType: resolvedAccess.subscriptionType,
+              subscriptionExpiresAt: resolvedAccess.subscriptionExpiresAt,
+              accountLinkRequiredUntil: resolvedAccess.accountLinkRequiredUntil,
+              rcCustomerId: resolvedAccess.rcCustomerId,
+              adsRemoved: resolvedAccess.adsRemoved,
               isAdminSession: isAdminSession ? true : undefined,
               updatedAt: new Date(),
             },
@@ -469,16 +544,8 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const profile = await SupabaseService.getProfile(currentUser.id);
-          const isAdminSession = Boolean(currentUser.isAdminSession);
-          const profileSubscriptionType = normalizeSubscriptionType(profile?.subscription_type);
-          const profileAdsRemoved = normalizeAdsRemoved(profile);
-
-          const normalizedSubscriptionType = isAdminSession
-            ? 'pro'
-            : profileSubscriptionType;
-          const normalizedAdsRemoved = isAdminSession
-            ? true
-            : profileAdsRemoved;
+          const isAdminSession = allowAdminSession && Boolean(currentUser.isAdminSession);
+          const resolvedAccess = resolveAccessSnapshot(currentUser, profile, isAdminSession);
 
           const unitSystem = profile?.unit_system;
           if (unitSystem === 'metric' || unitSystem === 'imperial') {
@@ -502,8 +569,11 @@ export const useAuthStore = create<AuthState>()(
               xp: profile?.xp ?? currentUser.xp,
               level: profile?.level ?? currentUser.level,
               stats: profile?.stats ?? currentUser.stats,
-              subscriptionType: normalizedSubscriptionType,
-              adsRemoved: normalizedAdsRemoved,
+              subscriptionType: resolvedAccess.subscriptionType,
+              subscriptionExpiresAt: resolvedAccess.subscriptionExpiresAt,
+              accountLinkRequiredUntil: resolvedAccess.accountLinkRequiredUntil,
+              rcCustomerId: resolvedAccess.rcCustomerId,
+              adsRemoved: resolvedAccess.adsRemoved,
               isAdminSession: isAdminSession ? true : undefined,
               updatedAt: new Date(),
             },
@@ -515,6 +585,8 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         const { FirebaseAuthService } = require('../services/FirebaseAuthService');
+        const { SubscriptionService } = require('../services/SubscriptionService');
+        await SubscriptionService.logOutRevenueCatUser().catch(() => {});
         await FirebaseAuthService.signOut();
         await supabase.auth.signOut();
         set({ user: null, isAuthenticated: false });
@@ -537,6 +609,9 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => {
         const sanitizedUser = state.user
           ? (() => {
+              if (shouldPersistAdminSession) {
+                return state.user as User;
+              }
               const { isAdminSession: _isAdminSession, ...restUser } = state.user as User;
               return restUser as User;
             })()

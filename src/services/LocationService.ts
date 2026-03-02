@@ -33,14 +33,21 @@ export class LocationService {
   }
 
   static async watchLocation(
-    callback: (location: { latitude: number; longitude: number; heading: number | null; speed: number | null }) => void
+    callback: (location: {
+      latitude: number;
+      longitude: number;
+      heading: number | null;
+      speed: number | null;
+      accuracy: number | null;
+    }) => void,
+    options?: { forDriving?: boolean }
   ): Promise<Location.LocationSubscription> {
     try {
       await this.requestLocationPermission();
       
       return await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
+          accuracy: options?.forDriving ? Location.Accuracy.BestForNavigation : Location.Accuracy.High,
           distanceInterval: 5, // Update every 5 meters for better accuracy during navigation
           timeInterval: 1000, // Update every 1 second for responsive navigation
         },
@@ -50,6 +57,10 @@ export class LocationService {
             longitude: location.coords.longitude,
             heading: location.coords.heading,
             speed: location.coords.speed,
+            accuracy:
+              typeof location.coords.accuracy === 'number' && Number.isFinite(location.coords.accuracy)
+                ? location.coords.accuracy
+                : null,
           });
         }
       );

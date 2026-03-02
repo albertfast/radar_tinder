@@ -1,6 +1,7 @@
 import { OSRMService } from './OSRMService';
 import { NominatimService } from './NominatimService';
 import { AddressSuggestion } from '../types';
+import { readBooleanFlag } from '../utils/flags';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
@@ -27,7 +28,7 @@ interface CoordinateSpeedLimitResult {
   speedLimit: number;
   units: 'KPH' | 'MPH';
   placeId?: string;
-  source: 'roads_api' | 'osm' | 'unknown';
+  source: 'roads_api' | 'osm' | 'unknown' | 'roads_unavailable';
 }
 
 interface DistanceResult {
@@ -51,6 +52,7 @@ interface GeocodeSuggestionOptions {
 
 export class GoogleMapsService {
   private static BASE_URL = 'https://maps.googleapis.com/maps/api';
+  private static TRAFFIC_ETA_V2_ENABLED = readBooleanFlag('EXPO_PUBLIC_TRAFFIC_ETA_V2', true);
   private static OVERPASS_SPEED_ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
     'https://lz4.overpass-api.de/api/interpreter',
@@ -174,7 +176,9 @@ export class GoogleMapsService {
     }
   }
 
-  static async getSpeedLimit(placeId: string): Promise<SpeedLimitResult | null> {
+  static async getSpeedLimit(
+    placeId: string
+  ): Promise<SpeedLimitResult | 'roads_unavailable' | null> {
     try {
       if (!GOOGLE_MAPS_API_KEY) return null;
       const url = `https://roads.googleapis.com/v1/speedLimits?placeId=${placeId}&key=${GOOGLE_MAPS_API_KEY}`;
@@ -182,7 +186,7 @@ export class GoogleMapsService {
 
       if (!response.ok) {
         if (response.status === 403) {
-          return null;
+          return 'roads_unavailable';
         }
         const text = await response.text();
         console.warn(`Roads API Error (${response.status}):`, text);
@@ -226,6 +230,7 @@ export class GoogleMapsService {
         }
       }
 
+      let roadsUnavailable = false;
       if (placeId) {
         const placeCacheKey = `place:${placeId}`;
         const placeCached = this.speedLimitCache.get(placeCacheKey);
@@ -235,7 +240,10 @@ export class GoogleMapsService {
         }
 
         const speed = await this.getSpeedLimit(placeId);
-        if (speed?.speedLimit) {
+        if (speed === 'roads_unavailable') {
+          roadsUnavailable = true;
+        }
+        if (speed && speed !== 'roads_unavailable' && speed.speedLimit) {
           const result: CoordinateSpeedLimitResult = {
             speedLimit: speed.speedLimit,
             units: speed.units,
@@ -262,7 +270,7 @@ export class GoogleMapsService {
       const unknown: CoordinateSpeedLimitResult = {
         speedLimit: 0,
         units: 'MPH',
-        source: 'unknown',
+        source: roadsUnavailable ? 'roads_unavailable' : 'unknown',
       };
       this.speedLimitCache.set(coordinateCacheKey, { value: unknown, timestamp: now });
       return unknown;
@@ -332,7 +340,10 @@ export class GoogleMapsService {
 
       const origin = `${originLat},${originLng}`;
       const alternatives = options?.alternatives ? '&alternatives=true' : '';
-      const url = `${this.BASE_URL}/directions/json?origin=${origin}&destination=${encodeURIComponent(destination)}&mode=driving${alternatives}&language=en&key=${GOOGLE_MAPS_API_KEY}`;
+      const trafficParams = this.TRAFFIC_ETA_V2_ENABLED
+        ? '&departure_time=now&traffic_model=best_guess'
+        : '';
+      const url = `${this.BASE_URL}/directions/json?origin=${origin}&destination=${encodeURIComponent(destination)}&mode=driving${alternatives}${trafficParams}&language=en&key=${GOOGLE_MAPS_API_KEY}`;
 
       console.log('[GoogleMapsService] Fetching directions to:', destination);
 
@@ -344,14 +355,15 @@ export class GoogleMapsService {
 
         const scoredRoutes = routes.map((route: any) => {
           const leg = route?.legs?.[0];
-          const duration = leg?.duration?.value ?? Number.MAX_SAFE_INTEGER;
+          const durationValue =
+            leg?.duration_in_traffic?.value ?? leg?.duration?.value ?? Number.MAX_SAFE_INTEGER;
           const distance = leg?.distance?.value ?? Number.MAX_SAFE_INTEGER;
-          const trafficDuration = leg?.duration_in_traffic?.value ?? duration;
+          const trafficDuration = leg?.duration_in_traffic?.value ?? durationValue;
           const trafficScore = trafficDuration;
           const distancePenalty = distance * 0.08;
           return {
             route,
-            duration,
+            duration: durationValue,
             distance,
             trafficDuration,
             score: trafficScore + distancePenalty,
@@ -364,11 +376,15 @@ export class GoogleMapsService {
         const points = this.decodePolyline(selectedRoute.overview_polyline.points);
 
         const leg = selectedRoute.legs[0];
+        const effectiveDuration =
+          this.TRAFFIC_ETA_V2_ENABLED && leg?.duration_in_traffic
+            ? leg.duration_in_traffic
+            : leg.duration;
         const routeInfo = {
           coordinates: points,
           legs: [{
             distance: leg.distance,
-            duration: leg.duration,
+            duration: effectiveDuration || leg.duration,
             duration_in_traffic: leg.duration_in_traffic,
             end_address: leg.end_address,
             start_address: leg.start_address,
@@ -754,9 +770,10 @@ export class GoogleMapsService {
     const query = `
       [out:json][timeout:10];
       (
-        way(around:90,${latitude},${longitude})["maxspeed"];
+        way(around:220,${latitude},${longitude})["maxspeed"];
+        relation(around:220,${latitude},${longitude})["maxspeed"];
       );
-      out tags 8;
+      out center tags 24;
     `;
 
     for (const endpoint of this.OVERPASS_SPEED_ENDPOINTS) {
@@ -772,9 +789,25 @@ export class GoogleMapsService {
 
         const data = await response.json();
         const elements = Array.isArray(data?.elements) ? data.elements : [];
+        let best: { speed: SpeedLimitResult; distanceKm: number } | null = null;
         for (const element of elements) {
           const parsed = this.parseMaxspeedValue(element?.tags?.maxspeed);
-          if (parsed) return parsed;
+          if (!parsed) continue;
+
+          const centerLat = Number(element?.center?.lat);
+          const centerLon = Number(element?.center?.lon);
+          const distanceKm =
+            Number.isFinite(centerLat) && Number.isFinite(centerLon)
+              ? this.distanceKm(latitude, longitude, centerLat, centerLon)
+              : 0;
+
+          if (!best || distanceKm < best.distanceKm) {
+            best = { speed: parsed, distanceKm };
+          }
+        }
+
+        if (best?.speed) {
+          return best.speed;
         }
       } catch {}
     }

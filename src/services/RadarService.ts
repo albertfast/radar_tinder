@@ -152,6 +152,10 @@ export class RadarService {
     return enforcement === 'traffic_signals' && !hasSpeedSignal;
   }
 
+  private static isTrapRestrictedForFree(type: RadarLocation['type']): boolean {
+    return type === 'police' || type === 'mobile' || type === 'traffic_enforcement';
+  }
+
   private static parseMaxspeed(tags: any): number | undefined {
     const raw = String(tags?.maxspeed || '').trim().toLowerCase();
     if (!raw) return undefined;
@@ -514,8 +518,7 @@ export class RadarService {
             reportedBy: 'user',
             createdAt: new Date(),
             updatedAt: new Date(),
-          }))
-          .filter((r: RadarLocation) => r.type !== 'police');
+          }));
 
         const allRadars: RadarLocation[] = [...osmRadars, ...mappedSupabaseRadars];
 
@@ -527,8 +530,6 @@ export class RadarService {
           );
           if (exists) continue;
 
-          if (place.types.includes('police')) continue;
-
           const hasSpeedSignal =
             place.types.includes('speed_camera') ||
             /speed|radar|camera/i.test(`${place.name || ''} ${place.vicinity || ''}`);
@@ -537,7 +538,12 @@ export class RadarService {
           if (isTrafficSignalOnly) continue;
 
           let type: RadarLocation['type'] = 'speed_camera';
-          if (place.types.includes('traffic_signals')) {
+          const placeText = `${place.name || ''} ${place.vicinity || ''}`.toLowerCase();
+          if (place.types.includes('police') || /police|highway patrol|sheriff/.test(placeText)) {
+            type = 'police';
+          } else if (place.types.includes('traffic_enforcement')) {
+            type = 'traffic_enforcement';
+          } else if (place.types.includes('traffic_signals')) {
             type = 'red_light';
           }
 
@@ -576,8 +582,7 @@ export class RadarService {
           radius,
           radars: processedRadars.filter((r) => {
             if (isPro) return true;
-            if (r.type === 'police') return false;
-            return true;
+            return !this.isTrapRestrictedForFree(r.type);
           }),
         };
 
@@ -653,7 +658,7 @@ export class RadarService {
       }
     }
 
-    return uniqueRadars.filter((r) => r.confidence >= 0.4 && r.type !== 'police');
+    return uniqueRadars.filter((r) => r.confidence >= 0.4);
   }
 
   static async reportRadarLocation(

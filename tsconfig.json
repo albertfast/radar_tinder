@@ -17,6 +17,7 @@
     "src/app/**",
     "src/components/ui/**",
     "src/hooks/**",
-    "src/lib/**"
+    "src/lib/**",
+    "supabase/functions/**"
   ]
 }
