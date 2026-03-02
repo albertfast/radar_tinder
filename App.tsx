@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useMemo, useState } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { NavigationContainer, DarkTheme as NavigationDarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
@@ -88,6 +88,7 @@ export default function App() {
     refreshProfile,
   } = useAuthStore();
   const [authBootstrapComplete, setAuthBootstrapComplete] = useState(false);
+  const lastRevenueCatUserIdRef = useRef<string | null>(null);
   const hasSettingsHydrated = useSettingsStore((state) => state.hasHydrated);
   const voiceWarningsEnabled = useSettingsStore((state) => state.voiceWarningsEnabled);
   const warningVolume = useSettingsStore((state) => state.warningVolume);
@@ -158,6 +159,8 @@ export default function App() {
 
       try {
         await SubscriptionService.init();
+        SubscriptionService.attachCustomerInfoListener();
+        SubscriptionService.syncAccessState().catch(() => {});
       } catch (error) {
         console.error('Error initializing subscription service:', error);
       }
@@ -243,6 +246,7 @@ export default function App() {
           supabase.auth.startAutoRefresh?.();
           refreshProfile().catch(() => {});
           normalizeAccessState().catch(() => {});
+          SubscriptionService.syncAccessState().catch(() => {});
         } else {
           supabase.auth.stopAutoRefresh?.();
         }
@@ -268,8 +272,13 @@ export default function App() {
         user_id: user.id,
       }).catch(() => {});
       AnalyticsService.setUserId(user.id).catch(() => {});
-      SubscriptionService.setUserId(user.id).catch(() => {});
+      if (lastRevenueCatUserIdRef.current !== user.id) {
+        lastRevenueCatUserIdRef.current = user.id;
+        SubscriptionService.setUserId(user.id).catch(() => {});
+        SubscriptionService.syncAccessState().catch(() => {});
+      }
     } else {
+      lastRevenueCatUserIdRef.current = null;
       AnalyticsService.setUserId(null).catch(() => {});
     }
   }, [isAuthenticated, user]);

@@ -6,6 +6,8 @@ export interface User {
   name: string;
   subscriptionType: 'free' | 'premium' | 'pro';
   subscriptionExpiresAt?: Date;
+  accountLinkRequiredUntil?: Date;
+  rcCustomerId?: string;
   carDetails?: {
     brand: string;
     model: string;

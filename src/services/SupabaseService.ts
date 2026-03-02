@@ -272,6 +272,68 @@ export class SupabaseService {
     }
   }
 
+  static async getSubscriptionSnapshot(userId: string): Promise<{
+    subscriptionType: 'free' | 'premium' | 'pro';
+    adsRemoved: boolean;
+    subscriptionExpiresAt?: string | null;
+    rcCustomerId?: string | null;
+    accountLinkRequiredUntil?: string | null;
+  } | null> {
+    if (!this.ensureSupabaseAvailable('getSubscriptionSnapshot')) return null;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(
+          'subscription_type, ads_removed, subscription_expires_at, rc_customer_id, account_link_required_until'
+        )
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return null;
+      const rawType = data.subscription_type;
+      const subscriptionType: 'free' | 'premium' | 'pro' =
+        rawType === 'premium' || rawType === 'pro' ? rawType : 'free';
+      return {
+        subscriptionType,
+        adsRemoved: Boolean(data.ads_removed),
+        subscriptionExpiresAt:
+          typeof data.subscription_expires_at === 'string' ? data.subscription_expires_at : null,
+        rcCustomerId: typeof data.rc_customer_id === 'string' ? data.rc_customer_id : null,
+        accountLinkRequiredUntil:
+          typeof data.account_link_required_until === 'string'
+            ? data.account_link_required_until
+            : null,
+      };
+    } catch (error) {
+      if (this.shouldLogError(error)) {
+        console.error('Supabase getSubscriptionSnapshot error:', error);
+      }
+      return null;
+    }
+  }
+
+  static async upsertSubscriptionSnapshot(
+    userId: string,
+    snapshot: {
+      subscriptionType: 'free' | 'premium' | 'pro';
+      adsRemoved: boolean;
+      subscriptionExpiresAt?: string | null;
+      rcCustomerId?: string | null;
+      accountLinkRequiredUntil?: string | null;
+    }
+  ) {
+    return this.upsertProfile(userId, {
+      id: userId,
+      subscription_type: snapshot.subscriptionType,
+      ads_removed: snapshot.adsRemoved,
+      subscription_expires_at: snapshot.subscriptionExpiresAt ?? null,
+      rc_customer_id: snapshot.rcCustomerId ?? null,
+      account_link_required_until: snapshot.accountLinkRequiredUntil ?? null,
+      updated_at: new Date().toISOString(),
+    });
+  }
+
   /**
    * Fetches top users for leaderboard
    */

@@ -13,6 +13,7 @@ import { OfflineService } from '../services/OfflineService';
 import { SupabaseService } from '../services/SupabaseService';
 import { LocationService } from '../services/LocationService';
 import { AdService } from '../services/AdService';
+import { AnalyticsService } from '../services/AnalyticsService';
 import { formatDistance } from '../utils/format';
 import { hasProAccess, shouldShowHomeAds } from '../utils/access';
 import { RadarAlert, RadarLocation } from '../types';
@@ -66,6 +67,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const proSliderRef = useRef<FlatList>(null);
   const hasCenteredMapRef = useRef(false);
   const forceTabRequestRef = useRef<string | null>(null);
+  const adsVisibilityReasonRef = useRef('');
 
   const { width, height } = useWindowDimensions();
   const isScreenFocused = useIsFocused();
@@ -194,6 +196,8 @@ const RadarScreen = ({ navigation, route }: any) => {
     : mapAdBottom + mapAdEstimatedHeight + fabGap;
   const hideMapAd = mapInput.isDestinationInputFocused || mapInput.isKeyboardVisible;
   const compassRotation = `${dataSync.resolvedHeading || 0}deg`;
+  const showCenterRouteAction =
+    (manualPanMode || !followHeading) && navigationState.routeCoords.length > 0;
   const showHomeAd = hasHydrated && shouldShowHomeAds(user);
   const nearestRadarSummary = dataSync.closestRadar
     ? (dataSync.closestRadarHint ? `${formatDistance(dataSync.closestRadar.distance, unitSystem)} at ${dataSync.closestRadarHint}` : formatDistance(dataSync.closestRadar.distance, unitSystem))
@@ -227,6 +231,26 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, [isTurnByTurnActive]);
 
   useEffect(() => {
+    const adsDebug = AdService.getAdsDebugState();
+    const signature = `${adsDebug.shouldShowReason}|${adsDebug.shouldShowAds ? 1 : 0}`;
+    if (adsVisibilityReasonRef.current === signature) return;
+    adsVisibilityReasonRef.current = signature;
+
+    AnalyticsService.trackEvent('ads_visibility_reason', {
+      reason: adsDebug.shouldShowReason,
+      visible: adsDebug.shouldShowAds,
+      route_active: isTurnByTurnActive,
+      tab: activeTab,
+    }).catch(() => {});
+  }, [
+    activeTab,
+    isTurnByTurnActive,
+    user?.adsRemoved,
+    user?.isAdminSession,
+    user?.subscriptionType,
+  ]);
+
+  useEffect(() => {
     setRouteGuidanceActive(isTurnByTurnActive);
     return () => setRouteGuidanceActive(false);
   }, [isTurnByTurnActive, setRouteGuidanceActive]);
@@ -237,9 +261,9 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, [navigationState.routeCoords, setRouteGuidancePath]);
 
   useEffect(() => {
-    if (isTurnByTurnActive) return;
+    if (driving.isDriving) return;
     setActiveAlerts([]);
-  }, [isTurnByTurnActive, setActiveAlerts]);
+  }, [driving.isDriving, setActiveAlerts]);
 
   useEffect(() => {
     if (!driving.isDriving) return;
@@ -329,6 +353,27 @@ const RadarScreen = ({ navigation, route }: any) => {
       );
     }
   }, [dataSync.currentLocation, dataSync.resolvedHeading]);
+
+  const centerRoute = useCallback(() => {
+    if (!mapRef.current) return;
+    setManualPanMode(false);
+    setFollowHeading(true);
+
+    if (navigationState.routeCoords.length > 1) {
+      try {
+        mapRef.current.fitToCoordinates(navigationState.routeCoords, {
+          edgePadding: mapPadding,
+          animated: true,
+        });
+      } catch {}
+      setTimeout(() => {
+        centerMap();
+      }, 520);
+      return;
+    }
+
+    centerMap();
+  }, [centerMap, mapPadding, navigationState.routeCoords]);
 
   const handleMapTouchStart = useCallback(() => {
     if (mapInput.isMapInputLockActive) return;
@@ -495,6 +540,8 @@ const RadarScreen = ({ navigation, route }: any) => {
               } catch {}
             }}
             resumeFollowMode={centerMap}
+            onCenterRoute={centerRoute}
+            showCenterRouteAction={showCenterRouteAction}
             arrivalState={navigationState.arrivalState}
             distanceToDestinationMeters={navigationState.distanceToDestinationMeters}
             hasArrived={navigationState.hasArrived}

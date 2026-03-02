@@ -25,6 +25,13 @@ const toValidCoordinate = (value: any): LatLng | null => {
   return { latitude, longitude };
 };
 
+const toNormalizedHeading = (value: any): number => {
+  const heading = Number(value);
+  if (!Number.isFinite(heading) || heading < 0) return 0;
+  const normalized = heading % 360;
+  return normalized >= 0 ? normalized : normalized + 360;
+};
+
 // Optimized Marker (moved here or kept in same file)
 const OptimizedMarker = React.memo(({ coordinate, type, speedLimit, onPress }: any) => {
   // ... logic (can copy from RadarScreen or keep simplistic)
@@ -50,6 +57,23 @@ const OptimizedMarker = React.memo(({ coordinate, type, speedLimit, onPress }: a
   );
 });
 
+const RadarArrowUserMarker = React.memo(({ coordinate, heading }: { coordinate: LatLng; heading: number }) => (
+  <Marker
+    coordinate={coordinate}
+    tracksViewChanges={false}
+    anchor={{ x: 0.5, y: 0.5 }}
+    zIndex={20}
+  >
+    <View style={styles.userPulseOuter}>
+      <View style={styles.userPulseInner} />
+      <View style={[styles.userArrowWrap, { transform: [{ rotate: `${heading}deg` }] }]}>
+        <View style={styles.userArrowBody} />
+        <View style={styles.userArrowCore} />
+      </View>
+    </View>
+  </Marker>
+));
+
 const RadarMap = React.memo(({
   location,
   radars,
@@ -64,6 +88,7 @@ const RadarMap = React.memo(({
   onMapTap,
 }: any) => {
   const safeLocation = useMemo(() => toValidCoordinate(location), [location]);
+  const safeHeading = useMemo(() => toNormalizedHeading(location?.heading), [location?.heading]);
   const initialRegionRef = useRef({
     latitude: safeLocation?.latitude ?? 37.7749,
     longitude: safeLocation?.longitude ?? -122.4194,
@@ -166,6 +191,16 @@ const RadarMap = React.memo(({
       );
     }
 
+    if (safeLocation) {
+      children.push(
+        <RadarArrowUserMarker
+          key="user-marker"
+          coordinate={safeLocation}
+          heading={safeHeading}
+        />
+      );
+    }
+
     if (finalDestination) {
       children.push(
         <Marker key="route-destination" coordinate={finalDestination} anchor={{ x: 0.5, y: 1 }}>
@@ -189,7 +224,7 @@ const RadarMap = React.memo(({
     });
 
     return children;
-  }, [finalDestination, onRadarPress, sanitizedRadars.validEntries, sanitizedRouteCoords]);
+  }, [finalDestination, onRadarPress, safeHeading, safeLocation, sanitizedRadars.validEntries, sanitizedRouteCoords]);
 
   const invalidSummaryRef = useRef('');
   const invalidRadarCount = sanitizedRadars.invalidCount;
@@ -218,7 +253,7 @@ const RadarMap = React.memo(({
       customMapStyle={modernMapStyle}
       provider={PROVIDER_GOOGLE}
       initialRegion={initialRegion}
-      showsUserLocation={showsUserLocation}
+      showsUserLocation={false}
       showsMyLocationButton={false}
       userLocationUpdateInterval={1000}
       userLocationFastestInterval={500}
@@ -234,6 +269,12 @@ const RadarMap = React.memo(({
       moveOnMarkerPress={false}
       onPanDrag={() => {
         if (mapInteractionEnabled) onMapTouchStart?.();
+      }}
+      onRegionChangeComplete={(_region: any, details?: { isGesture?: boolean }) => {
+        if (!mapInteractionEnabled) return;
+        if (details?.isGesture) {
+          onMapTouchStart?.();
+        }
       }}
       onPress={() => {
         if (!mapInteractionEnabled) return;
@@ -252,8 +293,7 @@ const RadarMap = React.memo(({
 
   // Changing props: location (used for initialRegion only? No, maybe updates?), radars.
 
-  // Actually, passing `location` prop to MapView usually isn't needed if showsUserLocation={true} 
-  // handles the dot. We only used it for initialRegion.
+  // We render a custom user marker, so location/heading changes must trigger updates.
 
   return (
     prev.radars === next.radars &&
@@ -261,7 +301,10 @@ const RadarMap = React.memo(({
     prev.destinationPoint?.latitude === next.destinationPoint?.latitude &&
     prev.destinationPoint?.longitude === next.destinationPoint?.longitude &&
     prev.mapPadding === next.mapPadding &&
-    prev.mapInteractionEnabled === next.mapInteractionEnabled
+    prev.mapInteractionEnabled === next.mapInteractionEnabled &&
+    prev.location?.latitude === next.location?.latitude &&
+    prev.location?.longitude === next.location?.longitude &&
+    prev.location?.heading === next.location?.heading
     // Ignore location changes as MapView handles user location dot and camera is controlled via ref
   );
 });
@@ -293,6 +336,50 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 6
+  },
+  userPulseOuter: {
+    width: getResponsiveWidth(34),
+    height: getResponsiveHeight(34),
+    borderRadius: getResponsiveMargin(17),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(34,211,238,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,211,238,0.45)',
+  },
+  userPulseInner: {
+    position: 'absolute',
+    width: getResponsiveWidth(22),
+    height: getResponsiveHeight(22),
+    borderRadius: getResponsiveMargin(11),
+    backgroundColor: 'rgba(249,115,22,0.2)',
+  },
+  userArrowWrap: {
+    width: getResponsiveWidth(20),
+    height: getResponsiveHeight(20),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userArrowBody: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: getResponsiveWidth(6),
+    borderRightWidth: getResponsiveWidth(6),
+    borderBottomWidth: getResponsiveHeight(14),
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#22D3EE',
+    marginBottom: -2,
+  },
+  userArrowCore: {
+    position: 'absolute',
+    width: getResponsiveWidth(8),
+    height: getResponsiveHeight(8),
+    borderRadius: getResponsiveMargin(4),
+    backgroundColor: '#FB923C',
+    borderWidth: 1,
+    borderColor: '#082F49',
+    bottom: 0,
   },
 });
 

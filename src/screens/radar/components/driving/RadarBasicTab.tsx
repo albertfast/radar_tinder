@@ -33,7 +33,9 @@ export function RadarBasicTab({
   currentLocation,
 }: RadarBasicTabProps) {
   const [speedLimit, setSpeedLimit] = useState<{ value: number; units: 'KPH' | 'MPH' } | null>(null);
-  const [speedLimitSource, setSpeedLimitSource] = useState<'roads_api' | 'osm' | 'unknown' | null>(null);
+  const [speedLimitSource, setSpeedLimitSource] = useState<
+    'roads_api' | 'osm' | 'unknown' | 'roads_unavailable' | null
+  >(null);
   const lastSpeedLimitFetchAtRef = useRef(0);
   const lastSpeedLimitLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
@@ -173,6 +175,8 @@ export function RadarBasicTab({
         return 'OSM';
       case 'unknown':
         return 'Unknown';
+      case 'roads_unavailable':
+        return 'Roads Off';
       default:
         return 'Live';
     }

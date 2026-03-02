@@ -7,6 +7,8 @@ import { useAuthStore } from '../store/authStore';
 
 const ADMIN_USERNAME = 'albertfast';
 const ADMIN_PASSWORD = 'abc123';
+const ADMIN_DEBUG_PERSIST =
+  __DEV__ && /^(1|true|yes)$/i.test(process.env.EXPO_PUBLIC_ADMIN_DEBUG_PERSIST || '');
 
 const AdminLoginScreen = ({ navigation }: any) => {
   const [username, setUsername] = useState('');
@@ -15,15 +17,26 @@ const AdminLoginScreen = ({ navigation }: any) => {
   const { updateUser } = useAuthStore();
 
   const handleLogin = () => {
+    if (!__DEV__) {
+      Alert.alert('Disabled', 'Admin sign-in is available only in debug builds.');
+      return;
+    }
+
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
       updateUser({ 
         isAdminSession: true,
         subscriptionType: 'pro'
       });
       
-      Alert.alert('Sign in successful', 'Admin session enabled. You now have full feature access.', [
+      Alert.alert(
+        'Sign in successful',
+        ADMIN_DEBUG_PERSIST
+          ? 'Admin session enabled and persisted for debug testing.'
+          : 'Admin session enabled for this runtime session.',
+        [
         { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
+        ]
+      );
     } else {
       Alert.alert('Sign in failed', 'Invalid username or password.');
     }
