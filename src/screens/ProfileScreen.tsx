@@ -22,6 +22,7 @@ import { HapticPatterns } from '../utils/hapticFeedback';
 import { SupabaseService } from '../services/SupabaseService';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { appVersion, nativeBuildVersion } from '../utils/buildInfo';
 
 const StatBadge = ({ icon, value, label, color = '#4ECDC4', delay = 0 }: any) => (
   <Animated.View
@@ -84,6 +85,8 @@ const ProfileScreen = ({ navigation }: any) => {
   };
   const [isEditing, setIsEditing] = useState(false);
   const [username, setUsername] = useState(user?.username || user?.name || '');
+  const [adminEntryUnlocked, setAdminEntryUnlocked] = useState(false);
+  const [versionTapCount, setVersionTapCount] = useState(0);
   
   // Local state for editing
   const [carBrand, setCarBrand] = useState(user?.carDetails?.brand || '');
@@ -151,6 +154,23 @@ const ProfileScreen = ({ navigation }: any) => {
       Alert.alert('Save failed', 'Could not update username right now. Please try again.');
     }
     setUsername(currentUsername);
+  };
+
+  const handleVersionPress = () => {
+    if (adminEntryUnlocked) {
+      return;
+    }
+
+    const nextTapCount = versionTapCount + 1;
+    if (nextTapCount >= 7) {
+      setAdminEntryUnlocked(true);
+      setVersionTapCount(0);
+      HapticPatterns.success();
+      Alert.alert('Admin tools unlocked', 'Admin sign-in is now visible in this session.');
+      return;
+    }
+
+    setVersionTapCount(nextTapCount);
   };
 
   return (
@@ -361,15 +381,17 @@ const ProfileScreen = ({ navigation }: any) => {
         {/* Menu Grid */}
         <Text style={styles.sectionHeader}>DASHBOARD</Text>
         <View style={styles.menuGrid}>
-             <MenuButton 
-                icon="shield-crown" 
-                label="Admin Sign In" 
-                subLabel="Enable admin testing session"
-                color="#EF4444"
-                onPress={() => {
-                  navigation.navigate('AdminLogin');
-                }} 
-             />
+             {adminEntryUnlocked && (
+               <MenuButton
+                  icon="shield-crown"
+                  label="Admin Sign In"
+                  subLabel="Enable admin testing session"
+                  color="#EF4444"
+                  onPress={() => {
+                    navigation.navigate('AdminLogin');
+                  }}
+               />
+             )}
              <MenuButton 
                 icon="trophy" 
                 label="Leaderboard" 
@@ -403,7 +425,14 @@ const ProfileScreen = ({ navigation }: any) => {
           <Text style={styles.legalText}>Privacy Policy</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>1.0.5</Text>
+        <TouchableOpacity
+          onPress={handleVersionPress}
+          accessibilityRole="button"
+          accessibilityLabel="Build information"
+          accessibilityHint="Tap seven times to unlock admin sign-in"
+        >
+          <Text style={styles.version}>v{appVersion} • build {nativeBuildVersion}</Text>
+        </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </Animated.View>
