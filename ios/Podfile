@@ -5,6 +5,7 @@ require File.join(File.dirname(`node --print "require.resolve('expo/package.json
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
 
 require 'json'
+require 'fileutils'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 
 def ccache_enabled?(podfile_properties)
@@ -25,6 +26,14 @@ prepare_react_native_project!
 
 target 'RadarTinder' do
   use_expo_modules!
+
+  target 'RadarTinderTests' do
+    inherit! :complete
+  end
+
+  target 'RadarTinderUITests' do
+    inherit! :complete
+  end
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
@@ -79,6 +88,18 @@ target 'RadarTinder' do
       user_project.native_targets.each do |native_target|
         native_target.build_configurations.each do |build_config|
           build_config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+
+          # Ensure ZXingObjC umbrella imports are filtered by enabled subspecs
+          # when test targets compile Swift modules.
+          defs = build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+          defs = Array(defs)
+          defs << 'ZXINGOBJC_USE_SUBSPECS'
+          build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = defs.uniq
+
+          if ['RadarTinderTests', 'RadarTinderUITests'].include?(native_target.name)
+            build_config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = '$(inherited)'
+            build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = '$(inherited)'
+          end
         end
       end
 
@@ -119,6 +140,17 @@ target 'RadarTinder' do
           # Keep modules enabled for @import GoogleMaps used by Google-Maps-iOS-Utils.
           build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
           build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
+        end
+      end
+
+      if target.name == 'ZXingObjC'
+        target.build_configurations.each do |build_config|
+          # ZXingObjC umbrella header references subspec headers that are not present.
+          # Defining this macro prevents importing missing headers.
+          defs = build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+          defs = Array(defs)
+          defs << 'ZXINGOBJC_USE_SUBSPECS'
+          build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = defs.uniq
         end
       end
     end
@@ -215,6 +247,31 @@ target 'RadarTinder' do
       if patched_mm != jsi_mm_content
         File.write(jsi_utils_mm, patched_mm)
       end
+    end
+
+    [
+      'Pods-RadarTinderTests',
+      'Pods-RadarTinderUITests',
+      'Pods-RadarTinder-RadarTinderTests',
+      'Pods-RadarTinder-RadarTinderUITests'
+    ].each do |support_target|
+      provider_file = File.join(
+        installer.sandbox.root.to_s,
+        'Target Support Files',
+        support_target,
+        'ExpoModulesProvider.swift'
+      )
+
+      next if File.exist?(provider_file)
+
+      FileUtils.mkdir_p(File.dirname(provider_file))
+
+      File.write(provider_file, <<~SWIFT)
+        import ExpoModulesCore
+
+        @objc(ExpoModulesProvider)
+        public class ExpoModulesProvider: ModulesProvider {}
+      SWIFT
     end
 
   end

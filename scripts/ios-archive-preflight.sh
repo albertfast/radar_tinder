@@ -27,6 +27,124 @@ has_cmd() {
   command -v "$1" >/dev/null 2>&1
 }
 
+normalize_pbxproj_shell_scripts() {
+  local pbxproj_path="$1"
+  local result
+
+  result="$(python3 - "$pbxproj_path" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding='utf-8')
+lines = text.splitlines(keepends=True)
+
+def decode_pbx_quoted(value: str) -> str:
+  out = []
+  i = 0
+  while i < len(value):
+    ch = value[i]
+    if ch == '\\' and i + 1 < len(value):
+      nxt = value[i + 1]
+      if nxt in ['\\', '"']:
+        out.append(nxt)
+      elif nxt == 'n':
+        out.append('\n')
+      elif nxt == 'r':
+        out.append('\r')
+      elif nxt == 't':
+        out.append('\t')
+      else:
+        out.append('\\')
+        out.append(nxt)
+      i += 2
+      continue
+    out.append(ch)
+    i += 1
+  return ''.join(out)
+
+def encode_pbx_simple_string(value: str) -> str:
+  return value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+
+out = []
+i = 0
+changes = 0
+version_changes = 0
+
+while i < len(lines):
+  line = lines[i]
+  match = re.match(r'^(\s*)shellScript = \(\s*$', line)
+  if not match:
+    out.append(line)
+    i += 1
+    continue
+
+  indent = match.group(1)
+  original_start = i
+  i += 1
+  script_lines = []
+  valid_block = True
+
+  while i < len(lines):
+    current = lines[i]
+    if re.match(r'^\s*\);\s*$', current):
+      break
+
+    item_match = re.match(r'^\s*"((?:\\.|[^"\\])*)",\s*$', current.rstrip('\n'))
+    if not item_match:
+      valid_block = False
+      break
+
+    script_lines.append(decode_pbx_quoted(item_match.group(1)))
+    i += 1
+
+  if not valid_block or i >= len(lines):
+    out.extend(lines[original_start:i + 1 if i < len(lines) else i])
+    if i < len(lines):
+      i += 1
+    continue
+
+  encoded = encode_pbx_simple_string('\n'.join(script_lines))
+  out.append(f'{indent}shellScript = "{encoded}";\n')
+  changes += 1
+
+  i += 1
+
+final_text = ''.join(out)
+
+def clamp_version(match: re.Match) -> str:
+    global version_changes
+    key = match.group(1)
+    value = int(match.group(2))
+    if value > 77:
+        version_changes += 1
+        return f'{key} = 77;'
+    return match.group(0)
+
+final_text = re.sub(r'\b(objectVersion)\s*=\s*(\d+);', clamp_version, final_text)
+final_text = re.sub(r'\b(preferredProjectObjectVersion)\s*=\s*(\d+);', clamp_version, final_text)
+
+if changes > 0 or version_changes > 0:
+    path.write_text(final_text, encoding='utf-8')
+
+print(f"{changes}:{version_changes}")
+PY
+)"
+
+  if [[ "$result" =~ ^[0-9]+:[0-9]+$ ]]; then
+    local shell_changes="${result%%:*}"
+    local version_changes="${result##*:}"
+
+    if [[ "$shell_changes" -gt 0 ]]; then
+      info "Normalized ${shell_changes} malformed shellScript build phases in project.pbxproj."
+    fi
+    if [[ "$version_changes" -gt 0 ]]; then
+      info "Downgraded Xcode project object version to 77 for CocoaPods compatibility."
+    fi
+  fi
+}
+
 match_any() {
   local pattern="$1"
   shift
@@ -56,6 +174,8 @@ info "Project root: ${ROOT_DIR}"
 [[ -f "${PBXPROJ_PATH}" ]] || fail "project.pbxproj not found: ${PBXPROJ_PATH}"
 [[ -f "${PODFILE_LOCK_PATH}" ]] || fail "Podfile.lock missing. Run 'cd ios && pod install'."
 [[ -f "${PODS_MANIFEST_PATH}" ]] || fail "Pods/Manifest.lock missing. Run 'cd ios && pod install'."
+
+normalize_pbxproj_shell_scripts "${PBXPROJ_PATH}"
 
 if ! diff "${PODFILE_LOCK_PATH}" "${PODS_MANIFEST_PATH}" >/dev/null 2>&1; then
   fail "Pod sandbox is out of sync with Podfile.lock. Run 'cd ios && pod install'."

@@ -9,6 +9,7 @@
     "android": "node scripts/ensure-android-sdk.js && expo run:android",
     "ios": "expo run:ios",
     "ios:clean-rebuild": "bash scripts/clean-dev-cache.sh && expo run:ios",
+    "ios:archive:preflight": "bash scripts/ios-archive-preflight.sh",
     "ios:verify-symbols": "bash scripts/verify-ios-symbols.sh",
     "postinstall": "node scripts/prepare-patches.js || true",
     "eas-build-post-install": "node scripts/prepare-patches.js || true",
