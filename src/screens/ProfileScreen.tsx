@@ -21,7 +21,6 @@ import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
 import { HapticPatterns } from '../utils/hapticFeedback';
 import { SupabaseService } from '../services/SupabaseService';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
-import AdBanner from '../components/AdBanner';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const StatBadge = ({ icon, value, label, color = '#4ECDC4', delay = 0 }: any) => (
@@ -403,10 +402,6 @@ const ProfileScreen = ({ navigation }: any) => {
         >
           <Text style={styles.legalText}>Privacy Policy</Text>
         </TouchableOpacity>
-
-        <View style={styles.adContainer}>
-          <AdBanner />
-        </View>
 
         <Text style={styles.version}>1.0.5</Text>
         </ScrollView>

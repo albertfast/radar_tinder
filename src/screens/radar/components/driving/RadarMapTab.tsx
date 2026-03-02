@@ -3,7 +3,6 @@ import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView from 'react-native-maps';
-import AdBanner from '../../../../components/AdBanner';
 import RadarMap from '../../../../components/RadarMap';
 import { AddressSuggestion, RadarLocation } from '../../../../types';
 import {
@@ -508,21 +507,6 @@ export function RadarMapTab({
           </View>
         </View>
       )}
-
-      <View
-        pointerEvents={hideMapAd || suppressAds ? 'none' : 'auto'}
-        style={[
-          styles.mapAdContainer,
-          {
-            left: mapOverlayInset,
-            right: mapOverlayInset,
-            bottom: mapAdBottom,
-            opacity: hideMapAd || suppressAds ? 0 : 1,
-          },
-        ]}
-      >
-        <AdBanner suppressAds={suppressAds} />
-      </View>
 
       <View
         style={[

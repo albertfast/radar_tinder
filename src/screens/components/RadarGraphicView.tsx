@@ -14,7 +14,6 @@ import { useAutoHideTabBar } from '../../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../../constants/layout';
 import { hasProAccess } from '../../utils/access';
 import ProGate from '../../components/ProGate';
-import AdBanner from '../../components/AdBanner';
 import { RadarAnimation, type RadarRendererMode } from '../../components/RadarAnimation';
 
 interface RadarGraphicViewProps {
@@ -548,10 +547,6 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
           </View>
         </LinearGradient>
       </Animated.View>
-
-      <View style={{ marginTop: 8 }}>
-        <AdBanner />
-      </View>
 
       <View style={styles.spacer} />
     </ScrollView>

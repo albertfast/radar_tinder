@@ -8,6 +8,7 @@ import Animated, { FadeInLeft, FadeInDown } from 'react-native-reanimated';
 import { useAuthStore } from '../store/authStore';
 import MainTabNavigator from './MainTabNavigator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AdService } from '../services/AdService';
 
 const Drawer = createDrawerNavigator();
 const allowLayoutAnimations = Platform.OS !== 'android';
@@ -33,6 +34,10 @@ const CustomDrawerContent = (props: any) => {
   ];
 
   const handleNavigate = (screen: string, params?: any) => {
+    if (screen === 'Settings' || screen === 'Leaderboard') {
+      AdService.trackNavigationEntry(screen).catch(() => {});
+    }
+
     const tabScreens = new Set(['Home', 'Permit', 'Drive', 'Diagnose', 'Leaderboard', 'Profile']);
 
     if (tabScreens.has(screen)) {

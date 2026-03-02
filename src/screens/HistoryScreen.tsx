@@ -10,7 +10,6 @@ import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { hasProAccess } from '../utils/access';
 import ProGate from '../components/ProGate';
-import AdBanner from '../components/AdBanner';
 import { useSettingsStore } from '../store/settingsStore';
 import { formatDistance } from '../utils/format';
 
@@ -93,11 +92,7 @@ const HistoryScreen = ({ navigation }: any) => {
         data={trips}
         keyExtractor={item => item.id}
         contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_HEIGHT + 24 }}
-        ListFooterComponent={
-          <View style={{ marginTop: 12 }}>
-            <AdBanner />
-          </View>
-        }
+        ListFooterComponent={null}
         onScroll={onScroll}
         onScrollBeginDrag={onScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}

@@ -51,7 +51,7 @@ module.exports = {
         googleMapsApiKey: "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
       },
       infoPlist: {
-        GADApplicationIdentifier: "ca-app-pub-9670547831022880~5105162950",
+        GADApplicationIdentifier: "ca-app-pub-9670547831022880~2252519276",
         SKAdNetworkItems: [
           { SKAdNetworkIdentifier: "cstr6suwn9.skadnetwork" },
           { SKAdNetworkIdentifier: "4fzdc2evr5.skadnetwork" },
@@ -192,6 +192,6 @@ module.exports = {
   },
   "react-native-google-mobile-ads": {
     "android_app_id": "ca-app-pub-9670547831022880~5105162950",
-    "ios_app_id": "ca-app-pub-9670547831022880~5105162950"
+    "ios_app_id": "ca-app-pub-9670547831022880~2252519276"
   }
 };

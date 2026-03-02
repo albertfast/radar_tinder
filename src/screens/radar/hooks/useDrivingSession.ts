@@ -116,9 +116,14 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
       setActiveTab: (tab: TabType) => void;
       activateMapTab?: boolean;
       source?: 'manual' | 'navigate' | 'force_tab';
+      hasActiveRoute?: boolean;
     }) => {
       const activateMapTab = params.activateMapTab ?? true;
       const source = params.source || 'manual';
+      const hasActiveRoute = params.hasActiveRoute ?? false;
+      if (source === 'manual' && !hasActiveRoute) {
+        await AdService.showInterstitial('start_driving_basic');
+      }
       if (activateMapTab) {
         params.setActiveTab('Map');
       }
@@ -160,7 +165,7 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
   );
 
   const stopDrivingSession = useCallback(
-    async (params: { setActiveTab: (tab: TabType) => void; showInterstitial?: boolean }) => {
+    async (params: { setActiveTab: (tab: TabType) => void }) => {
       const startTime = drivingStartTimeRef.current;
       AnalyticsService.trackEvent('drive_stop', {
         duration: startTime ? (new Date().getTime() - startTime.getTime()) / 1000 : 0,
@@ -177,9 +182,8 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
       tripStartLabelRef.current = null;
       lastPositionRef.current = null;
 
-      if (params.showInterstitial && AdService.shouldShowAds()) {
-        await AdService.showInterstitial();
-      }
+      AdService.markDrivingState(false, false);
+      await AdService.showInterstitial('end_ride');
     },
     [saveTripIfNeeded]
   );

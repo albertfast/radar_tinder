@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import AdBanner from '../../../../components/AdBanner';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatSpeed } from '../../../../utils/format';
 import { GoogleMapsService } from '../../../../services/GoogleMapsService';
@@ -199,10 +198,6 @@ export function RadarBasicTab({
       showsVerticalScrollIndicator={false}
       scrollEnabled
     >
-      <View style={localStyles.topAd}>
-        <AdBanner size="LARGE_BANNER" />
-      </View>
-
       <LinearGradient
         colors={['rgba(6,12,25,0.96)', 'rgba(4,9,19,0.93)']}
         start={{ x: 0, y: 0 }}
@@ -349,9 +344,6 @@ export function RadarBasicTab({
         )}
       </View>
 
-      <View style={localStyles.bottomAd}>
-        <AdBanner size="MEDIUM_RECTANGLE" />
-      </View>
     </ScrollView>
   );
 }
@@ -367,10 +359,6 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 12,
     gap: 12,
-  },
-  topAd: {
-    alignItems: 'center',
-    marginBottom: 4,
   },
   dashboardCard: {
     borderRadius: 22,
@@ -665,9 +653,5 @@ const localStyles = StyleSheet.create({
     color: '#CBD5E1',
     fontSize: 13,
     fontWeight: '600',
-  },
-  bottomAd: {
-    alignItems: 'center',
-    marginTop: 6,
   },
 });

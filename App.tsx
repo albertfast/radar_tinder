@@ -150,6 +150,7 @@ export default function App() {
 
       try {
         await AdService.init();
+        await AdService.preloadAll();
         if (isAdDebugEnabled()) {
           console.log('[ADS] init state', AdService.getAdsDebugState());
         }
@@ -260,6 +261,23 @@ export default function App() {
       BackgroundService.stop().catch(console.error);
     };
   }, [normalizeAccessState, refreshProfile]);
+
+  useEffect(() => {
+    const appStateRef = { current: AppState.currentState };
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      const previous = appStateRef.current;
+      appStateRef.current = nextState;
+      const movedToForeground =
+        (previous === 'background' || previous === 'inactive') && nextState === 'active';
+      if (!movedToForeground) return;
+      AdService.showAppOpen('app_foreground').catch(() => {});
+      AdService.preloadAll().catch(() => {});
+    });
+
+    return () => {
+      appStateSubscription.remove();
+    };
+  }, []);
 
   // Optimized auth state tracking
   useEffect(() => {

@@ -27,6 +27,7 @@ type UseRadarNavigationParams = {
     setActiveTab: (tab: TabType) => void;
     activateMapTab?: boolean;
     source?: 'manual' | 'navigate' | 'force_tab';
+    hasActiveRoute?: boolean;
   }) => Promise<void>;
   saveTripIfNeeded: () => Promise<void>;
   resetDrivingSession: () => void;
@@ -390,8 +391,8 @@ export function useRadarNavigation({
 
   const handleNavigate = useCallback(
     async (targetDest?: string, params?: { destinationLabel?: string; destinationCoord?: { latitude: number; longitude: number } }) => {
-      if (!canUsePro && AdService.shouldShowAds()) {
-        await AdService.showInterstitial();
+      if (!canUsePro) {
+        await AdService.showInterstitial('navigate_route');
       }
       let finalDest = (targetDest || destination).trim();
       let resolvedParams = params;
