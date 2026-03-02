@@ -261,9 +261,9 @@ export function RadarMapTab({
   const summaryDestination = hasArrived
     ? 'Destination reached'
     : routeMeta?.destinationLabel || destination || 'Destination';
-  const speedHudEstimatedHeight = SPEED_HUD_V2_ENABLED ? 72 : 120;
+  const speedHudEstimatedHeight = SPEED_HUD_V2_ENABLED ? 60 : 100;
   const speedHudBottomCeiling = mapControlsBottom - speedHudEstimatedHeight - mapControlGap - 4;
-  const speedHudBottomBySummary = isMapNavigationActive ? mapNavDockBottom + 116 : 0;
+  const speedHudBottomBySummary = isMapNavigationActive ? mapNavDockBottom + 140 : 0;
   const speedHudFloorBottom = hideMapAd || suppressAds ? 12 : mapAdBottom + 6;
   const speedHudPreferredBottom =
     Math.max(speedHudFloorBottom, speedHudBottomBySummary) +
@@ -637,41 +637,41 @@ const localStyles = StyleSheet.create({
   },
   limitBadge: {
     borderRadius: 12,
-    paddingHorizontal: getResponsivePadding(6),
-    paddingVertical: getResponsivePadding(6),
+    paddingHorizontal: getResponsivePadding(4),
+    paddingVertical: getResponsivePadding(4),
     backgroundColor: 'rgba(3,10,24,0.88)',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 72,
-    height: 72,
+    width: 56,
+    height: 56,
   },
   limitBadgeLegacy: {
     borderRadius: 14,
-    paddingHorizontal: getResponsivePadding(14),
-    paddingVertical: getResponsivePadding(10),
+    paddingHorizontal: getResponsivePadding(10),
+    paddingVertical: getResponsivePadding(8),
     backgroundColor: 'rgba(3,10,24,0.88)',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
-    minWidth: 92,
+    minWidth: 72,
   },
   limitLabel: {
     color: '#64748b',
-    fontSize: 6,
+    fontSize: 5,
     fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
   limitValue: {
     color: '#e2e8f0',
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '800',
-    lineHeight: 22,
+    lineHeight: 18,
   },
   limitUnit: {
     color: '#64748b',
-    fontSize: 7,
+    fontSize: 5,
     fontWeight: '700',
     marginTop: 0,
   },

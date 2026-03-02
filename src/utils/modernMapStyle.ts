@@ -48,12 +48,12 @@ export const modernMapStyle = [
   {
     featureType: 'road.local',
     elementType: 'geometry.fill',
-    stylers: [{ color: '#1c3566' }],
+    stylers: [{ color: '#14294c' }],
   },
   {
     featureType: 'road.local',
     elementType: 'geometry.stroke',
-    stylers: [{ color: '#28478a' }],
+    stylers: [{ color: '#1b3970' }],
   },
   {
     featureType: 'road.local',
@@ -65,12 +65,12 @@ export const modernMapStyle = [
   {
     featureType: 'road.arterial',
     elementType: 'geometry.fill',
-    stylers: [{ color: '#1e4a9e' }],
+    stylers: [{ color: '#183c78' }],
   },
   {
     featureType: 'road.arterial',
     elementType: 'geometry.stroke',
-    stylers: [{ color: '#3065c9' }],
+    stylers: [{ color: '#25539f' }],
   },
   {
     featureType: 'road.arterial',
@@ -82,12 +82,12 @@ export const modernMapStyle = [
   {
     featureType: 'road.highway',
     elementType: 'geometry.fill',
-    stylers: [{ color: '#0e5ce6' }],
+    stylers: [{ color: '#15489b' }],
   },
   {
     featureType: 'road.highway',
     elementType: 'geometry.stroke',
-    stylers: [{ color: '#38bdf8' }],
+    stylers: [{ color: '#2d6fc7' }],
   },
   {
     featureType: 'road.highway',
@@ -99,12 +99,12 @@ export const modernMapStyle = [
   {
     featureType: 'road.highway.controlled_access',
     elementType: 'geometry.fill',
-    stylers: [{ color: '#1565e0' }],
+    stylers: [{ color: '#1a4f9e' }],
   },
   {
     featureType: 'road.highway.controlled_access',
     elementType: 'geometry.stroke',
-    stylers: [{ color: '#4db6f5' }],
+    stylers: [{ color: '#2d77c9' }],
   },
 
   // Transit

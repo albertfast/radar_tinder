@@ -519,6 +519,35 @@ export class AdService {
     };
   }
 
+  static getAdsEligibilitySnapshot(): {
+    userId: string | null;
+    subscriptionType: string;
+    adsRemoved: boolean;
+    isAdminSession: boolean;
+    isAdminUser: boolean;
+    shouldShowHomeAds: boolean;
+    shouldShowAds: boolean;
+    shouldShowReason: string;
+    navigationAdsSuppressed: boolean;
+    drivingState: { isDriving: boolean; hasActiveRoute: boolean };
+  } {
+    const user = useAuthStore.getState().user;
+    const debugState = this.getAdsDebugState();
+
+    return {
+      userId: user?.id || null,
+      subscriptionType: user?.subscriptionType || 'guest',
+      adsRemoved: Boolean(user?.adsRemoved),
+      isAdminSession: Boolean(user?.isAdminSession),
+      isAdminUser: isAdminUser(user),
+      shouldShowHomeAds: shouldShowHomeAds(user),
+      shouldShowAds: debugState.shouldShowAds,
+      shouldShowReason: debugState.shouldShowReason,
+      navigationAdsSuppressed: debugState.navigationAdsSuppressed,
+      drivingState: debugState.drivingState,
+    };
+  }
+
   static async preloadAll(): Promise<void> {
     await this.init();
     if (!this.isInitialized) return;

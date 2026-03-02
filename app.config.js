@@ -1,5 +1,30 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
+
+const DEFAULT_ORT_ANDROID_VERSION = '1.23.2';
+const ORT_ANDROID_VERSION = (
+  process.env.EXPO_PUBLIC_ORT_ANDROID_VERSION || DEFAULT_ORT_ANDROID_VERSION
+).trim();
+
+const getGitShortCommit = () => {
+  try {
+    return execSync('git rev-parse --short HEAD', {
+      cwd: __dirname,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return 'nogit';
+  }
+};
+
+const BUILD_TIMESTAMP_MS = process.env.BUILD_TIMESTAMP_MS || Date.now().toString();
+const GIT_COMMIT_SHORT = process.env.GIT_COMMIT_SHORT || getGitShortCommit();
+const BUILD_FINGERPRINT = (
+  process.env.EXPO_PUBLIC_BUILD_FINGERPRINT || `${GIT_COMMIT_SHORT}-${BUILD_TIMESTAMP_MS}`
+).trim();
 
 const getAndroidVersionCode = () => {
   try {
@@ -139,7 +164,8 @@ module.exports = {
             minSdkVersion: 24,
             targetSdkVersion: 35,
             compileSdkVersion: 35,
-            gradlePluginVersion: "8.0.2",
+            gradlePluginVersion: "8.5.2",
+            ndkVersion: "28.0.13004108",
 
             packagingOptions: {
               pickFirst: ["**/libreactnative.so"]
@@ -174,6 +200,10 @@ module.exports = {
       "./plugins/withLottieNewArchDisable.js"
     ],
     extra: {
+      buildFingerprint: BUILD_FINGERPRINT,
+      buildTimestampMs: BUILD_TIMESTAMP_MS,
+      gitCommitShort: GIT_COMMIT_SHORT,
+      ortAndroidVersion: ORT_ANDROID_VERSION,
       eas: {
         projectId: "62bbc6f8-257a-48e8-adb8-0b80558e3e92"
       }
