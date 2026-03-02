@@ -38,7 +38,7 @@ const SubscriptionScreen = ({ navigation }: any) => {
       accent: '#F59E0B',
     },
     weekly: {
-      id: 'rc_weekly_399',
+      id: 'pro_subscription_weekly',
       name: 'Weekly',
       price: '$3.99',
       period: 'week',
@@ -48,7 +48,7 @@ const SubscriptionScreen = ({ navigation }: any) => {
       accent: '#FF8A3D',
     },
     yearly: {
-      id: 'rc_yearly_1999',
+      id: 'pro_subscription_yearly',
       name: 'Yearly',
       price: '$19.99',
       period: 'year',
@@ -66,7 +66,13 @@ const SubscriptionScreen = ({ navigation }: any) => {
       adfree: process.env.EXPO_PUBLIC_RC_PRODUCT_ADFREE,
     }[plan];
     const fromPlan = plans[plan]?.id;
-    return [fromEnv, fromPlan]
+    const aliases = {
+      weekly: ['pro_subscription:weekly', 'rc_weekly_399', 'weekly'],
+      yearly: ['pro_subscription:yearly', 'rc_yearly_1999', 'yearly', 'annual'],
+      adfree: ['remove_ads', 'remove_advertisement', 'adfree', 'ad_free'],
+    }[plan];
+
+    return [fromEnv, fromPlan, ...aliases]
       .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
       .map((v) => v.toLowerCase());
   };
@@ -114,23 +120,6 @@ const SubscriptionScreen = ({ navigation }: any) => {
         trial: trialActive,
       });
 
-      const paywallStatus = await SubscriptionService.presentPaywall();
-      if (paywallStatus === 'purchased' || paywallStatus === 'restored') {
-        await AnalyticsService.trackEvent('subscription_success', {
-          source: 'revenuecat_paywall',
-          status: paywallStatus,
-        });
-        Alert.alert('Success', successMessage);
-        navigation.goBack();
-        return;
-      }
-      if (paywallStatus === 'cancelled') {
-        return;
-      }
-      if (paywallStatus === 'error') {
-        Alert.alert('Paywall Error', 'Paywall could not be opened. Trying package checkout...');
-      }
-
       const offering = await SubscriptionService.getOfferings();
       const availablePackages: PurchasesPackage[] = offering?.availablePackages || [];
       if (availablePackages.length === 0) {
@@ -158,6 +147,12 @@ const SubscriptionScreen = ({ navigation }: any) => {
         Alert.alert('Payment Failed', 'Purchase could not be completed. Please try again.');
         return;
       }
+
+      await AnalyticsService.trackEvent('subscription_success', {
+        source: 'direct_package',
+        package_id: targetPackage.identifier,
+        product_id: targetPackage.product?.identifier,
+      });
 
       Alert.alert('Success', successMessage);
       navigation.goBack();
