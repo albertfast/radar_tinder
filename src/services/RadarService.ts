@@ -36,7 +36,7 @@ export class RadarService {
 
   private static NEARBY_CACHE_TTL_MS = 30000;
   private static NEARBY_CACHE_DISTANCE_KM = 0.5;
-  private static SUPABASE_MIN_CONFIDENCE = 0.55;
+  private static SUPABASE_MIN_CONFIDENCE = 0.35;
   private static SOURCE_TELEMETRY_THROTTLE_MS = 20000;
   private static lastSourceTelemetryAt = 0;
 
@@ -562,6 +562,7 @@ export class RadarService {
 
         const user = useAuthStore.getState().user;
         const isPro = hasProAccess(user);
+        const allowRestrictedTrapTypes = isPro || __DEV__;
 
         const processedRadars = this.improveAccuracy(allRadars);
 
@@ -581,7 +582,7 @@ export class RadarService {
           longitude,
           radius,
           radars: processedRadars.filter((r) => {
-            if (isPro) return true;
+            if (allowRestrictedTrapTypes) return true;
             return !this.isTrapRestrictedForFree(r.type);
           }),
         };

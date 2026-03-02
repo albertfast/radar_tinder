@@ -20,6 +20,8 @@ const ACCOUNT_LINK_GRACE_HOURS = Math.max(
   1,
   readNumberFlag('EXPO_PUBLIC_ACCOUNT_LINK_GRACE_HOURS', 24)
 );
+const EXPECTED_RC_KEY_PREFIX =
+  Platform.OS === 'android' ? 'goog_' : Platform.OS === 'ios' ? 'appl_' : '';
 
 type PurchasesBindings = {
   Purchases: any;
@@ -102,9 +104,59 @@ export class SubscriptionService {
   private static loggedMissingConfig = false;
   private static customerInfoListenerAttached = false;
   private static lastCustomerInfoSignature = '';
+  private static invalidCredentialsDisabled = false;
+  private static loggedInvalidCredentials = false;
 
   private static hasValidConfig(): boolean {
-    return Boolean(REVENUECAT_API_KEY) && !REVENUECAT_API_KEY.includes('placeholder');
+    if (!REVENUECAT_API_KEY || REVENUECAT_API_KEY.includes('placeholder')) {
+      return false;
+    }
+    if (EXPECTED_RC_KEY_PREFIX && !REVENUECAT_API_KEY.startsWith(EXPECTED_RC_KEY_PREFIX)) {
+      return false;
+    }
+    return true;
+  }
+
+  private static isInvalidCredentialsError(error: unknown): boolean {
+    const anyError = error as any;
+    const code = String(anyError?.code || '').toLowerCase();
+    const message = `${String(anyError?.message || '')} ${String(
+      anyError?.underlyingErrorMessage || ''
+    )}`.toLowerCase();
+    return (
+      code.includes('invalidcredential') ||
+      message.includes('invalid credentials') ||
+      message.includes('invalid play store credentials')
+    );
+  }
+
+  private static markInvalidCredentials(error: unknown, context: string): void {
+    this.invalidCredentialsDisabled = true;
+    if (this.loggedInvalidCredentials) return;
+    this.loggedInvalidCredentials = true;
+    const platformKeyName =
+      Platform.OS === 'android'
+        ? 'EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY'
+        : 'EXPO_PUBLIC_REVENUECAT_IOS_API_KEY';
+    console.error(
+      `[RevenueCat] invalid credentials (${context}). Verify ${platformKeyName} and RevenueCat app mapping for package com.radartinder.app.`,
+      error
+    );
+  }
+
+  private static async hydrateFromSnapshotIfAvailable(): Promise<boolean> {
+    const authState = useAuthStore.getState();
+    if (!authState.user?.id) return false;
+    const snapshot = await SupabaseService.getSubscriptionSnapshot(authState.user.id);
+    if (!snapshot) return false;
+    authState.updateUser({
+      subscriptionType: snapshot.subscriptionType,
+      adsRemoved: snapshot.adsRemoved,
+      subscriptionExpiresAt: parseOptionalDate(snapshot.subscriptionExpiresAt || undefined),
+      accountLinkRequiredUntil: parseOptionalDate(snapshot.accountLinkRequiredUntil || undefined),
+      rcCustomerId: snapshot.rcCustomerId || undefined,
+    });
+    return true;
   }
 
   private static hasEntitlement(customerInfo: CustomerInfo, entitlementId: string): boolean {
@@ -147,6 +199,10 @@ export class SubscriptionService {
 
   static async init(): Promise<void> {
     if (this.isInitialized) return;
+    if (this.invalidCredentialsDisabled) {
+      this.isInitialized = true;
+      return;
+    }
 
     try {
       const bindings = getPurchasesBindings();
@@ -166,8 +222,11 @@ export class SubscriptionService {
         this.isInitialized = true;
         if (!this.loggedMissingConfig) {
           this.loggedMissingConfig = true;
+          const expectedHint = EXPECTED_RC_KEY_PREFIX
+            ? `Expected prefix "${EXPECTED_RC_KEY_PREFIX}" for ${Platform.OS}.`
+            : 'No platform key prefix check.';
           console.warn(
-            'RevenueCat is not configured. Set EXPO_PUBLIC_REVENUECAT_IOS_API_KEY and EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY.'
+            `RevenueCat is not configured correctly. Set EXPO_PUBLIC_REVENUECAT_IOS_API_KEY and EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY. ${expectedHint}`
           );
         }
         return;
@@ -195,6 +254,11 @@ export class SubscriptionService {
       this.isInitialized = true;
       console.log('RevenueCat initialized');
     } catch (error) {
+      if (this.isInvalidCredentialsError(error)) {
+        this.markInvalidCredentials(error, 'init');
+        this.isInitialized = true;
+        return;
+      }
       console.error('Error initializing RevenueCat:', error);
     }
   }
@@ -215,29 +279,19 @@ export class SubscriptionService {
 
   static async syncAccessState(): Promise<boolean> {
     if (!SUBS_SYNC_V2_ENABLED) return false;
+    if (this.invalidCredentialsDisabled) {
+      return await this.hydrateFromSnapshotIfAvailable();
+    }
     try {
-      const authState = useAuthStore.getState();
       if (!this.hasValidConfig()) {
-        if (authState.user?.id) {
-          const snapshot = await SupabaseService.getSubscriptionSnapshot(authState.user.id);
-          if (snapshot) {
-            authState.updateUser({
-              subscriptionType: snapshot.subscriptionType,
-              adsRemoved: snapshot.adsRemoved,
-              subscriptionExpiresAt: parseOptionalDate(snapshot.subscriptionExpiresAt || undefined),
-              accountLinkRequiredUntil: parseOptionalDate(
-                snapshot.accountLinkRequiredUntil || undefined
-              ),
-              rcCustomerId: snapshot.rcCustomerId || undefined,
-            });
-            return true;
-          }
-        }
-        return false;
+        return await this.hydrateFromSnapshotIfAvailable();
       }
 
       if (!this.isInitialized) {
         await this.init();
+      }
+      if (this.invalidCredentialsDisabled) {
+        return await this.hydrateFromSnapshotIfAvailable();
       }
       if (!this.hasValidConfig()) return false;
 
@@ -250,6 +304,13 @@ export class SubscriptionService {
       await AnalyticsService.trackEvent('subscription_sync_result', { result: 'success' });
       return true;
     } catch (error) {
+      if (this.isInvalidCredentialsError(error)) {
+        this.markInvalidCredentials(error, 'sync');
+        await AnalyticsService.trackEvent('subscription_sync_result', {
+          result: 'invalid_credentials',
+        }).catch(() => {});
+        return await this.hydrateFromSnapshotIfAvailable();
+      }
       await AnalyticsService.trackEvent('subscription_sync_result', {
         result: 'error',
         message: String((error as Error)?.message || error),
@@ -259,6 +320,7 @@ export class SubscriptionService {
   }
 
   static async getOfferings() {
+    if (this.invalidCredentialsDisabled) return null;
     if (!this.isInitialized) {
       await this.init();
     }
@@ -277,9 +339,11 @@ export class SubscriptionService {
 
   static async purchasePackage(pack: PurchasesPackage): Promise<boolean> {
     try {
+      if (this.invalidCredentialsDisabled) return false;
       if (!this.isInitialized) {
         await this.init();
       }
+      if (this.invalidCredentialsDisabled) return false;
       if (!this.hasValidConfig()) {
         console.warn('RevenueCat purchase skipped: missing SDK key configuration.');
         return false;
@@ -297,6 +361,10 @@ export class SubscriptionService {
 
       return true;
     } catch (error: any) {
+      if (this.isInvalidCredentialsError(error)) {
+        this.markInvalidCredentials(error, 'purchase');
+        return false;
+      }
       if (!error.userCancelled) {
         console.error('Error purchasing package:', error);
         await AnalyticsService.trackError(error, { context: 'purchase' });
@@ -307,9 +375,11 @@ export class SubscriptionService {
 
   static async restorePurchases(): Promise<boolean> {
     try {
+      if (this.invalidCredentialsDisabled) return false;
       if (!this.isInitialized) {
         await this.init();
       }
+      if (this.invalidCredentialsDisabled) return false;
       if (!this.hasValidConfig()) {
         console.warn('RevenueCat restore skipped: missing SDK key configuration.');
         return false;
@@ -321,6 +391,10 @@ export class SubscriptionService {
       await this.updateUserSubscriptionStatus(customerInfo, 'restore');
       return true;
     } catch (error: any) {
+      if (this.isInvalidCredentialsError(error)) {
+        this.markInvalidCredentials(error, 'restore');
+        return false;
+      }
       console.error('Error restoring purchases:', error);
       return false;
     }
@@ -328,9 +402,11 @@ export class SubscriptionService {
 
   static async presentPaywall(): Promise<PaywallPresentationStatus> {
     try {
+      if (this.invalidCredentialsDisabled) return 'unavailable';
       if (!this.isInitialized) {
         await this.init();
       }
+      if (this.invalidCredentialsDisabled) return 'unavailable';
       if (!this.hasValidConfig()) {
         return 'unavailable';
       }
@@ -370,6 +446,10 @@ export class SubscriptionService {
 
       return 'not_presented';
     } catch (error) {
+      if (this.isInvalidCredentialsError(error)) {
+        this.markInvalidCredentials(error, 'paywall');
+        return 'unavailable';
+      }
       console.error('Error presenting RevenueCat paywall:', error);
       return 'error';
     }
@@ -446,9 +526,11 @@ export class SubscriptionService {
 
   static async setUserId(userId: string): Promise<void> {
     try {
+      if (this.invalidCredentialsDisabled) return;
       if (!this.isInitialized) {
         await this.init();
       }
+      if (this.invalidCredentialsDisabled) return;
       if (!this.isInitialized || !this.hasValidConfig()) return;
       const bindings = getPurchasesBindings();
       if (!bindings?.Purchases) return;
@@ -458,6 +540,10 @@ export class SubscriptionService {
       }
       await this.syncAccessState();
     } catch (error) {
+      if (this.isInvalidCredentialsError(error)) {
+        this.markInvalidCredentials(error, 'set_user_id');
+        return;
+      }
       console.error('Error setting RevenueCat user ID:', error);
     }
   }
@@ -481,6 +567,6 @@ export class SubscriptionService {
   }
 
   static isConfigured(): boolean {
-    return this.hasValidConfig();
+    return this.hasValidConfig() && !this.invalidCredentialsDisabled;
   }
 }

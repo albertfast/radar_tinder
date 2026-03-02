@@ -60,16 +60,22 @@ const OptimizedMarker = React.memo(({ coordinate, type, speedLimit, onPress }: a
 const RadarArrowUserMarker = React.memo(({ coordinate, heading }: { coordinate: LatLng; heading: number }) => (
   <Marker
     coordinate={coordinate}
-    tracksViewChanges={false}
+    tracksViewChanges
     anchor={{ x: 0.5, y: 0.5 }}
-    zIndex={20}
+    zIndex={60}
   >
-    <View style={styles.userPulseOuter}>
-      <View style={styles.userPulseInner} />
+    <View style={styles.userMarkerShell} collapsable={false}>
+      <View style={styles.userPulseOuter}>
+        <View style={styles.userPulseInner} />
+      </View>
+      <View style={styles.userMarkerPlate} />
       <View style={[styles.userArrowWrap, { transform: [{ rotate: `${heading}deg` }] }]}>
         <View style={styles.userArrowBody} />
-        <View style={styles.userArrowCore} />
+        <View style={styles.userArrowBodyInner} />
+        <View style={styles.userArrowTail} />
       </View>
+      <View style={styles.userArrowCore} />
+      <View style={styles.userCenterDot} />
     </View>
   </Marker>
 ));
@@ -337,49 +343,96 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 6
   },
-  userPulseOuter: {
-    width: getResponsiveWidth(34),
-    height: getResponsiveHeight(34),
-    borderRadius: getResponsiveMargin(17),
+  userMarkerShell: {
+    width: 108,
+    height: 108,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(34,211,238,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(34,211,238,0.45)',
+    overflow: 'visible',
+  },
+  userPulseOuter: {
+    position: 'absolute',
+    width: 102,
+    height: 102,
+    borderRadius: 51,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(34,211,238,0.2)',
+    borderWidth: 2.5,
+    borderColor: 'rgba(103,232,249,0.86)',
   },
   userPulseInner: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    backgroundColor: 'rgba(251,146,60,0.26)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(251,146,60,0.84)',
+  },
+  userMarkerPlate: {
     position: 'absolute',
-    width: getResponsiveWidth(22),
-    height: getResponsiveHeight(22),
-    borderRadius: getResponsiveMargin(11),
-    backgroundColor: 'rgba(249,115,22,0.2)',
+    width: 66,
+    height: 66,
+    borderRadius: 20,
+    backgroundColor: 'rgba(8,47,73,0.92)',
+    borderWidth: 2,
+    borderColor: 'rgba(186,230,253,0.86)',
   },
   userArrowWrap: {
-    width: getResponsiveWidth(20),
-    height: getResponsiveHeight(20),
+    width: 60,
+    height: 72,
     alignItems: 'center',
     justifyContent: 'center',
   },
   userArrowBody: {
     width: 0,
     height: 0,
-    borderLeftWidth: getResponsiveWidth(6),
-    borderRightWidth: getResponsiveWidth(6),
-    borderBottomWidth: getResponsiveHeight(14),
+    borderLeftWidth: 18,
+    borderRightWidth: 18,
+    borderBottomWidth: 45,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: '#22D3EE',
-    marginBottom: -2,
+    borderBottomColor: '#A5F3FC',
+  },
+  userArrowBodyInner: {
+    position: 'absolute',
+    width: 0,
+    height: 0,
+    borderLeftWidth: 11,
+    borderRightWidth: 11,
+    borderBottomWidth: 30,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FB923C',
+    bottom: 16,
+  },
+  userArrowTail: {
+    position: 'absolute',
+    bottom: 8,
+    width: 24,
+    height: 12,
+    borderRadius: 7,
+    backgroundColor: '#082F49',
+    borderWidth: 1.5,
+    borderColor: 'rgba(186,230,253,0.84)',
   },
   userArrowCore: {
     position: 'absolute',
-    width: getResponsiveWidth(8),
-    height: getResponsiveHeight(8),
-    borderRadius: getResponsiveMargin(4),
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: '#FB923C',
-    borderWidth: 1,
+    borderWidth: 3,
     borderColor: '#082F49',
-    bottom: 0,
+    bottom: 28,
+  },
+  userCenterDot: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ffffff',
+    bottom: 37,
   },
 });
 

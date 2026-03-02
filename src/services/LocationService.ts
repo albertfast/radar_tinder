@@ -19,7 +19,7 @@ export class LocationService {
       await this.requestLocationPermission();
       
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.BestForNavigation,
       });
 
       return {
@@ -48,8 +48,8 @@ export class LocationService {
       return await Location.watchPositionAsync(
         {
           accuracy: options?.forDriving ? Location.Accuracy.BestForNavigation : Location.Accuracy.High,
-          distanceInterval: 5, // Update every 5 meters for better accuracy during navigation
-          timeInterval: 1000, // Update every 1 second for responsive navigation
+          distanceInterval: options?.forDriving ? 2 : 5, // tighter updates in driving mode for smoother follow camera
+          timeInterval: options?.forDriving ? 500 : 1000, // 2Hz while driving, 1Hz otherwise
         },
         (location) => {
           callback({

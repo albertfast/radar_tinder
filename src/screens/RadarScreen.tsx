@@ -41,6 +41,68 @@ import { useDrivingSession } from './radar/hooks/useDrivingSession';
 import { useRadarDataSync } from './radar/hooks/useRadarDataSync';
 import { useRadarNavigation } from './radar/hooks/useRadarNavigation';
 const MAP_INPUT_TAP_GUARD_MS = 2200;
+
+const projectForwardCoordinate = (
+  latitude: number,
+  longitude: number,
+  bearingDeg: number,
+  distanceMeters: number
+) => {
+  const earthRadiusMeters = 6378137;
+  const angularDistance = distanceMeters / earthRadiusMeters;
+  const bearingRad = (bearingDeg * Math.PI) / 180;
+  const latitudeRad = (latitude * Math.PI) / 180;
+  const longitudeRad = (longitude * Math.PI) / 180;
+
+  const projectedLatitude = Math.asin(
+    Math.sin(latitudeRad) * Math.cos(angularDistance) +
+      Math.cos(latitudeRad) * Math.sin(angularDistance) * Math.cos(bearingRad)
+  );
+  const projectedLongitude =
+    longitudeRad +
+    Math.atan2(
+      Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(latitudeRad),
+      Math.cos(angularDistance) - Math.sin(latitudeRad) * Math.sin(projectedLatitude)
+    );
+
+  return {
+    latitude: (projectedLatitude * 180) / Math.PI,
+    longitude: (projectedLongitude * 180) / Math.PI,
+  };
+};
+
+const sliceRouteAroundIndexByDistance = (
+  coords: Array<{ latitude: number; longitude: number }>,
+  centerIndex: number,
+  behindMeters: number,
+  aheadMeters: number
+) => {
+  if (!Array.isArray(coords) || coords.length < 2) return coords;
+
+  let start = Math.min(Math.max(centerIndex, 0), coords.length - 1);
+  let traveledBehind = 0;
+  while (start > 0 && traveledBehind < behindMeters) {
+    const from = coords[start];
+    const to = coords[start - 1];
+    traveledBehind +=
+      LocationService.calculateDistanceSync(from.latitude, from.longitude, to.latitude, to.longitude) * 1000;
+    start -= 1;
+  }
+
+  let end = Math.min(Math.max(centerIndex, 0), coords.length - 1);
+  let traveledAhead = 0;
+  while (end < coords.length - 1 && traveledAhead < aheadMeters) {
+    const from = coords[end];
+    const to = coords[end + 1];
+    traveledAhead +=
+      LocationService.calculateDistanceSync(from.latitude, from.longitude, to.latitude, to.longitude) * 1000;
+    end += 1;
+  }
+
+  const segment = coords.slice(start, end + 1);
+  return segment.length > 1 ? segment : coords.slice(Math.max(0, start - 1), Math.min(coords.length, end + 2));
+};
+
 const RadarScreen = ({ navigation, route }: any) => {
   const { user, refreshProfile, normalizeAccessState } = useAuthStore();
   const canUsePro = hasProAccess(user);
@@ -78,8 +140,10 @@ const RadarScreen = ({ navigation, route }: any) => {
   const [manualPanMode, setManualPanMode] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<any>(null);
+  const [routeRenderStartIndex, setRouteRenderStartIndex] = useState(0);
   const currentLocationRef = useRef<any>(currentLocation);
   const manualPanModeRef = useRef(manualPanMode);
+  const routeRenderStartIndexRef = useRef(0);
 
   const mapInput = useMapInputState({ keyboardTraceEnabled: KEYBOARD_TRACE_ENABLED });
 
@@ -173,7 +237,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const isTurnByTurnActive = driving.isDriving && navigationState.routeCoords.length > 0;
   const isMapNavigationActive = isTurnByTurnActive && activeTab === 'Map';
   const mapControlsBottomBase = isMapNavigationActive
-    ? Math.max(getResponsiveHeight(180), Math.round(height * 0.3))
+    ? Math.max(getResponsiveHeight(196), Math.round(height * 0.34))
     : Math.max(110, Math.round(height * 0.22));
   const mapNavDockBottom = isMapNavigationActive
     ? Math.max(getResponsiveHeight(70), mapOverlayInset + 48)
@@ -181,7 +245,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const mapPadding = useMemo(() => ({
     top: isMapNavigationActive ? getResponsiveHeight(120) : getResponsiveHeight(160),
     right: mapOverlayInset,
-    bottom: isMapNavigationActive ? getResponsiveHeight(320) : getResponsiveHeight(220),
+    bottom: isMapNavigationActive ? getResponsiveHeight(280) : getResponsiveHeight(220),
     left: mapOverlayInset,
   }), [isMapNavigationActive, mapOverlayInset]);
 
@@ -198,6 +262,13 @@ const RadarScreen = ({ navigation, route }: any) => {
   const compassRotation = `${dataSync.resolvedHeading || 0}deg`;
   const showCenterRouteAction =
     (manualPanMode || !followHeading) && navigationState.routeCoords.length > 0;
+  const routeCoordsForMap = useMemo(() => {
+    if (routeRenderStartIndex <= 0) return navigationState.routeCoords;
+    if (routeRenderStartIndex >= navigationState.routeCoords.length - 1) {
+      return navigationState.routeCoords.slice(-2);
+    }
+    return navigationState.routeCoords.slice(routeRenderStartIndex);
+  }, [navigationState.routeCoords, routeRenderStartIndex]);
   const showHomeAd = hasHydrated && shouldShowHomeAds(user);
   const nearestRadarSummary = dataSync.closestRadar
     ? (dataSync.closestRadarHint ? `${formatDistance(dataSync.closestRadar.distance, unitSystem)} at ${dataSync.closestRadarHint}` : formatDistance(dataSync.closestRadar.distance, unitSystem))
@@ -261,6 +332,60 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, [navigationState.routeCoords, setRouteGuidancePath]);
 
   useEffect(() => {
+    routeRenderStartIndexRef.current = 0;
+    setRouteRenderStartIndex(0);
+  }, [navigationState.destinationCoord?.latitude, navigationState.destinationCoord?.longitude]);
+
+  useEffect(() => {
+    const route = navigationState.routeCoords;
+    const loc = dataSync.currentLocation;
+    if (!loc || route.length < 3) {
+      if (routeRenderStartIndexRef.current !== 0) {
+        routeRenderStartIndexRef.current = 0;
+        setRouteRenderStartIndex(0);
+      }
+      return;
+    }
+
+    const previous = Math.min(routeRenderStartIndexRef.current, route.length - 1);
+    let searchFrom = 0;
+    let searchTo = route.length - 1;
+    if (route.length > 120) {
+      searchFrom = Math.max(0, previous - 80);
+      searchTo = Math.min(route.length - 1, previous + 260);
+    }
+
+    let bestIndex = previous;
+    let bestDistanceMeters = Number.POSITIVE_INFINITY;
+    const scanRange = (from: number, to: number) => {
+      for (let index = from; index <= to; index += 1) {
+        const point = route[index];
+        const distanceMeters =
+          LocationService.calculateDistanceSync(loc.latitude, loc.longitude, point.latitude, point.longitude) * 1000;
+        if (distanceMeters < bestDistanceMeters) {
+          bestDistanceMeters = distanceMeters;
+          bestIndex = index;
+          if (distanceMeters <= 4) break;
+        }
+      }
+    };
+
+    scanRange(searchFrom, searchTo);
+    if (bestDistanceMeters > 95 && (searchFrom > 0 || searchTo < route.length - 1)) {
+      scanRange(0, route.length - 1);
+    }
+
+    const nextStart = Math.max(0, bestIndex - 1);
+    const currentStart = routeRenderStartIndexRef.current;
+    const shouldAdvance = nextStart > currentStart;
+    const shouldRewind = nextStart + 22 < currentStart;
+    if (!shouldAdvance && !shouldRewind) return;
+
+    routeRenderStartIndexRef.current = nextStart;
+    setRouteRenderStartIndex(nextStart);
+  }, [dataSync.currentLocation, navigationState.routeCoords]);
+
+  useEffect(() => {
     if (driving.isDriving) return;
     setActiveAlerts([]);
   }, [driving.isDriving, setActiveAlerts]);
@@ -270,6 +395,13 @@ const RadarScreen = ({ navigation, route }: any) => {
     setFollowHeading(true);
     setManualPanMode(false);
   }, [driving.isDriving]);
+
+  useEffect(() => {
+    if (navigationState.routeCoords.length < 2) return;
+    // New or updated route should restore follow mode automatically.
+    setFollowHeading(true);
+    setManualPanMode(false);
+  }, [navigationState.routeCoords.length]);
 
   useEffect(() => {
     if (driving.isDriving) return;
@@ -335,45 +467,136 @@ const RadarScreen = ({ navigation, route }: any) => {
     await driving.stopDrivingSession({ setActiveTab, showInterstitial: true });
   }, [driving]);
 
-  const centerMap = useCallback(() => {
-    if (dataSync.currentLocation && mapRef.current) {
-      setManualPanMode(false);
-      setFollowHeading(true);
-      mapRef.current.animateCamera(
-        {
-          center: {
-            latitude: dataSync.currentLocation.latitude,
-            longitude: dataSync.currentLocation.longitude,
-          },
-          zoom: 18.2,
-          heading: dataSync.resolvedHeading || dataSync.currentLocation.heading || 0,
-          pitch: 62,
-        },
-        { duration: 650 }
-      );
+  const centerMap = useCallback(async () => {
+    let location = dataSync.currentLocation;
+    if (!location) {
+      const fallback = await LocationService.getCurrentLocation().catch(() => null);
+      if (!fallback) return;
+      location = {
+        latitude: fallback.latitude,
+        longitude: fallback.longitude,
+        heading: 0,
+      };
+      setCurrentLocation(location);
     }
-  }, [dataSync.currentLocation, dataSync.resolvedHeading]);
+    if (!mapRef.current) return;
+
+    const hasLiveHeading =
+      typeof dataSync.resolvedHeading === 'number' && Number.isFinite(dataSync.resolvedHeading)
+        ? true
+        : typeof location.heading === 'number' && Number.isFinite(location.heading);
+    let headingForCenter =
+      typeof dataSync.resolvedHeading === 'number' && Number.isFinite(dataSync.resolvedHeading)
+        ? dataSync.resolvedHeading
+        : typeof location.heading === 'number' && Number.isFinite(location.heading)
+          ? location.heading
+          : 0;
+
+    if (navigationState.routeCoords.length > 1 && !hasLiveHeading) {
+      let closestIndex = 0;
+      let minDistanceKm = Number.POSITIVE_INFINITY;
+      for (let index = 0; index < navigationState.routeCoords.length; index += 1) {
+        const coord = navigationState.routeCoords[index];
+        const distanceKm = LocationService.calculateDistanceSync(
+          location.latitude,
+          location.longitude,
+          coord.latitude,
+          coord.longitude
+        );
+        if (distanceKm < minDistanceKm) {
+          minDistanceKm = distanceKm;
+          closestIndex = index;
+        }
+      }
+      const nextIndex = Math.min(navigationState.routeCoords.length - 1, closestIndex + 1);
+      if (nextIndex !== closestIndex) {
+        const nextCoord = navigationState.routeCoords[nextIndex];
+        headingForCenter = LocationService.calculateBearing(
+          location.latitude,
+          location.longitude,
+          nextCoord.latitude,
+          nextCoord.longitude
+        );
+      }
+    }
+
+    const lookAheadMeters = navigationState.routeCoords.length > 1 ? 78 : 54;
+    const followCenter = projectForwardCoordinate(
+      location.latitude,
+      location.longitude,
+      headingForCenter,
+      lookAheadMeters
+    );
+
+    setManualPanMode(false);
+    setFollowHeading(true);
+    mapRef.current.animateCamera(
+      {
+        center: {
+          latitude: followCenter.latitude,
+          longitude: followCenter.longitude,
+        },
+        zoom: 19.14,
+        heading: headingForCenter,
+        pitch: 62,
+      },
+      { duration: 340 }
+    );
+  }, [dataSync.currentLocation, dataSync.resolvedHeading, navigationState.routeCoords, setCurrentLocation]);
 
   const centerRoute = useCallback(() => {
     if (!mapRef.current) return;
-    setManualPanMode(false);
-    setFollowHeading(true);
 
     if (navigationState.routeCoords.length > 1) {
+      setManualPanMode(false);
+      setFollowHeading(true);
+      const currentLoc = dataSync.currentLocation;
+      let focusCoords = navigationState.routeCoords.slice(0, Math.min(navigationState.routeCoords.length, 20));
+      if (currentLoc) {
+        let closestIndex = 0;
+        let minDistanceKm = Number.POSITIVE_INFINITY;
+        for (let index = 0; index < navigationState.routeCoords.length; index += 1) {
+          const coord = navigationState.routeCoords[index];
+          const distanceKm = LocationService.calculateDistanceSync(
+            currentLoc.latitude,
+            currentLoc.longitude,
+            coord.latitude,
+            coord.longitude
+          );
+          if (distanceKm < minDistanceKm) {
+            minDistanceKm = distanceKm;
+            closestIndex = index;
+          }
+        }
+        const nearbySegment = sliceRouteAroundIndexByDistance(
+          navigationState.routeCoords,
+          closestIndex,
+          260,
+          1100
+        );
+        if (nearbySegment.length > 1) {
+          focusCoords = nearbySegment;
+        }
+      }
       try {
-        mapRef.current.fitToCoordinates(navigationState.routeCoords, {
-          edgePadding: mapPadding,
+        mapRef.current.fitToCoordinates(focusCoords, {
+          edgePadding: {
+            top: getResponsiveHeight(112),
+            right: mapOverlayInset,
+            bottom: getResponsiveHeight(238),
+            left: mapOverlayInset,
+          },
           animated: true,
         });
       } catch {}
       setTimeout(() => {
         centerMap();
-      }, 520);
+      }, 320);
       return;
     }
 
     centerMap();
-  }, [centerMap, mapPadding, navigationState.routeCoords]);
+  }, [centerMap, dataSync.currentLocation, mapOverlayInset, navigationState.routeCoords]);
 
   const handleMapTouchStart = useCallback(() => {
     if (mapInput.isMapInputLockActive) return;
@@ -463,7 +686,7 @@ const RadarScreen = ({ navigation, route }: any) => {
         activeAlert={dataSync.activeAlert}
         unitSystem={unitSystem}
         acknowledgeAlert={acknowledgeAlert}
-        routeCoords={navigationState.routeCoords}
+        routeCoords={routeCoordsForMap}
         routeMetaDestinationLabel={navigationState.routeMeta?.destinationLabel}
         navInstruction={navigationState.navSteps[navigationState.currentStepIndex]?.instruction}
         navDistanceLabel={formatStepDistance(
@@ -485,7 +708,7 @@ const RadarScreen = ({ navigation, route }: any) => {
           <RadarMapTab
             currentLocation={dataSync.currentLocation}
             nearbyRadars={dataSync.nearbyRadars}
-            routeCoords={navigationState.routeCoords}
+            routeCoords={routeCoordsForMap}
             mapRef={mapRef}
             destinationCoord={navigationState.destinationCoord}
             mapPadding={mapPadding}
