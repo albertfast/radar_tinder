@@ -3,23 +3,6 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
-def resolveOrtAndroidVersion = {
-    def fromProperty = findProperty('ortAndroidVersion') ?: System.getenv('EXPO_PUBLIC_ORT_ANDROID_VERSION')
-    if (fromProperty != null && fromProperty.toString().trim()) {
-        return fromProperty.toString().trim()
-    }
-    return '1.23.2'
-}
-def ORT_ANDROID_VERSION = resolveOrtAndroidVersion()
-
-configurations.all {
-    resolutionStrategy.eachDependency { details ->
-        if (details.requested.group == 'com.microsoft.onnxruntime') {
-            details.useVersion ORT_ANDROID_VERSION
-            details.because 'Pin ORT native artifacts for deterministic and 16 KB-safe builds'
-        }
-    }
-}
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -117,6 +100,15 @@ def resolveDynamicVersionCode = {
     return candidate as int
 }
 
+configurations.all {
+  resolutionStrategy.eachDependency { details ->
+    if (details.requested.group == 'com.microsoft.onnxruntime') {
+      details.useVersion('1.23.2')
+      details.because('Pin ORT native artifacts for deterministic and 16 KB-safe builds')
+    }
+  }
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
 
@@ -133,6 +125,16 @@ android {
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
     signingConfigs {
         debug {
             storeFile file('debug.keystore')

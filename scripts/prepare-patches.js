@@ -128,6 +128,203 @@ const patchExpoModulesCoreForRN81 = () => {
   }
 };
 
+const patchExpoModulesAutolinkingSettingsPlugin = () => {
+  const pkg = 'expo-modules-autolinking';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const settingsManagerPath = path.join(
+    resolvedDir,
+    'android',
+    'expo-gradle-plugin',
+    'expo-autolinking-settings-plugin',
+    'src',
+    'main',
+    'kotlin',
+    'expo',
+    'modules',
+    'plugin',
+    'SettingsManager.kt'
+  );
+
+  if (!fs.existsSync(settingsManagerPath)) {
+    console.warn(`prepare-patches: missing file ${settingsManagerPath}`);
+    return;
+  }
+
+  let source = fs.readFileSync(settingsManagerPath, 'utf8');
+  const original = source;
+
+  source = source.replace(
+    'import org.gradle.internal.extensions.core.extra\n',
+    ''
+  );
+
+  source = source.replace(
+    '      project.extra.set("coreFeatures", config.coreFeatures)',
+    '      project.extensions.extraProperties.set("coreFeatures", config.coreFeatures)'
+  );
+
+  if (source !== original) {
+    fs.writeFileSync(settingsManagerPath, source);
+    console.log(
+      'Patched expo-modules-autolinking SettingsManager.kt to use public Gradle extraProperties API'
+    );
+  }
+};
+
+const patchExpoModulesAutolinkingRootPlugin = () => {
+  const pkg = 'expo-modules-autolinking';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const pluginPath = path.join(
+    resolvedDir,
+    'android',
+    'expo-gradle-plugin',
+    'expo-autolinking-plugin',
+    'src',
+    'main',
+    'kotlin',
+    'expo',
+    'modules',
+    'plugin',
+    'ExpoRootProjectPlugin.kt'
+  );
+
+  if (!fs.existsSync(pluginPath)) {
+    console.warn(`prepare-patches: missing file ${pluginPath}`);
+    return;
+  }
+
+  let source = fs.readFileSync(pluginPath, 'utf8');
+  const original = source;
+
+  source = source.replace(
+    'import org.gradle.internal.extensions.core.extra\n',
+    ''
+  );
+
+  source = source.replace(
+    'fun Project.defineDefaultProperties(versionCatalogs: Optional<VersionCatalog>) {\n  // Android related',
+    'fun Project.defineDefaultProperties(versionCatalogs: Optional<VersionCatalog>) {\n  val extraProperties = extensions.extraProperties\n\n  // Android related'
+  );
+
+  source = source
+    .replace(/([^a-zA-Z0-9_])extra\.setIfNotExist\(/g, '$1extraProperties.setIfNotExist(')
+    .replace(/([^a-zA-Z0-9_])extra\.get\(/g, '$1extraProperties.get(');
+
+  if (source !== original) {
+    fs.writeFileSync(pluginPath, source);
+    console.log(
+      'Patched expo-modules-autolinking ExpoRootProjectPlugin.kt to use public Gradle extraProperties API'
+    );
+  }
+};
+
+const patchExpoModulesCoreGradlePlugin = () => {
+  const pkg = 'expo-modules-core';
+  const resolvedDir = resolvePackageDir(pkg);
+  if (!resolvedDir) {
+    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
+    return;
+  }
+
+  const replacementsByFile = [
+    {
+      path: path.join(
+        resolvedDir,
+        'expo-module-gradle-plugin',
+        'src',
+        'main',
+        'kotlin',
+        'expo',
+        'modules',
+        'plugin',
+        'ExpoModulesGradlePlugin.kt'
+      ),
+      replacements: [
+        ['import org.gradle.internal.extensions.core.extra\n', ''],
+        ['project.rootProject.extra.safeGet<String>("kotlinVersion")', 'project.rootProject.extensions.extraProperties.safeGet<String>("kotlinVersion")'],
+        ['project.rootProject.extra.safeGet<String>("kspVersion")', 'project.rootProject.extensions.extraProperties.safeGet<String>("kspVersion")'],
+      ],
+      label: 'ExpoModulesGradlePlugin.kt',
+    },
+    {
+      path: path.join(
+        resolvedDir,
+        'expo-module-gradle-plugin',
+        'src',
+        'main',
+        'kotlin',
+        'expo',
+        'modules',
+        'plugin',
+        'ProjectConfiguration.kt'
+      ),
+      replacements: [
+        ['import org.gradle.internal.extensions.core.extra\n', ''],
+        ['  extra.set("kotlinVersion", kotlinVersion)', '  extensions.extraProperties.set("kotlinVersion", kotlinVersion)'],
+        ['  extra.set("kspVersion", kspVersion)', '  extensions.extraProperties.set("kspVersion", kspVersion)'],
+        ['compileSdk = rootProject.extra.safeGet("compileSdkVersion")', 'compileSdk = rootExtra.safeGet("compileSdkVersion")'],
+        ['minSdk = rootProject.extra.safeGet("minSdkVersion")', 'minSdk = rootExtra.safeGet("minSdkVersion")'],
+        ['targetSdk = rootProject.extra.safeGet("targetSdkVersion")', 'targetSdk = rootExtra.safeGet("targetSdkVersion")'],
+      ],
+      preludeNeedle: '  with(androidLibraryExtension()) {\n',
+      preludeInsert: '  with(androidLibraryExtension()) {\n    val rootExtra = rootProject.extensions.extraProperties\n',
+      label: 'ProjectConfiguration.kt',
+    },
+    {
+      path: path.join(
+        resolvedDir,
+        'expo-module-gradle-plugin',
+        'src',
+        'main',
+        'kotlin',
+        'expo',
+        'modules',
+        'plugin',
+        'gradle',
+        'ExpoModuleExtension.kt'
+      ),
+      replacements: [
+        ['import org.gradle.internal.extensions.core.extra\n', ''],
+        ['project.rootProject.extra.safeGet<Any>(name)', 'project.rootProject.extensions.extraProperties.safeGet<Any>(name)'],
+      ],
+      label: 'ExpoModuleExtension.kt',
+    },
+  ];
+
+  replacementsByFile.forEach(({ path: filePath, replacements, preludeNeedle, preludeInsert, label }) => {
+    if (!fs.existsSync(filePath)) {
+      console.warn(`prepare-patches: missing file ${filePath}`);
+      return;
+    }
+
+    let source = fs.readFileSync(filePath, 'utf8');
+    const original = source;
+
+    replacements.forEach(([from, to]) => {
+      source = source.split(from).join(to);
+    });
+
+    if (preludeNeedle && preludeInsert && source.includes(preludeNeedle) && !source.includes('val rootExtra = rootProject.extensions.extraProperties')) {
+      source = source.replace(preludeNeedle, preludeInsert);
+    }
+
+    if (source !== original) {
+      fs.writeFileSync(filePath, source);
+      console.log(`Patched expo-modules-core ${label} to use public Gradle extraProperties API`);
+    }
+  });
+};
+
 const patchExpoReactActivityDelegateWrapperForRN81 = () => {
   const pkg = 'expo';
   const resolvedDir = resolvePackageDir(pkg);
@@ -1322,6 +1519,9 @@ for (const pkg of packages) {
 patchReactNativeMapsForXcode26();
 patchReactNativeForXcode26();
 patchExpoModulesCoreForRN81();
+patchExpoModulesAutolinkingSettingsPlugin();
+patchExpoModulesAutolinkingRootPlugin();
+patchExpoModulesCoreGradlePlugin();
 patchExpoReactActivityDelegateWrapperForRN81();
 patchRNFBCrashlyticsForModules();
 patchRNFBAnalyticsForModules();

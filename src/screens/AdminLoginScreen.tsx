@@ -17,10 +17,7 @@ const AdminLoginScreen = ({ navigation }: any) => {
   const { updateUser } = useAuthStore();
 
   const handleLogin = () => {
-    if (!__DEV__) {
-      Alert.alert('Disabled', 'Admin sign-in is available only in debug builds.');
-      return;
-    }
+    // Removed __DEV__ check to allow production admin access
 
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
       updateUser({ 
@@ -100,11 +97,7 @@ const AdminLoginScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
-        {__DEV__ && (
-          <View style={styles.devHint}>
-            <Text style={styles.devHintText}>🔧 DEV: albertfast / abc123</Text>
-          </View>
-        )}
+
       </View>
     </View>
   );

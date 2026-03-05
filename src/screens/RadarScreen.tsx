@@ -130,6 +130,8 @@ const RadarScreen = ({ navigation, route }: any) => {
   const currentLocationRef = useRef<any>(currentLocation);
   const manualPanModeRef = useRef(manualPanMode);
   const routeRenderStartIndexRef = useRef(0);
+  const lastRouteRenderUpdateRef = useRef(0);
+  const prevRouteCoordsForMapRef = useRef<any[]>([]);
 
   const mapInput = useMapInputState({ keyboardTraceEnabled: KEYBOARD_TRACE_ENABLED });
 
@@ -225,8 +227,9 @@ const RadarScreen = ({ navigation, route }: any) => {
   const mapControlsBottomBase = isMapNavigationActive
     ? Math.max(getResponsiveHeight(196), Math.round(height * 0.34))
     : Math.max(110, Math.round(height * 0.22));
+  const bottomSafe = Math.max(insets.bottom, 10);
   const mapNavDockBottom = isMapNavigationActive
-    ? Math.max(getResponsiveHeight(100), mapOverlayInset + 72)
+    ? Math.max(getResponsiveHeight(40), bottomSafe + 20)
     : 0;
   const mapPadding = useMemo(() => ({
     top: isMapNavigationActive ? getResponsiveHeight(120) : getResponsiveHeight(160),
@@ -235,7 +238,6 @@ const RadarScreen = ({ navigation, route }: any) => {
     left: mapOverlayInset,
   }), [isMapNavigationActive, mapOverlayInset]);
 
-  const bottomSafe = Math.max(insets.bottom, 10);
   const tabBarInset = TAB_BAR_HEIGHT + bottomSafe + 16;
   const mapAdBottom = Math.max(tabBarInset + 8, isMapNavigationActive ? mapNavDockBottom + getResponsiveHeight(84) : tabBarInset + 8);
   const mapAdEstimatedHeight = suppressMapAds ? 0 : getResponsiveHeight(62);
@@ -249,11 +251,26 @@ const RadarScreen = ({ navigation, route }: any) => {
   const showCenterRouteAction =
     (manualPanMode || !followHeading) && navigationState.routeCoords.length > 0;
   const routeCoordsForMap = useMemo(() => {
-    if (routeRenderStartIndex <= 0) return navigationState.routeCoords;
-    if (routeRenderStartIndex >= navigationState.routeCoords.length - 1) {
-      return navigationState.routeCoords.slice(-2);
+    let next: any[];
+    if (routeRenderStartIndex <= 0) {
+      next = navigationState.routeCoords;
+    } else if (routeRenderStartIndex >= navigationState.routeCoords.length - 1) {
+      next = navigationState.routeCoords.slice(-2);
+    } else {
+      next = navigationState.routeCoords.slice(routeRenderStartIndex);
     }
-    return navigationState.routeCoords.slice(routeRenderStartIndex);
+    // Stabilize reference: only return new array if content actually changed
+    const prev = prevRouteCoordsForMapRef.current;
+    if (
+      next.length === prev.length &&
+      next.length > 0 &&
+      next[0] === prev[0] &&
+      next[next.length - 1] === prev[prev.length - 1]
+    ) {
+      return prev;
+    }
+    prevRouteCoordsForMapRef.current = next;
+    return next;
   }, [navigationState.routeCoords, routeRenderStartIndex]);
   const nearestRadarSummary = dataSync.closestRadar
     ? (dataSync.closestRadarHint ? `${formatDistance(dataSync.closestRadar.distance, unitSystem)} at ${dataSync.closestRadarHint}` : formatDistance(dataSync.closestRadar.distance, unitSystem))
@@ -399,9 +416,12 @@ const RadarScreen = ({ navigation, route }: any) => {
 
     const nextStart = Math.max(0, bestIndex - 1);
     const currentStart = routeRenderStartIndexRef.current;
-    const shouldAdvance = nextStart > currentStart;
+    const shouldAdvance = nextStart > currentStart + 2;
     const shouldRewind = nextStart + 22 < currentStart;
     if (!shouldAdvance && !shouldRewind) return;
+    const now = Date.now();
+    if (now - lastRouteRenderUpdateRef.current < 500) return;
+    lastRouteRenderUpdateRef.current = now;
 
     routeRenderStartIndexRef.current = nextStart;
     setRouteRenderStartIndex(nextStart);
