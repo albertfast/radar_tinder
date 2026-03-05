@@ -105,7 +105,6 @@ const OptimizedMarker = React.memo(({ coordinate, type, speedLimit, onPress }: a
 const RadarArrowUserMarker = React.memo(({ coordinate, heading }: { coordinate: LatLng; heading: number }) => (
   <Marker
     coordinate={coordinate}
-    tracksViewChanges={false}
     anchor={{ x: 0.5, y: 0.5 }}
     zIndex={60}
   >
@@ -140,6 +139,8 @@ const RadarMap = React.memo(({
 }: any) => {
   const safeLocation = useMemo(() => toValidCoordinate(location), [location]);
   const safeHeading = useMemo(() => toNormalizedHeading(location?.heading), [location?.heading]);
+  const onRadarPressRef = useRef(onRadarPress);
+  useEffect(() => { onRadarPressRef.current = onRadarPress; }, [onRadarPress]);
   const initialRegionRef = useRef({
     latitude: safeLocation?.latitude ?? 37.7749,
     longitude: safeLocation?.longitude ?? -122.4194,
@@ -266,13 +267,13 @@ const RadarMap = React.memo(({
           coordinate={coordinate}
           type={radar?.type}
           speedLimit={radar?.speedLimit}
-          onPress={() => onRadarPress?.(radar)}
+          onPress={() => onRadarPressRef.current?.(radar)}
         />
       );
     });
 
     return children;
-  }, [finalDestination, onRadarPress, safeHeading, safeLocation, sanitizedRadars.validEntries, sanitizedRouteCoords]);
+  }, [finalDestination, safeHeading, safeLocation, sanitizedRadars.validEntries, sanitizedRouteCoords]);
 
   const invalidSummaryRef = useRef('');
   const invalidRadarCount = sanitizedRadars.invalidCount;

@@ -125,6 +125,7 @@ export function useRadarDataSync({
   const lastCameraUpdateRef = useRef(0);
   const lastCameraCenterRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const lastCameraHeadingRef = useRef<number | null>(null);
+  const cameraAnimationInFlightRef = useRef(false);
   const lastUiLocationRef = useRef<any>(null);
   const lastUiLocationUpdateAtRef = useRef(0);
   const lastAnnouncedAlertIdRef = useRef<string | null>(null);
@@ -481,16 +482,18 @@ export function useRadarDataSync({
           }
 
           const cameraUpdateIntervalMs =
-            sampleSpeedKph >= 90 ? 180 : sampleSpeedKph >= 60 ? 220 : sampleSpeedKph >= 30 ? 280 : 380;
+            sampleSpeedKph >= 90 ? 180 : sampleSpeedKph >= 60 ? 220 : sampleSpeedKph >= 30 ? 280 : 500;
           const cameraMoveThresholdMeters =
-            sampleSpeedKph >= 90 ? 2.4 : sampleSpeedKph >= 60 ? 1.9 : sampleSpeedKph >= 30 ? 1.3 : 0.8;
+            sampleSpeedKph >= 90 ? 2.4 : sampleSpeedKph >= 60 ? 1.9 : sampleSpeedKph >= 30 ? 1.3 : 1.2;
 
           const shouldAnimateCamera =
             !lastCameraCenter ||
             movedFromCameraMeters >= cameraMoveThresholdMeters ||
             cameraHeadingDelta >= 3;
 
-          if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= cameraUpdateIntervalMs) {
+          if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= cameraUpdateIntervalMs && !cameraAnimationInFlightRef.current) {
+            cameraAnimationInFlightRef.current = true;
+            const animationDuration = 260;
             const lookAheadMeters = Math.max(
               42,
               Math.min(84, 52 + Math.round((currentSpeedRef.current || 0) * 0.55))
@@ -511,7 +514,7 @@ export function useRadarDataSync({
                 heading: targetHeading,
                 zoom: 19.12,
               },
-              { duration: 260 }
+              { duration: animationDuration }
             );
             lastCameraCenterRef.current = {
               latitude: followCenter.latitude,
@@ -519,6 +522,7 @@ export function useRadarDataSync({
             };
             lastCameraHeadingRef.current = targetHeading;
             lastCameraUpdateRef.current = now;
+            setTimeout(() => { cameraAnimationInFlightRef.current = false; }, animationDuration + 40);
 
             if (MAP_TRACE_ENABLED) {
               console.log('[MapTrace] cameraFollow', {

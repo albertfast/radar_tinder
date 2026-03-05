@@ -483,10 +483,9 @@ export function RadarMapTab({
               bottom: speedHudBottom + getResponsivePadding(72),
             },
           ]}
-          onPress={onCenterRoute}
+          onPress={resumeFollowMode}
         >
-          <MaterialCommunityIcons name="crosshairs-gps" size={14} color="#67E8F9" />
-          <Text style={localStyles.centerRouteText}>Center Route</Text>
+          <Text style={localStyles.centerRouteText}>Re-center</Text>
         </TouchableOpacity>
       )}
 
@@ -499,8 +498,10 @@ export function RadarMapTab({
           pointerEvents="box-none"
         >
           <View style={styles.navSummaryCard}>
+          <View style={styles.navSummaryRow}>
             <Text style={styles.navSummaryDistance}>{summaryDistance}</Text>
             <Text style={styles.navSummaryEta}>{summaryEta}</Text>
+          </View>
             <Text style={styles.navSummaryDestination} numberOfLines={1}>
               {summaryDestination}
             </Text>
@@ -686,16 +687,20 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(2,6,23,0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(103,232,249,0.35)',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#3B82F6',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 8,
   },
   centerRouteText: {
-    color: '#67E8F9',
-    fontSize: 11,
-    fontWeight: '700',
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });
