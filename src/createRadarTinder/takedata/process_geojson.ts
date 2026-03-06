@@ -56,6 +56,28 @@ interface LegacySavedDataRow {
   verified?: boolean | null;
 }
 
+interface CompleteUsSnapshotRow {
+  lat?: number | string | null;
+  lon?: number | string | null;
+  type?: string | null;
+  source?: string | null;
+  state?: string | null;
+  provider?: string | null;
+  osm_id?: number | string | null;
+}
+
+interface SocrataExportFile {
+  meta?: {
+    view?: {
+      columns?: Array<{
+        fieldName?: string;
+        name?: string;
+      }>;
+    };
+  };
+  data?: unknown[][];
+}
+
 interface NormalizedGovernmentRadar {
   source: string;
   source_id: string;
@@ -78,6 +100,30 @@ interface CliOptions {
 const SCRIPT_DIR = path.resolve(path.dirname(process.argv[1] || '.'));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '../../..');
 const DEFAULT_OUTPUT_DIR = path.join(SCRIPT_DIR, 'output');
+const COMPLETE_US_PROVIDER_MAP: Record<
+  string,
+  {
+    targetSourceKey: string;
+    type: AppRadarType;
+  }
+> = {
+  'Chicago Speed Enforcement Cameras': {
+    targetSourceKey: 'gov_il_chicago_speed',
+    type: 'speed_camera',
+  },
+  'Chicago Red Light Cameras': {
+    targetSourceKey: 'gov_il_chicago_red_light',
+    type: 'red_light',
+  },
+  'Montgomery County Speed Cameras': {
+    targetSourceKey: 'gov_md_montgomery_speed',
+    type: 'speed_camera',
+  },
+  'San Francisco Traffic Cameras': {
+    targetSourceKey: 'gov_ca_san_francisco_traffic',
+    type: 'traffic_enforcement',
+  },
+};
 
 const parseArgs = (): CliOptions => {
   const options: CliOptions = {
@@ -145,6 +191,22 @@ const readLegacySavedDataFile = (filePath: string): LegacySavedDataRow[] => {
     throw new Error(`Expected array of saved rows: ${filePath}`);
   }
   return parsed as LegacySavedDataRow[];
+};
+
+const readCompleteUsSnapshotFile = (filePath: string): CompleteUsSnapshotRow[] => {
+  const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as unknown;
+  if (!Array.isArray(parsed)) {
+    throw new Error(`Expected array of complete snapshot rows: ${filePath}`);
+  }
+  return parsed as CompleteUsSnapshotRow[];
+};
+
+const readSocrataExportFile = (filePath: string): SocrataExportFile => {
+  const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as SocrataExportFile;
+  if (!parsed?.meta?.view?.columns || !Array.isArray(parsed?.data)) {
+    throw new Error(`Expected Socrata export with meta.view.columns + data: ${filePath}`);
+  }
+  return parsed;
 };
 
 const asNumber = (value: unknown) => {
@@ -249,6 +311,50 @@ const normalizeLegacyCity = (value: unknown, fallback?: string) => {
   const city = asString(value);
   if (!city || city.toLowerCase() === 'unknown') return fallback || null;
   return city;
+};
+
+const parseStreetDirectionPrefix = (value: string | null) => {
+  if (!value) return null;
+  const prefix = value.trim().split(/\s+/, 1)[0]?.toUpperCase() || '';
+  if (['NB', 'SB', 'EB', 'WB', 'N', 'S', 'E', 'W'].includes(prefix)) {
+    return prefix;
+  }
+  return null;
+};
+
+const directionPrefixToDegrees = (value: string | null) => {
+  if (!value) return null;
+  const mapping: Record<string, number> = {
+    N: 0,
+    NB: 0,
+    E: 90,
+    EB: 90,
+    S: 180,
+    SB: 180,
+    W: 270,
+    WB: 270,
+  };
+  return Number.isFinite(mapping[value]) ? mapping[value] : null;
+};
+
+const dedupeNormalizedRows = (rows: NormalizedGovernmentRadar[]) => {
+  const deduped = new Map<string, NormalizedGovernmentRadar>();
+  for (const row of rows) {
+    deduped.set(`${row.source}::${row.source_id}`, row);
+  }
+  return Array.from(deduped.values());
+};
+
+const mapSocrataRow = (
+  columns: Array<{ fieldName?: string; name?: string }>,
+  row: unknown[]
+) => {
+  const mapped: Record<string, unknown> = {};
+  columns.forEach((column, index) => {
+    const key = column.fieldName || column.name || `column_${index}`;
+    mapped[key] = row[index];
+  });
+  return mapped;
 };
 
 const getIdentifier = (props: Record<string, unknown>, fields: string[]) => {
@@ -417,6 +523,144 @@ const normalizeLegacySavedDataRows = (
   });
 };
 
+const normalizeCompleteUsSnapshotRows = (
+  rows: CompleteUsSnapshotRow[]
+): NormalizedGovernmentRadar[] => {
+  const groups = new Map<string, CompleteUsSnapshotRow[]>();
+
+  for (const row of rows) {
+    const source = asString(row.source)?.toLowerCase();
+    if (source !== 'gov_api') continue;
+
+    const provider = asString(row.provider);
+    if (!provider) continue;
+
+    const mapping = COMPLETE_US_PROVIDER_MAP[provider];
+    if (!mapping) continue;
+
+    const latitude = asNumber(row.lat);
+    const longitude = asNumber(row.lon);
+    if (latitude == null || longitude == null) continue;
+
+    const dedupeKey = [
+      mapping.targetSourceKey,
+      mapping.type,
+      roundCoordinateKey(latitude),
+      roundCoordinateKey(longitude),
+    ].join('|');
+    const bucket = groups.get(dedupeKey) || [];
+    bucket.push(row);
+    groups.set(dedupeKey, bucket);
+  }
+
+  return Array.from(groups.entries()).map(([dedupeKey, bucket]) => {
+    const first = bucket[0];
+    const provider = asString(first.provider) || 'Unknown provider';
+    const mapping = COMPLETE_US_PROVIDER_MAP[provider];
+    const targetEntry = getVerifiedUsGovSource(mapping.targetSourceKey);
+    if (!targetEntry) {
+      throw new Error(`Missing manifest entry for complete snapshot target source: ${mapping.targetSourceKey}`);
+    }
+
+    const latitude = Number(first.lat);
+    const longitude = Number(first.lon);
+    const dedupeCount = bucket.length;
+
+    return {
+      source: targetEntry.key,
+      source_id: `${targetEntry.key}:${mapping.type}|${roundCoordinateKey(latitude)}|${roundCoordinateKey(longitude)}`,
+      type: mapping.type,
+      latitude,
+      longitude,
+      confidence: targetEntry.defaultConfidence ?? 0.78,
+      verified: true,
+      alertEligible: targetEntry.alertPolicy === 'driver_alert',
+      alertPolicy: targetEntry.alertPolicy,
+      metadata: buildMetadata(
+        targetEntry,
+        {
+          provider,
+          state: first.state || targetEntry.stateCode,
+        },
+        {
+          city: targetEntry.city || null,
+          direction: null,
+          direction_deg: null,
+          speed_limit: null,
+          provider,
+          derived_from_complete_us_snapshot: true,
+          dedupe_count: dedupeCount,
+          original_source: 'gov_api',
+          raw_state: asString(first.state) || targetEntry.stateCode,
+          original_type: asString(first.type),
+          osm_rows_skipped_from_snapshot: true,
+        }
+      ),
+    };
+  });
+};
+
+const normalizeSanFranciscoSpeedRows = (
+  file: SocrataExportFile,
+  entry: VerifiedGovSourceManifestEntry
+): NormalizedGovernmentRadar[] => {
+  const columns = file.meta?.view?.columns || [];
+  const grouped = new Map<string, Record<string, unknown>[]>();
+
+  for (const rawRow of file.data || []) {
+    if (!Array.isArray(rawRow)) continue;
+    const row = mapSocrataRow(columns, rawRow);
+    const siteId = asString(row.site_id);
+    const latitude = asNumber(row.latitude);
+    const longitude = asNumber(row.longitude);
+    const enforcementType = asString(row.enforcement_type)?.toUpperCase() || '';
+    if (!siteId || latitude == null || longitude == null) continue;
+    if (!enforcementType.includes('SPEED')) continue;
+
+    const bucket = grouped.get(siteId) || [];
+    bucket.push(row);
+    grouped.set(siteId, bucket);
+  }
+
+  return Array.from(grouped.entries()).map(([siteId, bucket]) => {
+    const latest = bucket[bucket.length - 1];
+    const latitude = Number(latest.latitude);
+    const longitude = Number(latest.longitude);
+    const location = asString(latest.location);
+    const direction = parseStreetDirectionPrefix(location);
+    const postedSpeed = parsePositiveSpeedLimit(latest.posted_speed);
+    const neighborhood = asString(latest.analysis_neighborhood);
+
+    return {
+      source: entry.key,
+      source_id: `sf-speed-site:${siteId}`,
+      type: 'speed_camera',
+      latitude,
+      longitude,
+      confidence: entry.defaultConfidence ?? 0.96,
+      verified: true,
+      alertEligible: true,
+      alertPolicy: entry.alertPolicy,
+      metadata: buildMetadata(
+        entry,
+        latest,
+        {
+          road_name: location,
+          direction,
+          direction_deg: directionPrefixToDegrees(direction),
+          speed_limit: postedSpeed,
+          site_id: siteId,
+          neighborhood,
+          enforcement_type: asString(latest.enforcement_type),
+          records_aggregated: bucket.length,
+          latest_record_date: asString(latest.date),
+          data_as_of: asString(latest.data_as_of),
+        }
+      ),
+    };
+  });
+};
+
 const normalizeFeature = (
   feature: GeoJSONFeature,
   entry: VerifiedGovSourceManifestEntry
@@ -504,6 +748,12 @@ const processEntry = (entry: VerifiedGovSourceManifestEntry) => {
   if (entry.normalizerKey === 'legacy_saveddata_json') {
     const savedRows = readLegacySavedDataFile(inputPath);
     rows = normalizeLegacySavedDataRows(savedRows, entry);
+  } else if (entry.normalizerKey === 'complete_us_snapshot_json') {
+    const snapshotRows = readCompleteUsSnapshotFile(inputPath);
+    rows = normalizeCompleteUsSnapshotRows(snapshotRows);
+  } else if (entry.normalizerKey === 'sf_speed_socrata_json') {
+    const socrataFile = readSocrataExportFile(inputPath);
+    rows = normalizeSanFranciscoSpeedRows(socrataFile, entry);
   } else {
     const geoJson = readGeoJsonFile(inputPath);
     rows = (geoJson.features || [])
@@ -541,7 +791,7 @@ const main = () => {
   ensureOutputDir(options.outputDir);
 
   const processed = entries.map(processEntry);
-  const normalizedRows = processed.flatMap((item) => item.rows);
+  const normalizedRows = dedupeNormalizedRows(processed.flatMap((item) => item.rows));
   const sqlRows = normalizedRows.filter((row) =>
     options.includeMapOnly ? true : row.alertEligible
   );

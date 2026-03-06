@@ -7,7 +7,7 @@ src/createRadarTinder/takedata/
 ├── upload_to_supabase.ts     # process_geojson çıktısını external_radars tablosuna upsert eder
 ├── location_tracking_strategy.ts  # Mobil konum takibi strateji notları
 ├── us_state_data_sources.ts  # Verified gov source manifest'i
-└── saveddata/                # Dedupelenmesi gereken eyalet snapshot'ları (CA, IL, MD)
+└── saveddata/                # Dedupelenmesi gereken eyalet snapshot'ları ve complete_us export'u
 
 ABD Eyalleri İçin Veri Kaynakları
 
@@ -28,6 +28,7 @@ Production Notları
 - Government dataset'ler için verified veya candidate + dedupe edilmiş driver_alert kaynakları external_radars'a yazılmalı.
 - CCTV ve benzeri enforcement olmayan kaynaklar `map_only` olarak işaretlenmeli.
 - Violation dataset'leri kamera feed'i sayılmaz; `manual_review` olmadan ingest edilmemeli.
+- `supabase_insert_complete.sql` eski `traffic_cameras` şemasına yazdığı için üretim importer'ında kullanılmıyor.
 
 Kamera Uyarı Sistemi - Uygulanabilir Hibrit Yöntem
 SÜREKLİ LOCATION KONTROLÜ VERİMSİZDİR! ❌
@@ -120,7 +121,8 @@ Script Kullanımı
    `bun run src/createRadarTinder/takedata/process_geojson.ts --include-map-only`
 3. Sadece saveddata state snapshot'larını işlemek istersen:
    `bun run src/createRadarTinder/takedata/process_geojson.ts --source gov_ca_san_francisco_speed,gov_il_chicago_speed,gov_il_chicago_red_light,gov_md_montgomery_speed`
-4. Driver-alert satırlarını Supabase'e yükle:
+4. Complete US aggregate snapshot'ını özel olarak işlemek istersen:
+   `bun run src/createRadarTinder/takedata/process_geojson.ts --source gov_us_complete_snapshot_20260306`
+5. Driver-alert satırlarını Supabase'e yükle:
    `SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... bun run src/createRadarTinder/takedata/upload_to_supabase.ts`
-
 
