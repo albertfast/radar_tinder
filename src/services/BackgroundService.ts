@@ -271,10 +271,11 @@ export class BackgroundService {
   private static lastAlertSent: Record<string, number> = {};
   private static lastRadarNotificationSent: Record<string, number> = {};
   private static lastRadarNotificationByKey: Record<string, number> = {};
+  private static lastRadarNotificationStageByKey: Record<string, number> = {};
   private static lastAlertStored: Record<string, number> = {};
   private static lastActiveAlertsSignature = '';
-  private static ALERT_THROTTLE_MS = 60000;
-  private static NOTIFICATION_DEDUPE_MS = 120000;
+  private static ALERT_THROTTLE_MS = 75000;
+  private static NOTIFICATION_DEDUPE_MS = 240000;
   private static lastRadarAlertMode = '';
   private static routeSessionId: string | null = null;
   private static lastRouteGuidanceState = false;
@@ -311,6 +312,15 @@ export class BackgroundService {
     if (normalized === null) return 'unknown';
     const bucket = Math.round(normalized / 30) * 30;
     return `${bucket % 360}`;
+  }
+
+  private static getAlertStageRank(distanceKm: number | null | undefined): number {
+    if (!Number.isFinite(distanceKm)) return 0;
+    const distance = Math.max(0, Number(distanceKm));
+    if (distance <= 0.08) return 3;
+    if (distance <= 0.35) return 2;
+    if (distance <= 1.2) return 1;
+    return 0;
   }
 
   private static distancePointToSegmentMeters(
@@ -381,10 +391,12 @@ export class BackgroundService {
       this.routeSessionId = `route-${Date.now()}`;
       this.protectionSessionAnnouncedFor = null;
       this.lastRadarNotificationByKey = {};
+      this.lastRadarNotificationStageByKey = {};
     } else if (!isRouteGuidanceActive && this.lastRouteGuidanceState) {
       this.routeSessionId = null;
       this.protectionSessionAnnouncedFor = null;
       this.lastRadarNotificationByKey = {};
+      this.lastRadarNotificationStageByKey = {};
     }
     this.lastRouteGuidanceState = isRouteGuidanceActive;
   }
@@ -737,6 +749,8 @@ export class BackgroundService {
             radarId: radar.id,
             userId: user.id,
             type: radar.type,
+            countryCode: radar.countryCode,
+            speedLimit: radar.speedLimit,
             distance,
             estimatedTime: relevance.etaSeconds / 60,
             etaConfidence,
@@ -784,10 +798,15 @@ export class BackgroundService {
         const dedupeScope = routeMode ? this.routeSessionId || 'route' : 'free-drive';
         const dedupeKey = `${alert.radarId}:${dedupeScope}:${directionBucket}`;
         const lastNotificationByKey = this.lastRadarNotificationByKey[dedupeKey] || 0;
+        const lastStageRank = this.lastRadarNotificationStageByKey[dedupeKey] || 0;
         const lastNotificationSent = this.lastRadarNotificationSent[alert.radarId] || 0;
+        const stageRank = this.getAlertStageRank(alert.distance);
+        const allowUrgencyUpgrade =
+          stageRank > lastStageRank && nowMs - lastNotificationByKey > 20000;
         if (
-          nowMs - lastNotificationSent > this.ALERT_THROTTLE_MS &&
-          nowMs - lastNotificationByKey > this.NOTIFICATION_DEDUPE_MS
+          (nowMs - lastNotificationSent > this.ALERT_THROTTLE_MS &&
+            nowMs - lastNotificationByKey > this.NOTIFICATION_DEDUPE_MS) ||
+          allowUrgencyUpgrade
         ) {
           await NotificationService.sendRadarAlert(alert as any, alert.locationLabel, {
             playSound,
@@ -795,6 +814,7 @@ export class BackgroundService {
           });
           this.lastRadarNotificationSent[alert.radarId] = nowMs;
           this.lastRadarNotificationByKey[dedupeKey] = nowMs;
+          this.lastRadarNotificationStageByKey[dedupeKey] = stageRank;
         }
 
         const lastStored = this.lastAlertStored[alert.radarId] || 0;

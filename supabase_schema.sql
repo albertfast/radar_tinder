@@ -336,6 +336,8 @@ returns table (
   confidence float,
   verified boolean,
   source text,
+  speed_limit float,
+  metadata jsonb,
   dist_meters float
 )
 language plpgsql
@@ -353,6 +355,8 @@ begin
       r.confidence,
       coalesce(r.verified, false) as verified,
       'community'::text as source,
+      null::float as speed_limit,
+      null::jsonb as metadata,
       st_distance(r.location, st_point(long, lat)::geography) as dist_meters
     from public.radars r
     where st_dwithin(r.location, st_point(long, lat)::geography, radius_meters)
@@ -368,6 +372,14 @@ begin
       er.confidence,
       coalesce(er.verified, true) as verified,
       coalesce(nullif(er.source, ''), 'osm')::text as source,
+      case
+        when jsonb_typeof(er.metadata -> 'speed_limit') = 'number'
+          then (er.metadata ->> 'speed_limit')::float
+        when coalesce(er.metadata ->> 'speed_limit', '') ~ '^[0-9]+(\.[0-9]+)?$'
+          then (er.metadata ->> 'speed_limit')::float
+        else null::float
+      end as speed_limit,
+      er.metadata,
       st_distance(er.location, st_point(long, lat)::geography) as dist_meters
     from public.external_radars er
     where st_dwithin(er.location, st_point(long, lat)::geography, radius_meters)

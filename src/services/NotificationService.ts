@@ -5,7 +5,12 @@ import { RadarAlert } from '../types';
 import { useSettingsStore } from '../store/settingsStore';
 import { VoiceGuidanceService } from './VoiceGuidanceService';
 import { formatDistance } from '../utils/format';
-import { formatRadarTimingText, formatRadarTypeLabel, getRadarShortLocation } from '../utils/radarAlerts';
+import {
+  formatRadarSpeedLimitText,
+  formatRadarTimingText,
+  formatRadarTypeLabel,
+  getRadarShortLocation,
+} from '../utils/radarAlerts';
 
 type RadarAlertOptions = {
   playSound?: boolean;
@@ -141,7 +146,12 @@ export class NotificationService {
 
       if (hasDistance) {
         const locationPart = shortLocation ? ` near ${shortLocation}` : '';
-        body = `${radarLabel} ${formatDistance(alert.distance, settings.unitSystem)} ahead${locationPart}. ${formatRadarTimingText(alert)}`;
+        const speedLimitText = formatRadarSpeedLimitText(alert, settings.unitSystem);
+        body = `${radarLabel} ${formatDistance(alert.distance, settings.unitSystem)} ahead${locationPart}.`;
+        if (speedLimitText) {
+          body += ` ${speedLimitText}.`;
+        }
+        body += ` ${formatRadarTimingText(alert)}`;
       }
 
       await Notifications.scheduleNotificationAsync({

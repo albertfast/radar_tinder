@@ -22,7 +22,11 @@ import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
 import { HapticPatterns } from '../utils/hapticFeedback';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
-import { formatRadarTimingText, formatRadarTypeLabel } from '../utils/radarAlerts';
+import {
+  formatRadarSpeedLimitText,
+  formatRadarTimingText,
+  formatRadarTypeLabel,
+} from '../utils/radarAlerts';
 
 const allowLayoutAnimations = Platform.OS !== 'android';
 
@@ -87,6 +91,9 @@ const AlertCard3D = ({
                 <MaterialCommunityIcons name="clock-outline" size={14} color="#666" />
                 <Text style={styles.alertMeta}> {formatRadarTimingText(alert)}</Text>
               </View>
+              {formatRadarSpeedLimitText(alert, unitSystem) ? (
+                <Text style={styles.alertMeta}>{formatRadarSpeedLimitText(alert, unitSystem)}</Text>
+              ) : null}
               <Text style={styles.alertMeta}>{timeLabel}</Text>
             </View>
           </View>
