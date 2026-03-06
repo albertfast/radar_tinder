@@ -3,8 +3,15 @@ import { formatDistance } from './format';
 
 type RadarTimingInput = Pick<
   RadarAlert,
-  'distance' | 'estimatedTime' | 'etaConfidence' | 'approachLabel' | 'locationLabel' | 'etaSeconds'
+  | 'distance'
+  | 'estimatedTime'
+  | 'etaConfidence'
+  | 'approachLabel'
+  | 'locationLabel'
+  | 'etaSeconds'
 >;
+
+type RadarSpeedInput = Pick<RadarAlert, 'speedLimit' | 'countryCode'>;
 
 export const formatRadarTypeLabel = (
   type?: RadarAlert['type'] | RadarLocation['type']
@@ -80,14 +87,62 @@ export const formatRadarAnnouncementTiming = (alert: RadarTimingInput): string =
   return 'Further ahead';
 };
 
+const resolveRadarSpeedUnits = (countryCode?: string | null): 'MPH' | 'KM/H' => {
+  if (String(countryCode || '').trim().toUpperCase() === 'US') {
+    return 'MPH';
+  }
+  return 'KM/H';
+};
+
+const convertRadarSpeedLimit = (
+  rawSpeedLimit: number,
+  fromUnits: 'MPH' | 'KM/H',
+  unitSystem: 'metric' | 'imperial'
+) => {
+  if (unitSystem === 'imperial') {
+    return fromUnits === 'MPH' ? rawSpeedLimit : rawSpeedLimit * 0.621371;
+  }
+  return fromUnits === 'KM/H' ? rawSpeedLimit : rawSpeedLimit * 1.60934;
+};
+
+export const formatRadarSpeedLimitText = (
+  alert: RadarSpeedInput,
+  unitSystem: 'metric' | 'imperial'
+): string => {
+  const rawSpeedLimit = Number(alert.speedLimit);
+  if (!Number.isFinite(rawSpeedLimit) || rawSpeedLimit <= 0) return '';
+
+  const sourceUnits = resolveRadarSpeedUnits(alert.countryCode);
+  const displayValue = Math.round(convertRadarSpeedLimit(rawSpeedLimit, sourceUnits, unitSystem));
+  const displayUnit = unitSystem === 'imperial' ? 'MPH' : 'KM/H';
+  return `Limit ${displayValue} ${displayUnit}`;
+};
+
+export const formatRadarSpeedLimitAnnouncement = (
+  alert: RadarSpeedInput,
+  unitSystem: 'metric' | 'imperial'
+): string => {
+  const rawSpeedLimit = Number(alert.speedLimit);
+  if (!Number.isFinite(rawSpeedLimit) || rawSpeedLimit <= 0) return '';
+
+  const sourceUnits = resolveRadarSpeedUnits(alert.countryCode);
+  const displayValue = Math.round(convertRadarSpeedLimit(rawSpeedLimit, sourceUnits, unitSystem));
+  const displayUnit = unitSystem === 'imperial' ? 'miles per hour' : 'kilometers per hour';
+  return `Speed limit ${displayValue} ${displayUnit}`;
+};
+
 export const formatRadarAlertSubtitle = (
-  alert: RadarTimingInput,
+  alert: RadarTimingInput & RadarSpeedInput,
   unitSystem: 'metric' | 'imperial'
 ): string => {
   const parts = [formatDistance(alert.distance, unitSystem)];
   const shortLocation = getRadarShortLocation(alert.locationLabel);
   if (shortLocation) {
     parts.push(shortLocation);
+  }
+  const speedLimitText = formatRadarSpeedLimitText(alert, unitSystem);
+  if (speedLimitText) {
+    parts.push(speedLimitText);
   }
   parts.push(formatRadarTimingText(alert));
   return parts.join(' • ');

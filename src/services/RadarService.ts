@@ -488,6 +488,45 @@ export class RadarService {
     };
   }
 
+  private static readRowMetadata(row: any): Record<string, unknown> {
+    if (row?.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)) {
+      return row.metadata as Record<string, unknown>;
+    }
+    return {};
+  }
+
+  private static parseSpeedLimitValue(value: unknown): number | undefined {
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const match = value.trim().match(/(\d+(?:\.\d+)?)/);
+      if (!match) return undefined;
+      const parsed = Number(match[1]);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+    return undefined;
+  }
+
+  private static parseSupabaseSpeedLimit(row: any): number | undefined {
+    const direct = this.parseSpeedLimitValue(row?.speed_limit ?? row?.speedLimit);
+    if (direct) return direct;
+    const metadata = this.readRowMetadata(row);
+    return this.parseSpeedLimitValue(metadata.speed_limit);
+  }
+
+  private static parseCountryCode(row: any, sourceKey?: string): string | undefined {
+    const metadata = this.readRowMetadata(row);
+    const rawCountryCode = String(metadata.country_code || '').trim().toUpperCase();
+    if (rawCountryCode) return rawCountryCode;
+    if (sourceKey === 'osm' || sourceKey?.startsWith('gov_')) {
+      return 'US';
+    }
+    return undefined;
+  }
+
   private static withRadarMetadata(radar: RadarLocation): RadarLocation {
     return {
       ...radar,
@@ -517,6 +556,7 @@ export class RadarService {
       latitude: Number(lat),
       longitude: Number(lon),
       type,
+      countryCode: 'US',
       speedLimit: this.parseMaxspeed(tags),
       confidence: 1.0,
       source: 'external_osm',
@@ -540,6 +580,7 @@ export class RadarService {
       return null;
     }
     const confidence = Number(row?.confidence);
+    const countryCode = this.parseCountryCode(row, sourceMeta.sourceKey);
     return this.withRadarMetadata({
       id: String(
         row?.id || `${sourceMeta.source}:${latitude.toFixed(5)}:${longitude.toFixed(5)}`
@@ -547,6 +588,8 @@ export class RadarService {
       latitude,
       longitude,
       type: this.normalizeRadarType(row?.type),
+      speedLimit: this.parseSupabaseSpeedLimit(row),
+      countryCode,
       confidence:
         Number.isFinite(confidence)
           ? confidence

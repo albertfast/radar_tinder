@@ -60,6 +60,7 @@ export interface RadarLocation {
   source?: RadarSource;
   sourceKey?: string;
   sourceLabel?: string;
+  countryCode?: string;
   direction?: string;
   speedLimit?: number;
   markerKind?: RadarMarkerKind;
@@ -80,6 +81,8 @@ export interface RadarAlert {
   radarId: string;
   userId: string;
   type?: RadarLocation['type'];
+  countryCode?: string;
+  speedLimit?: number;
   distance: number;
   estimatedTime: number;
   severity: 'low' | 'medium' | 'high';

@@ -9,7 +9,12 @@ import { RadarAlert, RadarLocation } from '../../../../types';
 import { formatDistance } from '../../../../utils/format';
 import { TabType } from '../../types';
 import { radarScreenStyles as styles } from '../../styles/radarScreenStyles';
-import { formatRadarTimingText, formatRadarTypeLabel, getRadarShortLocation } from '../../../../utils/radarAlerts';
+import {
+  formatRadarSpeedLimitText,
+  formatRadarTimingText,
+  formatRadarTypeLabel,
+  getRadarShortLocation,
+} from '../../../../utils/radarAlerts';
 
 type IncidentOption = {
   id: 'radar' | 'police' | 'crash' | 'roadwork' | 'missed';
@@ -165,6 +170,9 @@ export function RadarDrivingShell({
               {formatDistance(activeAlert.distance, unitSystem)}
               {getRadarShortLocation(activeAlert.locationLabel)
                 ? ` • ${getRadarShortLocation(activeAlert.locationLabel)}`
+                : ''}
+              {formatRadarSpeedLimitText(activeAlert, unitSystem)
+                ? ` • ${formatRadarSpeedLimitText(activeAlert, unitSystem)}`
                 : ''}
               {' • '}
               {formatRadarTimingText(activeAlert)}

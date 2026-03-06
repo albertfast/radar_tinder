@@ -14,7 +14,11 @@ import { useSpeedSmoothing } from './useSpeedSmoothing';
 import { MAP_TRACE_ENABLED, ROUTE_RELEVANCE_V2_ENABLED } from '../constants';
 import { TabType } from '../types';
 import { extractShortStreetLabel, formatRadarLabel } from '../utils/radarFormatters';
-import { formatRadarAnnouncementTiming, getRadarShortLocation } from '../../../utils/radarAlerts';
+import {
+  formatRadarAnnouncementTiming,
+  formatRadarSpeedLimitAnnouncement,
+  getRadarShortLocation,
+} from '../../../utils/radarAlerts';
 
 type UseRadarDataSyncParams = {
   currentLocation: any;
@@ -194,7 +198,7 @@ export function useRadarDataSync({
         requireEtaWindow: false,
       });
 
-      return relevant.length > 0 ? relevant : incoming;
+      return relevant;
     },
     []
   );
@@ -316,7 +320,9 @@ export function useRadarDataSync({
       const shortLocation = getRadarShortLocation(activeAlert.locationLabel);
       const locationSuffix = shortLocation ? ` near ${shortLocation}` : '';
       const timingText = formatRadarAnnouncementTiming(activeAlert);
-      const message = `${formatRadarLabel(activeAlert.type)} ahead${locationSuffix}. ${distanceText}. ${timingText}.`;
+      const speedLimitText = formatRadarSpeedLimitAnnouncement(activeAlert, unitSystem);
+      const speedLimitSuffix = speedLimitText ? ` ${speedLimitText}.` : '';
+      const message = `${formatRadarLabel(activeAlert.type)} ahead${locationSuffix}.${speedLimitSuffix} ${distanceText}. ${timingText}.`;
       VoiceGuidanceService.speak(message, {
         cooldownKey: `active_alert:${activeAlert.id}`,
         cooldownMs: 6000,
