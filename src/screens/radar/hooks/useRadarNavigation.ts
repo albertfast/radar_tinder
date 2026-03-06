@@ -42,35 +42,6 @@ type UseRadarNavigationParams = {
   logRouteSteps: (payload: { destination: string; points: number; steps: NavStep[] }) => void;
 };
 
-const projectForwardCoordinate = (
-  latitude: number,
-  longitude: number,
-  bearingDeg: number,
-  distanceMeters: number
-) => {
-  const earthRadiusMeters = 6378137;
-  const angularDistance = distanceMeters / earthRadiusMeters;
-  const bearingRad = (bearingDeg * Math.PI) / 180;
-  const latitudeRad = (latitude * Math.PI) / 180;
-  const longitudeRad = (longitude * Math.PI) / 180;
-
-  const projectedLatitude = Math.asin(
-    Math.sin(latitudeRad) * Math.cos(angularDistance) +
-      Math.cos(latitudeRad) * Math.sin(angularDistance) * Math.cos(bearingRad)
-  );
-  const projectedLongitude =
-    longitudeRad +
-    Math.atan2(
-      Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(latitudeRad),
-      Math.cos(angularDistance) - Math.sin(latitudeRad) * Math.sin(projectedLatitude)
-    );
-
-  return {
-    latitude: (projectedLatitude * 180) / Math.PI,
-    longitude: (projectedLongitude * 180) / Math.PI,
-  };
-};
-
 const sliceRouteAroundIndexByDistance = (
   coords: Array<{ latitude: number; longitude: number }>,
   centerIndex: number,
@@ -587,17 +558,6 @@ export function useRadarNavigation({
         setNearbyRadars(routeRadarsWithDist.sort((a, b) => a.distance - b.distance));
         setSuggestions([]);
 
-        const fallbackHeading =
-          res.coordinates.length > 1
-            ? LocationService.calculateBearing(
-                res.coordinates[0].latitude,
-                res.coordinates[0].longitude,
-                res.coordinates[1].latitude,
-                res.coordinates[1].longitude
-              )
-            : 0;
-        const tightFollowHeading =
-          typeof loc.heading === 'number' && Number.isFinite(loc.heading) ? loc.heading : fallbackHeading;
         const applyRouteCamera = (): boolean => {
           if (!mapRef.current) return false;
           const closestRouteIndex = res.coordinates.reduce(
@@ -635,27 +595,6 @@ export function useRadarNavigation({
               animated: true,
             });
           } catch {}
-
-          setTimeout(() => {
-            const followCenter = projectForwardCoordinate(
-              loc.latitude,
-              loc.longitude,
-              tightFollowHeading,
-              78
-            );
-            mapRef.current?.animateCamera(
-              {
-                center: {
-                  latitude: followCenter.latitude,
-                  longitude: followCenter.longitude,
-                },
-                zoom: 19.14,
-                pitch: 62,
-                heading: tightFollowHeading,
-              },
-              { duration: 460 }
-            );
-          }, 320);
           return true;
         };
 

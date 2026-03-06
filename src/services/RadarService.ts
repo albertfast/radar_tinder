@@ -1,12 +1,10 @@
 import { RadarLocation } from '../types';
 import { LocationService } from './LocationService';
-import { GoogleMapsService } from './GoogleMapsService';
 import { SupabaseService } from './SupabaseService';
 import { useAuthStore } from '../store/authStore';
 import { hasProAccess } from '../utils/access';
 
 type NearbyRadar = RadarLocation & { distance: number };
-
 type RouteRelevanceParams = {
   radar: { latitude: number; longitude: number; distance?: number };
   currentLocation: { latitude: number; longitude: number; heading?: number | null };
@@ -16,13 +14,263 @@ type RouteRelevanceParams = {
   maxHeadingDeltaDeg?: number;
   etaSecondsWindow?: [number, number];
 };
-
 type RouteRelevanceResult = {
   routeMatched: boolean;
   corridorDistanceMeters?: number;
   headingDeltaDeg?: number | null;
   etaSeconds: number;
   isRelevant: boolean;
+};
+type TimedSourceResult<T> = {
+  name: string;
+  ok: boolean;
+  timedOut: boolean;
+  durationMs: number;
+  value: T | null;
+  error?: unknown;
+};
+
+type SourceTelemetryPayload = {
+  osmCount: number;
+  supabaseCount: number;
+  mergedCount: number;
+  latitude: number;
+  longitude: number;
+  radiusKm: number;
+  sourceLatencyMs: { osm: number; supabase: number };
+  sourceTimedOut: { osm: boolean; supabase: boolean };
+  sourceErrors: string[];
+};
+
+const DEDUPE_THRESHOLD_DEG = 0.0005;
+const TIMEOUT_ERROR = '__SOURCE_TIMEOUT__';
+
+const mergeAndImproveRadars = (radars: RadarLocation[]): RadarLocation[] => {
+  const uniqueRadars: RadarLocation[] = [];
+
+  for (const radar of radars) {
+    const existingIndex = uniqueRadars.findIndex(
+      (item) =>
+        Math.abs(item.latitude - radar.latitude) < DEDUPE_THRESHOLD_DEG &&
+        Math.abs(item.longitude - radar.longitude) < DEDUPE_THRESHOLD_DEG
+    );
+
+    if (existingIndex !== -1) {
+      const existing = uniqueRadars[existingIndex];
+      const sourceBoost =
+        radar.reportedBy !== existing.reportedBy || radar.source !== existing.source ? 0.2 : 0;
+      const speedLimit = existing.speedLimit || radar.speedLimit;
+
+      uniqueRadars[existingIndex] = {
+        ...existing,
+        confidence: Math.min((Number(existing.confidence) || 0.5) + sourceBoost, 1.0),
+        speedLimit,
+        reports: (existing.reports || 0) + (radar.reports || 1),
+        source: existing.source || radar.source,
+        lastConfirmed: new Date(),
+      };
+      continue;
+    }
+
+    uniqueRadars.push(radar);
+  }
+
+  return uniqueRadars.filter((item) => Number(item.confidence) >= 0.4);
+};
+
+const distancePointToSegmentMeters = (
+  pointLat: number,
+  pointLon: number,
+  aLat: number,
+  aLon: number,
+  bLat: number,
+  bLon: number
+): number => {
+  const toXY = (lat: number, lon: number) => {
+    const x = lon * 111320 * Math.cos((lat * Math.PI) / 180);
+    const y = lat * 110540;
+    return { x, y };
+  };
+
+  const p = toXY(pointLat, pointLon);
+  const a = toXY(aLat, aLon);
+  const b = toXY(bLat, bLon);
+
+  const abx = b.x - a.x;
+  const aby = b.y - a.y;
+  const apx = p.x - a.x;
+  const apy = p.y - a.y;
+  const denom = abx * abx + aby * aby;
+  const t = denom <= 0 ? 0 : Math.max(0, Math.min(1, (apx * abx + apy * aby) / denom));
+  const cx = a.x + abx * t;
+  const cy = a.y + aby * t;
+  const dx = p.x - cx;
+  const dy = p.y - cy;
+
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
+const minDistanceToRouteMetersInternal = (
+  radar: { latitude: number; longitude: number },
+  routeCoords: Array<{ latitude: number; longitude: number }>
+): number => {
+  if (!routeCoords.length) return Number.POSITIVE_INFINITY;
+  if (routeCoords.length === 1) {
+    return (
+      LocationService.calculateDistanceSync(
+        radar.latitude,
+        radar.longitude,
+        routeCoords[0].latitude,
+        routeCoords[0].longitude
+      ) * 1000
+    );
+  }
+
+  let minMeters = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < routeCoords.length - 1; i += 1) {
+    const a = routeCoords[i];
+    const b = routeCoords[i + 1];
+    const d = distancePointToSegmentMeters(
+      radar.latitude,
+      radar.longitude,
+      a.latitude,
+      a.longitude,
+      b.latitude,
+      b.longitude
+    );
+    if (d < minMeters) minMeters = d;
+    if (minMeters <= 120) break;
+  }
+
+  return minMeters;
+};
+
+const evaluateRouteRelevanceInternal = (
+  params: RouteRelevanceParams
+): RouteRelevanceResult => {
+  const maxCorridorMeters = params.maxCorridorMeters ?? 120;
+  const maxHeadingDeltaDeg = params.maxHeadingDeltaDeg ?? 55;
+  const etaWindow = params.etaSecondsWindow || [10, 90];
+
+  const distanceKm =
+    typeof params.radar.distance === 'number'
+      ? params.radar.distance
+      : LocationService.calculateDistanceSync(
+          params.currentLocation.latitude,
+          params.currentLocation.longitude,
+          params.radar.latitude,
+          params.radar.longitude
+        );
+
+  const corridorDistanceMeters =
+    params.routeCoords.length > 0
+      ? minDistanceToRouteMetersInternal(params.radar, params.routeCoords)
+      : undefined;
+
+  const routeMatched =
+    corridorDistanceMeters === undefined || corridorDistanceMeters <= maxCorridorMeters;
+
+  let headingDeltaDeg: number | null = null;
+  const currentHeading = params.currentLocation.heading;
+  if (typeof currentHeading === 'number' && Number.isFinite(currentHeading)) {
+    const bearing = LocationService.calculateBearing(
+      params.currentLocation.latitude,
+      params.currentLocation.longitude,
+      params.radar.latitude,
+      params.radar.longitude
+    );
+    const diff = Math.abs((bearing - currentHeading + 540) % 360 - 180);
+    headingDeltaDeg = Number(diff.toFixed(1));
+  }
+
+  const headingMatched = headingDeltaDeg === null || headingDeltaDeg <= maxHeadingDeltaDeg;
+  const safeSpeedKph = Math.max(5, Number.isFinite(params.speedKph) ? params.speedKph : 5);
+  const etaSeconds = (distanceKm / safeSpeedKph) * 3600;
+  const etaMatched = etaSeconds >= etaWindow[0] && etaSeconds <= etaWindow[1];
+
+  return {
+    routeMatched,
+    corridorDistanceMeters,
+    headingDeltaDeg,
+    etaSeconds,
+    isRelevant: routeMatched && headingMatched && etaMatched,
+  };
+};
+
+const filterRouteRelevantRadarsInternal = <
+  T extends { distance: number; latitude: number; longitude: number }
+>(
+  radars: T[],
+  params: {
+    currentLocation: { latitude: number; longitude: number; heading?: number | null };
+    routeCoords: Array<{ latitude: number; longitude: number }>;
+    speedKph: number;
+    maxCorridorMeters?: number;
+    maxHeadingDeltaDeg?: number;
+    etaSecondsWindow?: [number, number];
+    requireEtaWindow?: boolean;
+  }
+): Array<T & RouteRelevanceResult> => {
+  const requireEtaWindow = params.requireEtaWindow !== false;
+
+  return radars
+    .map((radar) => {
+      const relevance = evaluateRouteRelevanceInternal({
+        radar,
+        currentLocation: params.currentLocation,
+        routeCoords: params.routeCoords,
+        speedKph: params.speedKph,
+        maxCorridorMeters: params.maxCorridorMeters,
+        maxHeadingDeltaDeg: params.maxHeadingDeltaDeg,
+        etaSecondsWindow: requireEtaWindow ? params.etaSecondsWindow : [0, Number.MAX_SAFE_INTEGER],
+      });
+
+      return {
+        ...radar,
+        ...relevance,
+      };
+    })
+    .filter((item) => item.isRelevant)
+    .sort((a, b) => a.distance - b.distance);
+};
+
+const runTimedSource = async <T>(
+  name: string,
+  timeoutMs: number,
+  loader: () => Promise<T>
+): Promise<TimedSourceResult<T>> => {
+  const startedAt = Date.now();
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(TIMEOUT_ERROR)), timeoutMs);
+  });
+
+  try {
+    const value = (await Promise.race([loader(), timeoutPromise])) as T;
+    return {
+      name,
+      ok: true,
+      timedOut: false,
+      durationMs: Date.now() - startedAt,
+      value,
+    };
+  } catch (error: any) {
+    const timedOut =
+      error instanceof Error && (error.message === TIMEOUT_ERROR || error.name === 'AbortError');
+    return {
+      name,
+      ok: false,
+      timedOut,
+      durationMs: Date.now() - startedAt,
+      value: null,
+      error,
+    };
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 };
 
 export class RadarService {
@@ -34,11 +282,14 @@ export class RadarService {
     'https://overpass.nchc.org.tw/api/interpreter',
   ];
 
+  private static SOURCE_TIMEOUT_MS = 1800;
   private static NEARBY_CACHE_TTL_MS = 30000;
   private static NEARBY_CACHE_DISTANCE_KM = 0.5;
   private static SUPABASE_MIN_CONFIDENCE = 0.35;
   private static SOURCE_TELEMETRY_THROTTLE_MS = 20000;
+  private static MARKER_TELEMETRY_THROTTLE_MS = 12000;
   private static lastSourceTelemetryAt = 0;
+  private static lastMarkerTelemetryAt = 0;
 
   private static nearbyCache: {
     timestamp: number;
@@ -56,82 +307,46 @@ export class RadarService {
     promise: Promise<NearbyRadar[]>;
   } | null = null;
 
-  private static distancePointToSegmentMeters(
-    pointLat: number,
-    pointLon: number,
-    aLat: number,
-    aLon: number,
-    bLat: number,
-    bLon: number
-  ): number {
-    const toXY = (lat: number, lon: number) => {
-      const x = lon * 111320 * Math.cos((lat * Math.PI) / 180);
-      const y = lat * 110540;
-      return { x, y };
-    };
-
-    const p = toXY(pointLat, pointLon);
-    const a = toXY(aLat, aLon);
-    const b = toXY(bLat, bLon);
-
-    const abx = b.x - a.x;
-    const aby = b.y - a.y;
-    const apx = p.x - a.x;
-    const apy = p.y - a.y;
-    const denom = abx * abx + aby * aby;
-    const t = denom <= 0 ? 0 : Math.max(0, Math.min(1, (apx * abx + apy * aby) / denom));
-    const cx = a.x + abx * t;
-    const cy = a.y + aby * t;
-    const dx = p.x - cx;
-    const dy = p.y - cy;
-
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
   static minDistanceToRouteMeters(
     radar: { latitude: number; longitude: number },
     routeCoords: Array<{ latitude: number; longitude: number }>
   ): number {
-    if (!routeCoords.length) return Number.POSITIVE_INFINITY;
-    if (routeCoords.length === 1) {
-      return (
-        LocationService.calculateDistanceSync(
-          radar.latitude,
-          radar.longitude,
-          routeCoords[0].latitude,
-          routeCoords[0].longitude
-        ) * 1000
-      );
-    }
-
-    let minMeters = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < routeCoords.length - 1; i += 1) {
-      const a = routeCoords[i];
-      const b = routeCoords[i + 1];
-      const d = this.distancePointToSegmentMeters(
-        radar.latitude,
-        radar.longitude,
-        a.latitude,
-        a.longitude,
-        b.latitude,
-        b.longitude
-      );
-      if (d < minMeters) minMeters = d;
-      if (minMeters <= 120) break;
-    }
-
-    return minMeters;
+    return minDistanceToRouteMetersInternal(radar, routeCoords);
   }
 
-  private static logSourceTelemetry(payload: {
-    osmCount: number;
-    supabaseCount: number;
-    googleCount: number;
-    mergedCount: number;
-    latitude: number;
-    longitude: number;
-    radiusKm: number;
+  static evaluateRouteRelevance(params: RouteRelevanceParams): RouteRelevanceResult {
+    return evaluateRouteRelevanceInternal(params);
+  }
+
+  static filterRouteRelevantRadars(
+    radars: NearbyRadar[],
+    params: {
+      currentLocation: { latitude: number; longitude: number; heading?: number | null };
+      routeCoords: Array<{ latitude: number; longitude: number }>;
+      speedKph: number;
+      maxCorridorMeters?: number;
+      maxHeadingDeltaDeg?: number;
+      etaSecondsWindow?: [number, number];
+      requireEtaWindow?: boolean;
+    }
+  ): Array<NearbyRadar & RouteRelevanceResult> {
+    return filterRouteRelevantRadarsInternal(radars, params);
+  }
+
+  static trackMarkerRenderStats(payload: {
+    inputCount: number;
+    visibleCount: number;
+    renderedCount: number;
+    droppedByCap: number;
+    routePrioritizedCount: number;
   }) {
+    const now = Date.now();
+    if (now - this.lastMarkerTelemetryAt < this.MARKER_TELEMETRY_THROTTLE_MS) return;
+    this.lastMarkerTelemetryAt = now;
+    console.info('[RadarService] marker_render_stats', payload);
+  }
+
+  private static logSourceTelemetry(payload: SourceTelemetryPayload) {
     const now = Date.now();
     if (now - this.lastSourceTelemetryAt < this.SOURCE_TELEMETRY_THROTTLE_MS) return;
     this.lastSourceTelemetryAt = now;
@@ -165,6 +380,17 @@ export class RadarService {
     return Number.isFinite(value) && value > 0 ? value : undefined;
   }
 
+  private static normalizeRadarType(input: any): RadarLocation['type'] {
+    const value = String(input || '').toLowerCase();
+    if (value === 'fixed') return 'fixed';
+    if (value === 'mobile') return 'mobile';
+    if (value === 'red_light') return 'red_light';
+    if (value === 'speed_camera') return 'speed_camera';
+    if (value === 'police') return 'police';
+    if (value === 'traffic_enforcement') return 'traffic_enforcement';
+    return 'speed_camera';
+  }
+
   private static mapOsmElementToRadar(element: any): RadarLocation | null {
     const lat = element?.lat ?? element?.center?.lat;
     const lon = element?.lon ?? element?.center?.lon ?? element?.center?.lng;
@@ -189,8 +415,31 @@ export class RadarService {
       type,
       speedLimit: this.parseMaxspeed(tags),
       confidence: 1.0,
+      source: 'external_osm',
       lastConfirmed: new Date(),
       reportedBy: 'OpenStreetMap',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  private static mapSupabaseRadar(row: any): RadarLocation | null {
+    const latitude = Number(row?.latitude);
+    const longitude = Number(row?.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+    const source = row?.source === 'external_osm' ? 'external_osm' : 'community';
+    const confidence = Number(row?.confidence);
+    return {
+      id: String(row?.id || `${source}:${latitude.toFixed(5)}:${longitude.toFixed(5)}`),
+      latitude,
+      longitude,
+      type: this.normalizeRadarType(row?.type),
+      confidence: Number.isFinite(confidence) ? confidence : source === 'external_osm' ? 0.85 : 0.55,
+      verified: Boolean(row?.verified),
+      source,
+      lastConfirmed: new Date(),
+      reportedBy: source === 'external_osm' ? 'External OSM Dataset' : 'user',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -311,7 +560,7 @@ export class RadarService {
 
         const filteredRadars: RadarLocation[] = [];
         for (const radar of radars) {
-          const corridorMeters = this.minDistanceToRouteMeters(radar, routeCoords);
+          const corridorMeters = minDistanceToRouteMetersInternal(radar, routeCoords);
           if (corridorMeters <= 120) {
             filteredRadars.push(radar);
           }
@@ -324,93 +573,6 @@ export class RadarService {
     }
 
     return [];
-  }
-
-  static evaluateRouteRelevance(params: RouteRelevanceParams): RouteRelevanceResult {
-    const maxCorridorMeters = params.maxCorridorMeters ?? 120;
-    const maxHeadingDeltaDeg = params.maxHeadingDeltaDeg ?? 55;
-    const etaWindow = params.etaSecondsWindow || [10, 90];
-
-    const distanceKm =
-      typeof params.radar.distance === 'number'
-        ? params.radar.distance
-        : LocationService.calculateDistanceSync(
-            params.currentLocation.latitude,
-            params.currentLocation.longitude,
-            params.radar.latitude,
-            params.radar.longitude
-          );
-
-    const corridorDistanceMeters =
-      params.routeCoords.length > 0
-        ? this.minDistanceToRouteMeters(params.radar, params.routeCoords)
-        : undefined;
-
-    const routeMatched =
-      corridorDistanceMeters === undefined || corridorDistanceMeters <= maxCorridorMeters;
-
-    let headingDeltaDeg: number | null = null;
-    const currentHeading = params.currentLocation.heading;
-    if (typeof currentHeading === 'number' && Number.isFinite(currentHeading)) {
-      const bearing = LocationService.calculateBearing(
-        params.currentLocation.latitude,
-        params.currentLocation.longitude,
-        params.radar.latitude,
-        params.radar.longitude
-      );
-      const diff = Math.abs((bearing - currentHeading + 540) % 360 - 180);
-      headingDeltaDeg = Number(diff.toFixed(1));
-    }
-
-    const headingMatched =
-      headingDeltaDeg === null || headingDeltaDeg <= maxHeadingDeltaDeg;
-
-    const safeSpeedKph = Math.max(5, Number.isFinite(params.speedKph) ? params.speedKph : 5);
-    const etaSeconds = (distanceKm / safeSpeedKph) * 3600;
-    const etaMatched = etaSeconds >= etaWindow[0] && etaSeconds <= etaWindow[1];
-
-    return {
-      routeMatched,
-      corridorDistanceMeters,
-      headingDeltaDeg,
-      etaSeconds,
-      isRelevant: routeMatched && headingMatched && etaMatched,
-    };
-  }
-
-  static filterRouteRelevantRadars(
-    radars: NearbyRadar[],
-    params: {
-      currentLocation: { latitude: number; longitude: number; heading?: number | null };
-      routeCoords: Array<{ latitude: number; longitude: number }>;
-      speedKph: number;
-      maxCorridorMeters?: number;
-      maxHeadingDeltaDeg?: number;
-      etaSecondsWindow?: [number, number];
-      requireEtaWindow?: boolean;
-    }
-  ): Array<NearbyRadar & RouteRelevanceResult> {
-    const requireEtaWindow = params.requireEtaWindow !== false;
-
-    return radars
-      .map((radar) => {
-        const relevance = this.evaluateRouteRelevance({
-          radar,
-          currentLocation: params.currentLocation,
-          routeCoords: params.routeCoords,
-          speedKph: params.speedKph,
-          maxCorridorMeters: params.maxCorridorMeters,
-          maxHeadingDeltaDeg: params.maxHeadingDeltaDeg,
-          etaSecondsWindow: requireEtaWindow ? params.etaSecondsWindow : [0, Number.MAX_SAFE_INTEGER],
-        });
-
-        return {
-          ...radar,
-          ...relevance,
-        };
-      })
-      .filter((item) => item.isRelevant)
-      .sort((a, b) => a.distance - b.distance);
   }
 
   private static getCachedNearbyRadars(
@@ -477,103 +639,72 @@ export class RadarService {
 
           if (inflightResult) {
             return inflightResult
-              .map((r) => ({
-                ...r,
+              .map((item) => ({
+                ...item,
                 distance: LocationService.calculateDistanceSync(
                   latitude,
                   longitude,
-                  r.latitude,
-                  r.longitude
+                  item.latitude,
+                  item.longitude
                 ),
               }))
-              .filter((r) => r.distance <= radius)
+              .filter((item) => item.distance <= radius)
               .sort((a, b) => a.distance - b.distance);
           }
         }
       }
 
       const request = (async () => {
-        const [osmResult, supabaseResult, googlePlacesResult] = await Promise.allSettled([
-          this.fetchRealRadarsFromOSM(latitude, longitude, radius),
-          SupabaseService.getNearbyRadars(latitude, longitude, radius * 1000, {
-            minConfidence: this.SUPABASE_MIN_CONFIDENCE,
-            verifiedOnly: true,
-          }),
-          GoogleMapsService.searchNearbyPlaces(latitude, longitude, radius * 1000),
+        const [osmSource, supabaseSource] = await Promise.all([
+          runTimedSource('osm', this.SOURCE_TIMEOUT_MS, () =>
+            this.fetchRealRadarsFromOSM(latitude, longitude, radius)
+          ),
+          runTimedSource('supabase', this.SOURCE_TIMEOUT_MS, () =>
+            SupabaseService.getNearbyRadars(latitude, longitude, radius * 1000, {
+              minConfidence: this.SUPABASE_MIN_CONFIDENCE,
+              verifiedOnly: true,
+            })
+          ),
         ]);
 
-        const osmRadars = osmResult.status === 'fulfilled' ? osmResult.value : [];
-        const supabaseRadars = supabaseResult.status === 'fulfilled' ? supabaseResult.value : [];
-        const googlePlaces = googlePlacesResult.status === 'fulfilled' ? googlePlacesResult.value : [];
-
-        const mappedSupabaseRadars: RadarLocation[] = (supabaseRadars || [])
-          .map((r: any) => ({
-            id: r.id,
-            latitude: r.latitude,
-            longitude: r.longitude,
-            type: r.type as any,
-            confidence: Number(r.confidence) || 0.5,
-            verified: Boolean(r.verified),
-            lastConfirmed: new Date(),
-            reportedBy: 'user',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          }));
-
-        const allRadars: RadarLocation[] = [...osmRadars, ...mappedSupabaseRadars];
-
-        for (const place of googlePlaces) {
-          const exists = allRadars.some(
-            (r) =>
-              Math.abs(r.latitude - place.geometry.location.lat) < 0.001 &&
-              Math.abs(r.longitude - place.geometry.location.lng) < 0.001
-          );
-          if (exists) continue;
-
-          const hasSpeedSignal =
-            place.types.includes('speed_camera') ||
-            /speed|radar|camera/i.test(`${place.name || ''} ${place.vicinity || ''}`);
-          const isTrafficSignalOnly =
-            place.types.includes('traffic_signals') && !hasSpeedSignal;
-          if (isTrafficSignalOnly) continue;
-
-          let type: RadarLocation['type'] = 'speed_camera';
-          const placeText = `${place.name || ''} ${place.vicinity || ''}`.toLowerCase();
-          if (place.types.includes('police') || /police|highway patrol|sheriff/.test(placeText)) {
-            type = 'police';
-          } else if (place.types.includes('traffic_enforcement')) {
-            type = 'traffic_enforcement';
-          } else if (place.types.includes('traffic_signals')) {
-            type = 'red_light';
-          }
-
-          allRadars.push({
-            id: `google-${place.place_id}`,
-            latitude: place.geometry.location.lat,
-            longitude: place.geometry.location.lng,
-            type,
-            confidence: 0.8,
-            lastConfirmed: new Date(),
-            reportedBy: 'Google Maps',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-        }
+        const osmRadars = osmSource.ok && Array.isArray(osmSource.value) ? osmSource.value : [];
+        const supabaseRows =
+          supabaseSource.ok && Array.isArray(supabaseSource.value) ? supabaseSource.value : [];
+        const mappedSupabaseRadars: RadarLocation[] = supabaseRows
+          .map((row: any) => this.mapSupabaseRadar(row))
+          .filter((item: RadarLocation | null): item is RadarLocation => Boolean(item));
 
         const user = useAuthStore.getState().user;
         const isPro = hasProAccess(user);
         const allowRestrictedTrapTypes = isPro || __DEV__;
 
-        const processedRadars = this.improveAccuracy(allRadars);
+        const allRadars: RadarLocation[] = [...osmRadars, ...mappedSupabaseRadars];
+        const processedRadars = mergeAndImproveRadars(allRadars);
+
+        const sourceErrors: string[] = [];
+        if (!osmSource.ok) {
+          sourceErrors.push(osmSource.timedOut ? 'osm_timeout' : 'osm_error');
+        }
+        if (!supabaseSource.ok) {
+          sourceErrors.push(supabaseSource.timedOut ? 'supabase_timeout' : 'supabase_error');
+        }
 
         this.logSourceTelemetry({
           osmCount: osmRadars.length,
           supabaseCount: mappedSupabaseRadars.length,
-          googleCount: googlePlaces.length,
           mergedCount: processedRadars.length,
           latitude,
           longitude,
           radiusKm: radius,
+          sourceLatencyMs: {
+            osm: osmSource.durationMs,
+            supabase: supabaseSource.durationMs,
+          },
+          sourceTimedOut: {
+            osm: osmSource.timedOut,
+            supabase: supabaseSource.timedOut,
+          },
+          sourceErrors,
         });
 
         this.nearbyCache = {
@@ -581,9 +712,9 @@ export class RadarService {
           latitude,
           longitude,
           radius,
-          radars: processedRadars.filter((r) => {
+          radars: processedRadars.filter((item) => {
             if (allowRestrictedTrapTypes) return true;
-            return !this.isTrapRestrictedForFree(r.type);
+            return !this.isTrapRestrictedForFree(item.type);
           }),
         };
 
@@ -628,40 +759,6 @@ export class RadarService {
     }
   }
 
-  private static improveAccuracy(radars: RadarLocation[]): RadarLocation[] {
-    const uniqueRadars: RadarLocation[] = [];
-    const threshold = 0.0005;
-
-    for (const radar of radars) {
-      const existingIndex = uniqueRadars.findIndex(
-        (r) =>
-          Math.abs(r.latitude - radar.latitude) < threshold &&
-          Math.abs(r.longitude - radar.longitude) < threshold
-      );
-
-      if (existingIndex !== -1) {
-        const existing = uniqueRadars[existingIndex];
-        const newConfidence =
-          radar.reportedBy !== existing.reportedBy
-            ? Math.min(existing.confidence + 0.2, 1.0)
-            : existing.confidence;
-        const speedLimit = existing.speedLimit || radar.speedLimit;
-
-        uniqueRadars[existingIndex] = {
-          ...existing,
-          confidence: newConfidence,
-          speedLimit,
-          reports: (existing.reports || 0) + (radar.reports || 1),
-          lastConfirmed: new Date(),
-        };
-      } else {
-        uniqueRadars.push(radar);
-      }
-    }
-
-    return uniqueRadars.filter((r) => r.confidence >= 0.4);
-  }
-
   static async reportRadarLocation(
     radarData: Omit<RadarLocation, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<RadarLocation> {
@@ -685,6 +782,7 @@ export class RadarService {
       longitude: radarData.longitude,
       type: radarData.type,
       confidence: radarData.confidence,
+      source: 'community',
       lastConfirmed: radarData.lastConfirmed,
       reportedBy: radarData.reportedBy,
       createdAt: new Date(),
@@ -696,7 +794,7 @@ export class RadarService {
     radarId: string,
     _userId: string
   ): Promise<RadarLocation> {
-    const radar = (await this.getNearbyRadars(0, 0, 100)).find((r) => r.id === radarId);
+    const radar = (await this.getNearbyRadars(0, 0, 100)).find((item) => item.id === radarId);
     if (!radar) throw new Error('Radar not found');
     return radar;
   }

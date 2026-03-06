@@ -229,7 +229,9 @@ export const extractShortStreetLabel = (label?: string | null) => {
 
 export const canConfirmRadar = (radar?: RadarLocation) => {
   if (!radar?.id) return false;
-  return !radar.id.startsWith('osm-') && !radar.id.startsWith('google-') && !radar.id.startsWith('mock-');
+  if (radar.source === 'community') return true;
+  if (radar.source === 'external_osm') return false;
+  return !radar.id.startsWith('osm-') && !radar.id.startsWith('mock-');
 };
 
 export const isHighwayManeuver = (step?: NavStep) => {

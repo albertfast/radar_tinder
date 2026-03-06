@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { View, StyleSheet, Text, Platform } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { modernMapStyle } from '../utils/modernMapStyle';
 import { getResponsiveWidth, getResponsiveHeight, getResponsiveMargin, getResponsivePadding } from '../constants/layout';
+import { RadarService } from '../services/RadarService';
 
 // SVG Components
 import MapMarkerSvg from '../../assets/mapmarker.svg';
@@ -13,6 +13,9 @@ import DestinationFlagSvg from '../../assets/destination-flag.svg';
 
 const MAP_COORD_TRACE_ENABLED =
   __DEV__ || /^(1|true|yes)$/i.test(process.env.EXPO_PUBLIC_MAP_TRACE || '');
+const RADAR_MARKER_RENDER_CAP = 120;
+const RADAR_ROUTE_PRIORITY_CORRIDOR_METERS = 180;
+const REGION_PADDING_FACTOR = 0.2;
 
 const ROUTE_VISUAL_TOKENS = Platform.select({
   ios: {
@@ -35,6 +38,12 @@ const ROUTE_VISUAL_TOKENS = Platform.select({
 })!;
 
 type LatLng = { latitude: number; longitude: number };
+type MapRegion = {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+};
 
 const toValidCoordinate = (value: any): LatLng | null => {
   const latitude = Number(value?.latitude);
@@ -56,6 +65,61 @@ const toNormalizedHeading = (value: any): number => {
   if (!Number.isFinite(heading) || heading < 0) return 0;
   const normalized = heading % 360;
   return normalized >= 0 ? normalized : normalized + 360;
+};
+
+const toValidRegion = (value: any): MapRegion | null => {
+  const latitude = Number(value?.latitude);
+  const longitude = Number(value?.longitude);
+  const latitudeDelta = Number(value?.latitudeDelta);
+  const longitudeDelta = Number(value?.longitudeDelta);
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    !Number.isFinite(latitudeDelta) ||
+    !Number.isFinite(longitudeDelta) ||
+    latitudeDelta <= 0 ||
+    longitudeDelta <= 0
+  ) {
+    return null;
+  }
+  return { latitude, longitude, latitudeDelta, longitudeDelta };
+};
+
+const buildPaddedRegion = (region: MapRegion, paddingFactor: number): MapRegion => ({
+  ...region,
+  latitudeDelta: region.latitudeDelta * (1 + paddingFactor),
+  longitudeDelta: region.longitudeDelta * (1 + paddingFactor),
+});
+
+const isCoordinateInsideRegion = (coordinate: LatLng, region: MapRegion): boolean => {
+  const halfLat = region.latitudeDelta / 2;
+  const halfLon = region.longitudeDelta / 2;
+  return (
+    coordinate.latitude >= region.latitude - halfLat &&
+    coordinate.latitude <= region.latitude + halfLat &&
+    coordinate.longitude >= region.longitude - halfLon &&
+    coordinate.longitude <= region.longitude + halfLon
+  );
+};
+
+const shouldUpdateRegion = (prev: MapRegion, next: MapRegion): boolean => {
+  const centerDelta = Math.abs(prev.latitude - next.latitude) + Math.abs(prev.longitude - next.longitude);
+  const zoomDelta =
+    Math.abs(prev.latitudeDelta - next.latitudeDelta) +
+    Math.abs(prev.longitudeDelta - next.longitudeDelta);
+  return centerDelta > 0.00015 || zoomDelta > 0.00015;
+};
+
+const distanceKm = (aLat: number, aLon: number, bLat: number, bLon: number): number => {
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLon = ((bLon - aLon) * Math.PI) / 180;
+  const arc =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((aLat * Math.PI) / 180) *
+      Math.cos((bLat * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  return 6371 * (2 * Math.atan2(Math.sqrt(arc), Math.sqrt(1 - arc)));
 };
 
 // Optimized Marker - SVG based
@@ -87,8 +151,8 @@ const RadarArrowUserMarker = React.memo(({ coordinate, heading }: { coordinate: 
   <Marker
     coordinate={coordinate}
     anchor={{ x: 0.5, y: 0.5 }}
-    zIndex={60}
-    tracksViewChanges={false}
+    zIndex={600}
+    tracksViewChanges
   >
     <View style={[styles.userMarkerContainer, { transform: [{ rotate: `${heading}deg` }] }]}>
       <MapMarkerSvg 
@@ -104,7 +168,6 @@ const RadarMap = React.memo(({
   radars,
   routeCoords,
   mapRef,
-  showsUserLocation = true,
   onRadarPress,
   destinationPoint,
   mapPadding,
@@ -123,6 +186,7 @@ const RadarMap = React.memo(({
     longitudeDelta: 0.01,
   });
   const initialRegion = initialRegionRef.current;
+  const [visibleRegion, setVisibleRegion] = useState<MapRegion>(initialRegion);
 
   const routeInputLength = Array.isArray(routeCoords) ? routeCoords.length : 0;
   const sanitizedRouteCoords = useMemo(() => {
@@ -164,6 +228,67 @@ const RadarMap = React.memo(({
     return { validEntries, invalidCount };
   }, [radars]);
 
+  const selectedRadarEntries = useMemo(() => {
+    const region = toValidRegion(visibleRegion) || initialRegion;
+    const paddedRegion = buildPaddedRegion(region, REGION_PADDING_FACTOR);
+
+    const visibleEntries = sanitizedRadars.validEntries.filter((entry) =>
+      isCoordinateInsideRegion(entry.coordinate, paddedRegion)
+    );
+
+    const scored = visibleEntries.map((entry) => {
+      const confidence = Number(entry.radar?.confidence);
+      const proximityKm = Number.isFinite(Number(entry.radar?.distance))
+        ? Number(entry.radar.distance)
+        : safeLocation
+          ? distanceKm(
+              safeLocation.latitude,
+              safeLocation.longitude,
+              entry.coordinate.latitude,
+              entry.coordinate.longitude
+            )
+          : Number.MAX_SAFE_INTEGER;
+      const routeDistanceMeters =
+        sanitizedRouteCoords.length > 1
+          ? RadarService.minDistanceToRouteMeters(entry.coordinate, sanitizedRouteCoords)
+          : Number.POSITIVE_INFINITY;
+      const routePriority =
+        routeDistanceMeters <= RADAR_ROUTE_PRIORITY_CORRIDOR_METERS ? 1 : 0;
+
+      return {
+        ...entry,
+        score: {
+          routePriority,
+          proximityKm,
+          confidence: Number.isFinite(confidence) ? confidence : 0,
+        },
+      };
+    });
+
+    scored.sort((a, b) => {
+      if (b.score.routePriority !== a.score.routePriority) {
+        return b.score.routePriority - a.score.routePriority;
+      }
+      if (a.score.proximityKm !== b.score.proximityKm) {
+        return a.score.proximityKm - b.score.proximityKm;
+      }
+      return b.score.confidence - a.score.confidence;
+    });
+
+    const rendered = scored.slice(0, RADAR_MARKER_RENDER_CAP);
+    const routePrioritizedCount = rendered.filter(
+      (entry) => entry.score.routePriority > 0
+    ).length;
+
+    return {
+      rendered,
+      visibleCount: visibleEntries.length,
+      inputCount: sanitizedRadars.validEntries.length,
+      droppedByCap: Math.max(0, visibleEntries.length - rendered.length),
+      routePrioritizedCount,
+    };
+  }, [initialRegion, sanitizedRadars.validEntries, sanitizedRouteCoords, safeLocation, visibleRegion]);
+
   const sanitizedDestination = useMemo(() => toValidCoordinate(destinationPoint), [destinationPoint]);
   const invalidDestinationPoint = Boolean(destinationPoint) && !sanitizedDestination;
 
@@ -186,7 +311,7 @@ const RadarMap = React.memo(({
           strokeColor={ROUTE_VISUAL_TOKENS.casingColor}
           lineCap="round"
           lineJoin="round"
-          zIndex={120}
+          zIndex={90}
         />
       );
 
@@ -198,7 +323,7 @@ const RadarMap = React.memo(({
           strokeColor={ROUTE_VISUAL_TOKENS.fillColor}
           lineCap="round"
           lineJoin="round"
-          zIndex={121}
+          zIndex={91}
         />
       );
 
@@ -210,7 +335,7 @@ const RadarMap = React.memo(({
           strokeColor={ROUTE_VISUAL_TOKENS.highlightColor}
           lineCap="round"
           lineJoin="round"
-          zIndex={122}
+          zIndex={92}
         />
       );
     }
@@ -241,7 +366,7 @@ const RadarMap = React.memo(({
       );
     }
 
-    sanitizedRadars.validEntries.forEach(({ key, radar, coordinate }) => {
+    selectedRadarEntries.rendered.forEach(({ key, radar, coordinate }) => {
       children.push(
         <OptimizedMarker
           key={key}
@@ -254,25 +379,51 @@ const RadarMap = React.memo(({
     });
 
     return children;
-  }, [finalDestination, safeHeading, safeLocation, sanitizedRadars.validEntries, sanitizedRouteCoords]);
+  }, [finalDestination, safeHeading, safeLocation, selectedRadarEntries.rendered, sanitizedRouteCoords]);
 
   const invalidSummaryRef = useRef('');
   const invalidRadarCount = sanitizedRadars.invalidCount;
   useEffect(() => {
     if (!MAP_COORD_TRACE_ENABLED) return;
 
-    const summary = `route:${invalidRouteCoordCount}|radar:${invalidRadarCount}|dest:${invalidDestinationPoint ? 1 : 0}`;
+    const summary = `route:${invalidRouteCoordCount}|radar:${invalidRadarCount}|dest:${invalidDestinationPoint ? 1 : 0}|cap:${selectedRadarEntries.droppedByCap}`;
     if (summary === invalidSummaryRef.current) return;
     invalidSummaryRef.current = summary;
 
-    if (invalidRouteCoordCount > 0 || invalidRadarCount > 0 || invalidDestinationPoint) {
+    if (
+      invalidRouteCoordCount > 0 ||
+      invalidRadarCount > 0 ||
+      invalidDestinationPoint ||
+      selectedRadarEntries.droppedByCap > 0
+    ) {
       console.debug('[RadarMap] Dropped invalid map coordinates', {
         route: invalidRouteCoordCount,
         radars: invalidRadarCount,
         destination: invalidDestinationPoint ? 1 : 0,
+        droppedByCap: selectedRadarEntries.droppedByCap,
       });
     }
-  }, [invalidDestinationPoint, invalidRadarCount, invalidRouteCoordCount]);
+  }, [
+    invalidDestinationPoint,
+    invalidRadarCount,
+    invalidRouteCoordCount,
+    selectedRadarEntries.droppedByCap,
+  ]);
+
+  const markerTelemetryRef = useRef('');
+  useEffect(() => {
+    const summary = `${selectedRadarEntries.inputCount}|${selectedRadarEntries.visibleCount}|${selectedRadarEntries.rendered.length}|${selectedRadarEntries.droppedByCap}|${selectedRadarEntries.routePrioritizedCount}`;
+    if (summary === markerTelemetryRef.current) return;
+    markerTelemetryRef.current = summary;
+
+    RadarService.trackMarkerRenderStats({
+      inputCount: selectedRadarEntries.inputCount,
+      visibleCount: selectedRadarEntries.visibleCount,
+      renderedCount: selectedRadarEntries.rendered.length,
+      droppedByCap: selectedRadarEntries.droppedByCap,
+      routePrioritizedCount: selectedRadarEntries.routePrioritizedCount,
+    });
+  }, [selectedRadarEntries]);
 
   const padding = mapPadding || { top: 200, right: 40, bottom: 280, left: 40 };
 
@@ -283,15 +434,19 @@ const RadarMap = React.memo(({
       customMapStyle={modernMapStyle}
       provider={PROVIDER_GOOGLE}
       initialRegion={initialRegion}
-      showsUserLocation={false}
+      showsUserLocation
       showsMyLocationButton={false}
+      followsUserLocation={false}
       userLocationUpdateInterval={1000}
       userLocationFastestInterval={500}
       showsCompass={false}
       showsTraffic={false}
+      showsBuildings={false}
+      showsIndoors={false}
+      showsIndoorLevelPicker={false}
       mapPadding={padding}
-      pitchEnabled={mapInteractionEnabled}
-      rotateEnabled={mapInteractionEnabled}
+      pitchEnabled={false}
+      rotateEnabled={false}
       zoomEnabled={mapInteractionEnabled}
       scrollEnabled={mapInteractionEnabled}
       toolbarEnabled={false}
@@ -300,7 +455,13 @@ const RadarMap = React.memo(({
       onPanDrag={() => {
         if (mapInteractionEnabled) onMapTouchStart?.();
       }}
-      onRegionChangeComplete={(_region: any, details?: { isGesture?: boolean }) => {
+      onRegionChangeComplete={(region: any, details?: { isGesture?: boolean }) => {
+        const normalizedRegion = toValidRegion(region);
+        if (normalizedRegion) {
+          setVisibleRegion((prev) =>
+            shouldUpdateRegion(prev, normalizedRegion) ? normalizedRegion : prev
+          );
+        }
         if (!mapInteractionEnabled) return;
         if (details?.isGesture) {
           onMapTouchStart?.();
