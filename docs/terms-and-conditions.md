@@ -50,4 +50,4 @@ Terms may be updated at any time. Continued use constitutes acceptance.
 
 ## 9. Contact
 **Aether Labs**  
-Email: aetherlabsapps@gmail.com
+Email: pictolabap@gmail.com

@@ -118,6 +118,14 @@ export class SupabaseService {
     );
   }
 
+  private static isNearbyRadarsV2Missing(error: any): boolean {
+    if (!error || error.code !== 'PGRST202') return false;
+    const message = String(error.message ?? '');
+    const details = String(error.details ?? '');
+    const combined = `${message} ${details}`.toLowerCase();
+    return combined.includes('get_nearby_radars_v2');
+  }
+
   private static normalizeTrip(row: any) {
     return {
       id: row?.id,
@@ -244,7 +252,7 @@ export class SupabaseService {
         verified_only: requestedVerifiedOnly,
       };
 
-      const callNearbyRpc = async (args: Record<string, any>) => {
+      const callNearbyLegacyRpc = async (args: Record<string, any>) => {
         let { data, error } = await supabase.rpc('get_nearby_radars', args);
         if (error && this.isNearbyRadarsLegacySignatureError(error)) {
           const legacyResult = await supabase.rpc('get_nearby_radars', baseArgs);
@@ -254,7 +262,15 @@ export class SupabaseService {
         return { data, error };
       };
 
-      let { data, error } = await callNearbyRpc(extendedArgs);
+      let usedV2 = true;
+      let { data, error } = await supabase.rpc('get_nearby_radars_v2', extendedArgs);
+
+      if (error && this.isNearbyRadarsV2Missing(error)) {
+        usedV2 = false;
+        const legacyResult = await callNearbyLegacyRpc(extendedArgs);
+        data = legacyResult.data;
+        error = legacyResult.error;
+      }
 
       if (
         !error &&
@@ -262,11 +278,14 @@ export class SupabaseService {
         data.length === 0 &&
         (requestedVerifiedOnly || requestedMinConfidence > 0)
       ) {
-        const relaxedResult = await callNearbyRpc({
+        const relaxedArgs = {
           ...baseArgs,
           min_confidence: 0,
           verified_only: false,
-        });
+        };
+        const relaxedResult = usedV2
+          ? await supabase.rpc('get_nearby_radars_v2', relaxedArgs)
+          : await callNearbyLegacyRpc(relaxedArgs);
         if (!relaxedResult.error && Array.isArray(relaxedResult.data) && relaxedResult.data.length > 0) {
           data = relaxedResult.data;
         }

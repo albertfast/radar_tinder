@@ -162,8 +162,8 @@ module.exports = {
         {
           android: {
             minSdkVersion: 24,
-            targetSdkVersion: 35,
-            compileSdkVersion: 35,
+            targetSdkVersion: 36,
+            compileSdkVersion: 36,
             gradlePluginVersion: "8.5.2",
             ndkVersion: "28.0.13004108",
 

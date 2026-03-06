@@ -126,12 +126,8 @@ const RadarScreen = ({ navigation, route }: any) => {
   const [manualPanMode, setManualPanMode] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<any>(null);
-  const [routeRenderStartIndex, setRouteRenderStartIndex] = useState(0);
   const currentLocationRef = useRef<any>(currentLocation);
   const manualPanModeRef = useRef(manualPanMode);
-  const routeRenderStartIndexRef = useRef(0);
-  const lastRouteRenderUpdateRef = useRef(0);
-  const prevRouteCoordsForMapRef = useRef<any[]>([]);
 
   const mapInput = useMapInputState({ keyboardTraceEnabled: KEYBOARD_TRACE_ENABLED });
 
@@ -250,28 +246,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const compassRotation = `${dataSync.resolvedHeading || 0}deg`;
   const showCenterRouteAction =
     (manualPanMode || !followHeading) && navigationState.routeCoords.length > 0;
-  const routeCoordsForMap = useMemo(() => {
-    let next: any[];
-    if (routeRenderStartIndex <= 0) {
-      next = navigationState.routeCoords;
-    } else if (routeRenderStartIndex >= navigationState.routeCoords.length - 1) {
-      next = navigationState.routeCoords.slice(-2);
-    } else {
-      next = navigationState.routeCoords.slice(routeRenderStartIndex);
-    }
-    // Stabilize reference: only return new array if content actually changed
-    const prev = prevRouteCoordsForMapRef.current;
-    if (
-      next.length === prev.length &&
-      next.length > 0 &&
-      next[0] === prev[0] &&
-      next[next.length - 1] === prev[prev.length - 1]
-    ) {
-      return prev;
-    }
-    prevRouteCoordsForMapRef.current = next;
-    return next;
-  }, [navigationState.routeCoords, routeRenderStartIndex]);
+  const routeCoordsForMap = navigationState.routeCoords;
   const nearestRadarSummary = dataSync.closestRadar
     ? (dataSync.closestRadarHint ? `${formatDistance(dataSync.closestRadar.distance, unitSystem)} at ${dataSync.closestRadarHint}` : formatDistance(dataSync.closestRadar.distance, unitSystem))
     : 'Scanning...';
@@ -369,63 +344,6 @@ const RadarScreen = ({ navigation, route }: any) => {
     setRouteGuidancePath(navigationState.routeCoords || []);
     return () => setRouteGuidancePath([]);
   }, [navigationState.routeCoords, setRouteGuidancePath]);
-
-  useEffect(() => {
-    routeRenderStartIndexRef.current = 0;
-    setRouteRenderStartIndex(0);
-  }, [navigationState.destinationCoord?.latitude, navigationState.destinationCoord?.longitude]);
-
-  useEffect(() => {
-    const route = navigationState.routeCoords;
-    const loc = dataSync.currentLocation;
-    if (!loc || route.length < 3) {
-      if (routeRenderStartIndexRef.current !== 0) {
-        routeRenderStartIndexRef.current = 0;
-        setRouteRenderStartIndex(0);
-      }
-      return;
-    }
-
-    const previous = Math.min(routeRenderStartIndexRef.current, route.length - 1);
-    let searchFrom = 0;
-    let searchTo = route.length - 1;
-    if (route.length > 120) {
-      searchFrom = Math.max(0, previous - 80);
-      searchTo = Math.min(route.length - 1, previous + 260);
-    }
-
-    let bestIndex = previous;
-    let bestDistanceMeters = Number.POSITIVE_INFINITY;
-    const scanRange = (from: number, to: number) => {
-      for (let index = from; index <= to; index += 1) {
-        const point = route[index];
-        const distanceMeters =
-          LocationService.calculateDistanceSync(loc.latitude, loc.longitude, point.latitude, point.longitude) * 1000;
-        if (distanceMeters < bestDistanceMeters) {
-          bestDistanceMeters = distanceMeters;
-          bestIndex = index;
-          if (distanceMeters <= 4) break;
-        }
-      }
-    };
-
-    scanRange(searchFrom, searchTo);
-    if (bestDistanceMeters > 95 && (searchFrom > 0 || searchTo < route.length - 1)) {
-      scanRange(0, route.length - 1);
-    }
-
-    const nextStart = Math.max(0, bestIndex - 1);
-    const currentStart = routeRenderStartIndexRef.current;
-    const shouldAdvance = nextStart > currentStart + 2;
-    const shouldRewind = nextStart + 22 < currentStart;
-    if (!shouldAdvance && !shouldRewind) return;
-    const now = Date.now();
-    if (now - lastRouteRenderUpdateRef.current < 500) return;
-    lastRouteRenderUpdateRef.current = now;
-
-    routeRenderStartIndexRef.current = nextStart;
-    setRouteRenderStartIndex(nextStart);
-  }, [dataSync.currentLocation, navigationState.routeCoords]);
 
   useEffect(() => {
     if (driving.isDriving) return;
@@ -567,7 +485,7 @@ const RadarScreen = ({ navigation, route }: any) => {
       }
     }
 
-    const lookAheadMeters = navigationState.routeCoords.length > 1 ? 78 : 54;
+    const lookAheadMeters = navigationState.routeCoords.length > 1 ? 34 : 22;
     const followCenter = projectForwardCoordinate(
       location.latitude,
       location.longitude,
@@ -583,11 +501,11 @@ const RadarScreen = ({ navigation, route }: any) => {
           latitude: followCenter.latitude,
           longitude: followCenter.longitude,
         },
-        zoom: 19.14,
-        heading: headingForCenter,
-        pitch: 62,
+        zoom: 18.9,
+        heading: 0,
+        pitch: 0,
       },
-      { duration: 340 }
+      { duration: 320 }
     );
   }, [dataSync.currentLocation, dataSync.resolvedHeading, navigationState.routeCoords, setCurrentLocation]);
 

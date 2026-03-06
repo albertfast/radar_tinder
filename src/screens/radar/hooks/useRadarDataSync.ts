@@ -87,6 +87,10 @@ const projectForwardCoordinate = (
   };
 };
 
+const REVERSE_GEOCODE_CACHE_TTL_MS = 10 * 60 * 1000;
+const REVERSE_GEOCODE_MAX_CONCURRENCY = 2;
+const RADAR_HINT_NEAREST_LIMIT = 6;
+
 export function useRadarDataSync({
   currentLocation,
   setCurrentLocation,
@@ -124,14 +128,15 @@ export function useRadarDataSync({
   const syncedStoreRadarsRef = useRef<any[]>([]);
   const lastCameraUpdateRef = useRef(0);
   const lastCameraCenterRef = useRef<{ latitude: number; longitude: number } | null>(null);
-  const lastCameraHeadingRef = useRef<number | null>(null);
   const cameraAnimationInFlightRef = useRef(false);
   const lastUiLocationRef = useRef<any>(null);
   const lastUiLocationUpdateAtRef = useRef(0);
   const lastAnnouncedAlertIdRef = useRef<string | null>(null);
   const closestRadarLabelCacheRef = useRef<Record<string, string>>({});
-  const closestRadarLabelRequestRef = useRef<Record<string, boolean>>({});
-  const radarHintRequestRef = useRef<Record<string, boolean>>({});
+  const reverseGeocodeCacheRef = useRef<Record<string, { label: string; updatedAt: number }>>({});
+  const reverseGeocodeInFlightRef = useRef<Record<string, Promise<string>>>({});
+  const reverseGeocodeQueueRef = useRef<Array<() => void>>([]);
+  const reverseGeocodeActiveCountRef = useRef(0);
   const previousHeadingLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const lastValidHeadingRef = useRef(0);
   const smoothedLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
@@ -212,6 +217,79 @@ export function useRadarDataSync({
     setRadarLocations(nearbyRadars);
   }, [hasSameRadarSnapshot, nearbyRadars, setRadarLocations]);
 
+  const getRadarLabelCacheKey = useCallback(
+    (radarId: string | undefined, latitude: number, longitude: number) =>
+      radarId || `${latitude.toFixed(5)},${longitude.toFixed(5)}`,
+    []
+  );
+
+  const runReverseGeocodeTask = useCallback(async <T,>(task: () => Promise<T>): Promise<T> => {
+    if (reverseGeocodeActiveCountRef.current >= REVERSE_GEOCODE_MAX_CONCURRENCY) {
+      await new Promise<void>((resolve) => {
+        reverseGeocodeQueueRef.current.push(resolve);
+      });
+    }
+
+    reverseGeocodeActiveCountRef.current += 1;
+    try {
+      return await task();
+    } finally {
+      reverseGeocodeActiveCountRef.current = Math.max(
+        0,
+        reverseGeocodeActiveCountRef.current - 1
+      );
+      const next = reverseGeocodeQueueRef.current.shift();
+      if (next) next();
+    }
+  }, []);
+
+  const resolveRadarShortLabel = useCallback(
+    async (radarId: string | undefined, latitude: number, longitude: number): Promise<string> => {
+      const cacheKey = getRadarLabelCacheKey(radarId, latitude, longitude);
+      const cached = reverseGeocodeCacheRef.current[cacheKey];
+      if (cached && Date.now() - cached.updatedAt <= REVERSE_GEOCODE_CACHE_TTL_MS) {
+        return cached.label;
+      }
+
+      const inflight = reverseGeocodeInFlightRef.current[cacheKey];
+      if (inflight) {
+        return inflight;
+      }
+
+      const request = runReverseGeocodeTask(async () => {
+        try {
+          const fullLabel = await GoogleMapsService.getReverseGeocoding(latitude, longitude);
+          const shortLabel = extractShortStreetLabel(fullLabel);
+          const resolved = shortLabel || '';
+          reverseGeocodeCacheRef.current[cacheKey] = {
+            label: resolved,
+            updatedAt: Date.now(),
+          };
+          if (radarId && resolved) {
+            closestRadarLabelCacheRef.current[radarId] = resolved;
+          }
+          return resolved;
+        } catch {
+          reverseGeocodeCacheRef.current[cacheKey] = {
+            label: '',
+            updatedAt: Date.now(),
+          };
+          return '';
+        }
+      });
+
+      reverseGeocodeInFlightRef.current[cacheKey] = request;
+      request.finally(() => {
+        if (reverseGeocodeInFlightRef.current[cacheKey] === request) {
+          delete reverseGeocodeInFlightRef.current[cacheKey];
+        }
+      });
+
+      return request;
+    },
+    [getRadarLabelCacheKey, runReverseGeocodeTask]
+  );
+
   useEffect(() => {
     if (!hasHydrated) return;
     if (!activeAlert) {
@@ -280,17 +358,16 @@ export function useRadarDataSync({
       setClosestRadarHint('');
       return;
     }
-    if (closestRadarLabelRequestRef.current[closestRadar.id]) {
-      return;
-    }
 
     let cancelled = false;
-    closestRadarLabelRequestRef.current[closestRadar.id] = true;
     (async () => {
       try {
-        const fullLabel = await GoogleMapsService.getReverseGeocoding(latitude, longitude);
+        const shortLabel = await resolveRadarShortLabel(
+          closestRadar.id,
+          latitude,
+          longitude
+        );
         if (cancelled) return;
-        const shortLabel = extractShortStreetLabel(fullLabel);
         if (shortLabel) {
           closestRadarLabelCacheRef.current[closestRadar.id] = shortLabel;
           setClosestRadarHint(shortLabel);
@@ -301,30 +378,29 @@ export function useRadarDataSync({
         if (!cancelled) {
           setClosestRadarHint('');
         }
-      } finally {
-        delete closestRadarLabelRequestRef.current[closestRadar.id];
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [closestRadar]);
+  }, [closestRadar, resolveRadarShortLabel]);
 
   useEffect(() => {
-    const candidates = nearbyRadars.slice(0, 10);
+    const candidates = [...nearbyRadars]
+      .sort((a, b) => Number(a?.distance || Number.MAX_SAFE_INTEGER) - Number(b?.distance || Number.MAX_SAFE_INTEGER))
+      .slice(0, RADAR_HINT_NEAREST_LIMIT);
+
     for (const radar of candidates) {
       if (!radar?.id) continue;
-      if (radarLocationHints[radar.id] || radarHintRequestRef.current[radar.id]) continue;
+      if (radarLocationHints[radar.id]) continue;
       const latitude = Number(radar.latitude);
       const longitude = Number(radar.longitude);
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
 
-      radarHintRequestRef.current[radar.id] = true;
       (async () => {
         try {
-          const fullLabel = await GoogleMapsService.getReverseGeocoding(latitude, longitude);
-          const shortLabel = extractShortStreetLabel(fullLabel);
+          const shortLabel = await resolveRadarShortLabel(radar.id, latitude, longitude);
           if (!shortLabel) return;
           setRadarLocationHints((prev) => {
             if (prev[radar.id] === shortLabel) return prev;
@@ -332,12 +408,10 @@ export function useRadarDataSync({
           });
         } catch {
           // Ignore reverse geocode failures for non-critical hints.
-        } finally {
-          delete radarHintRequestRef.current[radar.id];
         }
       })();
     }
-  }, [nearbyRadars, radarLocationHints]);
+  }, [nearbyRadars, radarLocationHints, resolveRadarShortLabel]);
 
   const nearbyRadarsWithHints = useMemo(
     () =>
@@ -473,46 +547,40 @@ export function useRadarDataSync({
             typeof locationWithHeading.heading === 'number' && Number.isFinite(locationWithHeading.heading)
               ? normalizeHeading(locationWithHeading.heading)
               : lastValidHeadingRef.current;
-          const targetHeading = followHeading ? currentHeading : 0;
-          const previousCameraHeading = lastCameraHeadingRef.current;
-          let cameraHeadingDelta = Number.POSITIVE_INFINITY;
-          if (typeof previousCameraHeading === 'number') {
-            cameraHeadingDelta = Math.abs(targetHeading - previousCameraHeading);
-            if (cameraHeadingDelta > 180) cameraHeadingDelta = 360 - cameraHeadingDelta;
-          }
-
+          const centerBearing = followHeading ? currentHeading : 0;
           const cameraUpdateIntervalMs =
-            sampleSpeedKph >= 90 ? 180 : sampleSpeedKph >= 60 ? 220 : sampleSpeedKph >= 30 ? 280 : 500;
+            sampleSpeedKph >= 90 ? 280 : sampleSpeedKph >= 60 ? 340 : sampleSpeedKph >= 30 ? 420 : 520;
           const cameraMoveThresholdMeters =
-            sampleSpeedKph >= 90 ? 2.4 : sampleSpeedKph >= 60 ? 1.9 : sampleSpeedKph >= 30 ? 1.3 : 1.2;
+            sampleSpeedKph >= 90 ? 6 : sampleSpeedKph >= 60 ? 5 : sampleSpeedKph >= 30 ? 4 : 3;
 
           const shouldAnimateCamera =
             !lastCameraCenter ||
-            movedFromCameraMeters >= cameraMoveThresholdMeters ||
-            cameraHeadingDelta >= 3;
+            movedFromCameraMeters >= cameraMoveThresholdMeters;
 
           if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= cameraUpdateIntervalMs && !cameraAnimationInFlightRef.current) {
             cameraAnimationInFlightRef.current = true;
-            const animationDuration = 260;
+            const animationDuration = 300;
             const lookAheadMeters = Math.max(
-              42,
-              Math.min(84, 52 + Math.round((currentSpeedRef.current || 0) * 0.55))
+              18,
+              Math.min(36, 22 + Math.round((currentSpeedRef.current || 0) * 0.2))
             );
-            const followCenter = projectForwardCoordinate(
-              locationWithHeading.latitude,
-              locationWithHeading.longitude,
-              targetHeading,
-              lookAheadMeters
-            );
+            const followCenter = followHeading
+              ? projectForwardCoordinate(
+                  locationWithHeading.latitude,
+                  locationWithHeading.longitude,
+                  centerBearing,
+                  lookAheadMeters
+                )
+              : { latitude: locationWithHeading.latitude, longitude: locationWithHeading.longitude };
             mapRef.current?.animateCamera(
               {
                 center: {
                   latitude: followCenter.latitude,
                   longitude: followCenter.longitude,
                 },
-                pitch: 62,
-                heading: targetHeading,
-                zoom: 19.12,
+                pitch: 0,
+                heading: 0,
+                zoom: 18.85,
               },
               { duration: animationDuration }
             );
@@ -520,17 +588,14 @@ export function useRadarDataSync({
               latitude: followCenter.latitude,
               longitude: followCenter.longitude,
             };
-            lastCameraHeadingRef.current = targetHeading;
             lastCameraUpdateRef.current = now;
             setTimeout(() => { cameraAnimationInFlightRef.current = false; }, animationDuration + 40);
 
             if (MAP_TRACE_ENABLED) {
               console.log('[MapTrace] cameraFollow', {
                 movedFromCameraMeters: Math.round(movedFromCameraMeters),
-                cameraHeadingDelta: Number.isFinite(cameraHeadingDelta)
-                  ? Math.round(cameraHeadingDelta)
-                  : 'first',
-                targetHeading: Math.round(targetHeading),
+                centerBearing: Math.round(centerBearing),
+                lookAheadMeters,
               });
             }
           }
@@ -552,27 +617,26 @@ export function useRadarDataSync({
 
   useEffect(() => {
     if (currentLocation && mapRef.current && !hasCenteredMapRef.current) {
-      const initialHeading =
+      const initialBearing =
         followHeading && typeof currentLocation.heading === 'number' && Number.isFinite(currentLocation.heading)
           ? currentLocation.heading
           : 0;
       const initialCenter = followHeading
-        ? projectForwardCoordinate(currentLocation.latitude, currentLocation.longitude, initialHeading, 58)
+        ? projectForwardCoordinate(currentLocation.latitude, currentLocation.longitude, initialBearing, 28)
         : { latitude: currentLocation.latitude, longitude: currentLocation.longitude };
       mapRef.current.animateCamera(
         {
           center: initialCenter,
-          zoom: 19.02,
-          pitch: 61,
-          heading: initialHeading,
+          zoom: 18.7,
+          pitch: 0,
+          heading: 0,
         },
-        { duration: 420 }
+        { duration: 340 }
       );
       lastCameraCenterRef.current = {
         latitude: initialCenter.latitude,
         longitude: initialCenter.longitude,
       };
-      lastCameraHeadingRef.current = initialHeading;
       lastCameraUpdateRef.current = Date.now();
       hasCenteredMapRef.current = true;
     }

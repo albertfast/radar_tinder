@@ -1,9 +1,22 @@
-import { OSRMService } from './OSRMService';
-import { NominatimService } from './NominatimService';
+import * as Location from 'expo-location';
 import { AddressSuggestion } from '../types';
-import { readBooleanFlag } from '../utils/flags';
+import { NominatimService } from './NominatimService';
+import { OSRMService } from './OSRMService';
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_RUNTIME_KEY =
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+  process.env.GOOGLE_MAPS_API_SECRET ||
+  process.env.GOOGLE_MAPS_API_KEY ||
+  '';
+
+const GOOGLE_MAPS_BASE_URL = 'https://maps.googleapis.com/maps/api';
+const GOOGLE_ROADS_BASE_URL = 'https://roads.googleapis.com/v1';
+const SPEED_LIMIT_CACHE_TTL_MS = 120000;
+
+interface Coordinates {
+  latitude: number;
+  longitude: number;
+}
 
 interface PlaceResult {
   place_id: string;
@@ -18,10 +31,12 @@ interface PlaceResult {
   vicinity: string;
 }
 
-interface SpeedLimitResult {
-  placeId: string;
-  speedLimit: number;
-  units: 'KPH' | 'MPH';
+interface GeocodeSuggestionOptions {
+  countryCode?: string;
+  focusLocation?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 interface CoordinateSpeedLimitResult {
@@ -31,121 +46,112 @@ interface CoordinateSpeedLimitResult {
   source: 'roads_api' | 'osm' | 'unknown' | 'roads_unavailable';
 }
 
-interface DistanceResult {
-  distance: {
-    text: string;
-    value: number;
-  };
-  duration: {
-    text: string;
-    value: number;
-  };
-}
+type RouteOptions = {
+  alternatives?: boolean;
+  prefer?: 'duration' | 'distance';
+};
 
-interface GeocodeSuggestionOptions {
-  countryCode?: string;
-  focusLocation?: {
-    latitude: number;
-    longitude: number;
-  };
-}
+type CacheEntry = {
+  value: CoordinateSpeedLimitResult;
+  timestamp: number;
+};
 
 export class GoogleMapsService {
-  private static BASE_URL = 'https://maps.googleapis.com/maps/api';
-  private static TRAFFIC_ETA_V2_ENABLED = readBooleanFlag('EXPO_PUBLIC_TRAFFIC_ETA_V2', true);
-  private static OVERPASS_SPEED_ENDPOINTS = [
-    'https://overpass-api.de/api/interpreter',
-    'https://lz4.overpass-api.de/api/interpreter',
-    'https://z.overpass-api.de/api/interpreter',
-  ];
+  private static speedLimitCache = new Map<string, CacheEntry>();
 
-  private static speedLimitCache = new Map<
-    string,
-    { value: CoordinateSpeedLimitResult; timestamp: number }
-  >();
+  static async getCoordinatesFromAddress(address: string): Promise<Coordinates | null> {
+    const parsed = this.parseCoordinateInput(address);
+    if (parsed) {
+      return { latitude: parsed.lat, longitude: parsed.lng };
+    }
 
-  private static parseDestinationCoordinates(
-    destination: string
-  ): { lat: number; lon: number } | null {
-    const match = destination
-      .trim()
-      .match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
-    if (!match) return null;
-    const lat = Number(match[1]);
-    const lon = Number(match[2]);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
-    return { lat, lon };
-  }
+    const query = address.trim();
+    if (query.length < 3) return null;
 
-  private static buildGoogleBounds(
-    focusLocation?: { latitude: number; longitude: number },
-    radiusKm: number = 60
-  ): string | null {
-    if (
-      !focusLocation ||
-      !Number.isFinite(focusLocation.latitude) ||
-      !Number.isFinite(focusLocation.longitude)
-    ) {
+    try {
+      const result = await Location.geocodeAsync(query);
+      if (result?.length) {
+        return {
+          latitude: result[0].latitude,
+          longitude: result[0].longitude,
+        };
+      }
+    } catch (error) {
+      console.warn('[GoogleMapsService] Native geocoding failed:', error);
+    }
+
+    try {
+      const fallback = await NominatimService.geocode(query);
+      if (!fallback) return null;
+      return { latitude: fallback.lat, longitude: fallback.lon };
+    } catch (error) {
+      console.warn('[GoogleMapsService] Nominatim geocoding failed:', error);
       return null;
     }
-
-    const latDelta = radiusKm / 111;
-    const safeCos = Math.max(0.2, Math.cos((focusLocation.latitude * Math.PI) / 180));
-    const lonDelta = radiusKm / (111 * safeCos);
-
-    const south = focusLocation.latitude - latDelta;
-    const west = focusLocation.longitude - lonDelta;
-    const north = focusLocation.latitude + latDelta;
-    const east = focusLocation.longitude + lonDelta;
-    return `${south},${west}|${north},${east}`;
   }
 
-  private static async getFallbackDirections(
-    originLat: number,
-    originLng: number,
-    destination: string
-  ): Promise<any> {
-    const parsedCoords = this.parseDestinationCoordinates(destination);
-    const target = parsedCoords || (await NominatimService.geocode(destination));
-
-    if (!target) {
-      return {
-        error: 'NOT_FOUND',
-        message: 'Location not found. Please check the destination and try again.',
-      };
+  static async getReverseGeocoding(latitude: number, longitude: number): Promise<string | null> {
+    try {
+      const result = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (result?.length) {
+        const first = result[0];
+        const street = [first.streetNumber, first.street].filter(Boolean).join(' ').trim();
+        const parts = [
+          street,
+          first.city || first.subregion || first.district,
+          first.region,
+          first.isoCountryCode,
+        ].filter(Boolean);
+        if (parts.length > 0) {
+          return parts.join(', ');
+        }
+      }
+    } catch (error) {
+      console.warn('[GoogleMapsService] Native reverse geocoding failed:', error);
     }
 
-    const osrmRoute = await OSRMService.getDirections(
-      originLat,
-      originLng,
-      target.lat,
-      target.lon
-    );
-
-    if (!osrmRoute || !osrmRoute.coordinates?.length) {
-      return {
-        error: 'ZERO_RESULTS',
-        message: 'No route found to this destination. Please try a different destination.',
-      };
+    try {
+      const fallback = await NominatimService.reverse(latitude, longitude);
+      return fallback?.display_name || null;
+    } catch (error) {
+      console.warn('[GoogleMapsService] Nominatim reverse geocoding failed:', error);
+      return null;
     }
+  }
 
-    const reverse = await NominatimService.reverse(target.lat, target.lon).catch(() => null);
-    const endAddress = reverse?.display_name || destination;
-    const startAddress = `${originLat.toFixed(5)}, ${originLng.toFixed(5)}`;
-
-    const leg = osrmRoute.legs?.[0];
-    return {
-      ...osrmRoute,
-      legs: [
-        {
-          ...leg,
-          start_address: leg?.start_address || startAddress,
-          end_address: leg?.end_address || endAddress,
-          end_location: leg?.end_location || { lat: target.lat, lng: target.lon },
+  static async getPlaceAutocomplete(input: string): Promise<any[]> {
+    const results = await this.getGeocodeSuggestions(input);
+    return results.map((item) => ({
+      description: item.label,
+      place_id: item.id,
+      geometry: {
+        location: {
+          lat: item.latitude,
+          lng: item.longitude,
         },
-      ],
-    };
+      },
+    }));
+  }
+
+  static async getGeocodeSuggestions(
+    input: string,
+    options?: GeocodeSuggestionOptions
+  ): Promise<AddressSuggestion[]> {
+    const query = input.trim();
+    if (query.length < 2) return [];
+
+    try {
+      return await NominatimService.getSuggestionObjects(query, {
+        limit: 6,
+        countryCode: options?.countryCode?.trim().toLowerCase(),
+        focusLocation: options?.focusLocation,
+        focusRadiusKm: query.length <= 4 ? 90 : 180,
+        bounded: query.length <= 4,
+      });
+    } catch (error) {
+      console.warn('[GoogleMapsService] Nominatim geocode suggestions failed:', error);
+      return [];
+    }
   }
 
   static async searchNearbyPlaces(
@@ -154,57 +160,42 @@ export class GoogleMapsService {
     radius: number = 5000,
     keyword: string = 'traffic_camera|speed_trap|speed_camera|safety_camera|red_light_camera|traffic_enforcement'
   ): Promise<PlaceResult[]> {
+    if (!GOOGLE_MAPS_RUNTIME_KEY) return [];
+
     try {
-      if (!GOOGLE_MAPS_API_KEY) {
+      const url = `${GOOGLE_MAPS_BASE_URL}/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&keyword=${encodeURIComponent(keyword)}&key=${GOOGLE_MAPS_RUNTIME_KEY}`;
+      const response = await fetch(url);
+      const data: any = await response.json();
+
+      if (data?.status !== 'OK' || !Array.isArray(data?.results)) {
+        if (data?.status && data.status !== 'ZERO_RESULTS') {
+          console.warn('[GoogleMapsService] Nearby search failed:', data.status, data.error_message);
+        }
         return [];
       }
-      const url = `${this.BASE_URL}/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&keyword=${encodeURIComponent(keyword)}&key=${GOOGLE_MAPS_API_KEY}`;
 
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.status === 'OK') {
-        return data.results;
-      }
-      if (data.status !== 'ZERO_RESULTS' && data.status !== 'REQUEST_DENIED') {
-        console.warn('Google Places API Error:', data.status, data.error_message);
-      }
-      return [];
+      return data.results
+        .map((item: any) => ({
+          place_id: String(item?.place_id || ''),
+          name: String(item?.name || ''),
+          geometry: {
+            location: {
+              lat: Number(item?.geometry?.location?.lat),
+              lng: Number(item?.geometry?.location?.lng),
+            },
+          },
+          types: Array.isArray(item?.types) ? item.types : [],
+          vicinity: String(item?.vicinity || ''),
+        }))
+        .filter(
+          (item: PlaceResult) =>
+            Boolean(item.place_id) &&
+            Number.isFinite(item.geometry.location.lat) &&
+            Number.isFinite(item.geometry.location.lng)
+        );
     } catch (error) {
-      console.error('Error searching nearby places:', error);
+      console.warn('[GoogleMapsService] Nearby search error:', error);
       return [];
-    }
-  }
-
-  static async getSpeedLimit(
-    placeId: string
-  ): Promise<SpeedLimitResult | 'roads_unavailable' | null> {
-    try {
-      if (!GOOGLE_MAPS_API_KEY) return null;
-      const url = `https://roads.googleapis.com/v1/speedLimits?placeId=${placeId}&key=${GOOGLE_MAPS_API_KEY}`;
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        if (response.status === 403) {
-          return 'roads_unavailable';
-        }
-        const text = await response.text();
-        console.warn(`Roads API Error (${response.status}):`, text);
-        return null;
-      }
-
-      const data = await response.json();
-      if (data.speedLimits && data.speedLimits.length > 0) {
-        return {
-          placeId: data.speedLimits[0].placeId,
-          speedLimit: data.speedLimits[0].speedLimit,
-          units: data.speedLimits[0].units,
-        };
-      }
-      return null;
-    } catch (error) {
-      console.error('Error getting speed limit:', error);
-      return null;
     }
   }
 
@@ -212,116 +203,72 @@ export class GoogleMapsService {
     latitude: number,
     longitude: number
   ): Promise<CoordinateSpeedLimitResult | null> {
+    const coordinateKey = `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
+    const cached = this.getCachedSpeedLimit(coordinateKey);
+    if (cached) return cached;
+
+    if (!GOOGLE_MAPS_RUNTIME_KEY) {
+      const result = this.unknownSpeed('unknown');
+      this.setCachedSpeedLimit(coordinateKey, result);
+      return result;
+    }
+
     try {
-      const now = Date.now();
-      const coordinateCacheKey = `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
-      const coordinateCached = this.speedLimitCache.get(coordinateCacheKey);
-      if (coordinateCached && now - coordinateCached.timestamp < 120000) {
-        return coordinateCached.value;
-      }
+      const snapUrl = `${GOOGLE_ROADS_BASE_URL}/snapToRoads?path=${latitude},${longitude}&interpolate=false&key=${GOOGLE_MAPS_RUNTIME_KEY}`;
+      const snapResponse = await fetch(snapUrl);
 
-      let placeId: string | null = null;
-      if (GOOGLE_MAPS_API_KEY) {
-        const snapUrl = `https://roads.googleapis.com/v1/snapToRoads?path=${latitude},${longitude}&interpolate=false&key=${GOOGLE_MAPS_API_KEY}`;
-        const snapResponse = await fetch(snapUrl);
-        if (snapResponse.ok) {
-          const snapData = await snapResponse.json();
-          placeId = snapData?.snappedPoints?.[0]?.placeId || null;
-        }
-      }
-
-      let roadsUnavailable = false;
-      if (placeId) {
-        const placeCacheKey = `place:${placeId}`;
-        const placeCached = this.speedLimitCache.get(placeCacheKey);
-        if (placeCached && now - placeCached.timestamp < 120000) {
-          this.speedLimitCache.set(coordinateCacheKey, placeCached);
-          return placeCached.value;
-        }
-
-        const speed = await this.getSpeedLimit(placeId);
-        if (speed === 'roads_unavailable') {
-          roadsUnavailable = true;
-        }
-        if (speed && speed !== 'roads_unavailable' && speed.speedLimit) {
-          const result: CoordinateSpeedLimitResult = {
-            speedLimit: speed.speedLimit,
-            units: speed.units,
-            placeId: speed.placeId,
-            source: 'roads_api',
-          };
-          this.speedLimitCache.set(coordinateCacheKey, { value: result, timestamp: now });
-          this.speedLimitCache.set(placeCacheKey, { value: result, timestamp: now });
-          return result;
-        }
-      }
-
-      const osmSpeed = await this.getOsmSpeedLimitForCoordinate(latitude, longitude);
-      if (osmSpeed) {
-        const result: CoordinateSpeedLimitResult = {
-          speedLimit: osmSpeed.speedLimit,
-          units: osmSpeed.units,
-          source: 'osm',
-        };
-        this.speedLimitCache.set(coordinateCacheKey, { value: result, timestamp: now });
+      if (!snapResponse.ok) {
+        const source = snapResponse.status === 403 ? 'roads_unavailable' : 'unknown';
+        const result = this.unknownSpeed(source);
+        this.setCachedSpeedLimit(coordinateKey, result);
         return result;
       }
 
-      const unknown: CoordinateSpeedLimitResult = {
-        speedLimit: 0,
-        units: 'MPH',
-        source: roadsUnavailable ? 'roads_unavailable' : 'unknown',
+      const snapData: any = await snapResponse.json();
+      const placeId = String(snapData?.snappedPoints?.[0]?.placeId || '');
+      if (!placeId) {
+        const result = this.unknownSpeed('unknown');
+        this.setCachedSpeedLimit(coordinateKey, result);
+        return result;
+      }
+
+      const placeKey = `place:${placeId}`;
+      const placeCached = this.getCachedSpeedLimit(placeKey);
+      if (placeCached) {
+        this.setCachedSpeedLimit(coordinateKey, placeCached);
+        return placeCached;
+      }
+
+      const speedUrl = `${GOOGLE_ROADS_BASE_URL}/speedLimits?placeId=${encodeURIComponent(placeId)}&key=${GOOGLE_MAPS_RUNTIME_KEY}`;
+      const speedResponse = await fetch(speedUrl);
+      if (!speedResponse.ok) {
+        const source = speedResponse.status === 403 ? 'roads_unavailable' : 'unknown';
+        const result = this.unknownSpeed(source);
+        this.setCachedSpeedLimit(coordinateKey, result);
+        return result;
+      }
+
+      const speedData: any = await speedResponse.json();
+      const first = speedData?.speedLimits?.[0];
+      const speedLimit = Number(first?.speedLimit);
+      if (!Number.isFinite(speedLimit) || speedLimit <= 0) {
+        const result = this.unknownSpeed('unknown');
+        this.setCachedSpeedLimit(coordinateKey, result);
+        return result;
+      }
+
+      const result: CoordinateSpeedLimitResult = {
+        speedLimit,
+        units: first?.units === 'KPH' ? 'KPH' : 'MPH',
+        placeId: String(first?.placeId || placeId),
+        source: 'roads_api',
       };
-      this.speedLimitCache.set(coordinateCacheKey, { value: unknown, timestamp: now });
-      return unknown;
+
+      this.setCachedSpeedLimit(coordinateKey, result);
+      this.setCachedSpeedLimit(placeKey, result);
+      return result;
     } catch (error) {
-      console.warn('Error getting speed limit for coordinate:', error);
-      return null;
-    }
-  }
-
-  static async getDistance(
-    originLat: number,
-    originLng: number,
-    destLat: number,
-    destLng: number
-  ): Promise<DistanceResult | null> {
-    try {
-      const osrmResult = await OSRMService.getDistance(originLat, originLng, destLat, destLng);
-      if (osrmResult) {
-        return {
-          distance: {
-            text: osrmResult.distance < 1000
-              ? `${Math.round(osrmResult.distance)} m`
-              : `${(osrmResult.distance / 1000).toFixed(1)} km`,
-            value: osrmResult.distance,
-          },
-          duration: {
-            text: osrmResult.duration < 60
-              ? `${Math.round(osrmResult.duration)} sec`
-              : `${Math.round(osrmResult.duration / 60)} min`,
-            value: osrmResult.duration,
-          },
-        };
-      }
-    } catch (osrmError) {
-      console.warn('[GoogleMapsService] OSRM failed, trying Google:', osrmError);
-    }
-
-    try {
-      const origins = `${originLat},${originLng}`;
-      const destinations = `${destLat},${destLng}`;
-      const url = `${this.BASE_URL}/distancematrix/json?origins=${origins}&destinations=${destinations}&key=${GOOGLE_MAPS_API_KEY}`;
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.status === 'OK' && data.rows[0].elements[0].status === 'OK') {
-        return data.rows[0].elements[0];
-      }
-      return null;
-    } catch (error) {
-      console.error('Error calculating distance:', error);
+      console.warn('[GoogleMapsService] Speed limit lookup failed:', error);
       return null;
     }
   }
@@ -330,105 +277,85 @@ export class GoogleMapsService {
     originLat: number,
     originLng: number,
     destination: string,
-    options?: { alternatives?: boolean; prefer?: 'duration' | 'distance' }
+    options?: RouteOptions
   ): Promise<any> {
+    let googleStatus: string | null = null;
+    let googleMessage = '';
+
     try {
-      if (!GOOGLE_MAPS_API_KEY) {
-        console.warn('Google Maps API key is not configured. Falling back to OSRM + Nominatim.');
-        return await this.getFallbackDirections(originLat, originLng, destination);
-      }
-
-      const origin = `${originLat},${originLng}`;
-      const alternatives = options?.alternatives ? '&alternatives=true' : '';
-      const trafficParams = this.TRAFFIC_ETA_V2_ENABLED
-        ? '&departure_time=now&traffic_model=best_guess'
-        : '';
-      const url = `${this.BASE_URL}/directions/json?origin=${origin}&destination=${encodeURIComponent(destination)}&mode=driving${alternatives}${trafficParams}&language=en&key=${GOOGLE_MAPS_API_KEY}`;
-
-      console.log('[GoogleMapsService] Fetching directions to:', destination);
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.status === 'OK') {
-        const routes = Array.isArray(data.routes) ? data.routes : [];
-
-        const scoredRoutes = routes.map((route: any) => {
-          const leg = route?.legs?.[0];
-          const durationValue =
-            leg?.duration_in_traffic?.value ?? leg?.duration?.value ?? Number.MAX_SAFE_INTEGER;
-          const distance = leg?.distance?.value ?? Number.MAX_SAFE_INTEGER;
-          const trafficDuration = leg?.duration_in_traffic?.value ?? durationValue;
-          const trafficScore = trafficDuration;
-          const distancePenalty = distance * 0.08;
-          return {
-            route,
-            duration: durationValue,
-            distance,
-            trafficDuration,
-            score: trafficScore + distancePenalty,
-          };
+      if (GOOGLE_MAPS_RUNTIME_KEY) {
+        const params = new URLSearchParams({
+          origin: `${originLat},${originLng}`,
+          destination,
+          mode: 'driving',
+          departure_time: 'now',
+          traffic_model: 'best_guess',
+          language: 'en',
+          key: GOOGLE_MAPS_RUNTIME_KEY,
         });
+        if (options?.alternatives) {
+          params.append('alternatives', 'true');
+        }
 
-        scoredRoutes.sort((a: any, b: any) => a.score - b.score);
+        const url = `${GOOGLE_MAPS_BASE_URL}/directions/json?${params.toString()}`;
+        const response = await fetch(url);
+        const data: any = await response.json();
+        googleStatus = data?.status || null;
+        googleMessage = data?.error_message || '';
 
-        const selectedRoute = scoredRoutes[0]?.route ?? routes[0];
-        const points = this.decodePolyline(selectedRoute.overview_polyline.points);
-
-        const leg = selectedRoute.legs[0];
-        const effectiveDuration =
-          this.TRAFFIC_ETA_V2_ENABLED && leg?.duration_in_traffic
-            ? leg.duration_in_traffic
-            : leg.duration;
-        const routeInfo = {
-          coordinates: points,
-          legs: [{
-            distance: leg.distance,
-            duration: effectiveDuration || leg.duration,
-            duration_in_traffic: leg.duration_in_traffic,
-            end_address: leg.end_address,
-            start_address: leg.start_address,
-            steps: leg.steps,
-            end_location: leg.end_location,
-            start_location: leg.start_location,
-          }],
-          overview_polyline: selectedRoute.overview_polyline,
-          copyrights: selectedRoute.copyrights,
-          waypoint_order: selectedRoute.waypoint_order,
-        };
-
-        console.log('[GoogleMapsService] Best route selected with', points.length, 'points, traffic ETA(s):', scoredRoutes[0]?.trafficDuration);
-        return routeInfo;
+        if (googleStatus === 'OK' && Array.isArray(data?.routes) && data.routes.length > 0) {
+          const route = this.selectGoogleRoute(data.routes, options?.prefer);
+          const leg = route?.legs?.[0];
+          if (route?.overview_polyline?.points && leg) {
+            return {
+              coordinates: this.decodePolyline(route.overview_polyline.points),
+              legs: [
+                {
+                  distance: leg.distance,
+                  duration: leg.duration,
+                  duration_in_traffic: leg.duration_in_traffic,
+                  start_address: leg.start_address,
+                  end_address: leg.end_address,
+                  steps: Array.isArray(leg.steps) ? leg.steps : [],
+                  end_location: leg.end_location,
+                  start_location: leg.start_location,
+                },
+              ],
+              overview_polyline: route.overview_polyline,
+            };
+          }
+        }
       }
-
-      console.warn('Directions API Error:', data.status, data.error_message);
-
-      const fallback = await this.getFallbackDirections(originLat, originLng, destination);
-      if (fallback && !fallback.error) {
-        console.log('[GoogleMapsService] Fallback route selected via OSRM');
-        return fallback;
-      }
-
-      if (data.status === 'ZERO_RESULTS') {
-        return { error: 'ZERO_RESULTS', message: 'No route found to this destination. Please try a different destination.' };
-      }
-      if (data.status === 'NOT_FOUND') {
-        return { error: 'NOT_FOUND', message: 'Location not found. Please check the address and try again.' };
-      }
-      if (data.status === 'REQUEST_DENIED') {
-        return { error: 'REQUEST_DENIED', message: 'API request denied. Please check your API key and internet connection.' };
-      }
-
-      return null;
     } catch (error) {
-      console.error('Error getting directions:', error);
-      const fallback = await this.getFallbackDirections(originLat, originLng, destination);
-      if (fallback && !fallback.error) {
-        console.log('[GoogleMapsService] Network fallback route selected via OSRM');
-        return fallback;
-      }
-      return { error: 'NETWORK_ERROR', message: 'Network error. Please check your internet connection and try again.' };
+      console.warn('[GoogleMapsService] Google directions failed:', error);
     }
+
+    const fallback = await this.getFallbackDirections(originLat, originLng, destination);
+    if (fallback) return fallback;
+
+    if (googleStatus === 'NOT_FOUND') {
+      return {
+        error: 'NOT_FOUND',
+        message: 'Location not found. Please check the destination and try again.',
+      };
+    }
+    if (googleStatus === 'ZERO_RESULTS') {
+      return {
+        error: 'ZERO_RESULTS',
+        message: 'No route found to this destination. Please try a different destination.',
+      };
+    }
+    if (googleStatus === 'REQUEST_DENIED') {
+      return {
+        error: 'REQUEST_DENIED',
+        message: 'Directions request denied. Please check API configuration.',
+      };
+    }
+
+    return {
+      error: googleStatus || 'NETWORK_ERROR',
+      message: googleMessage || 'Unable to get directions. Please try again.',
+    };
   }
 
   static async recalculateRoute(
@@ -438,397 +365,169 @@ export class GoogleMapsService {
     originalRoute?: any
   ): Promise<any> {
     try {
-      console.log('[GoogleMapsService] Recalculating route from current position');
-
-      const legEnd = originalRoute?.legs?.[0]?.end_location;
-      const endLat = Number(legEnd?.lat ?? legEnd?.latitude);
-      const endLng = Number(legEnd?.lng ?? legEnd?.longitude);
+      const endLocation = originalRoute?.legs?.[0]?.end_location;
+      const endLat = Number(endLocation?.lat ?? endLocation?.latitude);
+      const endLng = Number(endLocation?.lng ?? endLocation?.longitude);
       const destinationTarget =
         Number.isFinite(endLat) && Number.isFinite(endLng)
           ? `${endLat},${endLng}`
           : destination;
 
-      const newRoute = await this.getDirections(currentLat, currentLng, destinationTarget, {
+      const updated = await this.getDirections(currentLat, currentLng, destinationTarget, {
         alternatives: true,
         prefer: 'duration',
       });
 
-      if (newRoute && !newRoute.error && Array.isArray(newRoute.coordinates) && newRoute.coordinates.length > 0) {
-        console.log('[GoogleMapsService] Route recalculated and applied');
-        return newRoute;
+      if (updated && !updated.error && Array.isArray(updated.coordinates) && updated.coordinates.length > 0) {
+        return updated;
       }
-
-      if (originalRoute && Array.isArray(originalRoute.coordinates) && originalRoute.coordinates.length > 0) {
-        console.warn('[GoogleMapsService] Recalculation failed, keeping previous route snapshot');
+      if (originalRoute?.coordinates?.length) {
         return originalRoute;
       }
-
-      return newRoute;
+      return updated;
     } catch (error) {
-      console.error('Error recalculating route:', error);
-      return { error: 'RECALCULATION_ERROR', message: 'Could not recalculate route. Please try again.' };
+      console.warn('[GoogleMapsService] Route recalculation failed:', error);
+      return {
+        error: 'RECALCULATION_ERROR',
+        message: 'Could not recalculate route. Please try again.',
+      };
     }
   }
 
-  private static decodePolyline(t: string) {
+  private static async getFallbackDirections(
+    originLat: number,
+    originLng: number,
+    destination: string
+  ): Promise<any> {
+    const target = await this.resolveDestination(destination);
+    if (!target) return null;
+
+    const osrm = await OSRMService.getDirections(originLat, originLng, target.lat, target.lng);
+    if (!osrm || !osrm.coordinates?.length) return null;
+
+    const leg = osrm.legs?.[0];
+    const resolvedEnd =
+      (await this.getReverseGeocoding(target.lat, target.lng).catch(() => null)) || destination;
+
+    return {
+      coordinates: osrm.coordinates,
+      legs: [
+        {
+          distance: leg?.distance,
+          duration: leg?.duration,
+          start_address: leg?.start_address || `${originLat.toFixed(5)}, ${originLng.toFixed(5)}`,
+          end_address: leg?.end_address || resolvedEnd,
+          steps: Array.isArray(leg?.steps) ? leg.steps : [],
+          end_location: leg?.end_location || { lat: target.lat, lng: target.lng },
+        },
+      ],
+    };
+  }
+
+  private static async resolveDestination(destination: string): Promise<{ lat: number; lng: number } | null> {
+    const parsed = this.parseCoordinateInput(destination);
+    if (parsed) return parsed;
+
+    const geocoded = await this.getCoordinatesFromAddress(destination);
+    if (!geocoded) return null;
+    return {
+      lat: geocoded.latitude,
+      lng: geocoded.longitude,
+    };
+  }
+
+  private static selectGoogleRoute(routes: any[], prefer: 'duration' | 'distance' = 'duration'): any {
+    if (routes.length <= 1) return routes[0];
+    const ranked = routes.map((route: any) => {
+      const leg = route?.legs?.[0];
+      const duration = Number(leg?.duration_in_traffic?.value ?? leg?.duration?.value);
+      const distance = Number(leg?.distance?.value);
+      return {
+        route,
+        duration: Number.isFinite(duration) ? duration : Number.MAX_SAFE_INTEGER,
+        distance: Number.isFinite(distance) ? distance : Number.MAX_SAFE_INTEGER,
+      };
+    });
+    ranked.sort((a, b) =>
+      prefer === 'distance' ? a.distance - b.distance : a.duration - b.duration
+    );
+    return ranked[0]?.route || routes[0];
+  }
+
+  private static getCachedSpeedLimit(key: string): CoordinateSpeedLimitResult | null {
+    const cached = this.speedLimitCache.get(key);
+    if (!cached) return null;
+    if (Date.now() - cached.timestamp > SPEED_LIMIT_CACHE_TTL_MS) {
+      this.speedLimitCache.delete(key);
+      return null;
+    }
+    return cached.value;
+  }
+
+  private static setCachedSpeedLimit(key: string, value: CoordinateSpeedLimitResult): void {
+    this.speedLimitCache.set(key, {
+      value,
+      timestamp: Date.now(),
+    });
+  }
+
+  private static unknownSpeed(
+    source: 'unknown' | 'roads_unavailable'
+  ): CoordinateSpeedLimitResult {
+    return {
+      speedLimit: 0,
+      units: 'MPH',
+      source,
+    };
+  }
+
+  private static parseCoordinateInput(value: string): { lat: number; lng: number } | null {
+    const match = value
+      .trim()
+      .match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+    if (!match) return null;
+
+    const lat = Number(match[1]);
+    const lng = Number(match[2]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+    return { lat, lng };
+  }
+
+  private static decodePolyline(encoded: string): Array<{ latitude: number; longitude: number }> {
     const points: Array<{ latitude: number; longitude: number }> = [];
     let index = 0;
-    const len = t.length;
     let lat = 0;
     let lng = 0;
 
-    while (index < len) {
-      let b;
+    while (index < encoded.length) {
+      let b: number;
       let shift = 0;
       let result = 0;
       do {
-        b = t.charCodeAt(index++) - 63;
+        b = encoded.charCodeAt(index++) - 63;
         result |= (b & 0x1f) << shift;
         shift += 5;
       } while (b >= 0x20);
-      const dlat = (result & 1) ? ~(result >> 1) : (result >> 1);
-      lat += dlat;
+      const dLat = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+      lat += dLat;
 
       shift = 0;
       result = 0;
       do {
-        b = t.charCodeAt(index++) - 63;
+        b = encoded.charCodeAt(index++) - 63;
         result |= (b & 0x1f) << shift;
         shift += 5;
       } while (b >= 0x20);
-      const dlng = (result & 1) ? ~(result >> 1) : (result >> 1);
-      lng += dlng;
-      points.push({ latitude: (lat / 1e5), longitude: (lng / 1e5) });
+      const dLng = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+      lng += dLng;
+
+      points.push({
+        latitude: lat / 1e5,
+        longitude: lng / 1e5,
+      });
     }
 
     return points;
-  }
-
-  static async getPlaceAutocomplete(_input: string): Promise<any[]> {
-    return [];
-  }
-
-  static async getReverseGeocoding(latitude: number, longitude: number): Promise<string | null> {
-    try {
-      const url = `${this.BASE_URL}/geocode/json?latlng=${latitude},${longitude}&language=en&key=${GOOGLE_MAPS_API_KEY}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.status === 'OK' && data.results.length > 0) {
-        return data.results[0].formatted_address;
-      }
-      return null;
-    } catch (error) {
-      console.error('Error reverse geocoding:', error);
-      return null;
-    }
-  }
-
-  static async getGeocodeSuggestions(
-    input: string,
-    options?: GeocodeSuggestionOptions
-  ): Promise<AddressSuggestion[]> {
-    const query = input.trim();
-    if (!query) return [];
-
-    const normalizedCountry = options?.countryCode?.trim().toLowerCase();
-    const isShortOrMostlyNumericQuery =
-      query.length <= 4 || /^[\d\s-]+$/.test(query);
-    const normalizedQuery = query.toLowerCase();
-    const queryTokens = normalizedQuery
-      .split(/\s+/)
-      .map((token: string) => token.trim())
-      .filter((token: string) => token.length >= 2);
-
-    // Primary source: Google geocoding
-    try {
-      if (GOOGLE_MAPS_API_KEY) {
-        const params = new URLSearchParams({
-          address: query,
-          language: 'en',
-          key: GOOGLE_MAPS_API_KEY,
-        });
-        const bounds = this.buildGoogleBounds(
-          options?.focusLocation,
-          isShortOrMostlyNumericQuery ? 70 : 150
-        );
-        if (bounds) {
-          params.append('bounds', bounds);
-        }
-        if (normalizedCountry) {
-          params.append('region', normalizedCountry);
-          if (isShortOrMostlyNumericQuery) {
-            params.append('components', `country:${normalizedCountry}`);
-          }
-        }
-
-        const url = `${this.BASE_URL}/geocode/json?${params.toString()}`;
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (data.status === 'OK' && Array.isArray(data.results)) {
-          const deduped = new Map<string, AddressSuggestion>();
-          for (const result of data.results) {
-            const label =
-              typeof result?.formatted_address === 'string'
-                ? result.formatted_address.trim()
-                : '';
-            const lat = Number(result?.geometry?.location?.lat);
-            const lon = Number(result?.geometry?.location?.lng);
-            if (!label || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-            if (this.isMalformedSuggestionLabel(label)) continue;
-
-            const normalizedLabel = this.normalizeSuggestionLabel(label);
-            if (/^\d+$/.test(normalizedQuery) && !normalizedLabel.includes(normalizedQuery)) {
-              continue;
-            }
-            if (
-              queryTokens.length > 0 &&
-              !queryTokens.slice(0, 2).every((token: string) => normalizedLabel.includes(token))
-            ) {
-              continue;
-            }
-
-            const qualityScore = this.computeSuggestionScore(
-              normalizedLabel,
-              queryTokens,
-              options?.focusLocation,
-              lat,
-              lon
-            );
-
-            const latBucket = Math.round(lat * 10000);
-            const lonBucket = Math.round(lon * 10000);
-            const dedupeKey = `${normalizedLabel}|${latBucket}|${lonBucket}`;
-            const item: AddressSuggestion = {
-              id: `google:${result.place_id || label}:${latBucket}:${lonBucket}`,
-              label,
-              queryValue: `${lat},${lon}`,
-              latitude: lat,
-              longitude: lon,
-              source: 'google',
-              qualityScore,
-              matchKind: 'google',
-              distanceKmFromUser: options?.focusLocation
-                ? this.distanceKm(
-                    options.focusLocation.latitude,
-                    options.focusLocation.longitude,
-                    lat,
-                    lon
-                  )
-                : undefined,
-            };
-
-            const existing = deduped.get(dedupeKey);
-            if (!existing || qualityScore > existing.qualityScore) {
-              deduped.set(dedupeKey, item);
-            }
-          }
-
-          const googleResults = Array.from(deduped.values())
-            .sort((a, b) => b.qualityScore - a.qualityScore)
-            .slice(0, 6);
-          if (googleResults.length > 0) {
-            return googleResults;
-          }
-        }
-      }
-    } catch (googleError) {
-      console.warn('[GoogleMapsService] Google geocoding failed, trying Nominatim:', googleError);
-    }
-
-    // Fallback source: Nominatim
-    try {
-      let nominatimResults = await NominatimService.getSuggestionObjects(query, {
-        limit: 6,
-        countryCode: normalizedCountry,
-        focusLocation: options?.focusLocation,
-        focusRadiusKm: isShortOrMostlyNumericQuery ? 90 : 180,
-        bounded: isShortOrMostlyNumericQuery,
-      });
-
-      if (
-        nominatimResults.length === 0 &&
-        normalizedCountry &&
-        !isShortOrMostlyNumericQuery
-      ) {
-        nominatimResults = await NominatimService.getSuggestionObjects(query, {
-          limit: 6,
-          focusLocation: options?.focusLocation,
-          focusRadiusKm: 180,
-        });
-      }
-
-      return nominatimResults
-        .map((item) => ({
-          ...item,
-          matchKind: 'nominatim' as const,
-          distanceKmFromUser:
-            options?.focusLocation &&
-            Number.isFinite(item.latitude) &&
-            Number.isFinite(item.longitude)
-              ? this.distanceKm(
-                  options.focusLocation.latitude,
-                  options.focusLocation.longitude,
-                  item.latitude,
-                  item.longitude
-                )
-              : item.distanceKmFromUser,
-        }))
-        .slice(0, 6);
-    } catch (error) {
-      console.error('Error fetching geocode suggestions:', error);
-      return [];
-    }
-  }
-
-  private static normalizeSuggestionLabel(label: string): string {
-    return label.toLowerCase().replace(/\s+/g, ' ').trim();
-  }
-
-  private static isMalformedSuggestionLabel(label: string): boolean {
-    if (!label) return true;
-    if (label.length > 140 && /;/.test(label)) return true;
-    if (/\d{2,}\s*;\s*\d{2,}\s*;\s*\d{2,}/.test(label)) return true;
-    return false;
-  }
-
-  private static computeSuggestionScore(
-    normalizedLabel: string,
-    queryTokens: string[],
-    focusLocation: { latitude: number; longitude: number } | undefined,
-    lat: number,
-    lon: number
-  ): number {
-    let score = 0;
-    if (/\d+/.test(normalizedLabel)) score += 25;
-    if (
-      /\b(st|street|ave|avenue|rd|road|blvd|drive|dr|way|ln|lane|hwy|highway)\b/i.test(
-        normalizedLabel
-      )
-    ) {
-      score += 10;
-    }
-    const tokenMatches = queryTokens.filter((token) => normalizedLabel.includes(token)).length;
-    score += tokenMatches * 20;
-
-    const queryLeadingNumber = queryTokens.length
-      ? this.extractLeadingNumber(queryTokens[0])
-      : null;
-    const labelLeadingNumber = this.extractLeadingNumber(normalizedLabel);
-    if (queryLeadingNumber && labelLeadingNumber === queryLeadingNumber) {
-      score += 65;
-    }
-    if (queryTokens.length > 0 && normalizedLabel.startsWith(queryTokens.join(' '))) {
-      score += 40;
-    }
-
-    if (focusLocation) {
-      const distanceKm = this.distanceKm(
-        focusLocation.latitude,
-        focusLocation.longitude,
-        lat,
-        lon
-      );
-      if (distanceKm < 5) score += 35;
-      else if (distanceKm < 25) score += 25;
-      else if (distanceKm < 80) score += 10;
-      else score -= 10;
-    }
-    return score;
-  }
-
-  private static extractLeadingNumber(value: string): string | null {
-    const match = value.match(/^(\d{1,6})\b/);
-    return match?.[1] || null;
-  }
-
-  private static parseMaxspeedValue(rawValue: string | null | undefined): SpeedLimitResult | null {
-    if (!rawValue) return null;
-    const text = String(rawValue).trim().toLowerCase();
-    if (!text) return null;
-
-    const numericMatch = text.match(/(\d{2,3})/);
-    if (!numericMatch) return null;
-    const speedLimit = Number(numericMatch[1]);
-    if (!Number.isFinite(speedLimit) || speedLimit <= 0) return null;
-
-    if (/\bmph\b/.test(text)) {
-      return { placeId: 'osm', speedLimit, units: 'MPH' };
-    }
-    if (/\b(km\/h|kph)\b/.test(text)) {
-      return { placeId: 'osm', speedLimit, units: 'KPH' };
-    }
-
-    return { placeId: 'osm', speedLimit, units: 'MPH' };
-  }
-
-  private static async getOsmSpeedLimitForCoordinate(
-    latitude: number,
-    longitude: number
-  ): Promise<SpeedLimitResult | null> {
-    const query = `
-      [out:json][timeout:10];
-      (
-        way(around:220,${latitude},${longitude})["maxspeed"];
-        relation(around:220,${latitude},${longitude})["maxspeed"];
-      );
-      out center tags 24;
-    `;
-
-    for (const endpoint of this.OVERPASS_SPEED_ENDPOINTS) {
-      try {
-        const url = `${endpoint}?data=${encodeURIComponent(query)}`;
-        const response = await fetch(url, {
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'RadarTinder/1.0',
-          },
-        });
-        if (!response.ok) continue;
-
-        const data = await response.json();
-        const elements = Array.isArray(data?.elements) ? data.elements : [];
-        let best: { speed: SpeedLimitResult; distanceKm: number } | null = null;
-        for (const element of elements) {
-          const parsed = this.parseMaxspeedValue(element?.tags?.maxspeed);
-          if (!parsed) continue;
-
-          const centerLat = Number(element?.center?.lat);
-          const centerLon = Number(element?.center?.lon);
-          const distanceKm =
-            Number.isFinite(centerLat) && Number.isFinite(centerLon)
-              ? this.distanceKm(latitude, longitude, centerLat, centerLon)
-              : 0;
-
-          if (!best || distanceKm < best.distanceKm) {
-            best = { speed: parsed, distanceKm };
-          }
-        }
-
-        if (best?.speed) {
-          return best.speed;
-        }
-      } catch {}
-    }
-
-    return null;
-  }
-
-  private static distanceKm(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ): number {
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    return 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   }
 }

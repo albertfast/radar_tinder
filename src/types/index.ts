@@ -37,6 +37,7 @@ export interface RadarLocation {
   latitude: number;
   longitude: number;
   type: 'fixed' | 'mobile' | 'red_light' | 'speed_camera' | 'police' | 'traffic_enforcement';
+  source?: 'community' | 'external_osm';
   direction?: string;
   speedLimit?: number;
   confidence: number;
