@@ -53,6 +53,44 @@ const resolvePackageDir = (pkg) => {
   }
 };
 
+const ensureNestedWarnOnceForMetro = () => {
+  // Metro under pnpm can fail to resolve warn-once when it only exists as a sibling
+  // in .pnpm/<pkg>/node_modules. Copying it into the package-local node_modules fixes resolution.
+  const warnOnceDir = resolvePackageDir('warn-once');
+  if (!warnOnceDir) {
+    console.warn('prepare-patches: could not resolve warn-once for Metro compatibility patch');
+    return;
+  }
+
+  const consumers = ['react-native-screens', 'react-native-svg'];
+  consumers.forEach((consumer) => {
+    const consumerDir = resolvePackageDir(consumer);
+    if (!consumerDir) {
+      console.warn(`prepare-patches: could not resolve ${consumer} for warn-once patch`);
+      return;
+    }
+
+    const nestedWarnOnceDir = path.join(consumerDir, 'node_modules', 'warn-once');
+    const nestedWarnOncePkgJson = path.join(nestedWarnOnceDir, 'package.json');
+    if (fs.existsSync(nestedWarnOncePkgJson)) {
+      return;
+    }
+
+    try {
+      fs.rmSync(nestedWarnOnceDir, { recursive: true, force: true });
+      fs.mkdirSync(path.dirname(nestedWarnOnceDir), { recursive: true });
+      fs.cpSync(warnOnceDir, nestedWarnOnceDir, { recursive: true });
+      console.log(
+        `Patched ${consumer}: copied warn-once into package-local node_modules for Metro compatibility`
+      );
+    } catch (error) {
+      console.warn(
+        `prepare-patches: failed to patch ${consumer} with warn-once: ${error.message}`
+      );
+    }
+  });
+};
+
 const parseSemver = (version) => {
   const match = String(version || '').match(/^(\d+)\.(\d+)\.(\d+)/);
   if (!match) {
@@ -1516,6 +1554,7 @@ for (const pkg of packages) {
   }
 }
 
+ensureNestedWarnOnceForMetro();
 patchReactNativeMapsForXcode26();
 patchReactNativeForXcode26();
 patchExpoModulesCoreForRN81();

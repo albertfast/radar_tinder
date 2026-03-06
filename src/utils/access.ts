@@ -1,4 +1,4 @@
-import type { User } from '../types';
+import type { AccessBootstrapState, User } from '../types';
 
 const DEFAULT_ADMIN_EMAILS = ['ahmetsahinersf@gmail.com'];
 
@@ -29,6 +29,13 @@ export const hasProAccess = (user?: User | null) =>
   user?.subscriptionType === 'pro' ||
   user?.subscriptionType === 'premium' ||
   isAdminUser(user);
+
+export const isPremiumAccessPending = (
+  user?: User | null,
+  accessBootstrapState?: AccessBootstrapState
+) =>
+  !hasProAccess(user) &&
+  (accessBootstrapState === 'idle' || accessBootstrapState === 'resolving');
 
 export const isAdFreeLimited = (user?: User | null) =>
   !isAdminUser(user) &&

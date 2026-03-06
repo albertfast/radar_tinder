@@ -20,6 +20,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
 import { HapticPatterns } from '../utils/hapticFeedback';
 import { SupabaseService } from '../services/SupabaseService';
+import { ProfileMediaService } from '../services/ProfileMediaService';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appVersion, nativeBuildVersion } from '../utils/buildInfo';
@@ -87,6 +88,7 @@ const ProfileScreen = ({ navigation }: any) => {
   const [username, setUsername] = useState(user?.username || user?.name || '');
   const [adminEntryUnlocked, setAdminEntryUnlocked] = useState(false);
   const [versionTapCount, setVersionTapCount] = useState(0);
+  const [uploadingMediaType, setUploadingMediaType] = useState<'profile' | 'car' | null>(null);
   
   // Local state for editing
   const [carBrand, setCarBrand] = useState(user?.carDetails?.brand || '');
@@ -109,8 +111,49 @@ const ProfileScreen = ({ navigation }: any) => {
       quality: 1,
     });
 
-    if (!result.canceled) {
-      updateUser(type === 'profile' ? { profileImage: result.assets[0].uri } : { carImage: result.assets[0].uri });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    const sourceUri = result.assets[0].uri;
+    if (!user?.id) {
+      updateUser(
+        type === 'profile'
+          ? { avatarUrl: sourceUri, profileImage: sourceUri }
+          : { carImage: sourceUri }
+      );
+      return;
+    }
+
+    setUploadingMediaType(type);
+    try {
+      const media = await ProfileMediaService.saveMedia({
+        userId: user.id,
+        type,
+        sourceUri,
+      });
+      const persistedUri = media.remoteUrl || media.localUri;
+
+      const updatedProfile = await SupabaseService.updateProfile(
+        user.id,
+        type === 'profile'
+          ? { avatar_url: persistedUri }
+          : { car_image_url: persistedUri }
+      );
+
+      const syncedUri =
+        type === 'profile'
+          ? updatedProfile?.avatar_url || persistedUri
+          : updatedProfile?.car_image_url || persistedUri;
+
+      updateUser(
+        type === 'profile'
+          ? { avatarUrl: syncedUri, profileImage: syncedUri }
+          : { carImage: syncedUri }
+      );
+    } catch (error) {
+      console.error('Profile media save failed:', error);
+      Alert.alert('Upload failed', 'Could not save this image right now. Please try again.');
+    } finally {
+      setUploadingMediaType(null);
     }
   };
 
@@ -237,7 +280,12 @@ const ProfileScreen = ({ navigation }: any) => {
                     </View>
                  )}
               </LinearGradient>
-              <View style={styles.editBadge}>
+              <View
+                style={[
+                  styles.editBadge,
+                  uploadingMediaType === 'profile' && styles.editBadgeBusy,
+                ]}
+              >
                  <MaterialCommunityIcons name="camera" size={12} color="white" />
               </View>
             </TouchableOpacity>
@@ -344,6 +392,14 @@ const ProfileScreen = ({ navigation }: any) => {
                             <Text style={styles.addPhotoText}>Add Vehicle Photo</Text>
                         </LinearGradient>
                     )}
+                    <View
+                      style={[
+                        styles.carImageBadge,
+                        uploadingMediaType === 'car' && styles.editBadgeBusy,
+                      ]}
+                    >
+                      <MaterialCommunityIcons name="camera" size={14} color="#fff" />
+                    </View>
                  </TouchableOpacity>
                  
                  <View style={styles.garageDetails}>
@@ -454,6 +510,7 @@ const styles = StyleSheet.create({
   avatarRing: { width: 110, height: 110, borderRadius: 55, padding: 3, justifyContent: 'center', alignItems: 'center' },
   avatarImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: '#020617' },
   editBadge: { position: 'absolute', bottom: 5, right: 5, backgroundColor: '#2563EB', padding: 6, borderRadius: 15, borderWidth: 2, borderColor: '#020617' },
+  editBadgeBusy: { backgroundColor: '#0284C7' },
   
   userName: { color: 'white', fontSize: 28, fontWeight: 'bold' },
   levelBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 215, 0, 0.1)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, marginTop: 8, borderWidth: 1, borderColor: 'rgba(255, 215, 0, 0.3)' },
@@ -483,6 +540,19 @@ const styles = StyleSheet.create({
   garageGradient: { padding: 4 },
   carImageWrapper: { height: 180, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden', backgroundColor: '#0F172A' },
   carImage: { width: '100%', height: '100%' },
+  carImageBadge: {
+    position: 'absolute',
+    right: 14,
+    bottom: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+  },
   carPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   addPhotoText: { color: '#64748B', marginTop: 10, fontWeight: '600' },
   

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { modernMapStyle } from '../utils/modernMapStyle';
 import { getResponsiveWidth } from '../constants/layout';
 import { RadarService } from '../services/RadarService';
@@ -109,13 +110,56 @@ const distanceKm = (aLat: number, aLon: number, bLat: number, bLon: number): num
   return 6371 * (2 * Math.atan2(Math.sqrt(arc), Math.sqrt(1 - arc)));
 };
 
-const getRadarPinColor = (type: string | undefined): string => {
-  if (type === 'police') return '#FF7043';
-  if (type === 'red_light') return '#FF5252';
-  if (type === 'fixed' || type === 'speed_camera') return '#F44336';
-  if (type === 'traffic_enforcement') return '#EF5350';
-  if (type === 'mobile') return '#FB8C00';
-  return '#F44336';
+const getRadarMarkerKind = (type: string | undefined, markerKind?: string) => {
+  if (markerKind) return markerKind;
+  if (type === 'red_light') return 'red_light';
+  if (type === 'police') return 'police';
+  if (type === 'mobile') return 'mobile';
+  if (type === 'traffic_enforcement') return 'traffic_enforcement';
+  return 'camera';
+};
+
+const getRadarMarkerConfig = (type: string | undefined, markerKind?: string) => {
+  const kind = getRadarMarkerKind(type, markerKind);
+
+  if (kind === 'red_light') {
+    return {
+      icon: 'traffic-light-outline' as const,
+      backgroundColor: '#3A0910',
+      borderColor: '#FF5B5B',
+      iconColor: '#FFE8E8',
+    };
+  }
+  if (kind === 'police') {
+    return {
+      icon: 'police-badge' as const,
+      backgroundColor: '#0E2748',
+      borderColor: '#60A5FA',
+      iconColor: '#E0F2FE',
+    };
+  }
+  if (kind === 'mobile') {
+    return {
+      icon: 'car-outline' as const,
+      backgroundColor: '#3B1D07',
+      borderColor: '#F59E0B',
+      iconColor: '#FEF3C7',
+    };
+  }
+  if (kind === 'traffic_enforcement') {
+    return {
+      icon: 'shield-alert' as const,
+      backgroundColor: '#3A0D17',
+      borderColor: '#FB7185',
+      iconColor: '#FFE4E6',
+    };
+  }
+  return {
+    icon: 'cctv' as const,
+    backgroundColor: '#3A0F0A',
+    borderColor: '#FF7849',
+    iconColor: '#FFF4EE',
+  };
 };
 
 const getRadarTitle = (type: string | undefined): string => {
@@ -127,23 +171,40 @@ const getRadarTitle = (type: string | undefined): string => {
   return 'Speed Camera';
 };
 
-// Google native marker to avoid oversized custom icons at low zoom.
-const OptimizedMarker = React.memo(({ coordinate, type, speedLimit, onPress }: any) => {
+const RadarMarker = React.memo(({ coordinate, radar, onPress }: any) => {
+  const type = radar?.type;
+  const markerConfig = getRadarMarkerConfig(type, radar?.markerKind);
   const title = getRadarTitle(type);
   const description =
-    type === 'fixed' && Number.isFinite(Number(speedLimit))
-      ? `Speed limit ${Number(speedLimit)}`
+    type === 'fixed' && Number.isFinite(Number(radar?.speedLimit))
+      ? `Speed limit ${Number(radar.speedLimit)}`
       : undefined;
 
   return (
     <Marker
       coordinate={coordinate}
       tracksViewChanges={false}
-      pinColor={getRadarPinColor(type)}
       title={title}
       description={description}
       onPress={onPress}
-    />
+      anchor={{ x: 0.5, y: 0.5 }}
+    >
+      <View
+        style={[
+          styles.radarMarker,
+          {
+            backgroundColor: markerConfig.backgroundColor,
+            borderColor: markerConfig.borderColor,
+          },
+        ]}
+      >
+        <MaterialCommunityIcons
+          name={markerConfig.icon}
+          size={14}
+          color={markerConfig.iconColor}
+        />
+      </View>
+    </Marker>
   );
 });
 
@@ -328,20 +389,23 @@ const RadarMap = React.memo(({
         <Marker
           key="route-destination"
           coordinate={finalDestination}
-          pinColor="#4ECDC4"
           title="Destination"
           tracksViewChanges={false}
-        />
+          anchor={{ x: 0.5, y: 0.9 }}
+        >
+          <View style={styles.destinationMarker}>
+            <MaterialCommunityIcons name="flag-checkered" size={16} color="#0B1424" />
+          </View>
+        </Marker>
       );
     }
 
     selectedRadarEntries.rendered.forEach(({ key, radar, coordinate }) => {
       children.push(
-        <OptimizedMarker
+        <RadarMarker
           key={key}
           coordinate={coordinate}
-          type={radar?.type}
-          speedLimit={radar?.speedLimit}
+          radar={radar}
           onPress={() => onRadarPressRef.current?.(radar)}
         />
       );
@@ -415,7 +479,7 @@ const RadarMap = React.memo(({
       showsIndoorLevelPicker={false}
       mapPadding={padding}
       pitchEnabled={false}
-      rotateEnabled={false}
+      rotateEnabled={mapInteractionEnabled}
       zoomEnabled={mapInteractionEnabled}
       scrollEnabled={mapInteractionEnabled}
       toolbarEnabled={false}
@@ -458,6 +522,35 @@ const RadarMap = React.memo(({
   );
 });
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  radarMarker: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.24,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  destinationMarker: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4ECDC4',
+    borderWidth: 1.5,
+    borderColor: '#D9FFFB',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+});
 
 export default RadarMap;

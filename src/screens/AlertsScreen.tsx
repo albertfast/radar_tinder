@@ -22,26 +22,9 @@ import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
 import { HapticPatterns } from '../utils/hapticFeedback';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
+import { formatRadarTimingText, formatRadarTypeLabel } from '../utils/radarAlerts';
 
 const allowLayoutAnimations = Platform.OS !== 'android';
-
-const formatAlertType = (type?: RadarAlert['type']) => {
-  switch (type) {
-    case 'red_light':
-      return 'Red Light Camera';
-    case 'fixed':
-      return 'Fixed Camera';
-    case 'mobile':
-      return 'Mobile Radar';
-    case 'police':
-      return 'Police';
-    case 'traffic_enforcement':
-      return 'Traffic Enforcement';
-    case 'speed_camera':
-    default:
-      return 'Speed Camera';
-  }
-};
 
 const AlertCard3D = ({
   alert,
@@ -71,11 +54,8 @@ const AlertCard3D = ({
   }));
 
   const distanceLabel = formatDistance(alert.distance, unitSystem);
-  const etaMinutes = Number.isFinite(alert.estimatedTime)
-    ? Math.max(1, Math.round(alert.estimatedTime * 60))
-    : null;
   const timeLabel = alert.createdAt instanceof Date ? alert.createdAt.toLocaleTimeString() : '';
-  const label = formatAlertType(alert.type);
+  const label = formatRadarTypeLabel(alert.type);
   const severityColor = alert.severity === 'high' ? '#FF5252' : '#4ECDC4';
 
   return (
@@ -105,10 +85,7 @@ const AlertCard3D = ({
             <View style={styles.alertFooter}>
               <View style={styles.metaItem}>
                 <MaterialCommunityIcons name="clock-outline" size={14} color="#666" />
-                <Text style={styles.alertMeta}>
-                  {' '}
-                  ETA: {etaMinutes ? `${etaMinutes} min` : '--'}
-                </Text>
+                <Text style={styles.alertMeta}> {formatRadarTimingText(alert)}</Text>
               </View>
               <Text style={styles.alertMeta}>{timeLabel}</Text>
             </View>
@@ -219,7 +196,7 @@ const AlertsScreen = ({ navigation }: any) => {
                   />
                 </View>
                 <View style={styles.historyContent}>
-                  <Text style={styles.historyTitle}>{formatAlertType(alert.type)}</Text>
+                  <Text style={styles.historyTitle}>{formatRadarTypeLabel(alert.type)}</Text>
                   <Text style={styles.historySubtitle}>
                     {formatDistance(alert.distance, unitSystem)} • {alert.createdAt.toLocaleString()}
                   </Text>

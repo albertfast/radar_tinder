@@ -14,6 +14,7 @@ import { useSpeedSmoothing } from './useSpeedSmoothing';
 import { MAP_TRACE_ENABLED, ROUTE_RELEVANCE_V2_ENABLED } from '../constants';
 import { TabType } from '../types';
 import { extractShortStreetLabel, formatRadarLabel } from '../utils/radarFormatters';
+import { formatRadarAnnouncementTiming, getRadarShortLocation } from '../../../utils/radarAlerts';
 
 type UseRadarDataSyncParams = {
   currentLocation: any;
@@ -111,6 +112,7 @@ export function useRadarDataSync({
   unitSystem,
   setRadarLocations,
 }: UseRadarDataSyncParams) {
+  const routeCoords = useRadarStore((state) => state.routeGuidancePath);
   const [nearbyRadars, setNearbyRadars] = useState<any[]>([]);
   const [closestRadarHint, setClosestRadarHint] = useState('');
   const [radarLocationHints, setRadarLocationHints] = useState<Record<string, string>>({});
@@ -311,12 +313,11 @@ export function useRadarDataSync({
       if (!liveVoiceEnabled) {
         return;
       }
-      const etaMinutes = Math.max(1, Math.round(activeAlert.estimatedTime * 60));
       const distanceText = formatDistance(activeAlert.distance, unitSystem);
-      const locationSuffix = activeAlert.locationLabel
-        ? ` near ${activeAlert.locationLabel.split(',').slice(0, 2).join(', ')}`
-        : '';
-      const message = `${formatRadarLabel(activeAlert.type)} ahead${locationSuffix}. ${distanceText}. Estimated ${etaMinutes} minutes.`;
+      const shortLocation = getRadarShortLocation(activeAlert.locationLabel);
+      const locationSuffix = shortLocation ? ` near ${shortLocation}` : '';
+      const timingText = formatRadarAnnouncementTiming(activeAlert);
+      const message = `${formatRadarLabel(activeAlert.type)} ahead${locationSuffix}. ${distanceText}. ${timingText}.`;
       VoiceGuidanceService.speak(message, {
         cooldownKey: `active_alert:${activeAlert.id}`,
         cooldownMs: 6000,
@@ -432,6 +433,10 @@ export function useRadarDataSync({
           location.longitude !== currentLocationRef.current.longitude)
       ) {
         const previousHeadingLocation = previousHeadingLocationRef.current;
+        const sampleSpeedKph =
+          typeof location.speed === 'number' && Number.isFinite(location.speed) && location.speed >= 0
+            ? location.speed * 3.6
+            : Math.max(0, currentSpeedRef.current || 0);
         const headingFromSensor =
           typeof location.heading === 'number' && Number.isFinite(location.heading)
             ? normalizeHeading(location.heading)
@@ -453,7 +458,19 @@ export function useRadarDataSync({
                 location.longitude
               )
             : null;
-        const resolvedHeading = headingFromSensor ?? bearingHeading ?? lastValidHeadingRef.current;
+        const routeHeading =
+          routeCoords.length > 1
+            ? LocationService.calculateRouteBearing(
+                location.latitude,
+                location.longitude,
+                routeCoords
+              )
+            : null;
+        const motionHeading = headingFromSensor ?? bearingHeading;
+        const resolvedHeading =
+          sampleSpeedKph >= 12 && motionHeading !== null
+            ? motionHeading
+            : routeHeading ?? motionHeading ?? lastValidHeadingRef.current;
         lastValidHeadingRef.current = normalizeHeading(resolvedHeading);
         previousHeadingLocationRef.current = {
           latitude: location.latitude,
@@ -461,10 +478,6 @@ export function useRadarDataSync({
         };
 
         const previousSmoothed = smoothedLocationRef.current;
-        const sampleSpeedKph =
-          typeof location.speed === 'number' && Number.isFinite(location.speed) && location.speed >= 0
-            ? location.speed * 3.6
-            : Math.max(0, currentSpeedRef.current || 0);
         let smoothedLatitude = location.latitude;
         let smoothedLongitude = location.longitude;
         if (previousSmoothed) {
@@ -579,7 +592,7 @@ export function useRadarDataSync({
                   longitude: followCenter.longitude,
                 },
                 pitch: 0,
-                heading: 0,
+                heading: followHeading ? currentHeading : 0,
                 zoom: 18.85,
               },
               { duration: animationDuration }
@@ -613,12 +626,25 @@ export function useRadarDataSync({
     isTypingRef,
     mapRef,
     pushLocationSample,
+    routeCoords,
   ]);
 
   useEffect(() => {
     if (currentLocation && mapRef.current && !hasCenteredMapRef.current) {
+      const routeHeading =
+        followHeading && routeCoords.length > 1
+          ? LocationService.calculateRouteBearing(
+              currentLocation.latitude,
+              currentLocation.longitude,
+              routeCoords
+            )
+          : null;
       const initialBearing =
-        followHeading && typeof currentLocation.heading === 'number' && Number.isFinite(currentLocation.heading)
+        followHeading && typeof routeHeading === 'number'
+          ? routeHeading
+          : followHeading &&
+              typeof currentLocation.heading === 'number' &&
+              Number.isFinite(currentLocation.heading)
           ? currentLocation.heading
           : 0;
       const initialCenter = followHeading
@@ -629,7 +655,7 @@ export function useRadarDataSync({
           center: initialCenter,
           zoom: 18.7,
           pitch: 0,
-          heading: 0,
+          heading: followHeading ? normalizeHeading(initialBearing) : 0,
         },
         { duration: 340 }
       );
@@ -640,7 +666,7 @@ export function useRadarDataSync({
       lastCameraUpdateRef.current = Date.now();
       hasCenteredMapRef.current = true;
     }
-  }, [currentLocation, followHeading, hasCenteredMapRef, mapRef]);
+  }, [currentLocation, followHeading, hasCenteredMapRef, mapRef, routeCoords]);
 
   useEffect(() => {
     const fetchNearby = async () => {

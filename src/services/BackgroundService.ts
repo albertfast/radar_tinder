@@ -15,6 +15,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { RadarLocation } from '../types';
 import { hasProAccess } from '../utils/access';
 import { readBooleanFlag } from '../utils/flags';
+import { describeRadarApproachByDistance } from '../utils/radarAlerts';
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
 
@@ -690,6 +691,7 @@ export class BackgroundService {
       for (const radar of nearbyRadars) {
         if (radar?.id) radarById.set(radar.id, radar);
       }
+      const etaConfidence = speedFromSensorKph != null ? 'high' : inferredSpeedKph != null ? 'medium' : 'low';
 
       const alerts = [];
       for (const radar of nearbyRadars) {
@@ -737,6 +739,9 @@ export class BackgroundService {
             type: radar.type,
             distance,
             estimatedTime: relevance.etaSeconds / 60,
+            etaConfidence,
+            approachLabel: describeRadarApproachByDistance(distance),
+            markerKind: radar.markerKind,
             severity: distance < threshold / 2 ? 'high' : distance < threshold * 0.8 ? 'medium' : 'low',
             routeMatched: relevance.routeMatched,
             corridorDistanceMeters: relevance.corridorDistanceMeters,

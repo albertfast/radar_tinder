@@ -5,6 +5,7 @@ import { RadarAlert } from '../types';
 import { useSettingsStore } from '../store/settingsStore';
 import { VoiceGuidanceService } from './VoiceGuidanceService';
 import { formatDistance } from '../utils/format';
+import { formatRadarTimingText, formatRadarTypeLabel, getRadarShortLocation } from '../utils/radarAlerts';
 
 type RadarAlertOptions = {
   playSound?: boolean;
@@ -129,28 +130,18 @@ export class NotificationService {
         options?.channelId ||
         (playSound ? CHANNEL_SOUND : vibrate ? CHANNEL_VIBRATE : CHANNEL_SILENT);
 
-      const radarLabel = (() => {
-        const type = String(alert.type || '');
-        if (type === 'speed_camera' || type === 'fixed') return 'Speed Camera';
-        if (type === 'police' || type === 'mobile' || type === 'traffic_enforcement') return 'Speed Trap';
-        if (type === 'red_light') return 'Red Light Camera';
-        return 'Radar';
-      })();
+      const radarLabel = formatRadarTypeLabel(alert.type);
 
       const title = `${radarLabel} Ahead`;
       const hasDistance = Number.isFinite(alert.distance);
-      const hasEta = Number.isFinite(alert.estimatedTime);
       const locationSource = locationName || alert.locationLabel;
-      const shortLocation = locationSource
-        ? locationSource.split(',').slice(0, 2).join(', ')
-        : '';
+      const shortLocation = getRadarShortLocation(locationSource);
 
       let body = shortLocation ? `${radarLabel} near ${shortLocation}.` : `${radarLabel} detected.`;
 
       if (hasDistance) {
-        const etaPart = hasEta ? ` ETA: ${alert.estimatedTime.toFixed(1)} min` : '';
         const locationPart = shortLocation ? ` near ${shortLocation}` : '';
-        body = `${radarLabel} ${formatDistance(alert.distance, settings.unitSystem)} ahead${locationPart}.${etaPart}`;
+        body = `${radarLabel} ${formatDistance(alert.distance, settings.unitSystem)} ahead${locationPart}. ${formatRadarTimingText(alert)}`;
       }
 
       await Notifications.scheduleNotificationAsync({

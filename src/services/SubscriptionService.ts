@@ -107,6 +107,7 @@ export class SubscriptionService {
   private static lastCustomerInfoSignature = '';
   private static invalidCredentialsDisabled = false;
   private static loggedInvalidCredentials = false;
+  private static currentRevenueCatUserId: string | null = null;
 
   private static hasValidConfig(): boolean {
     if (!REVENUECAT_API_KEY || REVENUECAT_API_KEY.includes('placeholder')) {
@@ -152,17 +153,38 @@ export class SubscriptionService {
 
   private static async hydrateFromSnapshotIfAvailable(): Promise<boolean> {
     const authState = useAuthStore.getState();
-    if (!authState.user?.id) return false;
+    const restoredLocalSnapshot = authState.restoreLastKnownEntitlement();
+    if (!authState.user?.id) return restoredLocalSnapshot;
     const snapshot = await SupabaseService.getSubscriptionSnapshot(authState.user.id);
-    if (!snapshot) return false;
-    authState.updateUser({
+    if (!snapshot) return restoredLocalSnapshot;
+    authState.applyEntitlementSnapshot({
+      userId: authState.user.id,
       subscriptionType: snapshot.subscriptionType,
       adsRemoved: snapshot.adsRemoved,
       subscriptionExpiresAt: parseOptionalDate(snapshot.subscriptionExpiresAt || undefined),
       accountLinkRequiredUntil: parseOptionalDate(snapshot.accountLinkRequiredUntil || undefined),
       rcCustomerId: snapshot.rcCustomerId || undefined,
+      syncedAt: new Date(),
     });
     return true;
+  }
+
+  private static async ensureRevenueCatUserIdentity(explicitUserId?: string): Promise<void> {
+    const bindings = getPurchasesBindings();
+    if (!bindings?.Purchases || typeof bindings.Purchases.logIn !== 'function') return;
+
+    const authUserId = explicitUserId || useAuthStore.getState().user?.id || null;
+    if (!authUserId) {
+      this.currentRevenueCatUserId = null;
+      return;
+    }
+    if (this.currentRevenueCatUserId === authUserId) return;
+
+    const loginResult = await bindings.Purchases.logIn(authUserId);
+    this.currentRevenueCatUserId = authUserId;
+    if (loginResult?.customerInfo) {
+      await this.updateUserSubscriptionStatus(loginResult.customerInfo, 'identity_login');
+    }
   }
 
   private static hasEntitlement(customerInfo: CustomerInfo, entitlementId: string): boolean {
@@ -249,12 +271,10 @@ export class SubscriptionService {
           apiKey: REVENUECAT_API_KEY,
           ...(user?.id ? { appUserID: user.id } : {}),
         });
+        this.currentRevenueCatUserId = null;
 
         if (user?.id) {
-          const loginResult = await bindings.Purchases.logIn(user.id);
-          if (loginResult?.customerInfo) {
-            await this.updateUserSubscriptionStatus(loginResult.customerInfo, 'init_login');
-          }
+          await this.ensureRevenueCatUserIdentity(user.id);
         } else {
           const customerInfo = await bindings.Purchases.getCustomerInfo();
           if (customerInfo) {
@@ -317,6 +337,7 @@ export class SubscriptionService {
       const bindings = getPurchasesBindings();
       if (!bindings?.Purchases) return false;
 
+      await this.ensureRevenueCatUserIdentity();
       const customerInfo = await bindings.Purchases.getCustomerInfo();
       if (!customerInfo) return false;
       await this.updateUserSubscriptionStatus(customerInfo, 'sync');
@@ -348,6 +369,7 @@ export class SubscriptionService {
       const bindings = getPurchasesBindings();
       if (!bindings?.Purchases) return null;
 
+      await this.ensureRevenueCatUserIdentity();
       const offerings = await bindings.Purchases.getOfferings();
       return offerings.current;
     } catch (error) {
@@ -370,6 +392,7 @@ export class SubscriptionService {
       const bindings = getPurchasesBindings();
       if (!bindings?.Purchases) return false;
 
+      await this.ensureRevenueCatUserIdentity();
       const { customerInfo } = await bindings.Purchases.purchasePackage(pack);
       await this.updateUserSubscriptionStatus(customerInfo, 'purchase');
 
@@ -406,6 +429,7 @@ export class SubscriptionService {
       const bindings = getPurchasesBindings();
       if (!bindings?.Purchases) return false;
 
+      await this.ensureRevenueCatUserIdentity();
       const customerInfo = await bindings.Purchases.restorePurchases();
       await this.updateUserSubscriptionStatus(customerInfo, 'restore');
       return true;
@@ -436,6 +460,7 @@ export class SubscriptionService {
         return 'unavailable';
       }
 
+      await this.ensureRevenueCatUserIdentity();
       const paywallResult = await uiBindings.RevenueCatUI.presentPaywall();
       const knownResultEntries = Object.entries(uiBindings.PAYWALL_RESULT || {});
       const matchedResultName =
@@ -484,7 +509,8 @@ export class SubscriptionService {
     }
     this.lastCustomerInfoSignature = signature;
 
-    const { updateUser, user } = useAuthStore.getState();
+    const authState = useAuthStore.getState();
+    const { user } = authState;
 
     const isPro = this.hasEntitlement(customerInfo, RC_ENTITLEMENT_PRO);
     const hasRemoveAds = this.hasEntitlement(customerInfo, RC_ENTITLEMENT_REMOVE_ADS);
@@ -505,13 +531,17 @@ export class SubscriptionService {
           : new Date(Date.now() + ACCOUNT_LINK_GRACE_HOURS * 60 * 60 * 1000)
         : undefined;
 
-    updateUser({
-      subscriptionType,
-      adsRemoved,
-      subscriptionExpiresAt,
-      accountLinkRequiredUntil: computedLinkDeadline,
-      rcCustomerId,
-    });
+    if (user?.id) {
+      authState.applyEntitlementSnapshot({
+        userId: user.id,
+        subscriptionType,
+        adsRemoved,
+        subscriptionExpiresAt,
+        accountLinkRequiredUntil: computedLinkDeadline,
+        rcCustomerId,
+        syncedAt: new Date(),
+      });
+    }
 
     if (user?.id) {
       try {
@@ -551,12 +581,7 @@ export class SubscriptionService {
       }
       if (this.invalidCredentialsDisabled) return;
       if (!this.isInitialized || !this.hasValidConfig()) return;
-      const bindings = getPurchasesBindings();
-      if (!bindings?.Purchases) return;
-      const loginResult = await bindings.Purchases.logIn(userId);
-      if (loginResult?.customerInfo) {
-        await this.updateUserSubscriptionStatus(loginResult.customerInfo, 'set_user_id');
-      }
+      await this.ensureRevenueCatUserIdentity(userId);
       await this.syncAccessState();
     } catch (error) {
       if (this.isInvalidCredentialsError(error)) {
@@ -572,6 +597,7 @@ export class SubscriptionService {
       const bindings = getPurchasesBindings();
       if (!bindings?.Purchases || typeof bindings.Purchases.logOut !== 'function') return;
       await bindings.Purchases.logOut();
+      this.currentRevenueCatUserId = null;
       this.lastCustomerInfoSignature = '';
       useAuthStore.getState().updateUser({
         subscriptionType: 'free',

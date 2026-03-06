@@ -357,13 +357,6 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, [driving.isDriving]);
 
   useEffect(() => {
-    if (navigationState.routeCoords.length < 2) return;
-    // New or updated route should restore follow mode automatically.
-    setFollowHeading(true);
-    setManualPanMode(false);
-  }, [navigationState.routeCoords.length]);
-
-  useEffect(() => {
     if (driving.isDriving) return;
     const interval = setInterval(() => {
       const next = (proSliderIndex + 1) % PRO_FEATURES.length;
@@ -446,44 +439,22 @@ const RadarScreen = ({ navigation, route }: any) => {
     }
     if (!mapRef.current) return;
 
-    const hasLiveHeading =
-      typeof dataSync.resolvedHeading === 'number' && Number.isFinite(dataSync.resolvedHeading)
-        ? true
-        : typeof location.heading === 'number' && Number.isFinite(location.heading);
-    let headingForCenter =
-      typeof dataSync.resolvedHeading === 'number' && Number.isFinite(dataSync.resolvedHeading)
-        ? dataSync.resolvedHeading
-        : typeof location.heading === 'number' && Number.isFinite(location.heading)
-          ? location.heading
-          : 0;
-
-    if (navigationState.routeCoords.length > 1 && !hasLiveHeading) {
-      let closestIndex = 0;
-      let minDistanceKm = Number.POSITIVE_INFINITY;
-      for (let index = 0; index < navigationState.routeCoords.length; index += 1) {
-        const coord = navigationState.routeCoords[index];
-        const distanceKm = LocationService.calculateDistanceSync(
-          location.latitude,
-          location.longitude,
-          coord.latitude,
-          coord.longitude
-        );
-        if (distanceKm < minDistanceKm) {
-          minDistanceKm = distanceKm;
-          closestIndex = index;
-        }
-      }
-      const nextIndex = Math.min(navigationState.routeCoords.length - 1, closestIndex + 1);
-      if (nextIndex !== closestIndex) {
-        const nextCoord = navigationState.routeCoords[nextIndex];
-        headingForCenter = LocationService.calculateBearing(
-          location.latitude,
-          location.longitude,
-          nextCoord.latitude,
-          nextCoord.longitude
-        );
-      }
-    }
+    const routeHeading =
+      navigationState.routeCoords.length > 1
+        ? LocationService.calculateRouteBearing(
+            location.latitude,
+            location.longitude,
+            navigationState.routeCoords
+          )
+        : null;
+    const headingForCenter =
+      typeof routeHeading === 'number'
+        ? routeHeading
+        : typeof dataSync.resolvedHeading === 'number' && Number.isFinite(dataSync.resolvedHeading)
+          ? dataSync.resolvedHeading
+          : typeof location.heading === 'number' && Number.isFinite(location.heading)
+            ? location.heading
+            : 0;
 
     const lookAheadMeters = navigationState.routeCoords.length > 1 ? 34 : 22;
     const followCenter = projectForwardCoordinate(
@@ -495,6 +466,7 @@ const RadarScreen = ({ navigation, route }: any) => {
 
     setManualPanMode(false);
     setFollowHeading(true);
+    const normalizedHeading = ((headingForCenter % 360) + 360) % 360;
     mapRef.current.animateCamera(
       {
         center: {
@@ -502,12 +474,22 @@ const RadarScreen = ({ navigation, route }: any) => {
           longitude: followCenter.longitude,
         },
         zoom: 18.9,
-        heading: 0,
+        heading: normalizedHeading,
         pitch: 0,
       },
       { duration: 320 }
     );
   }, [dataSync.currentLocation, dataSync.resolvedHeading, navigationState.routeCoords, setCurrentLocation]);
+
+  useEffect(() => {
+    if (navigationState.routeCoords.length < 2) return;
+    // New or updated route should restore follow mode automatically.
+    setFollowHeading(true);
+    setManualPanMode(false);
+    setTimeout(() => {
+      centerMap().catch(() => {});
+    }, 0);
+  }, [centerMap, navigationState.routeCoords]);
 
   const centerRoute = useCallback(() => {
     if (!mapRef.current) return;
@@ -516,6 +498,18 @@ const RadarScreen = ({ navigation, route }: any) => {
       setManualPanMode(false);
       // "Center Route" should stay in route-overview mode instead of snapping back to heading follow.
       setFollowHeading(false);
+      const overviewAnchor = dataSync.currentLocation || routeCoordsForMap[0];
+      try {
+        mapRef.current.setCamera?.({
+          center: {
+            latitude: overviewAnchor.latitude,
+            longitude: overviewAnchor.longitude,
+          },
+          heading: 0,
+          pitch: 0,
+          zoom: 15,
+        });
+      } catch {}
       let focusCoords = downsampleRouteCoordinates(routeCoordsForMap, 180);
       const currentLoc = dataSync.currentLocation;
       if (currentLoc?.latitude != null && currentLoc?.longitude != null) {

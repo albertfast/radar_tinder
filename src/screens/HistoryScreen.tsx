@@ -8,15 +8,17 @@ import { SupabaseService } from '../services/SupabaseService';
 import { useAuthStore } from '../store/authStore';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
-import { hasProAccess } from '../utils/access';
+import { hasProAccess, isPremiumAccessPending } from '../utils/access';
 import ProGate from '../components/ProGate';
 import { useSettingsStore } from '../store/settingsStore';
 import { formatDistance } from '../utils/format';
+import { AccessBootstrapView } from '../components/AccessBootstrapView';
 
 const HistoryScreen = ({ navigation }: any) => {
-  const { user } = useAuthStore();
+  const { user, accessBootstrapState } = useAuthStore();
   const unitSystem = useSettingsStore((state) => state.unitSystem);
   const canUse = hasProAccess(user);
+  const accessPending = isPremiumAccessPending(user, accessBootstrapState);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [trips, setTrips] = useState<any[]>([]);
   const [pendingTripCount, setPendingTripCount] = useState(0);
@@ -54,6 +56,15 @@ const HistoryScreen = ({ navigation }: any) => {
       return () => {};
     }, [canUse, loadTrips])
   );
+
+  if (accessPending) {
+    return (
+      <AccessBootstrapView
+        title="Checking Pro access"
+        subtitle="Restoring trip history access for your active subscription."
+      />
+    );
+  }
 
   if (!canUse) {
     return (

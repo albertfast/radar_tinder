@@ -12,9 +12,10 @@ import { DatabaseService } from '../../services/DatabaseService';
 import { useRadarStore } from '../../store/radarStore';
 import { useAutoHideTabBar } from '../../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../../constants/layout';
-import { hasProAccess } from '../../utils/access';
+import { hasProAccess, isPremiumAccessPending } from '../../utils/access';
 import ProGate from '../../components/ProGate';
 import { RadarAnimation, type RadarRendererMode } from '../../components/RadarAnimation';
+import { AccessBootstrapView } from '../../components/AccessBootstrapView';
 
 interface RadarGraphicViewProps {
   totalDistance: number;
@@ -47,8 +48,9 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   radarDangerLevel,
 }) => {
   const { width } = useWindowDimensions();
-  const { user } = useAuthStore();
+  const { user, accessBootstrapState } = useAuthStore();
   const canUse = hasProAccess(user);
+  const accessPending = isPremiumAccessPending(user, accessBootstrapState);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [weeklyData, setWeeklyData] = useState(emptyWeeklyTrips);
@@ -64,7 +66,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
     if (canUse) {
       loadDrivingData();
     }
-  }, [user?.id]);
+  }, [canUse, user?.id]);
 
   useEffect(() => {
     if (drivingStartTime) {
@@ -268,6 +270,15 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
 
   const displayDistance = formatDistance(weeklyStats.totalDistance);
   const displayAvgSpeed = `${weeklyStats.avgSpeed} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`;
+
+  if (accessPending) {
+    return (
+      <AccessBootstrapView
+        title="Checking Pro access"
+        subtitle="Restoring graphs and trip analytics for your subscription."
+      />
+    );
+  }
 
   if (!canUse) {
     return (

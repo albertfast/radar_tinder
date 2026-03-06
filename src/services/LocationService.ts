@@ -195,8 +195,98 @@ export class LocationService {
     // Calculate progress as percentage of total route length
     const totalDistance = this.calculatePolylineLength(routeCoords);
     const traveledDistance = this.calculatePolylineLength(routeCoords.slice(0, closestIndex + 1));
-    
+
     return Math.min(100, Math.max(0, (traveledDistance / totalDistance) * 100));
+  }
+
+  static findClosestRouteIndex(
+    currentLat: number,
+    currentLng: number,
+    routeCoords: Array<{ latitude: number; longitude: number }>
+  ): number {
+    if (!routeCoords || routeCoords.length === 0) {
+      return 0;
+    }
+
+    let minDistance = Number.MAX_SAFE_INTEGER;
+    let closestIndex = 0;
+
+    for (let i = 0; i < routeCoords.length; i++) {
+      const point = routeCoords[i];
+      const distance = this.calculateDistanceSync(
+        currentLat,
+        currentLng,
+        point.latitude,
+        point.longitude
+      );
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = i;
+      }
+    }
+
+    return closestIndex;
+  }
+
+  static calculateRouteBearing(
+    currentLat: number,
+    currentLng: number,
+    routeCoords: Array<{ latitude: number; longitude: number }>
+  ): number | null {
+    if (!routeCoords || routeCoords.length < 2) {
+      return null;
+    }
+
+    const closestIndex = this.findClosestRouteIndex(currentLat, currentLng, routeCoords);
+    const nextIndex = Math.min(routeCoords.length - 1, closestIndex + 1);
+
+    if (nextIndex !== closestIndex) {
+      const nextPoint = routeCoords[nextIndex];
+      return this.calculateBearing(currentLat, currentLng, nextPoint.latitude, nextPoint.longitude);
+    }
+
+    if (closestIndex > 0) {
+      const previousPoint = routeCoords[closestIndex - 1];
+      const currentPoint = routeCoords[closestIndex];
+      return this.calculateBearing(
+        previousPoint.latitude,
+        previousPoint.longitude,
+        currentPoint.latitude,
+        currentPoint.longitude
+      );
+    }
+
+    return null;
+  }
+
+  static projectForwardCoordinate(
+    latitude: number,
+    longitude: number,
+    bearingDeg: number,
+    distanceMeters: number
+  ): { latitude: number; longitude: number } {
+    const earthRadiusMeters = 6378137;
+    const angularDistance = distanceMeters / earthRadiusMeters;
+    const bearingRad = (bearingDeg * Math.PI) / 180;
+    const latitudeRad = (latitude * Math.PI) / 180;
+    const longitudeRad = (longitude * Math.PI) / 180;
+
+    const projectedLatitude = Math.asin(
+      Math.sin(latitudeRad) * Math.cos(angularDistance) +
+        Math.cos(latitudeRad) * Math.sin(angularDistance) * Math.cos(bearingRad)
+    );
+    const projectedLongitude =
+      longitudeRad +
+      Math.atan2(
+        Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(latitudeRad),
+        Math.cos(angularDistance) - Math.sin(latitudeRad) * Math.sin(projectedLatitude)
+      );
+
+    return {
+      latitude: (projectedLatitude * 180) / Math.PI,
+      longitude: (projectedLongitude * 180) / Math.PI,
+    };
   }
 
   /**

@@ -166,6 +166,7 @@ create table if not exists public.profiles (
   display_name text,
   full_name text,
   avatar_url text,
+  car_image_url text,
   subscription_type text default 'free',
   ads_removed boolean default false,
   subscription_expires_at timestamptz,
@@ -185,6 +186,7 @@ alter table public.profiles add column if not exists username citext;
 alter table public.profiles add column if not exists display_name text;
 alter table public.profiles add column if not exists stats jsonb default jsonb_build_object('reports', 0, 'confirmations', 0, 'distanceDriven', 0);
 alter table public.profiles add column if not exists updated_at timestamptz default now();
+alter table public.profiles add column if not exists car_image_url text;
 alter table public.profiles add column if not exists subscription_type text default 'free';
 alter table public.profiles add column if not exists ads_removed boolean default false;
 alter table public.profiles add column if not exists subscription_expires_at timestamptz;
@@ -433,6 +435,51 @@ alter table public.report_confirmations enable row level security;
 alter table public.points_ledger enable row level security;
 alter table public.subscription_events enable row level security;
 alter table public.external_ingest_runs enable row level security;
+
+insert into storage.buckets (id, name, public)
+values ('profile-media', 'profile-media', true)
+on conflict (id) do update
+set public = excluded.public;
+
+drop policy if exists "profile_media_public_read" on storage.objects;
+create policy "profile_media_public_read"
+on storage.objects
+for select
+using (bucket_id = 'profile-media');
+
+drop policy if exists "profile_media_insert_own" on storage.objects;
+create policy "profile_media_insert_own"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'profile-media'
+  and split_part(name, '/', 1) = auth.uid()::text
+);
+
+drop policy if exists "profile_media_update_own" on storage.objects;
+create policy "profile_media_update_own"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'profile-media'
+  and split_part(name, '/', 1) = auth.uid()::text
+)
+with check (
+  bucket_id = 'profile-media'
+  and split_part(name, '/', 1) = auth.uid()::text
+);
+
+drop policy if exists "profile_media_delete_own" on storage.objects;
+create policy "profile_media_delete_own"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'profile-media'
+  and split_part(name, '/', 1) = auth.uid()::text
+);
 
 do $$
 begin
