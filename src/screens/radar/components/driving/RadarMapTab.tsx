@@ -280,7 +280,6 @@ export function RadarMapTab({
           radars={nearbyRadars}
           routeCoords={routeCoords}
           mapRef={mapRef}
-          showsUserLocation
           destinationPoint={destinationCoord}
           mapPadding={mapPadding}
           onRadarPress={onRadarPress}

@@ -1,15 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
-import { View, StyleSheet, Text, Platform } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { modernMapStyle } from '../utils/modernMapStyle';
-import { getResponsiveWidth, getResponsiveHeight, getResponsiveMargin, getResponsivePadding } from '../constants/layout';
+import { getResponsiveWidth } from '../constants/layout';
 import { RadarService } from '../services/RadarService';
-
-// SVG Components
-import MapMarkerSvg from '../../assets/mapmarker.svg';
-import SpeedCamSvg from '../../assets/speedcam.svg';
-import PoliceMarkerSvg from '../../assets/police-marker.svg';
-import DestinationFlagSvg from '../../assets/destination-flag.svg';
 
 const MAP_COORD_TRACE_ENABLED =
   __DEV__ || /^(1|true|yes)$/i.test(process.env.EXPO_PUBLIC_MAP_TRACE || '');
@@ -58,13 +52,6 @@ const toValidCoordinate = (value: any): LatLng | null => {
   }
 
   return { latitude, longitude };
-};
-
-const toNormalizedHeading = (value: any): number => {
-  const heading = Number(value);
-  if (!Number.isFinite(heading) || heading < 0) return 0;
-  const normalized = heading % 360;
-  return normalized >= 0 ? normalized : normalized + 360;
 };
 
 const toValidRegion = (value: any): MapRegion | null => {
@@ -122,46 +109,43 @@ const distanceKm = (aLat: number, aLon: number, bLat: number, bLon: number): num
   return 6371 * (2 * Math.atan2(Math.sqrt(arc), Math.sqrt(1 - arc)));
 };
 
-// Optimized Marker - SVG based
+const getRadarPinColor = (type: string | undefined): string => {
+  if (type === 'police') return '#FF7043';
+  if (type === 'red_light') return '#FF5252';
+  if (type === 'fixed' || type === 'speed_camera') return '#F44336';
+  if (type === 'traffic_enforcement') return '#EF5350';
+  if (type === 'mobile') return '#FB8C00';
+  return '#F44336';
+};
+
+const getRadarTitle = (type: string | undefined): string => {
+  if (type === 'police') return 'Police';
+  if (type === 'red_light') return 'Red Light Camera';
+  if (type === 'fixed') return 'Fixed Camera';
+  if (type === 'mobile') return 'Mobile Trap';
+  if (type === 'traffic_enforcement') return 'Traffic Enforcement';
+  return 'Speed Camera';
+};
+
+// Google native marker to avoid oversized custom icons at low zoom.
 const OptimizedMarker = React.memo(({ coordinate, type, speedLimit, onPress }: any) => {
-  const MarkerIcon = type === 'police' ? PoliceMarkerSvg : SpeedCamSvg;
-  
+  const title = getRadarTitle(type);
+  const description =
+    type === 'fixed' && Number.isFinite(Number(speedLimit))
+      ? `Speed limit ${Number(speedLimit)}`
+      : undefined;
+
   return (
     <Marker
       coordinate={coordinate}
       tracksViewChanges={false}
-      anchor={{ x: 0.5, y: 0.5 }}
+      pinColor={getRadarPinColor(type)}
+      title={title}
+      description={description}
       onPress={onPress}
-    >
-      {type === 'fixed' && speedLimit ? (
-        <View style={styles.speedLimitBadge}>
-          <Text style={styles.speedLimitText}>{speedLimit}</Text>
-        </View>
-      ) : (
-        <MarkerIcon 
-          width={getResponsiveWidth(36)}
-          height={getResponsiveHeight(36)}
-        />
-      )}
-    </Marker>
+    />
   );
 });
-
-const RadarArrowUserMarker = React.memo(({ coordinate, heading }: { coordinate: LatLng; heading: number }) => (
-  <Marker
-    coordinate={coordinate}
-    anchor={{ x: 0.5, y: 0.5 }}
-    zIndex={600}
-    tracksViewChanges
-  >
-    <View style={[styles.userMarkerContainer, { transform: [{ rotate: `${heading}deg` }] }]}>
-      <MapMarkerSvg 
-        width={getResponsiveWidth(64)}
-        height={getResponsiveHeight(88)}
-      />
-    </View>
-  </Marker>
-));
 
 const RadarMap = React.memo(({
   location,
@@ -176,7 +160,6 @@ const RadarMap = React.memo(({
   onMapTap,
 }: any) => {
   const safeLocation = useMemo(() => toValidCoordinate(location), [location]);
-  const safeHeading = useMemo(() => toNormalizedHeading(location?.heading), [location?.heading]);
   const onRadarPressRef = useRef(onRadarPress);
   useEffect(() => { onRadarPressRef.current = onRadarPress; }, [onRadarPress]);
   const initialRegionRef = useRef({
@@ -340,29 +323,15 @@ const RadarMap = React.memo(({
       );
     }
 
-    if (safeLocation) {
-      children.push(
-        <RadarArrowUserMarker
-          key="user-marker"
-          coordinate={safeLocation}
-          heading={safeHeading}
-        />
-      );
-    }
-
     if (finalDestination) {
       children.push(
-        <Marker 
-          key="route-destination" 
-          coordinate={finalDestination} 
-          anchor={{ x: 0.5, y: 1 }}
+        <Marker
+          key="route-destination"
+          coordinate={finalDestination}
+          pinColor="#4ECDC4"
+          title="Destination"
           tracksViewChanges={false}
-        >
-          <DestinationFlagSvg 
-            width={getResponsiveWidth(32)}
-            height={getResponsiveHeight(40)}
-          />
-        </Marker>
+        />
       );
     }
 
@@ -379,7 +348,7 @@ const RadarMap = React.memo(({
     });
 
     return children;
-  }, [finalDestination, safeHeading, safeLocation, selectedRadarEntries.rendered, sanitizedRouteCoords]);
+  }, [finalDestination, selectedRadarEntries.rendered, sanitizedRouteCoords]);
 
   const invalidSummaryRef = useRef('');
   const invalidRadarCount = sanitizedRadars.invalidCount;
@@ -476,16 +445,7 @@ const RadarMap = React.memo(({
     </MapView>
   );
 }, (prev, next) => {
-  // Custom comparison to prevent re-renders on minor updates if needed
-  // For now, let's rely on React.memo shallow diff or standard behavior
-  // If location changes slightly (user moving), we WANT to re-render user location dot, 
-  // BUT MapView handles user location internally via showsUserLocation={true}.
-  // We only need to re-render if radars or route change.
-
-  // Changing props: location (used for initialRegion only? No, maybe updates?), radars.
-
-  // We render a custom user marker, so location/heading changes must trigger updates.
-
+  // User location dot is native (showsUserLocation), so heading changes should not re-render map children.
   return (
     prev.radars === next.radars &&
     prev.routeCoords === next.routeCoords &&
@@ -494,42 +454,10 @@ const RadarMap = React.memo(({
     prev.mapPadding === next.mapPadding &&
     prev.mapInteractionEnabled === next.mapInteractionEnabled &&
     prev.location?.latitude === next.location?.latitude &&
-    prev.location?.longitude === next.location?.longitude &&
-    prev.location?.heading === next.location?.heading
-    // Ignore location changes as MapView handles user location dot and camera is controlled via ref
+    prev.location?.longitude === next.location?.longitude
   );
 });
 
-const styles = StyleSheet.create({
-  // Radar marker badges
-  speedLimitBadge: {
-    width: getResponsiveWidth(36),
-    height: getResponsiveHeight(36),
-    borderRadius: getResponsiveMargin(18),
-    backgroundColor: '#FF5252',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'white',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5
-  },
-  speedLimitText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold'
-  },
-  
-  // User marker container
-  userMarkerContainer: {
-    width: getResponsiveWidth(64),
-    height: getResponsiveHeight(88),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+const styles = StyleSheet.create({});
 
 export default RadarMap;
