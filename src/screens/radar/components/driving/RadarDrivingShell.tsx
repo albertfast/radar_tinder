@@ -9,6 +9,7 @@ import { RadarAlert, RadarLocation } from '../../../../types';
 import { formatDistance } from '../../../../utils/format';
 import { TabType } from '../../types';
 import { radarScreenStyles as styles } from '../../styles/radarScreenStyles';
+import { formatRadarTimingText, formatRadarTypeLabel, getRadarShortLocation } from '../../../../utils/radarAlerts';
 
 type IncidentOption = {
   id: 'radar' | 'police' | 'crash' | 'roadwork' | 'missed';
@@ -157,14 +158,16 @@ export function RadarDrivingShell({
             <MaterialCommunityIcons name="alert" size={18} color="#FF5252" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.liveAlertTitle}>{activeAlert.type ? formatAlertType(activeAlert.type) : 'Alert'}</Text>
+            <Text style={styles.liveAlertTitle}>
+              {activeAlert.type ? formatRadarTypeLabel(activeAlert.type) : 'Alert'}
+            </Text>
             <Text style={styles.liveAlertSubtitle}>
               {formatDistance(activeAlert.distance, unitSystem)}
-              {activeAlert.locationLabel
-                ? ` • ${activeAlert.locationLabel.split(',').slice(0, 2).join(', ')}`
+              {getRadarShortLocation(activeAlert.locationLabel)
+                ? ` • ${getRadarShortLocation(activeAlert.locationLabel)}`
                 : ''}
               {' • '}
-              ETA {Math.max(1, Math.round(activeAlert.estimatedTime * 60))} min
+              {formatRadarTimingText(activeAlert)}
             </Text>
           </View>
           <TouchableOpacity
@@ -287,24 +290,6 @@ export function RadarDrivingShell({
       </Modal>
     </View>
   );
-}
-
-function formatAlertType(type?: RadarAlert['type']) {
-  switch (type) {
-    case 'red_light':
-      return 'Red Light Camera';
-    case 'fixed':
-      return 'Fixed Camera';
-    case 'mobile':
-      return 'Mobile Radar';
-    case 'police':
-      return 'Police';
-    case 'traffic_enforcement':
-      return 'Traffic Enforcement';
-    case 'speed_camera':
-    default:
-      return 'Speed Camera';
-  }
 }
 
 export type { RadarDrivingShellProps };

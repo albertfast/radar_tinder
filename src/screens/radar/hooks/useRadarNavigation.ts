@@ -12,6 +12,7 @@ import { AnalyticsService } from '../../../services/AnalyticsService';
 import { AUTOCOMPLETE_V2_ENABLED, RECENT_DESTINATIONS_KEY } from '../constants';
 import { NavStep, RouteMeta, TabType } from '../types';
 import { isHighwayManeuver, stripHtml } from '../utils/radarFormatters';
+import { describeRadarApproachByDistance } from '../../../utils/radarAlerts';
 
 type UseRadarNavigationParams = {
   canUsePro: boolean;
@@ -40,38 +41,6 @@ type UseRadarNavigationParams = {
   isTypingRef: React.MutableRefObject<boolean>;
   getCurrentSpeedKph: () => number;
   logRouteSteps: (payload: { destination: string; points: number; steps: NavStep[] }) => void;
-};
-
-const sliceRouteAroundIndexByDistance = (
-  coords: Array<{ latitude: number; longitude: number }>,
-  centerIndex: number,
-  behindMeters: number,
-  aheadMeters: number
-) => {
-  if (!Array.isArray(coords) || coords.length < 2) return coords;
-
-  let start = Math.min(Math.max(centerIndex, 0), coords.length - 1);
-  let traveledBehind = 0;
-  while (start > 0 && traveledBehind < behindMeters) {
-    const from = coords[start];
-    const to = coords[start - 1];
-    traveledBehind +=
-      LocationService.calculateDistanceSync(from.latitude, from.longitude, to.latitude, to.longitude) * 1000;
-    start -= 1;
-  }
-
-  let end = Math.min(Math.max(centerIndex, 0), coords.length - 1);
-  let traveledAhead = 0;
-  while (end < coords.length - 1 && traveledAhead < aheadMeters) {
-    const from = coords[end];
-    const to = coords[end + 1];
-    traveledAhead +=
-      LocationService.calculateDistanceSync(from.latitude, from.longitude, to.latitude, to.longitude) * 1000;
-    end += 1;
-  }
-
-  const segment = coords.slice(start, end + 1);
-  return segment.length > 1 ? segment : coords.slice(Math.max(0, start - 1), Math.min(coords.length, end + 2));
 };
 
 export function useRadarNavigation({
@@ -551,7 +520,11 @@ export function useRadarNavigation({
               radar.latitude,
               radar.longitude
             );
-            return { ...radar, distance };
+            return {
+              ...radar,
+              distance,
+              approachLabel: radar.approachLabel || describeRadarApproachByDistance(distance),
+            };
           })
         );
 
@@ -560,40 +533,33 @@ export function useRadarNavigation({
 
         const applyRouteCamera = (): boolean => {
           if (!mapRef.current) return false;
-          const closestRouteIndex = res.coordinates.reduce(
-            (
-              bestIndex: number,
-              coordinate: { latitude: number; longitude: number },
-              index: number
-            ) => {
-            const bestCoordinate = res.coordinates[bestIndex];
-            const bestDistanceKm = LocationService.calculateDistanceSync(
-              loc.latitude,
-              loc.longitude,
-              bestCoordinate.latitude,
-              bestCoordinate.longitude
-            );
-            const nextDistanceKm = LocationService.calculateDistanceSync(
-              loc.latitude,
-              loc.longitude,
-              coordinate.latitude,
-              coordinate.longitude
-            );
-            return nextDistanceKm < bestDistanceKm ? index : bestIndex;
-            },
-            0
+          const routeHeading = LocationService.calculateRouteBearing(
+            loc.latitude,
+            loc.longitude,
+            res.coordinates
           );
-          const fitCoords = sliceRouteAroundIndexByDistance(res.coordinates, closestRouteIndex, 240, 1050);
+          const followCenter =
+            typeof routeHeading === 'number'
+              ? LocationService.projectForwardCoordinate(
+                  loc.latitude,
+                  loc.longitude,
+                  routeHeading,
+                  34
+                )
+              : {
+                  latitude: loc.latitude,
+                  longitude: loc.longitude,
+                };
           try {
-            mapRef.current.fitToCoordinates(fitCoords, {
-              edgePadding: {
-                top: 112,
-                right: 34,
-                bottom: 220,
-                left: 34,
+            mapRef.current.animateCamera(
+              {
+                center: followCenter,
+                heading: routeHeading ?? 0,
+                pitch: 0,
+                zoom: 18.9,
               },
-              animated: true,
-            });
+              { duration: 320 }
+            );
           } catch {}
           return true;
         };

@@ -91,9 +91,11 @@ export default function App() {
   const {
     isAuthenticated,
     user,
+    hasHydrated: authStoreHydrated,
     hydrateFromSupabaseSession,
     normalizeAccessState,
     refreshProfile,
+    setAccessBootstrapState,
   } = useAuthStore();
   const [authBootstrapComplete, setAuthBootstrapComplete] = useState(false);
   const lastRevenueCatUserIdRef = useRef<string | null>(null);
@@ -178,7 +180,6 @@ export default function App() {
       try {
         await SubscriptionService.init();
         SubscriptionService.attachCustomerInfoListener();
-        SubscriptionService.syncAccessState().catch(() => {});
       } catch (error) {
         console.error('Error initializing subscription service:', error);
       }
@@ -211,8 +212,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!authStoreHydrated) return;
     let cancelled = false;
     const timeout = setTimeout(async () => {
+      setAccessBootstrapState('resolving');
       try {
         const hydrated = await hydrateFromSupabaseSession();
         if (cancelled) return;
@@ -221,10 +224,28 @@ export default function App() {
           if (cancelled) return;
         }
         await normalizeAccessState();
+        if (cancelled) return;
+        if (useAuthStore.getState().user?.id) {
+          const synced = await SubscriptionService.syncAccessState().catch((error) => {
+            console.warn('Initial subscription sync failed:', error);
+            return false;
+          });
+          if (!cancelled) {
+            setAccessBootstrapState(synced ? 'ready' : 'error');
+          }
+        } else if (!cancelled) {
+          setAccessBootstrapState('ready');
+        }
       } catch (error) {
         console.warn('Initial auth normalization failed:', error);
+        if (!cancelled) {
+          setAccessBootstrapState('error');
+        }
       } finally {
         if (!cancelled) {
+          if (useAuthStore.getState().accessBootstrapState === 'resolving') {
+            setAccessBootstrapState('ready');
+          }
           setAuthBootstrapComplete(true);
         }
       }
@@ -234,7 +255,13 @@ export default function App() {
       cancelled = true;
       clearTimeout(timeout);
     };
-  }, [hydrateFromSupabaseSession, normalizeAccessState, refreshProfile]);
+  }, [
+    authStoreHydrated,
+    hydrateFromSupabaseSession,
+    normalizeAccessState,
+    refreshProfile,
+    setAccessBootstrapState,
+  ]);
 
   useEffect(() => {
     if (!hasSettingsHydrated) return;
@@ -316,7 +343,6 @@ export default function App() {
       if (lastRevenueCatUserIdRef.current !== user.id) {
         lastRevenueCatUserIdRef.current = user.id;
         SubscriptionService.setUserId(user.id).catch(() => {});
-        SubscriptionService.syncAccessState().catch(() => {});
       }
     } else {
       lastRevenueCatUserIdRef.current = null;

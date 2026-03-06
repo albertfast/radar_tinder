@@ -16,11 +16,12 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { useAuthStore } from '../store/authStore';
-import { hasProAccess } from '../utils/access';
+import { hasProAccess, isPremiumAccessPending } from '../utils/access';
 import ProGate from '../components/ProGate';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AIService, AIModelErrorCode } from '../services/AIService';
+import { AccessBootstrapView } from '../components/AccessBootstrapView';
 
 // Suppress specific warnings that might cause crashes
 LogBox.ignoreLogs([
@@ -50,8 +51,9 @@ type DiagnosisOutput = {
 };
 
 const AIDiagnoseScreen = ({ navigation }: any) => {
-  const { user } = useAuthStore();
+  const { user, accessBootstrapState } = useAuthStore();
   const canUse = hasProAccess(user);
+  const accessPending = isPremiumAccessPending(user, accessBootstrapState);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -101,6 +103,15 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     
     return () => clearTimeout(loadTimeout);
   }, [canUse]);
+
+  if (accessPending) {
+    return (
+      <AccessBootstrapView
+        title="Checking Pro access"
+        subtitle="Restoring AI Diagnose access for your active subscription."
+      />
+    );
+  }
 
   const loadModels = async () => {
     if (!isMounted.current || isModelLoading) return;

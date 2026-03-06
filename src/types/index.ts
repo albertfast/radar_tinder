@@ -1,3 +1,23 @@
+export type RadarSource = 'community' | 'external_osm' | 'external' | 'manual';
+export type RadarMarkerKind =
+  | 'camera'
+  | 'red_light'
+  | 'police'
+  | 'mobile'
+  | 'traffic_enforcement';
+export type RadarEtaConfidence = 'low' | 'medium' | 'high' | 'unknown';
+export type AccessBootstrapState = 'idle' | 'resolving' | 'ready' | 'error';
+
+export interface EntitlementSnapshot {
+  userId: string;
+  subscriptionType: 'free' | 'premium' | 'pro';
+  adsRemoved: boolean;
+  subscriptionExpiresAt?: Date;
+  accountLinkRequiredUntil?: Date;
+  rcCustomerId?: string;
+  syncedAt?: Date;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -37,9 +57,14 @@ export interface RadarLocation {
   latitude: number;
   longitude: number;
   type: 'fixed' | 'mobile' | 'red_light' | 'speed_camera' | 'police' | 'traffic_enforcement';
-  source?: 'community' | 'external_osm';
+  source?: RadarSource;
+  sourceKey?: string;
+  sourceLabel?: string;
   direction?: string;
   speedLimit?: number;
+  markerKind?: RadarMarkerKind;
+  etaConfidence?: RadarEtaConfidence;
+  approachLabel?: string;
   confidence: number;
   lastConfirmed: Date;
   reportedBy: string;
@@ -62,6 +87,9 @@ export interface RadarAlert {
   routeMatched?: boolean;
   corridorDistanceMeters?: number;
   etaSeconds?: number;
+  etaConfidence?: RadarEtaConfidence;
+  approachLabel?: string;
+  markerKind?: RadarMarkerKind;
   routeMatchScore?: number;
   headingDeltaDeg?: number | null;
   acknowledged: boolean;

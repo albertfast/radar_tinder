@@ -22,16 +22,14 @@ module.exports = (() => {
     watchFolders.add(localPnpmStore);
   }
   const enableWideMetroWatch = /^(1|true|yes)$/i.test(process.env.EXPO_USE_WIDE_METRO_WATCH || '');
-  if (enableWideMetroWatch) {
-    const pnpmDlxRoot = path.join(os.homedir(), '.cache', 'pnpm', 'dlx');
-    if (fs.existsSync(pnpmDlxRoot)) {
-      watchFolders.add(pnpmDlxRoot);
-    }
-    try {
-      const expoMetroRequirePath = require.resolve('@expo/cli/build/metro-require/require.js');
-      watchFolders.add(path.dirname(expoMetroRequirePath));
-    } catch {}
+  const pnpmDlxRoot = path.join(os.homedir(), '.cache', 'pnpm', 'dlx');
+  if (enableWideMetroWatch && fs.existsSync(pnpmDlxRoot)) {
+    watchFolders.add(pnpmDlxRoot);
   }
+  try {
+    const expoMetroRequirePath = require.resolve('@expo/cli/build/metro-require/require.js');
+    watchFolders.add(path.dirname(expoMetroRequirePath));
+  } catch {}
   config.watchFolders = Array.from(watchFolders);
 
   const existingBlockList = resolver.blockList
@@ -46,6 +44,8 @@ module.exports = (() => {
     : ['ios', 'android', 'native'];
   config.resolver = {
     ...resolver,
+    // pnpm dependencies are symlinked inside node_modules/.pnpm; allow Metro to follow them.
+    unstable_enableSymlinks: true,
     platforms: resolvedPlatforms,
     assetExts: [...resolver.assetExts.filter((ext) => ext !== 'svg'), 'onnx', 'data', 'bin'],
     sourceExts: [...resolver.sourceExts, 'svg'],
