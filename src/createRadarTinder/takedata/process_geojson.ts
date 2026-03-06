@@ -41,6 +41,21 @@ interface GeoJSONFile {
   features?: GeoJSONFeature[];
 }
 
+interface LegacySavedDataRow {
+  source?: string;
+  source_id?: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  camera_type?: string | null;
+  speed_limit?: number | string | null;
+  road_name?: string | null;
+  direction?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  verified?: boolean | null;
+}
+
 interface NormalizedGovernmentRadar {
   source: string;
   source_id: string;
@@ -122,6 +137,14 @@ const readGeoJsonFile = (filePath: string): GeoJSONFile => {
     throw new Error(`Invalid GeoJSON FeatureCollection: ${filePath}`);
   }
   return parsed;
+};
+
+const readLegacySavedDataFile = (filePath: string): LegacySavedDataRow[] => {
+  const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as unknown;
+  if (!Array.isArray(parsed)) {
+    throw new Error(`Expected array of saved rows: ${filePath}`);
+  }
+  return parsed as LegacySavedDataRow[];
 };
 
 const asNumber = (value: unknown) => {
@@ -212,6 +235,22 @@ const buildMetadata = (
   raw_properties: props,
 });
 
+const normalizeLegacyRadarType = (value: unknown): AppRadarType | null => {
+  const raw = asString(value)?.toLowerCase() || '';
+  if (raw === 'speed_fixed' || raw === 'speed_camera' || raw === 'fixed') return 'speed_camera';
+  if (raw === 'red_light') return 'red_light';
+  if (raw === 'traffic_enforcement') return 'traffic_enforcement';
+  return null;
+};
+
+const roundCoordinateKey = (value: number) => value.toFixed(6);
+
+const normalizeLegacyCity = (value: unknown, fallback?: string) => {
+  const city = asString(value);
+  if (!city || city.toLowerCase() === 'unknown') return fallback || null;
+  return city;
+};
+
 const getIdentifier = (props: Record<string, unknown>, fields: string[]) => {
   for (const field of fields) {
     const value = asString(props[field]);
@@ -286,6 +325,96 @@ const normalizeDCCctv = (
       alert_eligible: false,
     }),
   };
+};
+
+const filterLegacyRowsForEntry = (
+  rows: LegacySavedDataRow[],
+  entry: VerifiedGovSourceManifestEntry
+) => rows.filter((row) => {
+  const sourceName = asString(row.source);
+  const cameraType = asString(row.camera_type)?.toLowerCase() || null;
+
+  const sourceMatches =
+    !entry.savedDataSourceNames?.length ||
+    entry.savedDataSourceNames.some((allowed) => allowed.toLowerCase() === (sourceName || '').toLowerCase());
+  const typeMatches =
+    !entry.savedDataCameraTypes?.length ||
+    entry.savedDataCameraTypes.some((allowed) => allowed.toLowerCase() === (cameraType || ''));
+
+  return sourceMatches && typeMatches;
+});
+
+const normalizeLegacySavedDataRows = (
+  rows: LegacySavedDataRow[],
+  entry: VerifiedGovSourceManifestEntry
+): NormalizedGovernmentRadar[] => {
+  const filtered = filterLegacyRowsForEntry(rows, entry);
+  const groups = new Map<string, LegacySavedDataRow[]>();
+
+  for (const row of filtered) {
+    const latitude = asNumber(row.latitude);
+    const longitude = asNumber(row.longitude);
+    const type = normalizeLegacyRadarType(row.camera_type);
+    if (latitude == null || longitude == null || !type) continue;
+
+    const roadName = normalizeRoadName(row.road_name);
+    const direction = normalizeDirection(row.direction);
+    const dedupeKey = [
+      type,
+      roundCoordinateKey(latitude),
+      roundCoordinateKey(longitude),
+      roadName || '',
+      direction || '',
+    ].join('|');
+
+    const bucket = groups.get(dedupeKey) || [];
+    bucket.push(row);
+    groups.set(dedupeKey, bucket);
+  }
+
+  return Array.from(groups.entries()).map(([dedupeKey, bucket]) => {
+    const first = bucket[0];
+    const latitude = Number(first.latitude);
+    const longitude = Number(first.longitude);
+    const type = normalizeLegacyRadarType(first.camera_type) || 'speed_camera';
+    const roadName = normalizeRoadName(first.road_name);
+    const direction = normalizeDirection(first.direction);
+    const cameraType = asString(first.camera_type)?.toLowerCase() || type;
+    const sourceName = asString(first.source) || entry.label;
+    const city = normalizeLegacyCity(first.city, entry.city);
+    const speedLimit = parsePositiveSpeedLimit(first.speed_limit);
+    const dedupeCount = bucket.length;
+
+    return {
+      source: entry.key,
+      source_id: `${entry.key}:${dedupeKey}`,
+      type,
+      latitude,
+      longitude,
+      confidence: entry.defaultConfidence ?? (dedupeCount > 1 ? 0.8 : 0.72),
+      verified: true,
+      alertEligible: entry.alertPolicy === 'driver_alert',
+      alertPolicy: entry.alertPolicy,
+      metadata: buildMetadata(entry, {
+        source_name: sourceName,
+        road_name: roadName,
+        direction,
+      }, {
+        city: city || null,
+        road_name: roadName,
+        direction,
+        direction_deg: directionToDegrees(direction),
+        speed_limit: speedLimit,
+        derived_from_saveddata: true,
+        dedupe_count: dedupeCount,
+        source_name: sourceName,
+        legacy_camera_type: cameraType,
+        legacy_source_ids: bucket
+          .map((row) => asString(row.source_id))
+          .filter((value): value is string => Boolean(value)),
+      }),
+    };
+  });
 };
 
 const normalizeFeature = (
@@ -370,10 +499,17 @@ ON CONFLICT (source, source_id) DO UPDATE SET
 
 const processEntry = (entry: VerifiedGovSourceManifestEntry) => {
   const inputPath = resolveInputPath(entry);
-  const geoJson = readGeoJsonFile(inputPath);
-  const rows = (geoJson.features || [])
-    .map((feature) => normalizeFeature(feature, entry))
-    .filter((row): row is NormalizedGovernmentRadar => Boolean(row));
+  let rows: NormalizedGovernmentRadar[] = [];
+
+  if (entry.normalizerKey === 'legacy_saveddata_json') {
+    const savedRows = readLegacySavedDataFile(inputPath);
+    rows = normalizeLegacySavedDataRows(savedRows, entry);
+  } else {
+    const geoJson = readGeoJsonFile(inputPath);
+    rows = (geoJson.features || [])
+      .map((feature) => normalizeFeature(feature, entry))
+      .filter((row): row is NormalizedGovernmentRadar => Boolean(row));
+  }
 
   return {
     entry,

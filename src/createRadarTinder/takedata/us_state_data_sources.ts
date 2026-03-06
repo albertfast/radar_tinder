@@ -19,6 +19,7 @@ export type GovAlertPolicy = 'driver_alert' | 'map_only' | 'ignore';
 export type GovNormalizerKey =
   | 'dc_speed_detector_geojson'
   | 'dc_cctv_geojson'
+  | 'legacy_saveddata_json'
   | 'manual_review'
   | 'none';
 
@@ -39,6 +40,9 @@ export interface VerifiedGovSourceManifestEntry {
   landingPageUrl: string;
   apiUrl?: string;
   localSamplePath?: string;
+  savedDataSourceNames?: string[];
+  savedDataCameraTypes?: string[];
+  defaultConfidence?: number;
   updateFrequency?: string;
   lastValidatedAt?: string;
   notes: string;
@@ -90,6 +94,30 @@ export const VERIFIED_US_GOV_SOURCE_MANIFEST: VerifiedGovSourceManifestEntry[] =
       'Local sample exists in repo and all observed CAMERATYPE values are CCTV. Keep out of driver alerts.',
   },
   {
+    key: 'gov_ca_san_francisco_speed',
+    label: 'San Francisco Speed Cameras',
+    stateCode: 'CA',
+    stateName: 'California',
+    city: 'San Francisco',
+    provider: 'government_open_data',
+    datasetKind: 'speed_enforcement',
+    endpointKind: 'socrata',
+    importStrategy: 'external_radars',
+    alertPolicy: 'driver_alert',
+    status: 'candidate',
+    normalizerKey: 'legacy_saveddata_json',
+    portalUrl: 'https://data.sfgov.org/',
+    landingPageUrl: 'https://data.sfgov.org/',
+    localSamplePath: 'src/createRadarTinder/takedata/saveddata/CA_cameras.json',
+    savedDataSourceNames: ['San Francisco Speed'],
+    savedDataCameraTypes: ['speed_fixed'],
+    defaultConfidence: 0.76,
+    updateFrequency: 'snapshot',
+    lastValidatedAt: '2026-03-06',
+    notes:
+      'Saved snapshot contains heavy duplicate rows but dedupes to a small fixed speed-camera set. Treat as candidate external feed.',
+  },
+  {
     key: 'gov_md_speed_cameras',
     label: 'Maryland Speed Camera Locations',
     stateCode: 'MD',
@@ -111,6 +139,30 @@ export const VERIFIED_US_GOV_SOURCE_MANIFEST: VerifiedGovSourceManifestEntry[] =
       'ArcGIS endpoint is plausible but downloader check on March 6, 2026 returned 0 features. Re-validate before ingest.',
   },
   {
+    key: 'gov_md_montgomery_speed',
+    label: 'Montgomery County Speed Cameras',
+    stateCode: 'MD',
+    stateName: 'Maryland',
+    city: 'Montgomery County',
+    provider: 'government_open_data',
+    datasetKind: 'speed_enforcement',
+    endpointKind: 'socrata',
+    importStrategy: 'external_radars',
+    alertPolicy: 'driver_alert',
+    status: 'candidate',
+    normalizerKey: 'legacy_saveddata_json',
+    portalUrl: 'https://data.montgomerycountymd.gov/',
+    landingPageUrl: 'https://data.montgomerycountymd.gov/',
+    localSamplePath: 'src/createRadarTinder/takedata/saveddata/MD_cameras.json',
+    savedDataSourceNames: ['Montgomery County Speed Cameras'],
+    savedDataCameraTypes: ['speed_fixed'],
+    defaultConfidence: 0.84,
+    updateFrequency: 'snapshot',
+    lastValidatedAt: '2026-03-06',
+    notes:
+      'Saved snapshot dedupes cleanly into Montgomery County fixed speed-camera points. Good candidate for external_radars.',
+  },
+  {
     key: 'gov_il_chicago_speed',
     label: 'Chicago Speed Camera Violations',
     stateCode: 'IL',
@@ -119,18 +171,22 @@ export const VERIFIED_US_GOV_SOURCE_MANIFEST: VerifiedGovSourceManifestEntry[] =
     provider: 'government_open_data',
     datasetKind: 'violations',
     endpointKind: 'socrata',
-    importStrategy: 'manual_review',
-    alertPolicy: 'ignore',
+    importStrategy: 'external_radars',
+    alertPolicy: 'driver_alert',
     status: 'candidate',
-    normalizerKey: 'manual_review',
+    normalizerKey: 'legacy_saveddata_json',
     portalUrl: 'https://data.cityofchicago.org/',
     landingPageUrl: 'https://data.cityofchicago.org/Transportation/Speed-Camera-Violations/hhkd-xvj4',
     apiUrl:
       'https://data.cityofchicago.org/resource/hhkd-xvj4.json?$limit=100000&$group=intersection,latitude,longitude&$select=intersection,latitude,longitude',
+    localSamplePath: 'src/createRadarTinder/takedata/saveddata/IL_cameras.json',
+    savedDataSourceNames: ['Chicago Speed Cameras'],
+    savedDataCameraTypes: ['speed_fixed'],
+    defaultConfidence: 0.79,
     updateFrequency: 'daily',
     lastValidatedAt: '2026-03-06',
     notes:
-      'Violation dataset is useful for discovery, but it is not yet a verified authoritative camera feed. Do not auto-ingest.',
+      'Saved snapshot is derived from violation data and must be deduped aggressively. Import as candidate external feed with lower confidence.',
   },
   {
     key: 'gov_il_chicago_red_light',
@@ -141,16 +197,20 @@ export const VERIFIED_US_GOV_SOURCE_MANIFEST: VerifiedGovSourceManifestEntry[] =
     provider: 'government_open_data',
     datasetKind: 'violations',
     endpointKind: 'socrata',
-    importStrategy: 'manual_review',
-    alertPolicy: 'ignore',
+    importStrategy: 'external_radars',
+    alertPolicy: 'driver_alert',
     status: 'candidate',
-    normalizerKey: 'manual_review',
+    normalizerKey: 'legacy_saveddata_json',
     portalUrl: 'https://data.cityofchicago.org/',
     landingPageUrl: 'https://data.cityofchicago.org/Transportation/Red-Light-Camera-Violations/spqx-js37',
+    localSamplePath: 'src/createRadarTinder/takedata/saveddata/IL_cameras.json',
+    savedDataSourceNames: ['Chicago Red Light Cameras'],
+    savedDataCameraTypes: ['red_light'],
+    defaultConfidence: 0.82,
     updateFrequency: 'daily',
     lastValidatedAt: '2026-03-06',
     notes:
-      'Same issue as Chicago speed violations: likely useful as a lead, not yet safe as a production alert source.',
+      'Saved snapshot is derived from red-light violation data and dedupes into camera points. Import as candidate external feed.',
   },
   {
     key: 'gov_wa_wsdot_cctv',
