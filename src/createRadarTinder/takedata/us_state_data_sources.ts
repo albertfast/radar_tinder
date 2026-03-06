@@ -13,13 +13,22 @@ export type GovDatasetKind =
   | 'traffic_cctv'
   | 'traffic_sensor'
   | 'violations';
-export type GovEndpointKind = 'local_geojson' | 'arcgis' | 'socrata' | 'json_api' | 'html' | 'scrape';
+export type GovEndpointKind =
+  | 'local_geojson'
+  | 'arcgis'
+  | 'socrata'
+  | 'json_api'
+  | 'html'
+  | 'scrape'
+  | 'saved_snapshot';
 export type GovImportStrategy = 'external_radars' | 'map_only' | 'manual_review' | 'ignore';
 export type GovAlertPolicy = 'driver_alert' | 'map_only' | 'ignore';
 export type GovNormalizerKey =
   | 'dc_speed_detector_geojson'
   | 'dc_cctv_geojson'
   | 'legacy_saveddata_json'
+  | 'complete_us_snapshot_json'
+  | 'sf_speed_socrata_json'
   | 'manual_review'
   | 'none';
 
@@ -43,6 +52,7 @@ export interface VerifiedGovSourceManifestEntry {
   savedDataSourceNames?: string[];
   savedDataCameraTypes?: string[];
   defaultConfidence?: number;
+  includeInDefaultRun?: boolean;
   updateFrequency?: string;
   lastValidatedAt?: string;
   notes: string;
@@ -57,7 +67,7 @@ export const VERIFIED_US_GOV_SOURCE_MANIFEST: VerifiedGovSourceManifestEntry[] =
     city: 'Washington',
     provider: 'government_open_data',
     datasetKind: 'speed_enforcement',
-    endpointKind: 'local_geojson',
+    endpointKind: 'saved_snapshot',
     importStrategy: 'external_radars',
     alertPolicy: 'driver_alert',
     status: 'verified',
@@ -104,18 +114,37 @@ export const VERIFIED_US_GOV_SOURCE_MANIFEST: VerifiedGovSourceManifestEntry[] =
     endpointKind: 'socrata',
     importStrategy: 'external_radars',
     alertPolicy: 'driver_alert',
-    status: 'candidate',
-    normalizerKey: 'legacy_saveddata_json',
+    status: 'verified',
+    normalizerKey: 'sf_speed_socrata_json',
     portalUrl: 'https://data.sfgov.org/',
-    landingPageUrl: 'https://data.sfgov.org/',
-    localSamplePath: 'src/createRadarTinder/takedata/saveddata/CA_cameras.json',
-    savedDataSourceNames: ['San Francisco Speed'],
-    savedDataCameraTypes: ['speed_fixed'],
-    defaultConfidence: 0.76,
+    landingPageUrl: 'https://data.sfgov.org/Transportation/Automated-Speed-Enforcement-System-ASE-Monthly-/2zdj-bwza',
+    localSamplePath: 'src/createRadarTinder/takedata/saveddata/ccsfspeedcamera.json',
+    defaultConfidence: 0.96,
     updateFrequency: 'snapshot',
     lastValidatedAt: '2026-03-06',
     notes:
-      'Saved snapshot contains heavy duplicate rows but dedupes to a small fixed speed-camera set. Treat as candidate external feed.',
+      'Direct Socrata export for San Francisco automated speed enforcement. Parse by site_id instead of collapsing to raw lat/lng.',
+  },
+  {
+    key: 'gov_ca_san_francisco_traffic',
+    label: 'San Francisco Traffic Cameras',
+    stateCode: 'CA',
+    stateName: 'California',
+    city: 'San Francisco',
+    provider: 'government_open_data',
+    datasetKind: 'traffic_cctv',
+    endpointKind: 'socrata',
+    importStrategy: 'map_only',
+    alertPolicy: 'map_only',
+    status: 'candidate',
+    normalizerKey: 'complete_us_snapshot_json',
+    portalUrl: 'https://data.sfgov.org/',
+    landingPageUrl: 'https://data.sfgov.org/',
+    defaultConfidence: 0.72,
+    updateFrequency: 'snapshot',
+    lastValidatedAt: '2026-03-06',
+    notes:
+      'Aggregate snapshot shows San Francisco traffic camera points, but they are traffic cameras rather than speed enforcement. Keep map-only.',
   },
   {
     key: 'gov_md_speed_cameras',
@@ -232,6 +261,27 @@ export const VERIFIED_US_GOV_SOURCE_MANIFEST: VerifiedGovSourceManifestEntry[] =
     notes:
       'Real-time traffic camera feed is likely CCTV/traffic ops imagery, not enforcement. Keep out of driver alerts.',
   },
+  {
+    key: 'gov_us_complete_snapshot_20260306',
+    label: 'US Complete Snapshot (2026-03-06)',
+    stateCode: 'US',
+    stateName: 'United States',
+    provider: 'government_open_data',
+    datasetKind: 'speed_enforcement',
+    endpointKind: 'local_geojson',
+    importStrategy: 'manual_review',
+    alertPolicy: 'ignore',
+    status: 'candidate',
+    normalizerKey: 'complete_us_snapshot_json',
+    portalUrl: 'local_snapshot',
+    landingPageUrl: 'local_snapshot',
+    localSamplePath: 'src/createRadarTinder/takedata/saveddata/cameras_complete_us.json',
+    includeInDefaultRun: false,
+    updateFrequency: 'snapshot',
+    lastValidatedAt: '2026-03-06',
+    notes:
+      'Mixed OSM + gov_api export. Use only as a secondary staging artifact because OSM rows would duplicate the live OSM ingest.',
+  },
 ];
 
 export const VERIFIED_US_GOV_SOURCE_MANIFEST_BY_KEY = new Map(
@@ -252,7 +302,9 @@ export const getAutoIngestUsGovSources = () =>
   VERIFIED_US_GOV_SOURCE_MANIFEST.filter((entry) => entry.importStrategy === 'external_radars');
 
 export const getLocalSampleUsGovSources = () =>
-  VERIFIED_US_GOV_SOURCE_MANIFEST.filter((entry) => Boolean(entry.localSamplePath));
+  VERIFIED_US_GOV_SOURCE_MANIFEST.filter(
+    (entry) => Boolean(entry.localSamplePath) && entry.includeInDefaultRun !== false
+  );
 
 export const US_STATE_DATA_SOURCES = VERIFIED_US_GOV_SOURCE_MANIFEST.reduce<
   Record<
