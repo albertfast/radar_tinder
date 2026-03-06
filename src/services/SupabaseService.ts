@@ -235,7 +235,7 @@ export class SupabaseService {
     latitude: number,
     longitude: number,
     radiusMeters: number,
-    options?: { minConfidence?: number; verifiedOnly?: boolean }
+    options?: { minConfidence?: number; verifiedOnly?: boolean; throwOnError?: boolean }
   ) {
     if (!this.ensureSupabaseAvailable('getNearbyRadars')) return [];
     try {
@@ -294,6 +294,9 @@ export class SupabaseService {
       if (error) throw error;
       return data ?? [];
     } catch (error) {
+      if (options?.throwOnError) {
+        throw error;
+      }
       if (!this.shouldLogError(error)) return [];
       const now = Date.now();
       if (now - this.lastNearbyRadarsErrorAt > this.NEARBY_RADAR_ERROR_THROTTLE_MS) {
@@ -313,36 +316,25 @@ export class SupabaseService {
   static async reportRadar(radarData: any) {
     if (!this.ensureSupabaseAvailable('reportRadar')) return null;
     try {
-      const { data: radarRow, error: radarError } = await supabase
-        .from('radars')
-        .insert([
-          {
-            type: radarData.type,
-            location: `POINT(${radarData.longitude} ${radarData.latitude})`, // PostGIS format
-            confidence: radarData.confidence,
-            reported_by: radarData.reportedBy,
-          },
-        ])
-        .select('id')
+      const { data, error } = await supabase
+        .rpc('report_radar_sighting', {
+          p_lat: radarData.latitude,
+          p_long: radarData.longitude,
+          p_type: radarData.type,
+          p_confidence: radarData.confidence,
+          p_heading_deg:
+            typeof radarData.headingDeg === 'number' && Number.isFinite(radarData.headingDeg)
+              ? radarData.headingDeg
+              : null,
+        })
         .single();
 
-      if (radarError) throw radarError;
-
-      const { data: reportRow, error: reportError } = await supabase
-        .from('radar_reports')
-        .insert([
-          {
-            radar_id: radarRow?.id || null,
-            reporter_id: radarData.reportedBy,
-            type: radarData.type,
-            location: `POINT(${radarData.longitude} ${radarData.latitude})`,
-          },
-        ])
-        .select('id')
-        .single();
-
-      if (reportError) throw reportError;
-      return { radarId: radarRow?.id ?? null, reportId: reportRow?.id ?? null };
+      if (error) throw error;
+      return {
+        radarId: (data as any)?.radar_id ?? null,
+        reportId: (data as any)?.report_id ?? null,
+        matchedExisting: Boolean((data as any)?.matched_existing),
+      };
     } catch (error) {
       if (this.shouldLogError(error)) {
         console.error('Supabase reportRadar error:', error);

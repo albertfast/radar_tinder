@@ -141,7 +141,6 @@ export function useRadarDataSync({
   const reverseGeocodeActiveCountRef = useRef(0);
   const previousHeadingLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const lastValidHeadingRef = useRef(0);
-  const smoothedLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
     currentLocationRef.current = currentLocation;
@@ -477,34 +476,10 @@ export function useRadarDataSync({
           longitude: location.longitude,
         };
 
-        const previousSmoothed = smoothedLocationRef.current;
-        let smoothedLatitude = location.latitude;
-        let smoothedLongitude = location.longitude;
-        if (previousSmoothed) {
-          const baseAlpha =
-            sampleSpeedKph >= 90 ? 0.86 : sampleSpeedKph >= 60 ? 0.8 : sampleSpeedKph >= 30 ? 0.72 : 0.6;
-          const jumpMeters =
-            LocationService.calculateDistanceSync(
-              previousSmoothed.latitude,
-              previousSmoothed.longitude,
-              location.latitude,
-              location.longitude
-            ) * 1000;
-          const spikeAlpha = jumpMeters > 90 && sampleSpeedKph < 35 ? 0.3 : baseAlpha;
-          smoothedLatitude =
-            previousSmoothed.latitude + (location.latitude - previousSmoothed.latitude) * spikeAlpha;
-          smoothedLongitude =
-            previousSmoothed.longitude + (location.longitude - previousSmoothed.longitude) * spikeAlpha;
-        }
-        smoothedLocationRef.current = {
-          latitude: smoothedLatitude,
-          longitude: smoothedLongitude,
-        };
-
         const locationWithHeading = {
           ...location,
-          latitude: smoothedLatitude,
-          longitude: smoothedLongitude,
+          latitude: location.latitude,
+          longitude: location.longitude,
           heading: lastValidHeadingRef.current,
         };
 
@@ -531,9 +506,9 @@ export function useRadarDataSync({
           if (headingDelta > 180) headingDelta = 360 - headingDelta;
         }
         const uiUpdateIntervalMs =
-          sampleSpeedKph >= 90 ? 220 : sampleSpeedKph >= 60 ? 280 : sampleSpeedKph >= 30 ? 350 : 500;
+          sampleSpeedKph >= 90 ? 200 : sampleSpeedKph >= 60 ? 250 : sampleSpeedKph >= 30 ? 320 : 420;
         const uiMoveThresholdMeters =
-          sampleSpeedKph >= 90 ? 1.8 : sampleSpeedKph >= 60 ? 1.4 : sampleSpeedKph >= 30 ? 1.0 : 0.6;
+          sampleSpeedKph >= 90 ? 1.6 : sampleSpeedKph >= 60 ? 1.2 : sampleSpeedKph >= 30 ? 0.9 : 0.45;
         const shouldUpdateUiLocation =
           !previousUiLocation ||
           movedMeters >= uiMoveThresholdMeters ||
@@ -562,9 +537,9 @@ export function useRadarDataSync({
               : lastValidHeadingRef.current;
           const centerBearing = followHeading ? currentHeading : 0;
           const cameraUpdateIntervalMs =
-            sampleSpeedKph >= 90 ? 280 : sampleSpeedKph >= 60 ? 340 : sampleSpeedKph >= 30 ? 420 : 520;
+            sampleSpeedKph >= 90 ? 240 : sampleSpeedKph >= 60 ? 300 : sampleSpeedKph >= 30 ? 360 : 430;
           const cameraMoveThresholdMeters =
-            sampleSpeedKph >= 90 ? 6 : sampleSpeedKph >= 60 ? 5 : sampleSpeedKph >= 30 ? 4 : 3;
+            sampleSpeedKph >= 90 ? 5 : sampleSpeedKph >= 60 ? 4 : sampleSpeedKph >= 30 ? 3 : 2;
 
           const shouldAnimateCamera =
             !lastCameraCenter ||

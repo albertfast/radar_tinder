@@ -80,10 +80,13 @@ const SubscriptionScreen = ({ navigation }: any) => {
         'pro_subscription_weekly',
         'rc_weekly_399',
         'weekly',
+        'pro_subscription_weekly_399',
       ],
       yearly: [
         '$rc_annual',
         'rc_annual',
+        '$rc_yearly',
+        'rc_yearly',
         'pro_subscription:yearly',
         'pro_subscription_yearly',
         'rc_yearly_1999',

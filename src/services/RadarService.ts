@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { hasProAccess } from '../utils/access';
 import { getExternalCameraSourceRule } from '../config/externalCameraSources';
 import { describeRadarApproachByDistance } from '../utils/radarAlerts';
+import { readBooleanFlag } from '../utils/flags';
 
 type NearbyRadar = RadarLocation & { distance: number };
 type RouteRelevanceParams = {
@@ -46,6 +47,7 @@ type SourceTelemetryPayload = {
 
 const DEDUPE_THRESHOLD_DEG = 0.0005;
 const TIMEOUT_ERROR = '__SOURCE_TIMEOUT__';
+const LIVE_OSM_FALLBACK_ENABLED = readBooleanFlag('EXPO_PUBLIC_LIVE_OSM_FALLBACK', __DEV__);
 
 const mergeAndImproveRadars = (radars: RadarLocation[]): RadarLocation[] => {
   const uniqueRadars: RadarLocation[] = [];
@@ -464,7 +466,7 @@ export class RadarService {
       const [, inferredSourceKey] = rawId.split(':');
       sourceKey = inferredSourceKey || undefined;
       source = sourceKey === 'osm' ? 'external_osm' : 'external';
-    } else if (rawSource === 'external_osm') {
+    } else if (rawSource === 'external_osm' || rawSource === 'osm') {
       source = 'external_osm';
       sourceKey = 'osm';
     } else if (rawSource && rawSource !== 'community') {
@@ -508,8 +510,6 @@ export class RadarService {
     let type: RadarLocation['type'] = 'speed_camera';
     if (tags?.enforcement === 'traffic_signals') {
       type = 'red_light';
-    } else if (tags?.enforcement === 'maxspeed') {
-      type = 'fixed';
     }
 
     return this.withRadarMetadata({
@@ -535,6 +535,10 @@ export class RadarService {
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
 
     const sourceMeta = this.normalizeSourceMetadata(row);
+    const sourceRule = getExternalCameraSourceRule(sourceMeta.sourceKey);
+    if (sourceRule?.alertPolicy === 'map_only' || sourceRule?.alertPolicy === 'ignore') {
+      return null;
+    }
     const confidence = Number(row?.confidence);
     return this.withRadarMetadata({
       id: String(
@@ -570,7 +574,8 @@ export class RadarService {
         SupabaseService.getNearbyRadars(coord.latitude, coord.longitude, sampleRadiusMeters, {
           minConfidence: this.SUPABASE_MIN_CONFIDENCE,
           verifiedOnly: true,
-        }).catch(() => [])
+          throwOnError: true,
+        })
       )
     );
 
@@ -666,7 +671,7 @@ export class RadarService {
     return [];
   }
 
-  static async getRadarsAlongRoute(
+  private static async fetchRouteRadarsFromOSM(
     routeCoords: { latitude: number; longitude: number }[]
   ): Promise<RadarLocation[]> {
     if (routeCoords.length === 0) return [];
@@ -703,32 +708,80 @@ export class RadarService {
       out center;
     `;
 
-    const [supabaseRadars, osmRadars] = await Promise.all([
-      this.fetchSupabaseRadarsAlongRoute(routeCoords).catch(() => []),
-      (async () => {
-        for (const baseUrl of this.OVERPASS_MIRRORS) {
-          try {
-            const url = `${baseUrl}?data=${encodeURIComponent(query)}`;
-            const response = await fetch(url);
-            if (!response.ok) continue;
+    for (const baseUrl of this.OVERPASS_MIRRORS) {
+      try {
+        const url = `${baseUrl}?data=${encodeURIComponent(query)}`;
+        const response = await fetch(url);
+        if (!response.ok) continue;
 
-            const data = await response.json();
-            const elements = Array.isArray(data?.elements) ? data.elements : [];
+        const data = await response.json();
+        const elements = Array.isArray(data?.elements) ? data.elements : [];
 
-            const radars = elements
-              .map((el: any) => this.mapOsmElementToRadar(el))
-              .filter((item: RadarLocation | null): item is RadarLocation => Boolean(item));
+        const radars = elements
+          .map((el: any) => this.mapOsmElementToRadar(el))
+          .filter((item: RadarLocation | null): item is RadarLocation => Boolean(item));
 
-            return radars.filter(
-              (radar: RadarLocation) => minDistanceToRouteMetersInternal(radar, routeCoords) <= 120
-            );
-          } catch (error) {
-            console.warn(`Error fetching route radars from ${baseUrl}:`, error);
-          }
-        }
-        return [] as RadarLocation[];
-      })(),
-    ]);
+        return radars.filter(
+          (radar: RadarLocation) => minDistanceToRouteMetersInternal(radar, routeCoords) <= 120
+        );
+      } catch (error) {
+        console.warn(`Error fetching route radars from ${baseUrl}:`, error);
+      }
+    }
+
+    return [];
+  }
+
+  static async getRadarsAlongRoute(
+    routeCoords: { latitude: number; longitude: number }[]
+  ): Promise<RadarLocation[]> {
+    if (routeCoords.length === 0) return [];
+
+    const supabaseSource = await runTimedSource('supabase', this.SOURCE_TIMEOUT_MS, () =>
+      this.fetchSupabaseRadarsAlongRoute(routeCoords)
+    );
+    const shouldQueryLiveOsm = LIVE_OSM_FALLBACK_ENABLED || !supabaseSource.ok;
+    const osmSource = shouldQueryLiveOsm
+      ? await runTimedSource('osm', this.SOURCE_TIMEOUT_MS, () =>
+          this.fetchRouteRadarsFromOSM(routeCoords)
+        )
+      : ({
+          name: 'osm',
+          ok: true,
+          timedOut: false,
+          durationMs: 0,
+          value: [],
+        } as TimedSourceResult<RadarLocation[]>);
+
+    const supabaseRadars =
+      supabaseSource.ok && Array.isArray(supabaseSource.value) ? supabaseSource.value : [];
+    const osmRadars = osmSource.ok && Array.isArray(osmSource.value) ? osmSource.value : [];
+
+    const sourceErrors: string[] = [];
+    if (!supabaseSource.ok) {
+      sourceErrors.push(supabaseSource.timedOut ? 'supabase_timeout' : 'supabase_error');
+    }
+    if (shouldQueryLiveOsm && !osmSource.ok) {
+      sourceErrors.push(osmSource.timedOut ? 'osm_timeout' : 'osm_error');
+    }
+
+    this.logSourceTelemetry({
+      osmCount: osmRadars.length,
+      supabaseCount: supabaseRadars.length,
+      mergedCount: mergeAndImproveRadars([...supabaseRadars, ...osmRadars]).length,
+      latitude: routeCoords[0]?.latitude ?? 0,
+      longitude: routeCoords[0]?.longitude ?? 0,
+      radiusKm: 0,
+      sourceLatencyMs: {
+        osm: osmSource.durationMs,
+        supabase: supabaseSource.durationMs,
+      },
+      sourceTimedOut: {
+        osm: shouldQueryLiveOsm ? osmSource.timedOut : false,
+        supabase: supabaseSource.timedOut,
+      },
+      sourceErrors,
+    });
 
     return mergeAndImproveRadars([...supabaseRadars, ...osmRadars]).map((radar) =>
       this.withRadarMetadata(radar)
@@ -802,17 +855,25 @@ export class RadarService {
       }
 
       const request = (async () => {
-        const [osmSource, supabaseSource] = await Promise.all([
-          runTimedSource('osm', this.SOURCE_TIMEOUT_MS, () =>
-            this.fetchRealRadarsFromOSM(latitude, longitude, radius)
-          ),
-          runTimedSource('supabase', this.SOURCE_TIMEOUT_MS, () =>
-            SupabaseService.getNearbyRadars(latitude, longitude, radius * 1000, {
-              minConfidence: this.SUPABASE_MIN_CONFIDENCE,
-              verifiedOnly: true,
-            })
-          ),
-        ]);
+        const supabaseSource = await runTimedSource('supabase', this.SOURCE_TIMEOUT_MS, () =>
+          SupabaseService.getNearbyRadars(latitude, longitude, radius * 1000, {
+            minConfidence: this.SUPABASE_MIN_CONFIDENCE,
+            verifiedOnly: true,
+            throwOnError: true,
+          })
+        );
+        const shouldQueryLiveOsm = LIVE_OSM_FALLBACK_ENABLED || !supabaseSource.ok;
+        const osmSource = shouldQueryLiveOsm
+          ? await runTimedSource('osm', this.SOURCE_TIMEOUT_MS, () =>
+              this.fetchRealRadarsFromOSM(latitude, longitude, radius)
+            )
+          : ({
+              name: 'osm',
+              ok: true,
+              timedOut: false,
+              durationMs: 0,
+              value: [],
+            } as TimedSourceResult<RadarLocation[]>);
 
         const osmRadars = osmSource.ok && Array.isArray(osmSource.value) ? osmSource.value : [];
         const supabaseRows =
@@ -831,7 +892,7 @@ export class RadarService {
         );
 
         const sourceErrors: string[] = [];
-        if (!osmSource.ok) {
+        if (shouldQueryLiveOsm && !osmSource.ok) {
           sourceErrors.push(osmSource.timedOut ? 'osm_timeout' : 'osm_error');
         }
         if (!supabaseSource.ok) {
