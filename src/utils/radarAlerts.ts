@@ -3,7 +3,7 @@ import { formatDistance } from './format';
 
 type RadarTimingInput = Pick<
   RadarAlert,
-  'distance' | 'estimatedTime' | 'etaConfidence' | 'approachLabel' | 'locationLabel'
+  'distance' | 'estimatedTime' | 'etaConfidence' | 'approachLabel' | 'locationLabel' | 'etaSeconds'
 >;
 
 export const formatRadarTypeLabel = (
@@ -49,11 +49,14 @@ export const hasTrustedRadarEta = (etaConfidence?: RadarEtaConfidence | null): b
   etaConfidence === 'high' || etaConfidence === 'medium';
 
 export const getTrustedRadarEtaMinutes = (
-  alert: Pick<RadarAlert, 'estimatedTime' | 'etaConfidence'>
+  alert: Pick<RadarAlert, 'estimatedTime' | 'etaConfidence' | 'etaSeconds'>
 ): number | null => {
   if (!hasTrustedRadarEta(alert.etaConfidence)) return null;
+  if (Number.isFinite(alert.etaSeconds)) {
+    return Math.max(1, Math.round(Number(alert.etaSeconds) / 60));
+  }
   if (!Number.isFinite(alert.estimatedTime)) return null;
-  return Math.max(1, Math.round(alert.estimatedTime * 60));
+  return Math.max(1, Math.round(Number(alert.estimatedTime)));
 };
 
 export const formatRadarTimingText = (alert: RadarTimingInput): string => {

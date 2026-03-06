@@ -88,6 +88,50 @@ const downsampleRouteCoordinates = (
   return sampled;
 };
 
+const buildRemainingRouteCoordinates = (
+  routeCoords: Array<{ latitude: number; longitude: number }>,
+  currentLocation: { latitude: number; longitude: number } | null | undefined
+) => {
+  if (!Array.isArray(routeCoords) || routeCoords.length < 2) {
+    return routeCoords;
+  }
+  if (!currentLocation) {
+    return routeCoords;
+  }
+
+  const closestIndex = LocationService.findClosestRouteIndex(
+    currentLocation.latitude,
+    currentLocation.longitude,
+    routeCoords
+  );
+  const closestPoint = routeCoords[closestIndex];
+  const closestDistanceMeters = closestPoint
+    ? LocationService.calculateDistanceSync(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        closestPoint.latitude,
+        closestPoint.longitude
+      ) * 1000
+    : Number.POSITIVE_INFINITY;
+  const sliceIndex =
+    closestDistanceMeters <= 12
+      ? Math.min(routeCoords.length - 1, closestIndex + 1)
+      : closestIndex;
+  const remaining = routeCoords.slice(sliceIndex);
+
+  if (closestDistanceMeters <= 25) {
+    return [
+      {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+      },
+      ...remaining,
+    ];
+  }
+
+  return remaining.length > 0 ? remaining : routeCoords.slice(-1);
+};
+
 const RadarScreen = ({ navigation, route }: any) => {
   const { user, refreshProfile, normalizeAccessState } = useAuthStore();
   const canUsePro = hasProAccess(user);
@@ -246,7 +290,14 @@ const RadarScreen = ({ navigation, route }: any) => {
   const compassRotation = `${dataSync.resolvedHeading || 0}deg`;
   const showCenterRouteAction =
     (manualPanMode || !followHeading) && navigationState.routeCoords.length > 0;
-  const routeCoordsForMap = navigationState.routeCoords;
+  const routeCoordsForMap = useMemo(
+    () =>
+      buildRemainingRouteCoordinates(
+        navigationState.routeCoords,
+        dataSync.currentLocationRef.current || dataSync.currentLocation
+      ),
+    [dataSync.currentLocation, dataSync.currentLocationRef, navigationState.routeCoords]
+  );
   const nearestRadarSummary = dataSync.closestRadar
     ? (dataSync.closestRadarHint ? `${formatDistance(dataSync.closestRadar.distance, unitSystem)} at ${dataSync.closestRadarHint}` : formatDistance(dataSync.closestRadar.distance, unitSystem))
     : 'Scanning...';
@@ -426,7 +477,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, [driving, navigationState.routeCoords.length]);
 
   const centerMap = useCallback(async () => {
-    let location = dataSync.currentLocation;
+    let location = dataSync.currentLocationRef.current || dataSync.currentLocation;
     if (!location) {
       const fallback = await LocationService.getCurrentLocation().catch(() => null);
       if (!fallback) return;

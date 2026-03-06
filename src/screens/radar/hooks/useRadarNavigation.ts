@@ -776,16 +776,11 @@ export function useRadarNavigation({
     const computeRouteProximityMeters = (loc: { latitude: number; longitude: number }) => {
       const coords = routeCoordsRef.current;
       if (!coords.length) return Number.POSITIVE_INFINITY;
-      let minDistance = Number.POSITIVE_INFINITY;
-      const cosLat = Math.max(0.2, Math.cos((loc.latitude * Math.PI) / 180));
-      for (const coord of coords) {
-        const dLat = (coord.latitude - loc.latitude) * 111000;
-        const dLng = (coord.longitude - loc.longitude) * 111000 * cosLat;
-        const distance = Math.sqrt(dLat * dLat + dLng * dLng);
-        if (distance < minDistance) minDistance = distance;
-        if (minDistance < 18) break;
-      }
-      return minDistance;
+      return LocationService.calculateDistanceToPolyline(
+        loc.latitude,
+        loc.longitude,
+        coords
+      );
     };
 
     const scheduler = setInterval(async () => {
@@ -981,7 +976,7 @@ export function useRadarNavigation({
       const now = Date.now();
       const shouldReroute =
         rerouteConsecutiveOffRouteRef.current >= 3 &&
-        now - lastRerouteAtRef.current > 4500 &&
+        now - lastRerouteAtRef.current > 3000 &&
         !navRefreshInFlightRef.current;
       if (!shouldReroute) return;
 
@@ -1060,7 +1055,7 @@ export function useRadarNavigation({
       } finally {
         navRefreshInFlightRef.current = false;
       }
-    }, 1600);
+    }, 1000);
 
     return () => clearInterval(scheduler);
   }, [

@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://caleb-cheng.medium.com/avoiding-speeding-tickets-with-python-mapbox-and-overpassql-580b4d1ee21e",
+    "name": "Locating speeding cameras with Python, Mapbox and",
+    "snippet": "Lets make a bot to display all the speed camera locations in my city using Python and OpenStreetMap data! Read more",
+    "host_name": "caleb-cheng.medium.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://community.openstreetmap.org/t/how-to-overpass-query-for-every-speed-camera-in-the-uk/126737",
+    "name": "How to overpass query for every speed camera in the UK?",
+    "snippet": "Mar 2, 2025 — I have searched and I have looked at the wiki page. I'm trying to create an overpass query to return all speed cameras in the UK regardless of ... Read more",
+    "host_name": "community.openstreetmap.org",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://hackers-arise.com/osint-finding-surveillance-cameras-with-overpass-turbo",
+    "name": "OSINT: Finding Surveillance Cameras with Overpass Turbo",
+    "snippet": "Oct 13, 2025 — It provides a web-based interface for querying the Overpass API , which is OpenStreetMap's data extraction engine. The interface consists of ... Read more\nOct 13, 2025 — It provides a web-based interface for querying the Overpass API, which is OpenStreetMap's data extraction engine. The interface consists of ...",
+    "host_name": "hackers-arise.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://osintteam.blog/using-overpass-and-google-earth-to-assist-law-enforcement-finding-surveillance-cameras-in-the-f7559d64fa2e",
+    "name": "Using Overpass and Google Earth to Assist Law Enforcement",
+    "snippet": "Oct 31, 2024 — To identify the surveillance cameras in the Netherlands, I used Overpass queries. Overpass is a powerful tool that allows users to extract data ... Read more",
+    "host_name": "osintteam.blog",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://wiki.openstreetmap.org/wiki/Relation:enforcement",
+    "name": "Relation:enforcement - OpenStreetMap Wiki",
+    "snippet": "Feb 9, 2025 — This relation documents different kinds of permanently installed devices that measure and document traffic violations. Read more",
+    "host_name": "wiki.openstreetmap.org",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.vic.gov.au/road-safety-camera-systems",
+    "name": "Road safety camera system locations",
+    "snippet": "Jul 4, 2023 — Road safety camera system locations. Camera systems and point-to-point cameras are located in key areas of Victoria's road network. Read more",
+    "host_name": "www.vic.gov.au",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/orgs/organicmaps/discussions/5628",
+    "name": "Show speed cameras along the route · organicmaps · Discussion #5628",
+    "snippet": "Jul 30, 2023 — I think it would be very useful (or to have an option to,) to show the speed or red light cameras along the calculated route, just like toll booths or toll ...",
+    "host_name": "github.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://wiki.openstreetmap.org/wiki/Tag:highway%3Dspeed_camera",
+    "name": "Tag:highway=speed_camera - OpenStreetMap Wiki",
+    "snippet": "Dec 26, 2025 — overpass-turbo ... A navigation software shall ask during the installation procedure, whether speed cameras shall be included or not.",
+    "host_name": "wiki.openstreetmap.org",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://gis.stackexchange.com/questions/177735/query-one-overpass-api-process-multiple-times",
+    "name": "Query one overpass api process multiple times",
+    "snippet": "Jan 21, 2016 — I using a local instance of the overpass api, because I need to make a lot of queries (over 100k). The solution I'm using right now is to call bin/osm3s_query ...",
+    "host_name": "gis.stackexchange.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://stackoverflow.com/questions/32753565/is-there-any-api-to-get-traffic-signal-light-information-in-certain-area",
+    "name": "Is there any API to get traffic signal light information in certain area?",
+    "snippet": "I'm working on an Android project based on google map api, and now I need to dynamically show traffic lights positions near my location. But I found google ...",
+    "host_name": "stackoverflow.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

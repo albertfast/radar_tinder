@@ -1,0 +1,434 @@
+select count(*) as external_radars_count
+from public.external_radars;
+
+[
+  {
+    "external_radars_count": 0
+  }
+]
+
+
+select
+  source,
+  type,
+  count(*) as total,
+  round(avg(confidence)::numeric, 2) as avg_confidence
+from public.external_radars
+group by source, type
+order by total desc, source, type;
+
+Success. No rows returned
+
+
+select
+  source,
+  coalesce(metadata->>'country', metadata->>'country_code', 'unknown') as country,
+  type,
+  count(*) as total
+from public.external_radars
+group by source, country, type
+order by country, source, total desc;
+
+Success. No rows returned
+
+
+select
+  source,
+  run_scope,
+  status,
+  started_at,
+  finished_at,
+  fetched_count,
+  upserted_count,
+  dropped_count,
+  error_log
+from public.external_ingest_runs
+order by started_at desc
+limit 50;
+
+Success. No rows returned
+
+
+select *
+from public.get_nearby_radars_v2(
+  37.7749,     -- lat
+  -122.4194,   -- lng
+  15000,       -- radius_meters
+  0,           -- min_confidence
+  false        -- verified_only
+)
+order by dist_meters
+limit 100;
+
+
+[
+  {
+    "id": "6d138a40-c444-47b0-8aa7-58eae86c662d",
+    "type": "speed_camera",
+    "latitude": 37.76796,
+    "longitude": -122.426265,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 979.37074686
+  },
+  {
+    "id": "3ec25e2b-6c29-437c-acf4-1f6d7ca718fa",
+    "type": "speed_camera",
+    "latitude": 37.7886833,
+    "longitude": -122.4206267,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 1533.65270797
+  },
+  {
+    "id": "e7d0216d-1f3d-46ed-abea-46238031cc96",
+    "type": "speed_camera",
+    "latitude": 37.7883327846545,
+    "longitude": -122.410328225194,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 1691.60786974
+  },
+  {
+    "id": "06afe578-6b08-4be9-962a-2467b1da5730",
+    "type": "police",
+    "latitude": 37.788379456671,
+    "longitude": -122.410421446147,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 1692.32163561
+  },
+  {
+    "id": "6de209d1-35b4-4036-90e7-e5ffed6b3a1f",
+    "type": "speed_camera",
+    "latitude": 37.7883826020112,
+    "longitude": -122.410423638361,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 1692.54003745
+  },
+  {
+    "id": "0fe3a756-75ed-434a-9e1c-f09aa5616541",
+    "type": "police",
+    "latitude": 37.7883482369723,
+    "longitude": -122.41022912697,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 1697.25757119
+  },
+  {
+    "id": "49a1f34d-bc76-4b54-a33f-30c42bdb44af",
+    "type": "police",
+    "latitude": 37.7883591866975,
+    "longitude": -122.410108335858,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 1703.41392567
+  },
+  {
+    "id": "c85db005-e5fb-4f2a-9223-d478e6e7a1b1",
+    "type": "police",
+    "latitude": 37.7884344,
+    "longitude": -122.4099324,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 1718.20896606
+  },
+  {
+    "id": "552aee7b-63c8-4c71-b868-0be3d2e668a1",
+    "type": "police",
+    "latitude": 37.7869967,
+    "longitude": -122.461975,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 3983.64225109
+  },
+  {
+    "id": "fd4c5f1a-d835-4ed6-b745-70d3f4addd0a",
+    "type": "speed_camera",
+    "latitude": 37.7730887899666,
+    "longitude": -122.472115384127,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 4648.64418732
+  },
+  {
+    "id": "86e6ffac-05a0-4707-a1d5-059490a2a633",
+    "type": "speed_camera",
+    "latitude": 37.7726495980195,
+    "longitude": -122.481916334084,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 5513.44912175
+  },
+  {
+    "id": "9afea35d-c426-4958-a78d-7efbdfcfee81",
+    "type": "police",
+    "latitude": 37.772263,
+    "longitude": -122.4938701,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6567.47634008
+  },
+  {
+    "id": "6e018717-2c1c-4419-bf8f-d373b6583528",
+    "type": "speed_camera",
+    "latitude": 37.7723729,
+    "longitude": -122.4938822,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6568.0042354
+  },
+  {
+    "id": "08a50a1d-8c3e-41da-b8bd-5564ab098175",
+    "type": "speed_camera",
+    "latitude": 37.7724636,
+    "longitude": -122.4939355,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6572.26985953
+  },
+  {
+    "id": "c8869b0d-e7c6-444f-9fe8-eaffbcdd43d6",
+    "type": "speed_camera",
+    "latitude": 37.7730139700259,
+    "longitude": -122.493989011136,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6574.72759218
+  },
+  {
+    "id": "bc7e83bf-15a0-4713-b006-3a8c7c64515a",
+    "type": "police",
+    "latitude": 37.7726496859301,
+    "longitude": -122.49397748527,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6575.14050804
+  },
+  {
+    "id": "1cb24e39-f28a-43fc-9ead-871a7fb126ee",
+    "type": "traffic_enforcement",
+    "latitude": 37.7730721,
+    "longitude": -122.4941781,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6591.17382459
+  },
+  {
+    "id": "0d33f59d-b68d-45b8-9935-d294fde1b1c6",
+    "type": "speed_camera",
+    "latitude": 37.7730204,
+    "longitude": -122.4941892,
+    "confidence": 0.5,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6592.33267811
+  },
+  {
+    "id": "b6869d60-3fbc-4437-820a-ebd2477e599b",
+    "type": "mobile",
+    "latitude": 37.7730204,
+    "longitude": -122.4941892,
+    "confidence": 0.5,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6592.33267811
+  },
+  {
+    "id": "cbf2ad3c-d709-4769-a3d3-dd5bc59634a8",
+    "type": "speed_camera",
+    "latitude": 37.7729957,
+    "longitude": -122.4942232,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6595.41500832
+  },
+  {
+    "id": "3685bf7e-1a14-463c-88e2-b583199afb0d",
+    "type": "traffic_enforcement",
+    "latitude": 37.7731325,
+    "longitude": -122.4942341,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6595.89968724
+  },
+  {
+    "id": "f0c20f93-dfb0-492c-95fe-73fe27392dba",
+    "type": "police",
+    "latitude": 37.7730545,
+    "longitude": -122.4943172,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6603.4840123
+  },
+  {
+    "id": "10c09084-4770-419a-9a40-c3313f69ea72",
+    "type": "speed_camera",
+    "latitude": 37.7730457,
+    "longitude": -122.4943503,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6606.42951159
+  },
+  {
+    "id": "e3da3af5-3ee1-4c49-b121-6a2184c17590",
+    "type": "police",
+    "latitude": 37.7730457,
+    "longitude": -122.4943503,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6606.42951159
+  },
+  {
+    "id": "bce90a5b-6ad0-46b6-b75c-1a03e5c1e4ef",
+    "type": "speed_camera",
+    "latitude": 37.7612433,
+    "longitude": -122.4958233,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 6902.03222162
+  },
+  {
+    "id": "ee41389b-8e7c-43d6-811e-51bb2cb3da4d",
+    "type": "speed_camera",
+    "latitude": 37.7424067,
+    "longitude": -122.4945467,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 7540.30789147
+  },
+  {
+    "id": "f16da8dd-1cbb-414d-a5bd-42bfddd42cdd",
+    "type": "police",
+    "latitude": 37.767215,
+    "longitude": -122.54102,
+    "confidence": 0.7,
+    "verified": false,
+    "source": "community",
+    "dist_meters": 10749.20301696
+  }
+]
+
+
+with corridor as (
+  select st_buffer(
+    st_geomfromtext(
+      'LINESTRING(-122.4194 37.7749,-122.3255 37.5630,-122.1430 37.4419,-121.8863 37.3382)',
+      4326
+    )::geography,
+    5000
+  ) as geom
+)
+select
+  er.source,
+  er.type,
+  count(*) as total
+from public.external_radars er, corridor c
+where st_intersects(er.location, c.geom)
+group by er.source, er.type
+order by total desc;
+
+
+Success. No rows returned
+
+
+select
+  id,
+  avatar_url,
+  car_image_url,
+  updated_at
+from public.profiles
+where avatar_url is not null
+   or car_image_url is not null
+order by updated_at desc
+limit 20;
+
+Success. No rows returned
+
+
+select id, name, public
+from storage.buckets
+where id = 'profile-media';
+
+select
+  policyname,
+  cmd,
+  roles,
+  qual,
+  with_check
+from pg_policies
+where schemaname = 'storage'
+  and tablename = 'objects'
+  and policyname like 'profile_media_%'
+order by policyname;
+
+
+[
+  {
+    "policyname": "profile_media_delete_own",
+    "cmd": "DELETE",
+    "roles": "{authenticated}",
+    "qual": "((bucket_id = 'profile-media'::text) AND (split_part(name, '/'::text, 1) = (auth.uid())::text))",
+    "with_check": null
+  },
+  {
+    "policyname": "profile_media_insert_own",
+    "cmd": "INSERT",
+    "roles": "{authenticated}",
+    "qual": null,
+    "with_check": "((bucket_id = 'profile-media'::text) AND (split_part(name, '/'::text, 1) = (auth.uid())::text))"
+  },
+  {
+    "policyname": "profile_media_public_read",
+    "cmd": "SELECT",
+    "roles": "{public}",
+    "qual": "(bucket_id = 'profile-media'::text)",
+    "with_check": null
+  },
+  {
+    "policyname": "profile_media_update_own",
+    "cmd": "UPDATE",
+    "roles": "{authenticated}",
+    "qual": "((bucket_id = 'profile-media'::text) AND (split_part(name, '/'::text, 1) = (auth.uid())::text))",
+    "with_check": "((bucket_id = 'profile-media'::text) AND (split_part(name, '/'::text, 1) = (auth.uid())::text))"
+  }
+]
+
+
+select
+  bucket_id,
+  name,
+  owner,
+  created_at,
+  updated_at
+from storage.objects
+where bucket_id = 'profile-media'
+order by updated_at desc
+limit 50;
+
+Success. No rows returned
