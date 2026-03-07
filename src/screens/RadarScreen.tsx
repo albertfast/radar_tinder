@@ -20,8 +20,6 @@ import { RadarGraphicView } from './components/RadarGraphicView';
 import { RadarHomeDashboard } from './radar/components/RadarHomeDashboard';
 import { useRouteTrace } from './radar/hooks/useRouteTrace';
 import { useVoiceMode } from './radar/hooks/useVoiceMode';
-import { useRadarSignalLevels } from './radar/hooks/useRadarSignalLevels';
-import { RadarRendererMode } from '../components/RadarAnimation';
 import {
   TAB_BAR_HEIGHT,
   getResponsiveHeight,
@@ -150,18 +148,6 @@ const RadarScreen = ({ navigation, route }: any) => {
     getCurrentSpeedKph,
     logRouteSteps,
   });
-
-  const { signalLevel: radarSignalLevel, dangerLevel: radarDangerLevel } = useRadarSignalLevels(
-    dataSync.nearbyRadars,
-    dataSync.closestRadar
-  );
-  const radarRendererMode = useMemo<RadarRendererMode>(() => {
-    const configured = (process.env.EXPO_PUBLIC_RADAR_RENDERER || 'auto').trim().toLowerCase();
-    if (configured === 'life3d' || configured === 'legacy2d' || configured === 'auto') {
-      return configured;
-    }
-    return 'auto';
-  }, []);
 
   const mapOverlayInset = getResponsiveMargin(12);
   const mapOverlayTop = getResponsiveMargin(12);
@@ -493,7 +479,7 @@ const RadarScreen = ({ navigation, route }: any) => {
             unitSystem={unitSystem}
           />
         }
-        graphicContent={<RadarGraphicView totalDistance={driving.totalDistance} drivingStartTime={driving.drivingStartTime} currentSpeed={dataSync.currentSpeed} unitSystem={unitSystem} radarRendererMode={radarRendererMode} radarSignalLevel={radarSignalLevel} radarDangerLevel={radarDangerLevel} />}
+        graphicContent={<RadarGraphicView totalDistance={driving.totalDistance} drivingStartTime={driving.drivingStartTime} currentSpeed={dataSync.currentSpeed} unitSystem={unitSystem} />}
         floatingFabBottom={floatingFabBottom}
         reportModalVisible={reportModalVisible}
         setReportModalVisible={setReportModalVisible}
@@ -523,9 +509,6 @@ const RadarScreen = ({ navigation, route }: any) => {
       alertModeLabel={alertModeLabel}
       voiceWarningsEnabled={voiceWarningsEnabled}
       canUsePro={canUsePro}
-      radarRendererMode={radarRendererMode}
-      radarSignalLevel={radarSignalLevel}
-      radarDangerLevel={radarDangerLevel}
       onOpenDrawer={() => navigation.openDrawer()}
       onOpenProfile={() => navigation.navigate('Profile')}
       onNavigateSubscription={() => navigation.navigate('Subscription')}
@@ -535,7 +518,6 @@ const RadarScreen = ({ navigation, route }: any) => {
       }}
       onOpenAlerts={() => navigation.navigate('Alerts')}
       onToggleVoiceWarnings={toggleVoiceWarnings}
-      pauseRadarAnimation={false}
       showHomeAd={showHomeAd}
     />
   );

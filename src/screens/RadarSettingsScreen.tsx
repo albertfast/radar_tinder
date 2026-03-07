@@ -3,14 +3,8 @@ import { View, StyleSheet, TouchableOpacity, ScrollView, Alert, useWindowDimensi
 import { Text, Switch, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, {
-  Easing,
   FadeInDown,
   FadeInUp,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,40 +37,8 @@ const RadarSettingsScreen = ({ navigation }: any) => {
   } = useSettingsStore();
   const { user } = useAuthStore();
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
-  const drift = useSharedValue(0);
-  const pulse = useSharedValue(0);
-
-  useEffect(() => {
-    drift.value = withRepeat(
-      withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.quad) }),
-      -1,
-      true
-    );
-    pulse.value = withRepeat(
-      withTiming(1, { duration: 5200, easing: Easing.inOut(Easing.quad) }),
-      -1,
-      true
-    );
-  }, [drift, pulse]);
 
   const orbBaseSize = Math.max(220, Math.min(360, Math.round(width * 0.8)));
-  const orbLargeStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: interpolate(drift.value, [0, 1], [-16, 28]) },
-      { translateY: interpolate(drift.value, [0, 1], [-20, 24]) },
-      { scale: interpolate(pulse.value, [0, 1], [0.96, 1.08]) },
-    ],
-    opacity: interpolate(pulse.value, [0, 1], [0.34, 0.46]),
-  }));
-
-  const orbSmallStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: interpolate(drift.value, [0, 1], [18, -24]) },
-      { translateY: interpolate(drift.value, [0, 1], [14, -18]) },
-      { scale: interpolate(pulse.value, [0, 1], [1.08, 0.94]) },
-    ],
-    opacity: interpolate(pulse.value, [0, 1], [0.24, 0.38]),
-  }));
 
   const handleUnitToggle = async () => {
     const currentUnit = unitSystem;
@@ -194,7 +156,7 @@ const RadarSettingsScreen = ({ navigation }: any) => {
         colors={['#02040A', '#040A19', '#071326']}
         style={StyleSheet.absoluteFill}
       />
-      <Animated.View
+      <View
         pointerEvents="none"
         style={[
           styles.backgroundOrb,
@@ -204,10 +166,9 @@ const RadarSettingsScreen = ({ navigation }: any) => {
             height: orbBaseSize,
             borderRadius: orbBaseSize / 2,
           },
-          orbLargeStyle,
         ]}
       />
-      <Animated.View
+      <View
         pointerEvents="none"
         style={[
           styles.backgroundOrb,
@@ -217,7 +178,6 @@ const RadarSettingsScreen = ({ navigation }: any) => {
             height: Math.round(orbBaseSize * 0.72),
             borderRadius: Math.round(orbBaseSize * 0.36),
           },
-          orbSmallStyle,
         ]}
       />
       <Animated.View 

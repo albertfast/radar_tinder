@@ -13,7 +13,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { formatDistance, formatSpeed } from '../../../utils/format';
 import { getResponsiveHeight } from '../../../constants/layout';
 import AdBanner from '../../../components/AdBanner';
-import { type RadarRendererMode } from '../../../components/RadarAnimation';
 
 const RADAR_LOOP_GIF = require('../../../../assets/radar_loopnice_transparent.gif');
 
@@ -34,9 +33,6 @@ type RadarHomeDashboardProps = {
   proFeatures: ProFeature[];
   radarAuraSize: number;
   radarAnimationSize: number;
-  radarRendererMode: RadarRendererMode;
-  radarSignalLevel: number;
-  radarDangerLevel: number;
   closestRadar: any;
   nearestRadarSummary: string;
   currentSpeed: number;
@@ -54,7 +50,6 @@ type RadarHomeDashboardProps = {
   onOpenDriveBasic: () => void;
   onOpenAlerts: () => void;
   onToggleVoiceWarnings: () => void;
-  pauseRadarAnimation: boolean;
   showHomeAd: boolean;
 };
 

@@ -15,7 +15,6 @@ import { TAB_BAR_HEIGHT } from '../../constants/layout';
 import { hasProAccess } from '../../utils/access';
 import ProGate from '../../components/ProGate';
 import AdBanner from '../../components/AdBanner';
-import { type RadarRendererMode } from '../../components/RadarAnimation';
 
 const DRIVING_MODE_RADAR_PANEL_GIF = require('../../../assets/driving_mode_radar_panel.gif');
 
@@ -24,9 +23,6 @@ interface RadarGraphicViewProps {
   drivingStartTime: Date | null;
   currentSpeed: number;
   unitSystem: 'metric' | 'imperial';
-  radarRendererMode: RadarRendererMode;
-  radarSignalLevel: number;
-  radarDangerLevel: number;
 }
 
 const emptyWeeklyTrips = [

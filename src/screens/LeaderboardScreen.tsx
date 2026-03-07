@@ -3,7 +3,7 @@ import { View, StyleSheet, FlatList, Platform, RefreshControl, UIManager } from 
 import { Text, Surface, Avatar, ActivityIndicator, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, FadeInDown, BounceInDown, SlideInLeft } from 'react-native-reanimated';
+import Animated, { FadeInDown, BounceInDown } from 'react-native-reanimated';
 import { GamificationService, Rank, RANKS } from '../services/GamificationService';
 import { useAuthStore } from '../store/authStore';
 import { useSettingsStore } from '../store/settingsStore';
@@ -32,13 +32,6 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   const [leaders, setLeaders] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [progressWidth, setProgressWidth] = useState(0);
-
-  const pulse = useSharedValue(0.6);
-  const heroPulse = useSharedValue(0.4);
-  const spin = useSharedValue(0);
-  const orbFloat = useSharedValue(0);
-  const progressValue = useSharedValue(0);
   const canUseRadar3D = useMemo(
     () => Platform.OS === 'android' && !!UIManager.getViewManagerConfig?.('RTRadar3DGLView'),
     []
@@ -46,16 +39,6 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
 
   useEffect(() => {
     loadLeaderboard(false);
-  }, []);
-
-  useEffect(() => {
-    pulse.value = withRepeat(withTiming(1, { duration: 1200 }), -1, true);
-  }, []);
-
-  useEffect(() => {
-    heroPulse.value = withRepeat(withTiming(1, { duration: 1600 }), -1, true);
-    spin.value = withRepeat(withTiming(360, { duration: 5200 }), -1, false);
-    orbFloat.value = withRepeat(withTiming(1, { duration: 4800 }), -1, true);
   }, []);
 
   useEffect(() => {
@@ -95,30 +78,6 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
     await loadLeaderboard(true);
   };
 
-  const pulseStyle = useAnimatedStyle(() => ({
-    opacity: pulse.value,
-    transform: [{ scale: 0.7 + pulse.value * 0.3 }],
-  }));
-
-  const statPulseStyle = useAnimatedStyle(() => ({
-    opacity: 0.15 + pulse.value * 0.35,
-    transform: [{ scale: 0.8 + pulse.value * 0.3 }],
-  }));
-
-  const heroPulseStyle = useAnimatedStyle(() => ({
-    opacity: 0.2 + heroPulse.value * 0.4,
-    transform: [{ scale: 0.8 + heroPulse.value * 0.3 }],
-  }));
-
-  const spinStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${spin.value}deg` }],
-  }));
-
-  const orbFloatStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -8 + orbFloat.value * 16 }],
-    opacity: 0.25 + orbFloat.value * 0.2,
-  }));
-
   const topThree = useMemo(() => leaders.slice(0, 3), [leaders]);
   const restLeaders = useMemo(() => leaders.slice(3), [leaders]);
 
@@ -134,14 +93,6 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   const nextMin = nextRank?.minPoints ?? currentMin;
   const progressRaw = nextMin > currentMin ? (currentPoints - currentMin) / (nextMin - currentMin) : 1;
   const progressClamped = Math.max(0, Math.min(progressRaw, 1));
-
-  useEffect(() => {
-    progressValue.value = withTiming(progressClamped, { duration: 900 });
-  }, [progressClamped]);
-
-  const progressStyle = useAnimatedStyle(() => ({
-    width: progressWidth * progressValue.value,
-  }));
 
   const rankStyles = (rank: Rank): Tone => {
     switch (rank) {
@@ -192,7 +143,7 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   }) => (
     <Surface style={[styles.statCard, { borderColor: tone.border }]} elevation={1}>
       {highlight ? (
-        <Animated.View style={[styles.statPulse, statPulseStyle, { borderColor: tone.text }]} />
+        <View style={[styles.statPulse, { borderColor: tone.text, opacity: 0.3 }]} />
       ) : null}
       <View style={[styles.statIcon, { backgroundColor: tone.bg }]}>
         <MaterialCommunityIcons name={icon as any} size={18} color={tone.text} />
@@ -290,7 +241,7 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
         style={styles.background}
       />
       <View style={styles.orbLayer} pointerEvents="none">
-        <Animated.View style={[styles.orb, styles.orbTeal, orbFloatStyle]} />
+        <View style={[styles.orb, styles.orbTeal]} />
         <View style={[styles.orb, styles.orbBlue]} />
         <View style={[styles.orb, styles.orbAmber]} />
       </View>
@@ -310,7 +261,7 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
           <Text style={styles.headerSubtitle}>Top Drivers this Week</Text>
         </View>
         <View style={styles.liveBadge}>
-          <Animated.View style={[styles.liveDot, pulseStyle]} />
+          <View style={styles.liveDot} />
           <Text style={styles.liveText}>LIVE</Text>
         </View>
       </View>
@@ -354,15 +305,15 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
                       <Radar3DView style={styles.trophy3d} />
                     ) : (
                       <View style={styles.trophyFallback}>
-                        <Animated.View style={[styles.trophyOrb, spinStyle]}>
+                        <View style={styles.trophyOrb}>
                           <LinearGradient
                             colors={['#0F172A', '#1E293B', '#0B1220']}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                             style={StyleSheet.absoluteFillObject}
                           />
-                        </Animated.View>
-                        <Animated.View style={[styles.trophyPulse, heroPulseStyle]} />
+                        </View>
+                        <View style={styles.trophyPulse} />
                         <Text style={styles.trophyText}>RT</Text>
                       </View>
                     )}
@@ -423,11 +374,8 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
                     ? 'Top rank unlocked.'
                     : `Next: ${nextRank?.name || 'Legend'} at ${nextMin} pts`}
                 </Text>
-                <View
-                  style={styles.progressTrack}
-                  onLayout={(event) => setProgressWidth(event.nativeEvent.layout.width)}
-                >
-                  <Animated.View style={[styles.progressFill, progressStyle]} />
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${Math.round(progressClamped * 100)}%` }]} />
                 </View>
                 <Text style={styles.progressValue}>
                   {currentPoints.toLocaleString()} / {nextMin.toLocaleString()} pts

@@ -6,11 +6,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   FadeInUp,
   SlideInUp,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  interpolate,
-  Extrapolate
 } from 'react-native-reanimated';
 import { useRadarStore } from '../store/radarStore';
 import { useAuthStore } from '../store/authStore';
@@ -53,24 +48,6 @@ const AlertCard3D = ({
   unitSystem: 'metric' | 'imperial';
   onAcknowledge: (id: string) => void;
 }) => {
-  const offset = useSharedValue(50);
-  const rotation = useSharedValue(10);
-
-  useEffect(() => {
-    offset.value = withSpring(0, { damping: 12, stiffness: 90 });
-    rotation.value = withSpring(0, { damping: 12, stiffness: 90 });
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: offset.value },
-      { perspective: 1000 },
-      { rotateX: `${rotation.value}deg` },
-      { scale: interpolate(offset.value, [0, 50], [1, 0.9], Extrapolate.CLAMP) },
-    ],
-    opacity: interpolate(offset.value, [0, 50], [1, 0], Extrapolate.CLAMP),
-  }));
-
   const distanceLabel = formatDistance(alert.distance, unitSystem);
   const etaMinutes = Number.isFinite(alert.estimatedTime)
     ? Math.max(1, Math.round(alert.estimatedTime * 60))
@@ -80,7 +57,10 @@ const AlertCard3D = ({
   const severityColor = alert.severity === 'high' ? '#FF5252' : '#4ECDC4';
 
   return (
-    <Animated.View style={[styles.alertWrapper, animatedStyle]}>
+    <Animated.View
+      style={styles.alertWrapper}
+      entering={allowLayoutAnimations ? FadeInUp.duration(ANIMATION_TIMING.BASE) : undefined}
+    >
       <Surface style={styles.alertCard} elevation={4}>
         <LinearGradient
           colors={['#1C1C1E', '#252525']}
