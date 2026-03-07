@@ -67,10 +67,10 @@ const queryClient = new QueryClient({
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-// Combine Paper dark theme with Navigation dark theme
-const combinedDarkTheme = {
+const paperTheme = darkTheme;
+
+const navigationTheme = {
   ...NavigationDarkTheme,
-  ...darkTheme,
   colors: {
     ...NavigationDarkTheme.colors,
     ...darkTheme.colors,
@@ -288,9 +288,9 @@ export default function App() {
       <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
         <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
-            <PaperProvider theme={combinedDarkTheme}>
+            <PaperProvider theme={paperTheme}>
               <NavigationContainer
-                theme={combinedDarkTheme}
+                theme={navigationTheme}
                 linking={{
                   prefixes: [prefix, 'radartinder://'],
                   config: {
@@ -337,10 +337,10 @@ export default function App() {
                         options={{
                           headerShown: true,
                           title: 'Report Radar',
-                          headerStyle: {
-                            backgroundColor: combinedDarkTheme.colors.surface,
+                            headerStyle: {
+                            backgroundColor: paperTheme.colors.surface,
                           },
-                          headerTintColor: combinedDarkTheme.colors.text,
+                          headerTintColor: paperTheme.colors.text,
                         }}
                       />
                       <Stack.Screen

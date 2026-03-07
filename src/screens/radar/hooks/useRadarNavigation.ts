@@ -74,7 +74,7 @@ export function useRadarNavigation({
   const [distanceToDestinationMeters, setDistanceToDestinationMeters] = useState<number | null>(null);
   const [hasArrived, setHasArrived] = useState(false);
 
-  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequestIdRef = useRef(0);
   const searchCountryCodeRef = useRef<string | undefined>(undefined);
   const rerouteConsecutiveOffRouteRef = useRef(0);
