@@ -14,21 +14,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 import { FirebaseAuthService } from '../services/FirebaseAuthService';
-import { SubscriptionService } from '../services/SubscriptionService';
 import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withRepeat, 
-  withTiming, 
-  Easing,
   FadeInDown,
-  withSequence,
-  withDelay
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const allowLayoutAnimations = Platform.OS !== 'android';
+const PREMIUM_ACCESS_PANEL_GIF = require('../../assets/premium_access_panel.gif');
 
 const FEATURES = [
   {
@@ -54,90 +47,15 @@ const FEATURES = [
   }
 ];
 
-// --- 3D Radar Scan Animation ---
-const RadarScan = () => {
-    const rotation = useSharedValue(0);
-    const scale = useSharedValue(1);
-    
-    useEffect(() => {
-        rotation.value = withRepeat(
-            withTiming(360, { duration: 4000, easing: Easing.linear }),
-            -1,
-            false
-        );
-        scale.value = withRepeat(
-            withSequence(
-                withTiming(1.2, { duration: 2000 }),
-                withTiming(1, { duration: 2000 })
-            ),
-            -1,
-            true
-        );
-    }, []);
-
-    const radarStyle = useAnimatedStyle(() => {
-        return {
-            transform: [
-                { rotate: `${rotation.value}deg` },
-                { scale: scale.value }
-            ]
-        };
-    });
-
-    const pulseStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ scale: scale.value }],
-            opacity: withRepeat(
-                withSequence(
-                    withTiming(0.1, { duration: 1000 }),
-                    withTiming(0.3, { duration: 1000 })
-                ),
-                -1,
-                true
-            )
-        };
-    });
-
-    return (
-        <View style={StyleSheet.absoluteFill}>
-            <LinearGradient
-                colors={['#000000', '#1A1A1A']}
-                style={StyleSheet.absoluteFill}
-            />
-            
-            {/* 3D Grid Floor Effect */}
-            <View style={styles.gridContainer}>
-                <View style={styles.grid} />
-            </View>
-
-            {/* Radar Center */}
-            <View style={styles.radarContainer}>
-                 {/* Pulse Rings */}
-                 <Animated.View style={[styles.pulseRing, pulseStyle, { width: 600, height: 600, borderRadius: 300 }]} />
-                 <Animated.View style={[styles.pulseRing, pulseStyle, { width: 400, height: 400, borderRadius: 200 }]} />
-                 
-                 {/* Rotating Beam */}
-                 <Animated.View style={[styles.scanner, radarStyle]}>
-                    <LinearGradient
-                        colors={['rgba(255, 82, 82, 0)', 'rgba(255, 82, 82, 0.4)']}
-                        style={styles.scannerGradient}
-                    />
-                 </Animated.View>
-            </View>
-        </View>
-    );
-};
-
-const TrialOfferScreen = ({ navigation }: any) => {
+const TrialOfferScreen = () => {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const [loading, setLoading] = useState(false);
   const { signInAnonymously } = useAuthStore();
-  const scrollX = useSharedValue(0);
 
   // Auto-scrolling logic
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval> | undefined;
     
     // Start auto-scroll after a slight delay
     const startAutoScroll = () => {
@@ -156,7 +74,9 @@ const TrialOfferScreen = ({ navigation }: any) => {
 
     startAutoScroll();
 
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [activeIndex]);
 
   const renderItem = ({ item }: any) => (
@@ -174,7 +94,15 @@ const TrialOfferScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      <RadarScan />
+      <Image
+        source={PREMIUM_ACCESS_PANEL_GIF}
+        style={styles.backgroundGif}
+        resizeMode="cover"
+      />
+      <LinearGradient
+        colors={['rgba(2,6,23,0.45)', 'rgba(2,6,23,0.88)', 'rgba(2,6,23,0.98)']}
+        style={StyleSheet.absoluteFill}
+      />
 
       <SafeAreaView style={styles.content}>
         
@@ -337,48 +265,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
-  // 3D/Radar Styles
-  gridContainer: {
+  backgroundGif: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    opacity: 0.2,
-    transform: [{ perspective: 1000 }, { rotateX: '60deg' }, { scale: 2 }]
-  },
-  grid: {
-    width: width * 2,
-    height: height * 2,
-    borderWidth: 1,
-    borderColor: '#333',
-    backgroundColor: 'transparent',
-    // In a real app, uses an image pattern or SVG for grid lines
-  },
-  radarContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    transform: [{ perspective: 1000 }, { rotateX: '45deg' }] // Adds depth tilt
-  },
-  pulseRing: {
-    position: 'absolute',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 82, 82, 0.3)',
-  },
-  scanner: {
-    width: 600,
-    height: 600,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scannerGradient: {
-    width: 300, 
-    height: 300,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    borderRightWidth: 2,
-    borderColor: '#FF5252',
-    transform: [{ rotate: '-45deg' }, { translateX: 150 }, { translateY: 150 }] // Half fan shape
   },
 
   // Content Styles

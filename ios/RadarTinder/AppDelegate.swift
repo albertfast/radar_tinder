@@ -34,12 +34,6 @@ if FirebaseApp.app() == nil {
   FirebaseApp.configure()
 }
 // @generated end @react-native-firebase/app-didFinishLaunchingWithOptions
-    factory.startReactNative(
-      withModuleName: "main",
-      in: window,
-      launchOptions: launchOptions)
-#endif
-
 // @generated begin react-native-maps-init - expo prebuild (DO NOT MODIFY) sync-custom-mainthread-init
 #if canImport(GoogleMaps)
 if let mapsApiKey = Bundle.main.object(forInfoDictionaryKey: "GMSApiKey") as? String, !mapsApiKey.isEmpty {
@@ -47,6 +41,11 @@ if let mapsApiKey = Bundle.main.object(forInfoDictionaryKey: "GMSApiKey") as? St
 }
 #endif
 // @generated end react-native-maps-init
+    factory.startReactNative(
+      withModuleName: "main",
+      in: window,
+      launchOptions: launchOptions)
+#endif
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

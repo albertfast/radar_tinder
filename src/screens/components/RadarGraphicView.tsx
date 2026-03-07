@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
+import { Image, View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
@@ -15,7 +15,9 @@ import { TAB_BAR_HEIGHT } from '../../constants/layout';
 import { hasProAccess } from '../../utils/access';
 import ProGate from '../../components/ProGate';
 import AdBanner from '../../components/AdBanner';
-import { RadarAnimation, type RadarRendererMode } from '../../components/RadarAnimation';
+import { type RadarRendererMode } from '../../components/RadarAnimation';
+
+const DRIVING_MODE_RADAR_PANEL_GIF = require('../../../assets/driving_mode_radar_panel.gif');
 
 interface RadarGraphicViewProps {
   totalDistance: number;
@@ -43,9 +45,6 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   drivingStartTime,
   currentSpeed,
   unitSystem,
-  radarRendererMode,
-  radarSignalLevel,
-  radarDangerLevel,
 }) => {
   const { width } = useWindowDimensions();
   const { user } = useAuthStore();
@@ -304,12 +303,16 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             <Text style={styles.radarHeroMeta}>Contour + Orbit</Text>
           </View>
           <View style={styles.radarHeroBody}>
-            <RadarAnimation
-              size={Math.max(150, Math.min(Math.round(width * 0.45), 220))}
-              rendererMode={radarRendererMode}
-              artPreset="contour_orbit"
-              signalLevel={radarSignalLevel}
-              dangerLevel={radarDangerLevel}
+            <Image
+              source={DRIVING_MODE_RADAR_PANEL_GIF}
+              style={[
+                styles.radarHeroGif,
+                {
+                  width: Math.max(280, Math.min(Math.round(width * 0.88), 520)),
+                  height: Math.max(190, Math.min(Math.round(width * 0.52), 300)),
+                },
+              ]}
+              resizeMode="cover"
             />
           </View>
         </LinearGradient>
@@ -647,6 +650,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 2,
+  },
+  radarHeroGif: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(78,205,196,0.14)',
   },
   statsGrid: {
     flexDirection: 'row',
