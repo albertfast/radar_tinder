@@ -27,6 +27,14 @@ public class AppDelegate: ExpoAppDelegate {
     reactNativeFactory = factory
     bindReactNativeFactory(factory)
 
+// @generated begin react-native-maps-init - expo prebuild (DO NOT MODIFY) sync-custom-mainthread-init
+#if canImport(GoogleMaps)
+if let mapsApiKey = Bundle.main.object(forInfoDictionaryKey: "GMSApiKey") as? String, !mapsApiKey.isEmpty {
+  GMSServices.provideAPIKey(mapsApiKey)
+}
+#endif
+// @generated end react-native-maps-init
+
 #if os(iOS) || os(tvOS)
     window = UIWindow(frame: UIScreen.main.bounds)
 // @generated begin @react-native-firebase/app-didFinishLaunchingWithOptions - expo prebuild (DO NOT MODIFY) sync-10e8520570672fd76b2403b7e1e27f5198a6349a
@@ -40,13 +48,6 @@ if FirebaseApp.app() == nil {
       launchOptions: launchOptions)
 #endif
 
-// @generated begin react-native-maps-init - expo prebuild (DO NOT MODIFY) sync-custom-mainthread-init
-#if canImport(GoogleMaps)
-if let mapsApiKey = Bundle.main.object(forInfoDictionaryKey: "GMSApiKey") as? String, !mapsApiKey.isEmpty {
-  GMSServices.provideAPIKey(mapsApiKey)
-}
-#endif
-// @generated end react-native-maps-init
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
