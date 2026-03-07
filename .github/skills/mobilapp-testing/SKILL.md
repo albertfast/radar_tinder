@@ -1,10 +1,7 @@
 ---
 name: radar-tinder-mobileapp-testing
-description: >
-  Testing and validation workflows for the Radar Tinder mobile application built with Expo + React Native,
-  Firebase (Auth, Firestore, Realtime/Cloud Functions), Maps APIs, and on-device ONNX inference.
-  This skill should be used for regression testing, feature verification, realtime issues,
-  leaderboard inconsistencies, navigation bugs, and AI diagnostics validation.
+description: Testing and validation workflows for the Radar Tinder mobile application built with Expo + React Native, Firebase (Auth, Firestore, Realtime/Cloud Functions), Maps APIs, and on-device ONNX inference. This skill should be used for regression testing, feature verification, realtime issues, leaderboard inconsistencies, navigation bugs, and AI diagnostics validation.
+
 ---
 
 # Radar Tinder – Mobile App Testing Skill
@@ -38,7 +35,7 @@ If any fail → check logs, Firebase config, and environment variables first.
 ### A) Manual Smoke Tests (Happy Path)
 
 #### 1. Authentication & Profile
-- Sign up with email
+
 - Profile document is created in Firestore
 - Username is unique
 - Display name defaults correctly
@@ -144,3 +141,4 @@ Copilot responses should follow:
 - Fix Plan
 - Tests Added or Updated
 - How to Verify
+
