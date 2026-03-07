@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   FlatList,
+  Image,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -12,7 +13,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { formatDistance, formatSpeed } from '../../../utils/format';
 import { getResponsiveHeight } from '../../../constants/layout';
 import AdBanner from '../../../components/AdBanner';
-import { RadarAnimation, type RadarRendererMode } from '../../../components/RadarAnimation';
+import { type RadarRendererMode } from '../../../components/RadarAnimation';
+
+const RADAR_LOOP_GIF = require('../../../../assets/radar_loopnice_transparent.gif');
 
 type ProFeature = {
   title: string;
@@ -129,9 +132,6 @@ export function RadarHomeDashboard({
   proFeatures,
   radarAuraSize,
   radarAnimationSize,
-  radarRendererMode,
-  radarSignalLevel,
-  radarDangerLevel,
   closestRadar,
   nearestRadarSummary,
   currentSpeed,
@@ -149,7 +149,6 @@ export function RadarHomeDashboard({
   onOpenDriveBasic,
   onOpenAlerts,
   onToggleVoiceWarnings,
-  pauseRadarAnimation,
   showHomeAd,
 }: RadarHomeDashboardProps) {
   const homeBottomInset = tabBarInset + Math.max(28, Math.round(width * 0.08));
@@ -311,14 +310,67 @@ export function RadarHomeDashboard({
                 },
               ]}
             />
-            <RadarAnimation
-              size={radarAnimationSize}
-              rendererMode={radarRendererMode}
-              artPreset="contour_orbit"
-              signalLevel={radarSignalLevel}
-              dangerLevel={radarDangerLevel}
-              paused={pauseRadarAnimation}
+            <View
+              style={{
+                position: 'absolute',
+                width: Math.round(radarAnimationSize * 1.06),
+                height: Math.round(radarAnimationSize * 1.06),
+                borderRadius: Math.round(radarAnimationSize * 0.53),
+                backgroundColor: 'rgba(78,205,196,0.08)',
+                borderWidth: 1,
+                borderColor: 'rgba(56,189,248,0.10)',
+              }}
             />
+            <View
+              style={{
+                width: radarAnimationSize,
+                height: radarAnimationSize,
+                borderRadius: radarAnimationSize / 2,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <View
+                style={{
+                  position: 'absolute',
+                  width: Math.round(radarAnimationSize * 0.72),
+                  height: Math.round(radarAnimationSize * 0.72),
+                  borderRadius: Math.round(radarAnimationSize * 0.36),
+                  backgroundColor: 'rgba(3,20,37,0.92)',
+                }}
+              />
+              <View
+                style={{
+                  position: 'absolute',
+                  width: Math.round(radarAnimationSize * 0.28),
+                  height: Math.round(radarAnimationSize * 0.28),
+                  borderRadius: Math.round(radarAnimationSize * 0.14),
+                  backgroundColor: 'rgba(78,205,196,0.14)',
+                  shadowColor: '#4ECDC4',
+                  shadowOpacity: 0.45,
+                  shadowRadius: 24,
+                  elevation: 10,
+                }}
+              />
+              <View
+                style={{
+                  position: 'absolute',
+                  width: Math.round(radarAnimationSize * 0.16),
+                  height: Math.round(radarAnimationSize * 0.16),
+                  borderRadius: Math.round(radarAnimationSize * 0.08),
+                  backgroundColor: 'rgba(255,179,71,0.12)',
+                }}
+              />
+              <Image
+                source={RADAR_LOOP_GIF}
+                style={{
+                  width: Math.round(radarAnimationSize * 1.22),
+                  height: Math.round(radarAnimationSize * 1.22),
+                  opacity: 0.92,
+                }}
+                resizeMode="contain"
+              />
+            </View>
             <View style={[styles.radarChip, styles.radarChipLeft]}>
               <MaterialCommunityIcons name="radar" size={18} color="#4ECDC4" />
               <Text style={styles.radarChipText}>Live sweep</Text>
