@@ -102,7 +102,7 @@ module.exports = {
           "location",
           "fetch"
         ],
-        NSCameraUsageDescription: "This app needs camera access for the AR Radar view.",
+        NSCameraUsageDescription: "This app needs camera access to capture dashboard photos in AI Diagnose.",
         NSMicrophoneUsageDescription: "This app needs microphone access for AI car diagnosis voice input.",
         NSPhotoLibraryUsageDescription: "This app needs access to photo library to select images for diagnosis.",
         NSMotionUsageDescription: "This app needs access to motion data for enhanced radar detection.",

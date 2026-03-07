@@ -169,7 +169,7 @@ export function RadarMapTab({
         ) * 1000
       : Number.POSITIVE_INFINITY;
 
-    if (now - lastSpeedLimitFetchAtRef.current < 18000 && movedMeters < 90) {
+    if (now - lastSpeedLimitFetchAtRef.current < 12000 && movedMeters < 55) {
       return;
     }
 

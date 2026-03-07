@@ -12,15 +12,22 @@ export interface GeocodingResult {
   lon: string;
   place_id: number;
   address?: {
+    house_number?: string;
     road?: string;
     city?: string;
+    town?: string;
+    village?: string;
+    suburb?: string;
+    county?: string;
     state?: string;
     country?: string;
+    country_code?: string;
     postcode?: string;
   };
 }
 
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
+const SEARCH_CACHE_TTL_MS = 120000;
 
 // Debounce/throttle tracking
 let lastRequestTime = 0;
@@ -34,7 +41,15 @@ type SearchOptions = {
   bounded?: boolean;
 };
 
+type SearchCacheEntry = {
+  value: GeocodingResult[];
+  expiresAt: number;
+};
+
 export class NominatimService {
+  private static searchCache = new Map<string, SearchCacheEntry>();
+  private static inflightSearches = new Map<string, Promise<GeocodingResult[]>>();
+
   /**
    * Search for address suggestions
    * Returns list of matching places with coordinates
@@ -43,15 +58,40 @@ export class NominatimService {
     query: string,
     options?: SearchOptions
   ): Promise<GeocodingResult[]> {
-    try {
-      if (!query || query.trim().length < 2) return [];
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery || trimmedQuery.length < 2) return [];
 
+    const cacheKey = this.buildSearchCacheKey(trimmedQuery, options);
+    const cached = this.getCachedSearch(cacheKey);
+    if (cached) return cached;
+
+    const inflight = this.inflightSearches.get(cacheKey);
+    if (inflight) return inflight;
+
+    const request = this.fetchSearchResults(trimmedQuery, options)
+      .then((results) => {
+        this.setCachedSearch(cacheKey, results);
+        return results;
+      })
+      .finally(() => {
+        this.inflightSearches.delete(cacheKey);
+      });
+
+    this.inflightSearches.set(cacheKey, request);
+    return request;
+  }
+
+  private static async fetchSearchResults(
+    query: string,
+    options?: SearchOptions
+  ): Promise<GeocodingResult[]> {
+    try {
       // Respect rate limit
       await this.throttle();
 
-      const limit = options?.limit || 5;
+      const limit = Math.max(options?.limit || 6, query.length >= 4 ? 8 : 6);
       const params = new URLSearchParams({
-        q: query.trim(),
+        q: query,
         format: 'json',
         limit: String(limit),
         addressdetails: '1',
@@ -76,7 +116,7 @@ export class NominatimService {
         );
         if (viewBox) {
           params.append('viewbox', viewBox);
-          if (options?.bounded) {
+          if (options?.bounded && /\d/.test(query)) {
             params.append('bounded', '1');
           }
         }
@@ -87,7 +127,7 @@ export class NominatimService {
       const response = await fetch(url, {
         headers: {
           'User-Agent': 'RadarTinder/1.0', // Required by Nominatim ToS
-          'Accept-Language': 'en',
+          'Accept-Language': 'en-US,en',
         },
       });
 
@@ -156,8 +196,9 @@ export class NominatimService {
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
 
       const label = this.buildSuggestionLabel(result);
+      const searchableText = `${label} ${result.display_name}`.trim();
       if (!label || this.isMalformedInterpolationLabel(label)) continue;
-      if (!this.matchesQueryTokens(label, queryTokens, normalizedQuery)) continue;
+      if (!this.matchesQueryTokens(searchableText, queryTokens, normalizedQuery)) continue;
 
       const street = this.normalizeText(
         [result.address?.road, result.address?.postcode].filter(Boolean).join(' ')
@@ -172,10 +213,12 @@ export class NominatimService {
       const dedupeKey = `${street}|${city}|${latBucket}|${lonBucket}`;
       const qualityScore = this.computeSuggestionScore(
         label,
+        searchableText,
         queryTokens,
         focusLocation,
         lat,
-        lon
+        lon,
+        normalizedQuery
       );
 
       const suggestion: AddressSuggestion = {
@@ -290,17 +333,31 @@ export class NominatimService {
   }
 
   private static buildSuggestionLabel(result: GeocodingResult): string {
-    const road = result.address?.road?.trim();
-    const city = (result.address?.city || result.address?.state || '').trim();
+    const houseNumber = (result.address?.house_number || '')
+      .replace(/;.*$/, '')
+      .trim();
+    const road = (result.address?.road || '').trim();
+    const city = (
+      result.address?.city ||
+      result.address?.town ||
+      result.address?.village ||
+      result.address?.suburb ||
+      result.address?.county ||
+      result.address?.state ||
+      ''
+    ).trim();
+    const state = (result.address?.state || '').trim();
     const country = (result.address?.country || '').trim();
 
     const leading = result.display_name.split(',')[0]?.trim() || '';
+    const safeLeading = leading.includes(';') ? '' : leading;
     const hasStreetToken =
-      /\d/.test(leading) || /\b(st|street|ave|avenue|rd|road|blvd|drive|dr|way|ln|lane|hwy|highway)\b/i.test(leading);
+      /\d/.test(safeLeading) || /\b(st|street|ave|avenue|rd|road|blvd|drive|dr|way|ln|lane|hwy|highway)\b/i.test(safeLeading);
+    const streetLine = [houseNumber, road].filter(Boolean).join(' ').trim();
 
     const candidate = hasStreetToken
-      ? leading
-      : [road, city].filter(Boolean).join(', ');
+      ? safeLeading
+      : [streetLine || road, city].filter(Boolean).join(', ');
     const fallback = result.display_name
       .split(',')
       .slice(0, 4)
@@ -310,7 +367,7 @@ export class NominatimService {
     const compact = candidate || fallback;
     if (!compact) return '';
 
-    const suffix = [city, country]
+    const suffix = [city, state && state !== city ? state : '', country]
       .filter(Boolean)
       .join(', ')
       .trim();
@@ -330,41 +387,66 @@ export class NominatimService {
   }
 
   private static matchesQueryTokens(
-    label: string,
+    text: string,
     queryTokens: string[],
     normalizedQuery: string
   ): boolean {
-    const normalizedLabel = this.normalizeText(label);
-    if (!normalizedLabel) return false;
+    const normalizedText = this.normalizeText(text);
+    if (!normalizedText) return false;
+    const textTokens = normalizedText
+      .split(/[\s,/-]+/)
+      .map((token) => token.trim())
+      .filter(Boolean);
 
     if (/^\d+$/.test(normalizedQuery)) {
-      return normalizedLabel.includes(normalizedQuery);
+      return textTokens.some((token) => token.startsWith(normalizedQuery));
     }
 
     if (!queryTokens.length) {
-      return normalizedLabel.includes(normalizedQuery);
+      return normalizedText.includes(normalizedQuery);
     }
 
-    const required = queryTokens.slice(0, 2);
-    return required.every((token) => normalizedLabel.includes(token));
+    const required = queryTokens.slice(0, Math.min(3, queryTokens.length));
+    const matches = required.filter((token) => {
+      if (normalizedText.includes(token)) return true;
+      return textTokens.some((textToken) => textToken.startsWith(token));
+    }).length;
+
+    if (required.length <= 1) return matches === 1;
+    return matches >= Math.min(2, required.length);
   }
 
   private static computeSuggestionScore(
     label: string,
+    searchableText: string,
     queryTokens: string[],
     focusLocation: { latitude: number; longitude: number } | undefined,
     lat: number,
-    lon: number
+    lon: number,
+    normalizedQuery: string
   ): number {
     const normalizedLabel = this.normalizeText(label);
+    const normalizedText = this.normalizeText(searchableText);
+    const textTokens = normalizedText
+      .split(/[\s,/-]+/)
+      .map((token) => token.trim())
+      .filter(Boolean);
     let score = 0;
     if (/\d+/.test(normalizedLabel)) score += 25;
     if (/\b(st|street|ave|avenue|rd|road|blvd|drive|dr|way|ln|lane|hwy|highway)\b/i.test(normalizedLabel)) {
       score += 10;
     }
 
-    const tokenMatches = queryTokens.filter((token) => normalizedLabel.includes(token)).length;
-    score += tokenMatches * 20;
+    if (normalizedLabel.startsWith(normalizedQuery)) score += 65;
+    else if (normalizedText.startsWith(normalizedQuery)) score += 40;
+    else if (normalizedText.includes(normalizedQuery)) score += 18;
+
+    const tokenMatches = queryTokens.filter((token) => normalizedText.includes(token)).length;
+    const tokenPrefixMatches = queryTokens.filter((token) =>
+      textTokens.some((textToken) => textToken.startsWith(token))
+    ).length;
+    score += tokenMatches * 16;
+    score += tokenPrefixMatches * 20;
 
     if (focusLocation) {
       const distanceKm = this.distanceKm(
@@ -380,6 +462,45 @@ export class NominatimService {
     }
 
     return score;
+  }
+
+  private static buildSearchCacheKey(
+    query: string,
+    options?: SearchOptions
+  ): string {
+    const countryCode = options?.countryCode?.trim().toLowerCase() || 'any';
+    const focusLocation = options?.focusLocation;
+    const focusBucket =
+      focusLocation &&
+      Number.isFinite(focusLocation.latitude) &&
+      Number.isFinite(focusLocation.longitude)
+        ? `${focusLocation.latitude.toFixed(2)},${focusLocation.longitude.toFixed(2)}`
+        : 'none';
+
+    return [
+      this.normalizeText(query),
+      countryCode,
+      options?.bounded ? 'bounded' : 'open',
+      String(options?.limit || 0),
+      focusBucket,
+    ].join('|');
+  }
+
+  private static getCachedSearch(key: string): GeocodingResult[] | null {
+    const cached = this.searchCache.get(key);
+    if (!cached) return null;
+    if (Date.now() > cached.expiresAt) {
+      this.searchCache.delete(key);
+      return null;
+    }
+    return cached.value;
+  }
+
+  private static setCachedSearch(key: string, value: GeocodingResult[]): void {
+    this.searchCache.set(key, {
+      value,
+      expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
+    });
   }
 
   private static distanceKm(

@@ -12,6 +12,14 @@ type TripPayload = {
   score?: number;
   startTime?: string | null;
   endTime?: string | null;
+  avgSpeedKph?: number | null;
+  topSpeedKph?: number | null;
+  movingDuration?: number | null;
+  speedSamplesCount?: number | null;
+  startLatitude?: number | null;
+  startLongitude?: number | null;
+  endLatitude?: number | null;
+  endLongitude?: number | null;
 };
 
 type QueuedTripPayload = TripPayload & {
@@ -137,6 +145,38 @@ export class SupabaseService {
       score: row?.score != null ? Number(row.score) : 0,
       startTime: row?.start_time ?? null,
       endTime: row?.end_time ?? null,
+      avgSpeedKph:
+        row?.avg_speed_kph != null && Number.isFinite(Number(row.avg_speed_kph))
+          ? Number(row.avg_speed_kph)
+          : null,
+      topSpeedKph:
+        row?.top_speed_kph != null && Number.isFinite(Number(row.top_speed_kph))
+          ? Number(row.top_speed_kph)
+          : null,
+      movingDuration:
+        row?.moving_duration != null && Number.isFinite(Number(row.moving_duration))
+          ? Number(row.moving_duration)
+          : 0,
+      speedSamplesCount:
+        row?.speed_samples_count != null && Number.isFinite(Number(row.speed_samples_count))
+          ? Number(row.speed_samples_count)
+          : 0,
+      startLatitude:
+        row?.start_latitude != null && Number.isFinite(Number(row.start_latitude))
+          ? Number(row.start_latitude)
+          : null,
+      startLongitude:
+        row?.start_longitude != null && Number.isFinite(Number(row.start_longitude))
+          ? Number(row.start_longitude)
+          : null,
+      endLatitude:
+        row?.end_latitude != null && Number.isFinite(Number(row.end_latitude))
+          ? Number(row.end_latitude)
+          : null,
+      endLongitude:
+        row?.end_longitude != null && Number.isFinite(Number(row.end_longitude))
+          ? Number(row.end_longitude)
+          : null,
       createdAt: row?.created_at ?? null,
       updatedAt: row?.updated_at ?? null,
     };
@@ -152,7 +192,26 @@ export class SupabaseService {
       score: payload.score ?? 0,
       start_time: payload.startTime,
       end_time: payload.endTime,
+      avg_speed_kph: payload.avgSpeedKph ?? null,
+      top_speed_kph: payload.topSpeedKph ?? null,
+      moving_duration: payload.movingDuration ?? 0,
+      speed_samples_count: payload.speedSamplesCount ?? 0,
+      start_latitude: payload.startLatitude ?? null,
+      start_longitude: payload.startLongitude ?? null,
+      end_latitude: payload.endLatitude ?? null,
+      end_longitude: payload.endLongitude ?? null,
     };
+  }
+
+  private static async resolveTripUserId(userId?: string): Promise<string | null> {
+    if (userId) return userId;
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      return data.user?.id ?? null;
+    } catch {
+      return null;
+    }
   }
 
   private static async insertTrip(payload: TripPayload) {
@@ -637,13 +696,15 @@ export class SupabaseService {
     if (!this.ensureSupabaseAvailable('getUserTrips')) return [];
     try {
       await this.flushQueuedTrips();
+      const resolvedUserId = await this.resolveTripUserId(userId);
+      if (!resolvedUserId) {
+        return [];
+      }
       let query = supabase
         .from('trips')
         .select('*')
+        .eq('user_id', resolvedUserId)
         .order('created_at', { ascending: false });
-      if (userId) {
-        query = query.eq('user_id', userId);
-      }
       const { data, error } = await query;
 
       if (error) throw error;

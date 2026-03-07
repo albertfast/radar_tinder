@@ -30,11 +30,10 @@ Generated with `scripts/analyze-unused-files.mjs` (import + dynamic import + req
 - `src/lib/db.ts`
 - `src/lib/utils.ts`
 - `src/types/expo-linear-gradient.d.ts`
-- `src/utils/mapStyle.ts`
-- `src/screens/ARRadarScreen.tsx`
 - `src/screens/AlertsScreen.tsx`
 - `src/screens/MapScreen.tsx`
 
 ## Notes
 - Legacy screens were intentionally reconnected through navigation/drawer and are not cleanup targets.
 - Static graph analysis can miss runtime/dynamic wiring; keep list is explicit by design.
+- 2026-03-06 cleanup removed `src/utils/mapStyle.ts` and `src/screens/ARRadarScreen.tsx`.

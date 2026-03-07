@@ -7,6 +7,8 @@ import { useSettingsStore } from '../store/settingsStore';
 import { formatDistance, formatSpeed } from '../utils/format';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 
+const MAX_DISPLAY_SPEED_KPH = 220;
+
 const TripDetailScreen = ({ navigation, route }: any) => {
   const trip = route?.params?.trip;
   const unitSystem = useSettingsStore((state) => state.unitSystem);
@@ -15,20 +17,31 @@ const TripDetailScreen = ({ navigation, route }: any) => {
     const distanceMeters = Number(trip?.distance || 0);
     const durationSeconds = Number(trip?.duration || 0);
     const distanceKm = distanceMeters / 1000;
-    const durationHours = durationSeconds > 0 ? durationSeconds / 3600 : 0;
-    const avgSpeedKph = durationHours > 0 ? distanceKm / durationHours : 0;
-    const topSpeedKph = avgSpeedKph > 0 ? avgSpeedKph * 1.28 : 0;
-    const expectedDurationSeconds = distanceKm > 0 ? (distanceKm / 38) * 3600 : 0;
-    const etaVarianceMinutes = Math.max(0, Math.round((durationSeconds - expectedDurationSeconds) / 60));
-    const fuelSavedLiters = Math.max(0, Number((distanceKm * 0.035).toFixed(2)));
+    const avgSpeedRaw = Number(trip?.avgSpeedKph);
+    const topSpeedRaw = Number(trip?.topSpeedKph);
+    const avgSpeedKph =
+      Number.isFinite(avgSpeedRaw) && avgSpeedRaw >= 0 && avgSpeedRaw <= MAX_DISPLAY_SPEED_KPH
+        ? avgSpeedRaw
+        : null;
+    const topSpeedKph =
+      Number.isFinite(topSpeedRaw) && topSpeedRaw >= 0 && topSpeedRaw <= MAX_DISPLAY_SPEED_KPH
+        ? topSpeedRaw
+        : null;
+    const movingDurationSeconds = Math.max(0, Number(trip?.movingDuration || 0));
+    const speedSamplesCount = Math.max(0, Number(trip?.speedSamplesCount || 0));
+    const telemetryQuality =
+      speedSamplesCount >= 20 ? 'High' : speedSamplesCount >= 5 ? 'Medium' : 'Limited';
+    const syncStatus = trip?.userId ? 'Account synced' : 'Pending sync';
 
     return {
       distanceKm,
       durationSeconds,
       avgSpeedKph,
       topSpeedKph,
-      etaVarianceMinutes,
-      fuelSavedLiters,
+      movingDurationSeconds,
+      speedSamplesCount,
+      telemetryQuality,
+      syncStatus,
       score: Number(trip?.score || 0),
     };
   }, [trip]);
@@ -40,6 +53,9 @@ const TripDetailScreen = ({ navigation, route }: any) => {
     if (hours <= 0) return `${remain} min`;
     return `${hours}h ${remain}m`;
   };
+
+  const formatOptionalSpeed = (value: number | null) =>
+    typeof value === 'number' ? formatSpeed(value, unitSystem) : '—';
 
   return (
     <View style={styles.container}>
@@ -63,17 +79,17 @@ const TripDetailScreen = ({ navigation, route }: any) => {
         <View style={styles.metricGrid}>
           <MetricTile label="Distance" value={formatDistance(metrics.distanceKm, unitSystem)} icon="map-marker-distance" tone="#4ECDC4" />
           <MetricTile label="Duration" value={formatDuration(metrics.durationSeconds)} icon="clock-outline" tone="#FACC15" />
-          <MetricTile label="Avg speed" value={formatSpeed(metrics.avgSpeedKph, unitSystem)} icon="speedometer" tone="#38BDF8" />
-          <MetricTile label="Top speed" value={formatSpeed(metrics.topSpeedKph, unitSystem)} icon="speedometer-medium" tone="#FB7185" />
-          <MetricTile label="ETA variance" value={`${metrics.etaVarianceMinutes} min`} icon="timeline-clock-outline" tone="#A78BFA" />
-          <MetricTile label="Fuel saved" value={`${metrics.fuelSavedLiters} L`} icon="leaf" tone="#34D399" />
+          <MetricTile label="Avg speed" value={formatOptionalSpeed(metrics.avgSpeedKph)} icon="speedometer" tone="#38BDF8" />
+          <MetricTile label="Top speed" value={formatOptionalSpeed(metrics.topSpeedKph)} icon="speedometer-medium" tone="#FB7185" />
+          <MetricTile label="Moving time" value={formatDuration(metrics.movingDurationSeconds)} icon="timeline-clock-outline" tone="#A78BFA" />
+          <MetricTile label="GPS samples" value={String(metrics.speedSamplesCount)} icon="crosshairs-gps" tone="#34D399" />
         </View>
 
         <Surface style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Drive Analysis</Text>
           <Text style={styles.summaryText}>Trip score: {metrics.score}/100</Text>
-          <Text style={styles.summaryText}>Traffic adaptation: {metrics.etaVarianceMinutes <= 4 ? 'Stable' : 'Needs reroute tuning'}</Text>
-          <Text style={styles.summaryText}>This analysis is optimized for Pro insights and map-route telemetry.</Text>
+          <Text style={styles.summaryText}>Telemetry quality: {metrics.telemetryQuality}</Text>
+          <Text style={styles.summaryText}>Sync status: {metrics.syncStatus}</Text>
         </Surface>
       </ScrollView>
     </View>

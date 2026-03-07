@@ -14,6 +14,8 @@ type DrivingSessionParams = {
 };
 
 const MIN_TRIP_DISTANCE_METERS = 80;
+const MIN_MOVING_SPEED_KPH = 3;
+const MAX_REASONABLE_SPEED_KPH = 220;
 
 export function useDrivingSession({ user, currentLocation, currentLocationRef }: DrivingSessionParams) {
   const [isDriving, setIsDriving] = useState(false);
@@ -25,6 +27,22 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
   const totalDistanceRef = useRef(totalDistance);
   const drivingStartTimeRef = useRef<Date | null>(drivingStartTime);
   const lastPositionRef = useRef<any>(null);
+  const speedTelemetryRef = useRef<{
+    speedSumKph: number;
+    speedSamplesCount: number;
+    topSpeedKph: number;
+    movingDurationSeconds: number;
+  }>({
+    speedSumKph: 0,
+    speedSamplesCount: 0,
+    topSpeedKph: 0,
+    movingDurationSeconds: 0,
+  });
+  const lastSpeedSampleRef = useRef<{
+    latitude: number;
+    longitude: number;
+    timestamp: number;
+  } | null>(null);
 
   useEffect(() => {
     totalDistanceRef.current = totalDistance;
@@ -33,6 +51,64 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
   useEffect(() => {
     drivingStartTimeRef.current = drivingStartTime;
   }, [drivingStartTime]);
+
+  useEffect(() => {
+    if (!isDriving) return;
+    if (!currentLocation?.latitude || !currentLocation?.longitude) return;
+
+    const now = Date.now();
+    const previousSample = lastSpeedSampleRef.current;
+    let deltaSeconds = 0;
+    if (previousSample) {
+      deltaSeconds = Math.max(0, (now - previousSample.timestamp) / 1000);
+    }
+
+    let speedKph: number | null = null;
+    if (
+      typeof currentLocation.speed === 'number' &&
+      Number.isFinite(currentLocation.speed) &&
+      currentLocation.speed >= 0
+    ) {
+      speedKph = currentLocation.speed * 3.6;
+    } else if (previousSample && deltaSeconds > 0 && deltaSeconds <= 12) {
+      const movedKm = LocationService.calculateDistanceSync(
+        previousSample.latitude,
+        previousSample.longitude,
+        currentLocation.latitude,
+        currentLocation.longitude
+      );
+      speedKph = movedKm > 0 ? movedKm / (deltaSeconds / 3600) : 0;
+    }
+
+    if (
+      typeof speedKph === 'number' &&
+      Number.isFinite(speedKph) &&
+      speedKph >= 0 &&
+      speedKph <= MAX_REASONABLE_SPEED_KPH
+    ) {
+      speedTelemetryRef.current.speedSumKph += speedKph;
+      speedTelemetryRef.current.speedSamplesCount += 1;
+      speedTelemetryRef.current.topSpeedKph = Math.max(
+        speedTelemetryRef.current.topSpeedKph,
+        speedKph
+      );
+
+      if (deltaSeconds > 0 && deltaSeconds <= 12 && speedKph >= MIN_MOVING_SPEED_KPH) {
+        speedTelemetryRef.current.movingDurationSeconds += deltaSeconds;
+      }
+    }
+
+    lastSpeedSampleRef.current = {
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      timestamp: now,
+    };
+  }, [
+    currentLocation?.latitude,
+    currentLocation?.longitude,
+    currentLocation?.speed,
+    isDriving,
+  ]);
 
   const formatGeocodeLabel = (
     addr?: {
@@ -70,6 +146,16 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
     const endTime = new Date();
     const durationSeconds = Math.max(0, Math.round((endTime.getTime() - startTime.getTime()) / 1000));
     const endLocation = currentLocationRef.current || currentLocation;
+    const telemetry = speedTelemetryRef.current;
+    const avgSpeedKph =
+      telemetry.speedSamplesCount >= 3
+        ? Number((telemetry.speedSumKph / telemetry.speedSamplesCount).toFixed(1))
+        : null;
+    const topSpeedKph =
+      telemetry.speedSamplesCount >= 1
+        ? Number(Math.max(telemetry.topSpeedKph, avgSpeedKph || 0).toFixed(1))
+        : null;
+    const movingDurationSeconds = Math.round(telemetry.movingDurationSeconds);
 
     let startLabel = tripStartLabelRef.current;
     if (!startLabel && tripStartRef.current) {
@@ -102,6 +188,20 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
       score: 0,
+      avgSpeedKph,
+      topSpeedKph,
+      movingDuration: movingDurationSeconds,
+      speedSamplesCount: telemetry.speedSamplesCount,
+      startLatitude: tripStartRef.current.latitude,
+      startLongitude: tripStartRef.current.longitude,
+      endLatitude:
+        typeof endLocation?.latitude === 'number' && Number.isFinite(endLocation.latitude)
+          ? endLocation.latitude
+          : null,
+      endLongitude:
+        typeof endLocation?.longitude === 'number' && Number.isFinite(endLocation.longitude)
+          ? endLocation.longitude
+          : null,
     });
     if (!savedTrip) {
       console.warn('[DrivingSession] Trip queued. Supabase insert will retry when connectivity is restored.');
@@ -109,6 +209,13 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
 
     tripStartRef.current = null;
     tripStartLabelRef.current = null;
+    lastSpeedSampleRef.current = null;
+    speedTelemetryRef.current = {
+      speedSumKph: 0,
+      speedSamplesCount: 0,
+      topSpeedKph: 0,
+      movingDurationSeconds: 0,
+    };
   }, [currentLocation, currentLocationRef, user]);
 
   const startDrivingSession = useCallback(
@@ -141,6 +248,13 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
 
       tripStartRef.current = null;
       tripStartLabelRef.current = null;
+      lastSpeedSampleRef.current = null;
+      speedTelemetryRef.current = {
+        speedSumKph: 0,
+        speedSamplesCount: 0,
+        topSpeedKph: 0,
+        movingDurationSeconds: 0,
+      };
 
       const startLoc = currentLocationRef.current || currentLocation;
       if (startLoc?.latitude && startLoc?.longitude) {
@@ -181,6 +295,13 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
       tripStartRef.current = null;
       tripStartLabelRef.current = null;
       lastPositionRef.current = null;
+      lastSpeedSampleRef.current = null;
+      speedTelemetryRef.current = {
+        speedSumKph: 0,
+        speedSamplesCount: 0,
+        topSpeedKph: 0,
+        movingDurationSeconds: 0,
+      };
 
       AdService.markDrivingState(false, false);
       await AdService.showInterstitial('end_ride');
@@ -197,6 +318,13 @@ export function useDrivingSession({ user, currentLocation, currentLocationRef }:
     tripStartRef.current = null;
     tripStartLabelRef.current = null;
     lastPositionRef.current = null;
+    lastSpeedSampleRef.current = null;
+    speedTelemetryRef.current = {
+      speedSumKph: 0,
+      speedSamplesCount: 0,
+      topSpeedKph: 0,
+      movingDurationSeconds: 0,
+    };
   }, []);
 
   return {
