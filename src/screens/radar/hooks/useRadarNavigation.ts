@@ -787,23 +787,45 @@ export function useRadarNavigation({
       );
     };
 
+    // Dinamik güncelleme aralığı için değişkenler
+    let lastUpdateTime = Date.now();
+    let updateInterval = 1000; // Varsayılan 1 saniye
+    
     const scheduler = setInterval(async () => {
+      const now = Date.now();
+      const timeSinceLastUpdate = now - lastUpdateTime;
       const loc = currentLocationRef.current;
+      
       if (!loc) return;
+      
+      // Hıza göre güncelleme aralığını ayarla
+      if (timeSinceLastUpdate >= updateInterval) {
+        // Hıza göre güncelleme sıklığını dinamik olarak ayarla
+        const currentSpeedKph = getCurrentSpeedKph();
+        if (currentSpeedKph > 80) {
+          updateInterval = 500; // Yüksek hızda daha sık güncelleme
+        } else if (currentSpeedKph > 40) {
+          updateInterval = 750; // Orta hızda orta sıklıkta güncelleme
+        } else {
+          updateInterval = 1000; // Düşük hızda daha az güncelleme
+        }
+        
+        lastUpdateTime = now;
 
-      if (lastPositionRef.current) {
-        const movedKm = LocationService.calculateDistanceSync(
-          loc.latitude,
-          loc.longitude,
-          lastPositionRef.current.latitude,
-          lastPositionRef.current.longitude
-        );
-        if (movedKm > 0.005) {
-          setTotalDistance((prev) => prev + movedKm);
+        if (lastPositionRef.current) {
+          const movedKm = LocationService.calculateDistanceSync(
+            loc.latitude,
+            loc.longitude,
+            lastPositionRef.current.latitude,
+            lastPositionRef.current.longitude
+          );
+          if (movedKm > 0.005) {
+            setTotalDistance((prev) => prev + movedKm);
+            lastPositionRef.current = loc;
+          }
+        } else {
           lastPositionRef.current = loc;
         }
-      } else {
-        lastPositionRef.current = loc;
       }
 
       let nextStepIndex = currentStepIndexRef.current;
@@ -977,15 +999,15 @@ export function useRadarNavigation({
         rerouteConsecutiveOffRouteRef.current = 0;
       }
 
-      const now = Date.now();
+      const rerouteNow = Date.now();
       const shouldReroute =
         rerouteConsecutiveOffRouteRef.current >= 3 &&
-        now - lastRerouteAtRef.current > 3000 &&
+        rerouteNow - lastRerouteAtRef.current > 3000 &&
         !navRefreshInFlightRef.current;
       if (!shouldReroute) return;
 
       navRefreshInFlightRef.current = true;
-      lastRerouteAtRef.current = now;
+      lastRerouteAtRef.current = rerouteNow;
       try {
         const previousDestination = destinationCoordRef.current;
         const currentMeta = routeMetaRef.current;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { StyleSheet, Platform, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -40,75 +40,6 @@ type MapRegion = {
   longitudeDelta: number;
 };
 
-const toValidCoordinate = (value: any): LatLng | null => {
-  const latitude = Number(value?.latitude);
-  const longitude = Number(value?.longitude);
-
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return null;
-  }
-
-  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-    return null;
-  }
-
-  return { latitude, longitude };
-};
-
-const toValidRegion = (value: any): MapRegion | null => {
-  const latitude = Number(value?.latitude);
-  const longitude = Number(value?.longitude);
-  const latitudeDelta = Number(value?.latitudeDelta);
-  const longitudeDelta = Number(value?.longitudeDelta);
-  if (
-    !Number.isFinite(latitude) ||
-    !Number.isFinite(longitude) ||
-    !Number.isFinite(latitudeDelta) ||
-    !Number.isFinite(longitudeDelta) ||
-    latitudeDelta <= 0 ||
-    longitudeDelta <= 0
-  ) {
-    return null;
-  }
-  return { latitude, longitude, latitudeDelta, longitudeDelta };
-};
-
-const buildPaddedRegion = (region: MapRegion, paddingFactor: number): MapRegion => ({
-  ...region,
-  latitudeDelta: region.latitudeDelta * (1 + paddingFactor),
-  longitudeDelta: region.longitudeDelta * (1 + paddingFactor),
-});
-
-const isCoordinateInsideRegion = (coordinate: LatLng, region: MapRegion): boolean => {
-  const halfLat = region.latitudeDelta / 2;
-  const halfLon = region.longitudeDelta / 2;
-  return (
-    coordinate.latitude >= region.latitude - halfLat &&
-    coordinate.latitude <= region.latitude + halfLat &&
-    coordinate.longitude >= region.longitude - halfLon &&
-    coordinate.longitude <= region.longitude + halfLon
-  );
-};
-
-const shouldUpdateRegion = (prev: MapRegion, next: MapRegion): boolean => {
-  const centerDelta = Math.abs(prev.latitude - next.latitude) + Math.abs(prev.longitude - next.longitude);
-  const zoomDelta =
-    Math.abs(prev.latitudeDelta - next.latitudeDelta) +
-    Math.abs(prev.longitudeDelta - next.longitudeDelta);
-  return centerDelta > 0.00015 || zoomDelta > 0.00015;
-};
-
-const distanceKm = (aLat: number, aLon: number, bLat: number, bLon: number): number => {
-  const dLat = ((bLat - aLat) * Math.PI) / 180;
-  const dLon = ((bLon - aLon) * Math.PI) / 180;
-  const arc =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((aLat * Math.PI) / 180) *
-      Math.cos((bLat * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  return 6371 * (2 * Math.atan2(Math.sqrt(arc), Math.sqrt(1 - arc)));
-};
 
 const getRadarMarkerKind = (type: string | undefined, markerKind?: string) => {
   if (markerKind) return markerKind;
@@ -206,6 +137,16 @@ const RadarMarker = React.memo(({ coordinate, radar, onPress }: any) => {
       </View>
     </Marker>
   );
+}, (prevProps, nextProps) => {
+  // Daha derinlemesine karşılaştırma için props kontrolü
+  return (
+    prevProps.coordinate?.latitude === nextProps.coordinate?.latitude &&
+    prevProps.coordinate?.longitude === nextProps.coordinate?.longitude &&
+    prevProps.radar?.type === nextProps.radar?.type &&
+    prevProps.radar?.markerKind === nextProps.radar?.markerKind &&
+    prevProps.radar?.speedLimit === nextProps.radar?.speedLimit &&
+    prevProps.onPress === nextProps.onPress
+  );
 });
 
 const RadarMap = React.memo(({
@@ -220,6 +161,76 @@ const RadarMap = React.memo(({
   mapInteractionEnabled = true,
   onMapTap,
 }: any) => {
+  const toValidCoordinate = useCallback((value: any): LatLng | null => {
+    const latitude = Number(value?.latitude);
+    const longitude = Number(value?.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return null;
+    }
+
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      return null;
+    }
+
+    return { latitude, longitude };
+  }, []);
+
+  const toValidRegion = useCallback((value: any): MapRegion | null => {
+    const latitude = Number(value?.latitude);
+    const longitude = Number(value?.longitude);
+    const latitudeDelta = Number(value?.latitudeDelta);
+    const longitudeDelta = Number(value?.longitudeDelta);
+    if (
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      !Number.isFinite(latitudeDelta) ||
+      !Number.isFinite(longitudeDelta) ||
+      latitudeDelta <= 0 ||
+      longitudeDelta <= 0
+    ) {
+      return null;
+    }
+    return { latitude, longitude, latitudeDelta, longitudeDelta };
+  }, []);
+
+  const buildPaddedRegion = useCallback((region: MapRegion, paddingFactor: number): MapRegion => ({
+    ...region,
+    latitudeDelta: region.latitudeDelta * (1 + paddingFactor),
+    longitudeDelta: region.longitudeDelta * (1 + paddingFactor),
+  }), []);
+
+  const isCoordinateInsideRegion = useCallback((coordinate: LatLng, region: MapRegion): boolean => {
+    const halfLat = region.latitudeDelta / 2;
+    const halfLon = region.longitudeDelta / 2;
+    return (
+      coordinate.latitude >= region.latitude - halfLat &&
+      coordinate.latitude <= region.latitude + halfLat &&
+      coordinate.longitude >= region.longitude - halfLon &&
+      coordinate.longitude <= region.longitude + halfLon
+    );
+  }, []);
+
+  const shouldUpdateRegion = useCallback((prev: MapRegion, next: MapRegion): boolean => {
+    const centerDelta = Math.abs(prev.latitude - next.latitude) + Math.abs(prev.longitude - next.longitude);
+    const zoomDelta =
+      Math.abs(prev.latitudeDelta - next.latitudeDelta) +
+      Math.abs(prev.longitudeDelta - next.longitudeDelta);
+    return centerDelta > 0.00015 || zoomDelta > 0.00015;
+  }, []);
+
+  const distanceKm = useCallback((aLat: number, aLon: number, bLat: number, bLon: number): number => {
+    const dLat = ((bLat - aLat) * Math.PI) / 180;
+    const dLon = ((bLon - aLon) * Math.PI) / 180;
+    const arc =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((aLat * Math.PI) / 180) *
+        Math.cos((bLat * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    return 6371 * (2 * Math.atan2(Math.sqrt(arc), Math.sqrt(1 - arc)));
+  }, []);
+
   const safeLocation = useMemo(() => toValidCoordinate(location), [location]);
   const onRadarPressRef = useRef(onRadarPress);
   useEffect(() => { onRadarPressRef.current = onRadarPress; }, [onRadarPress]);
@@ -532,6 +543,20 @@ const RadarMap = React.memo(({
         if (!mapInteractionEnabled) return;
         if (details?.isGesture) {
           onMapTouchStart?.();
+        }
+      }}
+      loadingEnabled={true}
+      loadingBackgroundColor="#f8fafc"
+      loadingIndicatorColor="#3b82f6"
+      onMapReady={() => {
+        // Harita hazır olduğunda performans için başlangıç animasyonu
+        if (mapRef.current && safeLocation) {
+          mapRef.current.animateToRegion({
+            latitude: safeLocation.latitude,
+            longitude: safeLocation.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }, 800);
         }
       }}
       onPress={() => {
