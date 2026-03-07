@@ -70,6 +70,8 @@ export class GoogleMapsService {
   private static speedLimitCache = new Map<string, SpeedLimitCacheEntry>();
   private static geocodeSuggestionCache = new Map<string, SuggestionCacheEntry>();
   private static inflightGeocodeSuggestions = new Map<string, Promise<AddressSuggestion[]>>();
+  private static directionsCache = new Map<string, { data: any; expiresAt: number }>();
+  private static routeRecalculateCache = new Map<string, { data: any; expiresAt: number }>();
 
   static async getCoordinatesFromAddress(address: string): Promise<Coordinates | null> {
     const parsed = this.parseCoordinateInput(address);
@@ -252,6 +254,15 @@ export class GoogleMapsService {
     destination: string,
     options?: RouteOptions
   ): Promise<any> {
+    // Önbellek anahtarı oluştur
+    const cacheKey = `directions:${originLat.toFixed(4)},${originLng.toFixed(4)}:${destination}:${options?.alternatives || false}:${options?.prefer || 'duration'}`;
+    
+    // Önbellekten kontrol et
+    const cached = this.directionsCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.data;
+    }
+    
     let googleStatus: string | null = null;
     let googleMessage = '';
 
@@ -280,7 +291,7 @@ export class GoogleMapsService {
           const route = this.selectGoogleRoute(data.routes, options?.prefer);
           const leg = route?.legs?.[0];
           if (route?.overview_polyline?.points && leg) {
-            return {
+            const result = {
               coordinates: this.decodePolyline(route.overview_polyline.points),
               legs: [
                 {
@@ -296,6 +307,14 @@ export class GoogleMapsService {
               ],
               overview_polyline: route.overview_polyline,
             };
+            
+            // Başarılı sonuçları önbelleğe al (daha uzun süreli)
+            this.directionsCache.set(cacheKey, {
+              data: result,
+              expiresAt: Date.now() + 300000, // 5 dakika
+            });
+            
+            return result;
           }
         }
       }
@@ -325,10 +344,18 @@ export class GoogleMapsService {
       };
     }
 
-    return {
+    const result = {
       error: googleStatus || 'NETWORK_ERROR',
       message: googleMessage || 'Unable to get directions. Please try again.',
     };
+    
+    // Hata durumunu bile önbelleğe al (kısa süreli)
+    this.directionsCache.set(cacheKey, {
+      data: result,
+      expiresAt: Date.now() + 30000, // 30 saniye
+    });
+    
+    return result;
   }
 
   static async recalculateRoute(
@@ -346,18 +373,33 @@ export class GoogleMapsService {
           ? `${endLat},${endLng}`
           : destination;
 
+      // Önbellek anahtarı oluştur (yeniden hesaplama için farklı anahtar)
+      const cacheKey = `recalculate:${currentLat.toFixed(4)},${currentLng.toFixed(4)}:${destinationTarget}`;
+      
+      // Önbellekten kontrol et
+      const cached = this.routeRecalculateCache.get(cacheKey);
+      if (cached && Date.now() < cached.expiresAt) {
+        return cached.data;
+      }
+
       const updated = await this.getDirections(currentLat, currentLng, destinationTarget, {
         alternatives: true,
         prefer: 'duration',
       });
 
-      if (updated && !updated.error && Array.isArray(updated.coordinates) && updated.coordinates.length > 0) {
-        return updated;
-      }
-      if (originalRoute?.coordinates?.length) {
-        return originalRoute;
-      }
-      return updated;
+      const result = updated && !updated.error && Array.isArray(updated.coordinates) && updated.coordinates.length > 0
+        ? updated
+        : originalRoute?.coordinates?.length
+          ? originalRoute
+          : updated;
+          
+      // Sonucu önbelleğe al (yeniden hesaplama için daha kısa süre)
+      this.routeRecalculateCache.set(cacheKey, {
+        data: result,
+        expiresAt: Date.now() + 60000, // 1 dakika
+      });
+
+      return result;
     } catch (error) {
       console.warn('[GoogleMapsService] Route recalculation failed:', error);
       return {
