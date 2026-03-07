@@ -13,7 +13,9 @@
  */
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 
 import {
   getLocalSampleUsGovSources,
@@ -97,6 +99,46 @@ interface CliOptions {
   outputDir: string;
 }
 
+interface LosAngelesSelectedSegment {
+  district: number;
+  districtRowIndex: number;
+  street: string;
+  to: string;
+  from: string;
+  speedLimit: number;
+  equityArea: boolean;
+  schoolNearby: boolean;
+  speedRelatedCollisions: number;
+}
+
+interface ArcGisFeatureGeometry {
+  rings?: number[][][];
+  paths?: number[][][];
+  x?: number;
+  y?: number;
+}
+
+interface ArcGisFeature {
+  attributes?: Record<string, unknown>;
+  geometry?: ArcGisFeatureGeometry | null;
+}
+
+interface LosAngelesCandidateFeature {
+  layerKey: 'district' | 'citywide' | 'eligible';
+  objectId: number;
+  district: number | null;
+  streetName: string | null;
+  roadName: string | null;
+  crossStreet1: string | null;
+  crossStreet2: string | null;
+  fromStreet: string | null;
+  toStreet: string | null;
+  segmentId: string | null;
+  speedLimit: number | null;
+  headingDeg: number | null;
+  point: { latitude: number; longitude: number } | null;
+}
+
 const SCRIPT_DIR = path.resolve(path.dirname(process.argv[1] || '.'));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '../../..');
 const DEFAULT_OUTPUT_DIR = path.join(SCRIPT_DIR, 'output');
@@ -124,6 +166,16 @@ const COMPLETE_US_PROVIDER_MAP: Record<
     type: 'traffic_enforcement',
   },
 };
+
+const LOS_ANGELES_ATTACHMENT_A_URL =
+  'https://ladot.lacity.gov/sites/default/files/2026-02/speed-safety-program-attachment-a-impact-report.pdf';
+const LOS_ANGELES_DISTRICT_LAYER_URL =
+  'https://services.arcgis.com/G3nmNsarwQblLhip/arcgis/rest/services/DistrictAnalysis_removehwys_top210/FeatureServer/0';
+const LOS_ANGELES_CITYWIDE_LAYER_URL =
+  'https://services.arcgis.com/G3nmNsarwQblLhip/arcgis/rest/services/CitywideAnalysis_removehwys_top20/FeatureServer/0';
+const LOS_ANGELES_ELIGIBLE_LAYER_URL =
+  'https://services.arcgis.com/G3nmNsarwQblLhip/arcgis/rest/services/EligibleSegments_removehwys/FeatureServer/0';
+const LOS_ANGELES_MATCH_SCORE_THRESHOLD = 70;
 
 const parseArgs = (): CliOptions => {
   const options: CliOptions = {
@@ -218,6 +270,33 @@ const asString = (value: unknown) => {
   if (value == null) return null;
   const normalized = String(value).trim();
   return normalized ? normalized : null;
+};
+
+const parsePointText = (value: unknown) => {
+  const raw = asString(value);
+  if (!raw) return null;
+  const match = raw.match(/POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/i);
+  if (!match) return null;
+  const longitude = Number(match[1]);
+  const latitude = Number(match[2]);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+  return { latitude, longitude };
+};
+
+const slugifyIdPart = (value: string | null) => {
+  if (!value) return 'unknown';
+  const normalized = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return normalized || 'unknown';
+};
+
+const normalizeCameraIdString = (value: string | null) => {
+  if (!value) return null;
+  return value.replace(/\.0+$/, '').trim() || null;
 };
 
 const toPoint = (feature: GeoJSONFeature) => {
@@ -335,6 +414,475 @@ const directionPrefixToDegrees = (value: string | null) => {
     WB: 270,
   };
   return Number.isFinite(mapping[value]) ? mapping[value] : null;
+};
+
+const extractMovementDirection = (value: unknown) => {
+  const raw = asString(value)?.toLowerCase() || '';
+  if (!raw) return null;
+  if (raw.startsWith('northbound')) return 'NB';
+  if (raw.startsWith('southbound')) return 'SB';
+  if (raw.startsWith('eastbound')) return 'EB';
+  if (raw.startsWith('westbound')) return 'WB';
+  return null;
+};
+
+const normalizeMatchText = (value: unknown) => {
+  const raw = asString(value);
+  if (!raw) return null;
+
+  const replacements: Record<string, string> = {
+    STREET: 'ST',
+    AVENUE: 'AVE',
+    BOULEVARD: 'BLVD',
+    DRIVE: 'DR',
+    PLACE: 'PL',
+    ROAD: 'RD',
+    FREEWAY: 'FWY',
+    HIGHWAY: 'HWY',
+    TERRACE: 'TER',
+    PARKWAY: 'PKWY',
+    NORTH: 'N',
+    SOUTH: 'S',
+    EAST: 'E',
+    WEST: 'W',
+    SAINT: 'ST',
+    MOUNT: 'MT',
+  };
+
+  const normalized = raw
+    .toUpperCase()
+    .replace(/&/g, ' AND ')
+    .replace(/[().,/.-]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => replacements[part] || part)
+    .join(' ')
+    .replace(/\bMIDBLOCK\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return normalized || null;
+};
+
+const buildLosAngelesSourceId = (row: LosAngelesSelectedSegment, segmentId: string | null) => {
+  if (segmentId) {
+    return `la-speed-safety:${segmentId}:${slugifyIdPart(row.to)}:${slugifyIdPart(row.from)}`;
+  }
+
+  return `la-speed-safety:${row.district}:${slugifyIdPart(row.street)}:${slugifyIdPart(row.to)}:${slugifyIdPart(row.from)}`;
+};
+
+const classifyLosAngelesTableToken = (start: number) => {
+  if (start < 18) return 'street';
+  if (start < 35) return 'to';
+  return 'from';
+};
+
+const applyLosAngelesPdfFixups = (rows: LosAngelesSelectedSegment[]) => {
+  const byDistrict = new Map<number, LosAngelesSelectedSegment[]>();
+  for (const row of rows) {
+    const bucket = byDistrict.get(row.district) || [];
+    bucket.push(row);
+    byDistrict.set(row.district, bucket);
+  }
+
+  const district6 = byDistrict.get(6);
+  if (district6?.[6] && district6[7]) {
+    district6[6].from = 'High Tech Los Angeles East Driveway';
+    district6[7].from = 'Sherman Cir (midblock)';
+  }
+
+  const district8 = byDistrict.get(8);
+  if (district8?.[4] && district8[5]) {
+    district8[4].street = 'W Martin Luther King Jr. Blvd';
+    district8[5].street = 'W Florence Ave';
+  }
+
+  const district11 = byDistrict.get(11);
+  if (district11?.[3] && district11[4]) {
+    district11[3].to = 'Webster Middle School (driveway)';
+    district11[4].to = 'Culver Blvd';
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    street: asString(row.street) || row.street,
+    to: asString(row.to) || row.to,
+    from: asString(row.from) || row.from,
+  }));
+};
+
+const parseLosAngelesAttachmentAText = (text: string): LosAngelesSelectedSegment[] => {
+  const rows: LosAngelesSelectedSegment[] = [];
+  const sections = text.split(/Council District (\d+)\n/);
+
+  for (let index = 1; index < sections.length; index += 2) {
+    const district = Number(sections[index]);
+    if (!Number.isFinite(district)) continue;
+
+    const lines = sections[index + 1].split('\n').map((line) => line.replace(/\s+$/, ''));
+    let inTable = false;
+    let pendingTokens: Array<[number, string]> = [];
+    let currentRow: LosAngelesSelectedSegment | null = null;
+    let districtRowIndex = 0;
+
+    for (const rawLine of lines) {
+      const stripped = rawLine.trim();
+      if (!inTable) {
+        if (stripped === 'Collisions') {
+          inTable = true;
+        }
+        continue;
+      }
+
+      if (!stripped || stripped === 'ATTACHMENT A' || stripped.startsWith('Proposed Speed')) {
+        continue;
+      }
+      if (stripped.startsWith('A-')) {
+        break;
+      }
+
+      const tokens = Array.from(rawLine.matchAll(/\S(?:.*?\S)?(?=\s{2,}|$)/g)).map((match) => [
+        match.index || 0,
+        match[0],
+      ]) as Array<[number, string]>;
+
+      if (tokens.length === 0) continue;
+
+      const isAnchorLine =
+        tokens.length >= 4 &&
+        /^\d{2}$/.test(tokens[tokens.length - 4][1]) &&
+        ['Yes', 'No'].includes(tokens[tokens.length - 3][1]) &&
+        ['Yes', 'No'].includes(tokens[tokens.length - 2][1]) &&
+        /^\d+$/.test(tokens[tokens.length - 1][1]);
+
+      if (isAnchorLine) {
+        if (currentRow) {
+          rows.push(currentRow);
+        }
+
+        districtRowIndex += 1;
+        currentRow = {
+          district,
+          districtRowIndex,
+          street: '',
+          to: '',
+          from: '',
+          speedLimit: Number(tokens[tokens.length - 4][1]),
+          equityArea: tokens[tokens.length - 3][1] === 'Yes',
+          schoolNearby: tokens[tokens.length - 2][1] === 'Yes',
+          speedRelatedCollisions: Number(tokens[tokens.length - 1][1]),
+        };
+
+        for (const [start, token] of [...pendingTokens, ...tokens.slice(0, -4)]) {
+          const field = classifyLosAngelesTableToken(start);
+          currentRow[field] = `${currentRow[field]} ${token}`.trim();
+        }
+        pendingTokens = [];
+        continue;
+      }
+
+      if (!currentRow) {
+        pendingTokens.push(...tokens);
+        continue;
+      }
+
+      for (const [start, token] of tokens) {
+        const field = classifyLosAngelesTableToken(start);
+        if (currentRow[field]) {
+          pendingTokens.push([start, token]);
+        } else {
+          currentRow[field] = `${currentRow[field]} ${token}`.trim();
+        }
+      }
+    }
+
+    if (currentRow) {
+      rows.push(currentRow);
+    }
+  }
+
+  return applyLosAngelesPdfFixups(rows);
+};
+
+const fetchWithTimeout = async (url: string, init?: RequestInit, timeoutMs = 15000) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const fetchJson = async <T>(url: string, timeoutMs?: number) => {
+  const response = await fetchWithTimeout(url, {
+    headers: {
+      'User-Agent': 'radar-tinder-gov-importer/1.0',
+    },
+  }, timeoutMs);
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} while fetching ${url}`);
+  }
+
+  return (await response.json()) as T;
+};
+
+const fetchBuffer = async (url: string) => {
+  const response = await fetchWithTimeout(url, {
+    headers: {
+      'User-Agent': 'radar-tinder-gov-importer/1.0',
+    },
+  }, 20000);
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} while fetching ${url}`);
+  }
+
+  return Buffer.from(await response.arrayBuffer());
+};
+
+const downloadLosAngelesAttachmentAText = async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radar-tinder-la-'));
+  const pdfPath = path.join(tempDir, 'la-speed-safety-attachment-a.pdf');
+
+  try {
+    fs.writeFileSync(pdfPath, await fetchBuffer(LOS_ANGELES_ATTACHMENT_A_URL));
+    return execFileSync('pdftotext', ['-layout', pdfPath, '-'], {
+      encoding: 'utf-8',
+    });
+  } finally {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      // Best effort temp cleanup only.
+    }
+  }
+};
+
+const arcGisQueryUrl = (layerUrl: string, queryParams: Record<string, string>) => {
+  const searchParams = new URLSearchParams(queryParams);
+  return `${layerUrl}/query?${searchParams.toString()}`;
+};
+
+const fetchArcGisFeatures = async (
+  layerUrl: string,
+  outFields: string,
+  options?: {
+    includeGeometry?: boolean;
+    objectId?: number;
+  }
+) => {
+  const features: ArcGisFeature[] = [];
+  let offset = 0;
+  const batchSize = options?.objectId ? 1 : 2000;
+
+  while (true) {
+    const queryParams: Record<string, string> = {
+      where: options?.objectId ? `OBJECTID=${options.objectId}` : '1=1',
+      outFields,
+      returnGeometry: options?.includeGeometry ? 'true' : 'false',
+      f: 'json',
+      resultOffset: String(offset),
+      resultRecordCount: String(batchSize),
+    };
+
+    if (options?.includeGeometry) {
+      queryParams.outSR = '4326';
+    }
+
+    const url = arcGisQueryUrl(layerUrl, queryParams);
+
+    const payload = await fetchJson<{
+      features?: ArcGisFeature[];
+      exceededTransferLimit?: boolean;
+    }>(url);
+
+    const batch = payload.features || [];
+    features.push(...batch);
+
+    if (options?.objectId || batch.length < batchSize || !payload.exceededTransferLimit) {
+      break;
+    }
+
+    offset += batchSize;
+  }
+
+  return features;
+};
+
+const toLosAngelesCandidate = (
+  feature: ArcGisFeature,
+  layerKey: LosAngelesCandidateFeature['layerKey']
+): LosAngelesCandidateFeature | null => {
+  const attributes = feature.attributes || {};
+  const objectId = asNumber(attributes.OBJECTID);
+  if (objectId == null) return null;
+
+  return {
+    layerKey,
+    objectId,
+    district: asNumber(attributes.DISTRICT),
+    streetName: asString(attributes.StreetName ?? attributes.ST_NAME_FULL ?? attributes.str_name),
+    roadName: asString(attributes.roadname),
+    crossStreet1: asString(attributes.XStreet1),
+    crossStreet2: asString(attributes.XStreet2),
+    fromStreet: asString(attributes.from_stree ?? attributes.from_street),
+    toStreet: asString(attributes.to_street ?? attributes.to_street),
+    segmentId: asString(attributes.segment_id ?? attributes.seg_id),
+    speedLimit: parsePositiveSpeedLimit(attributes.speed_limi),
+    headingDeg: asNumber(attributes.heading_va),
+    point: computeGeometryPoint(feature.geometry),
+  };
+};
+
+const dedupeLosAngelesCandidates = (candidates: LosAngelesCandidateFeature[]) => {
+  const deduped = new Map<string, LosAngelesCandidateFeature>();
+
+  for (const candidate of candidates) {
+    const key = candidate.segmentId || `${candidate.layerKey}:${candidate.objectId}`;
+    const existing = deduped.get(key);
+    if (!existing || (existing.layerKey === 'citywide' && candidate.layerKey === 'district')) {
+      deduped.set(key, candidate);
+    }
+  }
+
+  return Array.from(deduped.values());
+};
+
+const scoreLosAngelesCandidate = (
+  row: LosAngelesSelectedSegment,
+  candidate: LosAngelesCandidateFeature
+) => {
+  const normalizedStreet = normalizeMatchText(row.street);
+  const normalizedTo = normalizeMatchText(row.to);
+  const normalizedFrom = normalizeMatchText(row.from);
+  const pdfCrossStreets = new Set([normalizedTo, normalizedFrom].filter(Boolean));
+  const candidateStreet = normalizeMatchText(candidate.streetName || candidate.roadName);
+  const candidateCrossStreets = new Set(
+    [
+      normalizeMatchText(candidate.crossStreet1),
+      normalizeMatchText(candidate.crossStreet2),
+      normalizeMatchText(candidate.fromStreet),
+      normalizeMatchText(candidate.toStreet),
+    ].filter(Boolean)
+  );
+
+  let score = 0;
+
+  if (candidate.district === row.district) {
+    score += 50;
+  }
+
+  if (candidateStreet && normalizedStreet) {
+    if (candidateStreet === normalizedStreet) {
+      score += 60;
+    } else if (candidateStreet.includes(normalizedStreet) || normalizedStreet.includes(candidateStreet)) {
+      score += 45;
+    }
+  }
+
+  for (const crossStreet of pdfCrossStreets) {
+    if (crossStreet && candidateCrossStreets.has(crossStreet)) {
+      score += 20;
+    }
+  }
+
+  if (candidate.speedLimit != null && candidate.speedLimit === row.speedLimit) {
+    score += 5;
+  }
+
+  return score;
+};
+
+const computeGeometryPoint = (geometry: ArcGisFeatureGeometry | null | undefined) => {
+  if (!geometry) return null;
+  if (Number.isFinite(geometry.x) && Number.isFinite(geometry.y)) {
+    return {
+      latitude: Number(geometry.y),
+      longitude: Number(geometry.x),
+    };
+  }
+
+  const coordinates =
+    geometry.rings?.flat(2) ||
+    geometry.paths?.flat(2) ||
+    [];
+
+  if (!coordinates.length) {
+    return null;
+  }
+
+  let minLng = Number.POSITIVE_INFINITY;
+  let minLat = Number.POSITIVE_INFINITY;
+  let maxLng = Number.NEGATIVE_INFINITY;
+  let maxLat = Number.NEGATIVE_INFINITY;
+
+  for (const point of coordinates) {
+    if (!Array.isArray(point) || point.length < 2) continue;
+    const longitude = asNumber(point[0]);
+    const latitude = asNumber(point[1]);
+    if (longitude == null || latitude == null) continue;
+    minLng = Math.min(minLng, longitude);
+    minLat = Math.min(minLat, latitude);
+    maxLng = Math.max(maxLng, longitude);
+    maxLat = Math.max(maxLat, latitude);
+  }
+
+  if (!Number.isFinite(minLng) || !Number.isFinite(minLat) || !Number.isFinite(maxLng) || !Number.isFinite(maxLat)) {
+    return null;
+  }
+
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+  };
+};
+
+const geocodeIntersection = async (query: string) => {
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`;
+  const results = await fetchJson<Array<{ lat?: string; lon?: string }>>(url, 5000);
+  const first = results[0];
+  const latitude = asNumber(first?.lat);
+  const longitude = asNumber(first?.lon);
+
+  if (latitude == null || longitude == null) {
+    return null;
+  }
+
+  return { latitude, longitude };
+};
+
+const geocodeLosAngelesSegment = async (row: LosAngelesSelectedSegment) => {
+  const queries = [
+    `${row.street} and ${row.to}, Los Angeles, California`,
+    `${row.street} and ${row.from}, Los Angeles, California`,
+  ].filter((query) => !/CITY LIMIT/i.test(query));
+
+  const points = (
+    await Promise.all(
+      queries.map(async (query) => {
+        try {
+          return await geocodeIntersection(query);
+        } catch {
+          return null;
+        }
+      })
+    )
+  ).filter((point): point is { latitude: number; longitude: number } => Boolean(point));
+
+  if (points.length === 0) {
+    return null;
+  }
+
+  const latitude = points.reduce((sum, point) => sum + point.latitude, 0) / points.length;
+  const longitude = points.reduce((sum, point) => sum + point.longitude, 0) / points.length;
+  return { latitude, longitude };
 };
 
 const dedupeNormalizedRows = (rows: NormalizedGovernmentRadar[]) => {
@@ -661,6 +1209,427 @@ const normalizeSanFranciscoSpeedRows = (
   });
 };
 
+const normalizeSanFranciscoRedLightRows = (
+  file: SocrataExportFile,
+  entry: VerifiedGovSourceManifestEntry
+): NormalizedGovernmentRadar[] => {
+  const columns = file.meta?.view?.columns || [];
+  const grouped = new Map<
+    string,
+    {
+      latestRow: Record<string, unknown>;
+      latestMonth: string | null;
+      rowCount: number;
+      totalCitations: number;
+    }
+  >();
+
+  for (const rawRow of file.data || []) {
+    if (!Array.isArray(rawRow)) continue;
+    const row = mapSocrataRow(columns, rawRow);
+    const intersection = asString(row.intersection);
+    const movement = asString(row.directions_enforced);
+    const violationType = asString(row.violation_type);
+    const point = parsePointText(row.point);
+    if (!intersection || !movement || !violationType || !point) continue;
+
+    const groupKey = [
+      slugifyIdPart(intersection),
+      slugifyIdPart(movement),
+      slugifyIdPart(violationType),
+      roundCoordinateKey(point.latitude),
+      roundCoordinateKey(point.longitude),
+    ].join('|');
+
+    const month = asString(row.month);
+    const count = Math.max(0, Number(asNumber(row.count) || 0));
+    const existing = grouped.get(groupKey);
+
+    if (!existing) {
+      grouped.set(groupKey, {
+        latestRow: row,
+        latestMonth: month,
+        rowCount: 1,
+        totalCitations: count,
+      });
+      continue;
+    }
+
+    existing.rowCount += 1;
+    existing.totalCitations += count;
+    if ((month || '') >= (existing.latestMonth || '')) {
+      existing.latestRow = row;
+      existing.latestMonth = month;
+    }
+  }
+
+  return Array.from(grouped.values()).map((group) => {
+    const row = group.latestRow;
+    const point = parsePointText(row.point)!;
+    const intersection = asString(row.intersection) || 'Unknown intersection';
+    const movement = asString(row.directions_enforced);
+    const violationType = asString(row.violation_type);
+    const neighborhood = asString(row.analysis_neighborhood);
+    const movementDirection = extractMovementDirection(movement);
+
+    return {
+      source: entry.key,
+      source_id: `sf-red-light:${slugifyIdPart(intersection)}:${slugifyIdPart(movement)}:${slugifyIdPart(violationType)}`,
+      type: 'red_light',
+      latitude: point.latitude,
+      longitude: point.longitude,
+      confidence: entry.defaultConfidence ?? 0.95,
+      verified: true,
+      alertEligible: true,
+      alertPolicy: entry.alertPolicy,
+      metadata: buildMetadata(
+        entry,
+        row,
+        {
+          road_name: intersection,
+          direction: movement,
+          direction_cardinal: movementDirection,
+          direction_deg: directionPrefixToDegrees(movementDirection),
+          speed_limit: null,
+          neighborhood,
+          violation_type: violationType,
+          records_aggregated: group.rowCount,
+          total_citations: group.totalCitations,
+          latest_record_date: group.latestMonth,
+          data_as_of: asString(row.data_as_of),
+        }
+      ),
+    };
+  });
+};
+
+const normalizeChicagoRedLightRows = (
+  file: SocrataExportFile,
+  entry: VerifiedGovSourceManifestEntry
+): NormalizedGovernmentRadar[] => {
+  const columns = file.meta?.view?.columns || [];
+  const grouped = new Map<
+    string,
+    {
+      cameraId: string;
+      rowCount: number;
+      totalViolations: number;
+      latestViolationDate: string | null;
+      representativeRow: Record<string, unknown> | null;
+      representativePoint: { latitude: number; longitude: number } | null;
+    }
+  >();
+
+  for (const rawRow of file.data || []) {
+    if (!Array.isArray(rawRow)) continue;
+    const row = mapSocrataRow(columns, rawRow);
+    const cameraId = normalizeCameraIdString(asString(row.camera_id));
+    if (!cameraId) continue;
+
+    const latitude = asNumber(row.latitude);
+    const longitude = asNumber(row.longitude);
+    const point =
+      latitude != null && longitude != null
+        ? { latitude, longitude }
+        : parsePointText(row.location ?? row.point);
+
+    const violationDate = asString(row.violation_date);
+    const violations = Math.max(0, Number(asNumber(row.violations) || 0));
+    const existing = grouped.get(cameraId) || {
+      cameraId,
+      rowCount: 0,
+      totalViolations: 0,
+      latestViolationDate: null,
+      representativeRow: null,
+      representativePoint: null,
+    };
+
+    existing.rowCount += 1;
+    existing.totalViolations += violations;
+
+    if (point && ((violationDate || '') >= (existing.latestViolationDate || ''))) {
+      existing.latestViolationDate = violationDate;
+      existing.representativeRow = row;
+      existing.representativePoint = point;
+    } else if (!existing.representativeRow && point) {
+      existing.latestViolationDate = violationDate;
+      existing.representativeRow = row;
+      existing.representativePoint = point;
+    }
+
+    grouped.set(cameraId, existing);
+  }
+
+  return Array.from(grouped.values())
+    .filter((group) => Boolean(group.representativeRow && group.representativePoint))
+    .map((group) => {
+      const row = group.representativeRow!;
+      const point = group.representativePoint!;
+      const intersection = asString(row.intersection);
+      const address = asString(row.address);
+
+      return {
+        source: entry.key,
+        source_id: `chicago-red-light-camera:${group.cameraId}`,
+        type: 'red_light',
+        latitude: point.latitude,
+        longitude: point.longitude,
+        confidence: entry.defaultConfidence ?? 0.92,
+        verified: true,
+        alertEligible: true,
+        alertPolicy: entry.alertPolicy,
+        metadata: buildMetadata(
+          entry,
+          row,
+          {
+            road_name: intersection || address,
+            direction: null,
+            direction_deg: null,
+            speed_limit: null,
+            camera_id: group.cameraId,
+            address,
+            intersection,
+            records_aggregated: group.rowCount,
+            total_violations: group.totalViolations,
+            latest_record_date: group.latestViolationDate,
+          }
+        ),
+      };
+    });
+};
+
+const normalizeChicagoSpeedRows = (
+  file: SocrataExportFile,
+  entry: VerifiedGovSourceManifestEntry
+): NormalizedGovernmentRadar[] => {
+  const columns = file.meta?.view?.columns || [];
+  const grouped = new Map<
+    string,
+    {
+      cameraId: string;
+      rowCount: number;
+      totalViolations: number;
+      latestViolationDate: string | null;
+      representativeRow: Record<string, unknown> | null;
+      representativePoint: { latitude: number; longitude: number } | null;
+    }
+  >();
+
+  for (const rawRow of file.data || []) {
+    if (!Array.isArray(rawRow)) continue;
+    const row = mapSocrataRow(columns, rawRow);
+    const cameraId = normalizeCameraIdString(asString(row.camera_id));
+    if (!cameraId) continue;
+
+    const latitude = asNumber(row.latitude);
+    const longitude = asNumber(row.longitude);
+    const point =
+      latitude != null && longitude != null
+        ? { latitude, longitude }
+        : parsePointText(row.location ?? row.point);
+
+    const violationDate = asString(row.violation_date);
+    const violations = Math.max(0, Number(asNumber(row.violations) || 0));
+    const existing = grouped.get(cameraId) || {
+      cameraId,
+      rowCount: 0,
+      totalViolations: 0,
+      latestViolationDate: null,
+      representativeRow: null,
+      representativePoint: null,
+    };
+
+    existing.rowCount += 1;
+    existing.totalViolations += violations;
+
+    if (point && ((violationDate || '') >= (existing.latestViolationDate || ''))) {
+      existing.latestViolationDate = violationDate;
+      existing.representativeRow = row;
+      existing.representativePoint = point;
+    } else if (!existing.representativeRow && point) {
+      existing.latestViolationDate = violationDate;
+      existing.representativeRow = row;
+      existing.representativePoint = point;
+    }
+
+    grouped.set(cameraId, existing);
+  }
+
+  return Array.from(grouped.values())
+    .filter((group) => Boolean(group.representativeRow && group.representativePoint))
+    .map((group) => {
+      const row = group.representativeRow!;
+      const point = group.representativePoint!;
+      const address = asString(row.address);
+
+      return {
+        source: entry.key,
+        source_id: `chicago-speed-camera:${group.cameraId}`,
+        type: 'speed_camera',
+        latitude: point.latitude,
+        longitude: point.longitude,
+        confidence: entry.defaultConfidence ?? 0.93,
+        verified: true,
+        alertEligible: true,
+        alertPolicy: entry.alertPolicy,
+        metadata: buildMetadata(
+          entry,
+          row,
+          {
+            road_name: address,
+            direction: null,
+            direction_deg: null,
+            speed_limit: null,
+            camera_id: group.cameraId,
+            address,
+            records_aggregated: group.rowCount,
+            total_violations: group.totalViolations,
+            latest_record_date: group.latestViolationDate,
+          }
+        ),
+      };
+    });
+};
+
+const normalizeLosAngelesSpeedSafetyRows = async (
+  entry: VerifiedGovSourceManifestEntry
+): Promise<NormalizedGovernmentRadar[]> => {
+  const attachmentText = await downloadLosAngelesAttachmentAText();
+  const selectedRows = parseLosAngelesAttachmentAText(attachmentText);
+
+  const [districtFeatures, citywideFeatures, eligibleFeatures] = await Promise.all([
+    fetchArcGisFeatures(
+      LOS_ANGELES_DISTRICT_LAYER_URL,
+      'OBJECTID,DISTRICT,StreetName,XStreet1,XStreet2,from_stree,to_street,seg_id,segment_id,driving_di,speed_limi,roadname,heading_va',
+      { includeGeometry: true }
+    ),
+    fetchArcGisFeatures(
+      LOS_ANGELES_CITYWIDE_LAYER_URL,
+      'OBJECTID,DISTRICT,StreetName,XStreet1,XStreet2,from_stree,to_street,seg_id,segment_id,driving_di,speed_limi,roadname,heading_va',
+      { includeGeometry: true }
+    ),
+    fetchArcGisFeatures(
+      LOS_ANGELES_ELIGIBLE_LAYER_URL,
+      'OBJECTID,DISTRICT,ST_NAME_FULL,roadname,from_stree,to_street,seg_id,segment_id,speed_limi,heading_va'
+    ),
+  ]);
+
+  const candidates = dedupeLosAngelesCandidates([
+    ...districtFeatures
+      .map((feature) => toLosAngelesCandidate(feature, 'district'))
+      .filter((item): item is LosAngelesCandidateFeature => Boolean(item)),
+    ...citywideFeatures
+      .map((feature) => toLosAngelesCandidate(feature, 'citywide'))
+      .filter((item): item is LosAngelesCandidateFeature => Boolean(item)),
+    ...eligibleFeatures
+      .map((feature) => toLosAngelesCandidate(feature, 'eligible'))
+      .filter((item): item is LosAngelesCandidateFeature => Boolean(item)),
+  ]);
+
+  const geometryCache = new Map<string, { latitude: number; longitude: number } | null>();
+  const normalizedRows: NormalizedGovernmentRadar[] = [];
+
+  for (const row of selectedRows) {
+    const rankedCandidates = candidates
+      .map((candidate) => ({
+        candidate,
+        score: scoreLosAngelesCandidate(row, candidate),
+      }))
+      .sort((left, right) => right.score - left.score);
+
+    const bestMatch = rankedCandidates[0];
+    const matchedCandidate =
+      bestMatch?.score != null && bestMatch.score >= LOS_ANGELES_MATCH_SCORE_THRESHOLD
+        ? bestMatch.candidate
+        : null;
+
+    let point: { latitude: number; longitude: number } | null = null;
+    let locationSource = 'nominatim_fallback';
+
+    if (matchedCandidate) {
+      const cacheKey = `${matchedCandidate.layerKey}:${matchedCandidate.objectId}`;
+      point = matchedCandidate.point;
+
+      if (!point) {
+        if (geometryCache.has(cacheKey)) {
+          point = geometryCache.get(cacheKey) || null;
+        } else {
+          const layerUrl =
+            matchedCandidate.layerKey === 'district'
+              ? LOS_ANGELES_DISTRICT_LAYER_URL
+              : matchedCandidate.layerKey === 'citywide'
+                ? LOS_ANGELES_CITYWIDE_LAYER_URL
+                : LOS_ANGELES_ELIGIBLE_LAYER_URL;
+          const geometryFeature = (
+            await fetchArcGisFeatures(layerUrl, 'OBJECTID', {
+              includeGeometry: true,
+              objectId: matchedCandidate.objectId,
+            })
+          )[0];
+
+          point = computeGeometryPoint(geometryFeature?.geometry);
+          geometryCache.set(cacheKey, point);
+        }
+      }
+
+      if (point) {
+        locationSource = `${matchedCandidate.layerKey}_arcgis_match`;
+      }
+    }
+
+    if (!point) {
+      point = await geocodeLosAngelesSegment(row);
+    }
+
+    if (!point) {
+      continue;
+    }
+
+    normalizedRows.push({
+      source: entry.key,
+      source_id: buildLosAngelesSourceId(row, matchedCandidate?.segmentId || null),
+      type: 'speed_camera',
+      latitude: point.latitude,
+      longitude: point.longitude,
+      confidence: entry.defaultConfidence ?? 0.88,
+      verified: true,
+      alertEligible: entry.alertPolicy === 'driver_alert',
+      alertPolicy: entry.alertPolicy,
+      metadata: buildMetadata(
+        entry,
+        {
+          district: row.district,
+          street: row.street,
+          to: row.to,
+          from: row.from,
+        },
+        {
+          road_name: row.street,
+          direction: matchedCandidate?.headingDeg != null ? String(matchedCandidate.headingDeg) : null,
+          direction_deg: matchedCandidate?.headingDeg ?? null,
+          speed_limit: row.speedLimit,
+          city: 'Los Angeles',
+          program_status: 'proposed_not_live',
+          location_source: locationSource,
+          district: row.district,
+          district_row_index: row.districtRowIndex,
+          cross_street_to: row.to,
+          cross_street_from: row.from,
+          equity_area: row.equityArea,
+          school_nearby: row.schoolNearby,
+          speed_related_collisions: row.speedRelatedCollisions,
+          segment_id: matchedCandidate?.segmentId || null,
+          matched_score: bestMatch?.score ?? null,
+          matched_layer: matchedCandidate?.layerKey || null,
+          source_document_url: LOS_ANGELES_ATTACHMENT_A_URL,
+        }
+      ),
+    });
+  }
+
+  return normalizedRows;
+};
+
 const normalizeFeature = (
   feature: GeoJSONFeature,
   entry: VerifiedGovSourceManifestEntry
@@ -741,21 +1710,32 @@ ON CONFLICT (source, source_id) DO UPDATE SET
   fs.writeFileSync(outputPath, sql);
 };
 
-const processEntry = (entry: VerifiedGovSourceManifestEntry) => {
-  const inputPath = resolveInputPath(entry);
+const processEntry = async (entry: VerifiedGovSourceManifestEntry) => {
+  const inputPath = entry.localSamplePath ? resolveInputPath(entry) : null;
   let rows: NormalizedGovernmentRadar[] = [];
 
   if (entry.normalizerKey === 'legacy_saveddata_json') {
-    const savedRows = readLegacySavedDataFile(inputPath);
+    const savedRows = readLegacySavedDataFile(inputPath!);
     rows = normalizeLegacySavedDataRows(savedRows, entry);
   } else if (entry.normalizerKey === 'complete_us_snapshot_json') {
-    const snapshotRows = readCompleteUsSnapshotFile(inputPath);
+    const snapshotRows = readCompleteUsSnapshotFile(inputPath!);
     rows = normalizeCompleteUsSnapshotRows(snapshotRows);
   } else if (entry.normalizerKey === 'sf_speed_socrata_json') {
-    const socrataFile = readSocrataExportFile(inputPath);
+    const socrataFile = readSocrataExportFile(inputPath!);
     rows = normalizeSanFranciscoSpeedRows(socrataFile, entry);
+  } else if (entry.normalizerKey === 'sf_red_light_socrata_json') {
+    const socrataFile = readSocrataExportFile(inputPath!);
+    rows = normalizeSanFranciscoRedLightRows(socrataFile, entry);
+  } else if (entry.normalizerKey === 'chicago_speed_socrata_json') {
+    const socrataFile = readSocrataExportFile(inputPath!);
+    rows = normalizeChicagoSpeedRows(socrataFile, entry);
+  } else if (entry.normalizerKey === 'chicago_red_light_socrata_json') {
+    const socrataFile = readSocrataExportFile(inputPath!);
+    rows = normalizeChicagoRedLightRows(socrataFile, entry);
+  } else if (entry.normalizerKey === 'la_speed_safety_attachment_pdf') {
+    rows = await normalizeLosAngelesSpeedSafetyRows(entry);
   } else {
-    const geoJson = readGeoJsonFile(inputPath);
+    const geoJson = readGeoJsonFile(inputPath!);
     rows = (geoJson.features || [])
       .map((feature) => normalizeFeature(feature, entry))
       .filter((row): row is NormalizedGovernmentRadar => Boolean(row));
@@ -768,7 +1748,7 @@ const processEntry = (entry: VerifiedGovSourceManifestEntry) => {
   };
 };
 
-const main = () => {
+const main = async () => {
   const options = parseArgs();
   const entries = options.sourceKeys.length
     ? options.sourceKeys
@@ -777,7 +1757,7 @@ const main = () => {
           if (!entry) {
             throw new Error(`Unknown source key: ${sourceKey}`);
           }
-          if (!entry.localSamplePath) {
+          if (!entry.localSamplePath && entry.normalizerKey !== 'la_speed_safety_attachment_pdf') {
             throw new Error(`Source ${sourceKey} does not have a local sample file yet.`);
           }
           return entry;
@@ -790,7 +1770,7 @@ const main = () => {
 
   ensureOutputDir(options.outputDir);
 
-  const processed = entries.map(processEntry);
+  const processed = await Promise.all(entries.map(processEntry));
   const normalizedRows = dedupeNormalizedRows(processed.flatMap((item) => item.rows));
   const sqlRows = normalizedRows.filter((row) =>
     options.includeMapOnly ? true : row.alertEligible
@@ -815,7 +1795,9 @@ const main = () => {
     const mapOnly = item.rows.length - alertable;
     console.log(`• ${item.entry.label}`);
     console.log(`  source_key: ${item.entry.key}`);
-    console.log(`  input: ${path.relative(REPO_ROOT, item.inputPath)}`);
+    console.log(
+      `  input: ${item.inputPath ? path.relative(REPO_ROOT, item.inputPath) : item.entry.landingPageUrl}`
+    );
     console.log(`  rows: ${item.rows.length} | driver_alert: ${alertable} | map_only: ${mapOnly}`);
   }
   console.log('');
@@ -823,6 +1805,9 @@ const main = () => {
   console.log(`Alert-ready JSON: ${path.relative(REPO_ROOT, sqlJsonPath)}`);
   console.log(`Map-only JSON: ${path.relative(REPO_ROOT, mapOnlyJsonPath)}`);
   console.log(`SQL upsert: ${path.relative(REPO_ROOT, sqlPath)}`);
-}
+};
 
-main();
+main().catch((error) => {
+  console.error(`Government camera import failed: ${(error as Error).message}`);
+  process.exitCode = 1;
+});

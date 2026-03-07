@@ -82,8 +82,6 @@ const holdFiles = [
   'src/lib/db.ts',
   'src/lib/utils.ts',
   'src/types/expo-linear-gradient.d.ts',
-  'src/utils/mapStyle.ts',
-  'src/screens/ARRadarScreen.tsx',
   'src/screens/AlertsScreen.tsx',
   'src/screens/MapScreen.tsx',
 ];

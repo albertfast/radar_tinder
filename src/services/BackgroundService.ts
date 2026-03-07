@@ -18,6 +18,8 @@ import { readBooleanFlag } from '../utils/flags';
 import { describeRadarApproachByDistance } from '../utils/radarAlerts';
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
+const MAX_STARTUP_LOCATION_ACCURACY_METERS = 180;
+const MAX_RUNTIME_LOCATION_ACCURACY_METERS = 260;
 
 export class BackgroundService {
   private static locationSubscription: any = null;
@@ -486,6 +488,22 @@ export class BackgroundService {
 
       const now = Date.now();
       const previousUpdate = this.lastLocationUpdate;
+      const currentAccuracy =
+        typeof location.accuracy === 'number' && Number.isFinite(location.accuracy)
+          ? location.accuracy
+          : null;
+
+      if (currentAccuracy != null && currentAccuracy > MAX_RUNTIME_LOCATION_ACCURACY_METERS) {
+        return;
+      }
+      if (
+        !previousUpdate &&
+        currentAccuracy != null &&
+        currentAccuracy > MAX_STARTUP_LOCATION_ACCURACY_METERS
+      ) {
+        return;
+      }
+
       if (previousUpdate) {
         const movedMeters =
           LocationService.calculateDistanceSync(

@@ -250,11 +250,11 @@ const RadarScreen = ({ navigation, route }: any) => {
     dataSync.closestRadar
   );
   const radarRendererMode = useMemo<RadarRendererMode>(() => {
-    const configured = (process.env.EXPO_PUBLIC_RADAR_RENDERER || 'auto').trim().toLowerCase();
+    const configured = (process.env.EXPO_PUBLIC_RADAR_RENDERER || 'legacy2d').trim().toLowerCase();
     if (configured === 'life3d' || configured === 'legacy2d' || configured === 'auto') {
       return configured;
     }
-    return 'auto';
+    return 'legacy2d';
   }, []);
 
   const mapOverlayInset = getResponsiveMargin(12);
@@ -484,7 +484,18 @@ const RadarScreen = ({ navigation, route }: any) => {
       location = {
         latitude: fallback.latitude,
         longitude: fallback.longitude,
-        heading: 0,
+        heading:
+          typeof fallback.heading === 'number' && Number.isFinite(fallback.heading)
+            ? fallback.heading
+            : 0,
+        speed:
+          typeof fallback.speed === 'number' && Number.isFinite(fallback.speed)
+            ? fallback.speed
+            : null,
+        accuracy:
+          typeof fallback.accuracy === 'number' && Number.isFinite(fallback.accuracy)
+            ? fallback.accuracy
+            : null,
       };
       setCurrentLocation(location);
     }

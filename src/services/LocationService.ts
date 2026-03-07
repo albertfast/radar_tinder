@@ -1,11 +1,36 @@
+import { Platform } from 'react-native';
 import * as Location from 'expo-location';
+
+const TARGET_LOCATION_ACCURACY_METERS = 120;
+const MAX_STARTUP_LOCATION_ACCURACY_METERS = 180;
+const MAX_FALLBACK_LOCATION_ACCURACY_METERS = 260;
+const LOCATION_RETRY_DELAY_MS = 900;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class LocationService {
   static async requestLocationPermission(): Promise<boolean> {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      const existing = await Location.getForegroundPermissionsAsync();
+      const response = existing.granted
+        ? existing
+        : await Location.requestForegroundPermissionsAsync();
+      if (response.status !== 'granted') {
         throw new Error('Location permission denied');
+      }
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) {
+        throw new Error('Location services disabled');
+      }
+      if (Platform.OS === 'android') {
+        try {
+          await Location.enableNetworkProviderAsync();
+        } catch {}
+        if (response.android?.accuracy === 'coarse') {
+          console.warn(
+            '[LocationService] Android location permission is set to approximate. Driving map accuracy may be degraded until precise location is enabled.'
+          );
+        }
       }
       return true;
     } catch (error) {
@@ -14,18 +39,80 @@ export class LocationService {
     }
   }
 
-  static async getCurrentLocation(): Promise<{ latitude: number; longitude: number }> {
+  private static toLocationSnapshot(location: Location.LocationObject) {
+    return {
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      heading: location.coords.heading,
+      speed: location.coords.speed,
+      accuracy:
+        typeof location.coords.accuracy === 'number' && Number.isFinite(location.coords.accuracy)
+          ? location.coords.accuracy
+          : null,
+    };
+  }
+
+  private static isAccurateEnough(
+    accuracy: number | null | undefined,
+    thresholdMeters: number
+  ): boolean {
+    return typeof accuracy === 'number' && Number.isFinite(accuracy) && accuracy <= thresholdMeters;
+  }
+
+  static async getCurrentLocation(): Promise<{
+    latitude: number;
+    longitude: number;
+    heading: number | null;
+    speed: number | null;
+    accuracy: number | null;
+  }> {
     try {
       await this.requestLocationPermission();
-      
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.BestForNavigation,
-      });
 
-      return {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      };
+      let bestFix: ReturnType<typeof LocationService.toLocationSnapshot> | null = null;
+      const lastKnown = await Location.getLastKnownPositionAsync({
+        maxAge: 15000,
+        requiredAccuracy: MAX_FALLBACK_LOCATION_ACCURACY_METERS,
+      }).catch(() => null);
+      if (lastKnown) {
+        bestFix = this.toLocationSnapshot(lastKnown);
+        if (this.isAccurateEnough(bestFix.accuracy, TARGET_LOCATION_ACCURACY_METERS)) {
+          return bestFix;
+        }
+      }
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.BestForNavigation,
+          mayShowUserSettingsDialog: true,
+          distanceInterval: 0,
+          timeInterval: 0,
+        });
+
+        const candidate = this.toLocationSnapshot(location);
+        const candidateAccuracy = candidate.accuracy ?? Number.POSITIVE_INFINITY;
+        const bestAccuracy = bestFix?.accuracy ?? Number.POSITIVE_INFINITY;
+        if (!bestFix || candidateAccuracy < bestAccuracy) {
+          bestFix = candidate;
+        }
+
+        if (this.isAccurateEnough(candidate.accuracy, TARGET_LOCATION_ACCURACY_METERS)) {
+          return candidate;
+        }
+
+        if (attempt < 2) {
+          await sleep(LOCATION_RETRY_DELAY_MS);
+        }
+      }
+
+      if (bestFix && this.isAccurateEnough(bestFix.accuracy, MAX_STARTUP_LOCATION_ACCURACY_METERS)) {
+        return bestFix;
+      }
+      if (bestFix && this.isAccurateEnough(bestFix.accuracy, MAX_FALLBACK_LOCATION_ACCURACY_METERS)) {
+        return bestFix;
+      }
+
+      throw new Error('Unable to acquire an accurate location fix.');
     } catch (error) {
       console.error('Error getting current location:', error);
       throw error;
@@ -48,6 +135,7 @@ export class LocationService {
       return await Location.watchPositionAsync(
         {
           accuracy: options?.forDriving ? Location.Accuracy.BestForNavigation : Location.Accuracy.High,
+          mayShowUserSettingsDialog: true,
           distanceInterval: options?.forDriving ? 2 : 5, // tighter updates in driving mode for smoother follow camera
           timeInterval: options?.forDriving ? 500 : 1000, // 2Hz while driving, 1Hz otherwise
         },

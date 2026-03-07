@@ -63,6 +63,46 @@ const calculateBearing = (
   return normalizeHeading(angle);
 };
 
+const calculateHeadingDelta = (
+  fromHeading: number | null | undefined,
+  toHeading: number | null | undefined
+) => {
+  if (
+    typeof fromHeading !== 'number' ||
+    !Number.isFinite(fromHeading) ||
+    typeof toHeading !== 'number' ||
+    !Number.isFinite(toHeading)
+  ) {
+    return 0;
+  }
+
+  let delta = Math.abs(normalizeHeading(toHeading) - normalizeHeading(fromHeading));
+  if (delta > 180) delta = 360 - delta;
+  return delta;
+};
+
+const stepHeadingToward = (
+  fromHeading: number | null | undefined,
+  toHeading: number,
+  maxStepDeg: number
+) => {
+  const normalizedTo = normalizeHeading(toHeading);
+  if (typeof fromHeading !== 'number' || !Number.isFinite(fromHeading)) {
+    return normalizedTo;
+  }
+
+  const normalizedFrom = normalizeHeading(fromHeading);
+  let delta = normalizedTo - normalizedFrom;
+  if (delta > 180) delta -= 360;
+  if (delta < -180) delta += 360;
+
+  if (Math.abs(delta) <= maxStepDeg) {
+    return normalizedTo;
+  }
+
+  return normalizeHeading(normalizedFrom + Math.sign(delta) * maxStepDeg);
+};
+
 const projectForwardCoordinate = (
   latitude: number,
   longitude: number,
@@ -144,11 +184,22 @@ export function useRadarDataSync({
   const reverseGeocodeQueueRef = useRef<Array<() => void>>([]);
   const reverseGeocodeActiveCountRef = useRef(0);
   const previousHeadingLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
-  const lastValidHeadingRef = useRef(0);
+  const lastValidHeadingRef = useRef<number | null>(null);
+  const lastCameraHeadingRef = useRef<number | null>(null);
 
   useEffect(() => {
     currentLocationRef.current = currentLocation;
   }, [currentLocation, currentLocationRef]);
+
+  useEffect(() => {
+    const seededHeading =
+      typeof currentLocation?.heading === 'number' && Number.isFinite(currentLocation.heading)
+        ? normalizeHeading(currentLocation.heading)
+        : null;
+    if (seededHeading !== null) {
+      lastValidHeadingRef.current = seededHeading;
+    }
+  }, [currentLocation]);
 
   const activeAlert = useMemo<RadarAlert | null>(() => {
     const unacknowledged = (activeAlerts as RadarAlert[]).filter((alert) => !alert.acknowledged);
@@ -443,7 +494,9 @@ export function useRadarDataSync({
             ? location.speed * 3.6
             : Math.max(0, currentSpeedRef.current || 0);
         const headingFromSensor =
-          typeof location.heading === 'number' && Number.isFinite(location.heading)
+          typeof location.heading === 'number' &&
+          Number.isFinite(location.heading) &&
+          location.heading >= 0
             ? normalizeHeading(location.heading)
             : null;
         const movementMeters = previousHeadingLocation
@@ -454,8 +507,9 @@ export function useRadarDataSync({
               location.longitude
             ) * 1000
           : 0;
+        const hasReliableMotion = movementMeters >= 4 || sampleSpeedKph >= 8;
         const bearingHeading =
-          headingFromSensor === null && previousHeadingLocation && movementMeters >= 3
+          previousHeadingLocation && movementMeters >= 4
             ? calculateBearing(
                 previousHeadingLocation.latitude,
                 previousHeadingLocation.longitude,
@@ -463,20 +517,18 @@ export function useRadarDataSync({
                 location.longitude
               )
             : null;
-        const routeHeading =
-          routeCoords.length > 1
-            ? LocationService.calculateRouteBearing(
-                location.latitude,
-                location.longitude,
-                routeCoords
-              )
-            : null;
-        const motionHeading = headingFromSensor ?? bearingHeading;
+        const motionHeading =
+          bearingHeading ?? (hasReliableMotion ? headingFromSensor : null);
+        const maxHeadingStepDeg =
+          sampleSpeedKph >= 90 ? 24 : sampleSpeedKph >= 55 ? 18 : sampleSpeedKph >= 25 ? 14 : 10;
         const resolvedHeading =
-          sampleSpeedKph >= 12 && motionHeading !== null
-            ? motionHeading
-            : routeHeading ?? motionHeading ?? lastValidHeadingRef.current;
-        lastValidHeadingRef.current = normalizeHeading(resolvedHeading);
+          motionHeading !== null
+            ? stepHeadingToward(lastValidHeadingRef.current, motionHeading, maxHeadingStepDeg)
+            : lastValidHeadingRef.current;
+        lastValidHeadingRef.current =
+          typeof resolvedHeading === 'number' && Number.isFinite(resolvedHeading)
+            ? normalizeHeading(resolvedHeading)
+            : lastValidHeadingRef.current;
         previousHeadingLocationRef.current = {
           latitude: location.latitude,
           longitude: location.longitude,
@@ -528,44 +580,54 @@ export function useRadarDataSync({
         }
 
         if (isDriving && activeTab === 'Map' && !manualPanModeRef.current && !isTypingRef.current) {
-          const lastCameraCenter = lastCameraCenterRef.current;
-          const movedFromCameraMeters = lastCameraCenter
-            ? LocationService.calculateDistanceSync(
-                lastCameraCenter.latitude,
-                lastCameraCenter.longitude,
-                locationWithHeading.latitude,
-                locationWithHeading.longitude
-              ) * 1000
-            : Number.POSITIVE_INFINITY;
           const currentHeading =
             typeof locationWithHeading.heading === 'number' && Number.isFinite(locationWithHeading.heading)
               ? normalizeHeading(locationWithHeading.heading)
-              : lastValidHeadingRef.current;
+              : lastValidHeadingRef.current ?? 0;
           const centerBearing = followHeading ? currentHeading : 0;
           const cameraUpdateIntervalMs =
             sampleSpeedKph >= 90 ? 240 : sampleSpeedKph >= 60 ? 300 : sampleSpeedKph >= 30 ? 360 : 430;
           const cameraMoveThresholdMeters =
             sampleSpeedKph >= 90 ? 5 : sampleSpeedKph >= 60 ? 4 : sampleSpeedKph >= 30 ? 3 : 2;
+          const cameraHeadingThresholdDeg =
+            sampleSpeedKph >= 90 ? 5 : sampleSpeedKph >= 60 ? 6 : sampleSpeedKph >= 30 ? 8 : 12;
+          const lookAheadMeters = Math.max(
+            18,
+            Math.min(36, 22 + Math.round((currentSpeedRef.current || 0) * 0.2))
+          );
+          const followCenter = followHeading
+            ? projectForwardCoordinate(
+                locationWithHeading.latitude,
+                locationWithHeading.longitude,
+                centerBearing,
+                lookAheadMeters
+              )
+            : { latitude: locationWithHeading.latitude, longitude: locationWithHeading.longitude };
+          const lastCameraCenter = lastCameraCenterRef.current;
+          const movedFromCameraMeters = lastCameraCenter
+            ? LocationService.calculateDistanceSync(
+                lastCameraCenter.latitude,
+                lastCameraCenter.longitude,
+                followCenter.latitude,
+                followCenter.longitude
+              ) * 1000
+            : Number.POSITIVE_INFINITY;
+          const nextCameraHeading = followHeading ? currentHeading : 0;
+          const headingDeltaForCamera = calculateHeadingDelta(
+            lastCameraHeadingRef.current,
+            nextCameraHeading
+          );
+          const allowHeadingDrivenCameraUpdate =
+            followHeading && (sampleSpeedKph >= 10 || movementMeters >= 4);
 
           const shouldAnimateCamera =
             !lastCameraCenter ||
-            movedFromCameraMeters >= cameraMoveThresholdMeters;
+            movedFromCameraMeters >= cameraMoveThresholdMeters ||
+            (allowHeadingDrivenCameraUpdate && headingDeltaForCamera >= cameraHeadingThresholdDeg);
 
           if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= cameraUpdateIntervalMs && !cameraAnimationInFlightRef.current) {
             cameraAnimationInFlightRef.current = true;
             const animationDuration = 300;
-            const lookAheadMeters = Math.max(
-              18,
-              Math.min(36, 22 + Math.round((currentSpeedRef.current || 0) * 0.2))
-            );
-            const followCenter = followHeading
-              ? projectForwardCoordinate(
-                  locationWithHeading.latitude,
-                  locationWithHeading.longitude,
-                  centerBearing,
-                  lookAheadMeters
-                )
-              : { latitude: locationWithHeading.latitude, longitude: locationWithHeading.longitude };
             mapRef.current?.animateCamera(
               {
                 center: {
@@ -582,6 +644,7 @@ export function useRadarDataSync({
               latitude: followCenter.latitude,
               longitude: followCenter.longitude,
             };
+            lastCameraHeadingRef.current = nextCameraHeading;
             lastCameraUpdateRef.current = now;
             setTimeout(() => { cameraAnimationInFlightRef.current = false; }, animationDuration + 40);
 
@@ -640,10 +703,14 @@ export function useRadarDataSync({
         },
         { duration: 340 }
       );
+      if (followHeading) {
+        lastValidHeadingRef.current = normalizeHeading(initialBearing);
+      }
       lastCameraCenterRef.current = {
         latitude: initialCenter.latitude,
         longitude: initialCenter.longitude,
       };
+      lastCameraHeadingRef.current = followHeading ? normalizeHeading(initialBearing) : 0;
       lastCameraUpdateRef.current = Date.now();
       hasCenteredMapRef.current = true;
     }
@@ -684,6 +751,6 @@ export function useRadarDataSync({
     resolvedHeading:
       typeof currentLocation?.heading === 'number' && Number.isFinite(currentLocation.heading)
         ? normalizeHeading(currentLocation.heading)
-        : lastValidHeadingRef.current,
+        : lastValidHeadingRef.current ?? 0,
   };
 }

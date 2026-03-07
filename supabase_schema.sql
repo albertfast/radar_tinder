@@ -1120,6 +1120,14 @@ create table if not exists public.trips (
   score int default 0,
   start_time timestamptz,
   end_time timestamptz,
+  avg_speed_kph numeric,
+  top_speed_kph numeric,
+  moving_duration int default 0,
+  speed_samples_count int default 0,
+  start_latitude double precision,
+  start_longitude double precision,
+  end_latitude double precision,
+  end_longitude double precision,
   created_at timestamptz default timezone('utc'::text, now()) not null,
   updated_at timestamptz default timezone('utc'::text, now()) not null
 );

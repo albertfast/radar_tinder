@@ -11,7 +11,12 @@ const GOOGLE_MAPS_RUNTIME_KEY =
 
 const GOOGLE_MAPS_BASE_URL = 'https://maps.googleapis.com/maps/api';
 const GOOGLE_ROADS_BASE_URL = 'https://roads.googleapis.com/v1';
+const OVERPASS_API_URL = 'https://overpass-api.de/api/interpreter';
 const SPEED_LIMIT_CACHE_TTL_MS = 120000;
+const SPEED_LIMIT_NEGATIVE_CACHE_TTL_MS = 15000;
+const SPEED_LIMIT_ROADS_UNAVAILABLE_CACHE_TTL_MS = 30000;
+const SUGGESTION_CACHE_TTL_MS = 90000;
+const OSM_SPEED_LIMIT_RADIUS_METERS = 80;
 
 interface Coordinates {
   latitude: number;
@@ -51,13 +56,20 @@ type RouteOptions = {
   prefer?: 'duration' | 'distance';
 };
 
-type CacheEntry = {
+type SpeedLimitCacheEntry = {
   value: CoordinateSpeedLimitResult;
-  timestamp: number;
+  expiresAt: number;
+};
+
+type SuggestionCacheEntry = {
+  value: AddressSuggestion[];
+  expiresAt: number;
 };
 
 export class GoogleMapsService {
-  private static speedLimitCache = new Map<string, CacheEntry>();
+  private static speedLimitCache = new Map<string, SpeedLimitCacheEntry>();
+  private static geocodeSuggestionCache = new Map<string, SuggestionCacheEntry>();
+  private static inflightGeocodeSuggestions = new Map<string, Promise<AddressSuggestion[]>>();
 
   static async getCoordinatesFromAddress(address: string): Promise<Coordinates | null> {
     const parsed = this.parseCoordinateInput(address);
@@ -140,18 +152,24 @@ export class GoogleMapsService {
     const query = input.trim();
     if (query.length < 2) return [];
 
-    try {
-      return await NominatimService.getSuggestionObjects(query, {
-        limit: 6,
-        countryCode: options?.countryCode?.trim().toLowerCase(),
-        focusLocation: options?.focusLocation,
-        focusRadiusKm: query.length <= 4 ? 90 : 180,
-        bounded: query.length <= 4,
+    const cacheKey = this.buildSuggestionCacheKey(query, options);
+    const cached = this.getCachedSuggestions(cacheKey);
+    if (cached) return cached;
+
+    const inflight = this.inflightGeocodeSuggestions.get(cacheKey);
+    if (inflight) return inflight;
+
+    const request = this.fetchGeocodeSuggestions(query, options)
+      .then((results) => {
+        this.setCachedSuggestions(cacheKey, results);
+        return results;
+      })
+      .finally(() => {
+        this.inflightGeocodeSuggestions.delete(cacheKey);
       });
-    } catch (error) {
-      console.warn('[GoogleMapsService] Nominatim geocode suggestions failed:', error);
-      return [];
-    }
+
+    this.inflightGeocodeSuggestions.set(cacheKey, request);
+    return request;
   }
 
   static async searchNearbyPlaces(
@@ -207,70 +225,25 @@ export class GoogleMapsService {
     const cached = this.getCachedSpeedLimit(coordinateKey);
     if (cached) return cached;
 
-    if (!GOOGLE_MAPS_RUNTIME_KEY) {
-      const result = this.unknownSpeed('unknown');
-      this.setCachedSpeedLimit(coordinateKey, result);
-      return result;
+    let lastGoogleSource: 'unknown' | 'roads_unavailable' = 'unknown';
+    if (GOOGLE_MAPS_RUNTIME_KEY) {
+      const googleResult = await this.getGoogleRoadSpeedLimit(latitude, longitude);
+      if (googleResult.speedLimit > 0) {
+        this.setCachedSpeedLimit(coordinateKey, googleResult);
+        return googleResult;
+      }
+      lastGoogleSource = googleResult.source === 'roads_unavailable' ? 'roads_unavailable' : 'unknown';
     }
 
-    try {
-      const snapUrl = `${GOOGLE_ROADS_BASE_URL}/snapToRoads?path=${latitude},${longitude}&interpolate=false&key=${GOOGLE_MAPS_RUNTIME_KEY}`;
-      const snapResponse = await fetch(snapUrl);
-
-      if (!snapResponse.ok) {
-        const source = snapResponse.status === 403 ? 'roads_unavailable' : 'unknown';
-        const result = this.unknownSpeed(source);
-        this.setCachedSpeedLimit(coordinateKey, result);
-        return result;
-      }
-
-      const snapData: any = await snapResponse.json();
-      const placeId = String(snapData?.snappedPoints?.[0]?.placeId || '');
-      if (!placeId) {
-        const result = this.unknownSpeed('unknown');
-        this.setCachedSpeedLimit(coordinateKey, result);
-        return result;
-      }
-
-      const placeKey = `place:${placeId}`;
-      const placeCached = this.getCachedSpeedLimit(placeKey);
-      if (placeCached) {
-        this.setCachedSpeedLimit(coordinateKey, placeCached);
-        return placeCached;
-      }
-
-      const speedUrl = `${GOOGLE_ROADS_BASE_URL}/speedLimits?placeId=${encodeURIComponent(placeId)}&key=${GOOGLE_MAPS_RUNTIME_KEY}`;
-      const speedResponse = await fetch(speedUrl);
-      if (!speedResponse.ok) {
-        const source = speedResponse.status === 403 ? 'roads_unavailable' : 'unknown';
-        const result = this.unknownSpeed(source);
-        this.setCachedSpeedLimit(coordinateKey, result);
-        return result;
-      }
-
-      const speedData: any = await speedResponse.json();
-      const first = speedData?.speedLimits?.[0];
-      const speedLimit = Number(first?.speedLimit);
-      if (!Number.isFinite(speedLimit) || speedLimit <= 0) {
-        const result = this.unknownSpeed('unknown');
-        this.setCachedSpeedLimit(coordinateKey, result);
-        return result;
-      }
-
-      const result: CoordinateSpeedLimitResult = {
-        speedLimit,
-        units: first?.units === 'KPH' ? 'KPH' : 'MPH',
-        placeId: String(first?.placeId || placeId),
-        source: 'roads_api',
-      };
-
-      this.setCachedSpeedLimit(coordinateKey, result);
-      this.setCachedSpeedLimit(placeKey, result);
-      return result;
-    } catch (error) {
-      console.warn('[GoogleMapsService] Speed limit lookup failed:', error);
-      return null;
+    const osmResult = await this.getOsmSpeedLimitForCoordinate(latitude, longitude);
+    if (osmResult) {
+      this.setCachedSpeedLimit(coordinateKey, osmResult);
+      return osmResult;
     }
+
+    const result = this.unknownSpeed(GOOGLE_MAPS_RUNTIME_KEY ? lastGoogleSource : 'unknown');
+    this.setCachedSpeedLimit(coordinateKey, result);
+    return result;
   }
 
   static async getDirections(
@@ -454,10 +427,294 @@ export class GoogleMapsService {
     return ranked[0]?.route || routes[0];
   }
 
+  private static async fetchGeocodeSuggestions(
+    query: string,
+    options?: GeocodeSuggestionOptions
+  ): Promise<AddressSuggestion[]> {
+    let googleSuggestions: AddressSuggestion[] = [];
+    if (GOOGLE_MAPS_RUNTIME_KEY && query.length >= 3) {
+      googleSuggestions = await this.getGoogleGeocodeSuggestions(query, options);
+      if (googleSuggestions.length >= 4) {
+        return googleSuggestions.slice(0, 6);
+      }
+    }
+
+    try {
+      const nominatimSuggestions = await NominatimService.getSuggestionObjects(query, {
+        limit: 8,
+        countryCode: options?.countryCode?.trim().toLowerCase(),
+        focusLocation: options?.focusLocation,
+        focusRadiusKm: query.length <= 4 ? 120 : 240,
+        bounded: query.length <= 3 && /\d/.test(query),
+      });
+
+      if (!googleSuggestions.length) {
+        return nominatimSuggestions.slice(0, 6);
+      }
+
+      return this.mergeGeocodeSuggestions(googleSuggestions, nominatimSuggestions, 6);
+    } catch (error) {
+      console.warn('[GoogleMapsService] Nominatim geocode suggestions failed:', error);
+      return googleSuggestions.slice(0, 6);
+    }
+  }
+
+  private static async getGoogleGeocodeSuggestions(
+    query: string,
+    options?: GeocodeSuggestionOptions
+  ): Promise<AddressSuggestion[]> {
+    try {
+      const params = new URLSearchParams({
+        address: query,
+        language: 'en',
+        key: GOOGLE_MAPS_RUNTIME_KEY,
+      });
+
+      const countryCode = options?.countryCode?.trim().toLowerCase();
+      if (countryCode) {
+        params.append('components', `country:${countryCode}`);
+      }
+
+      const focusLocation = options?.focusLocation;
+      if (
+        focusLocation &&
+        Number.isFinite(focusLocation.latitude) &&
+        Number.isFinite(focusLocation.longitude)
+      ) {
+        const bounds = this.buildGoogleBounds(
+          focusLocation.latitude,
+          focusLocation.longitude,
+          query.length <= 4 ? 140 : 260
+        );
+        if (bounds) {
+          params.append('bounds', bounds);
+        }
+      }
+
+      const url = `${GOOGLE_MAPS_BASE_URL}/geocode/json?${params.toString()}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return [];
+      }
+
+      const data: any = await response.json();
+      if (data?.status !== 'OK' || !Array.isArray(data?.results)) {
+        if (data?.status && data.status !== 'ZERO_RESULTS' && data.status !== 'REQUEST_DENIED') {
+          console.warn('[GoogleMapsService] Google geocode suggestions failed:', data.status, data.error_message);
+        }
+        return [];
+      }
+
+      const suggestions: Array<AddressSuggestion | null> = data.results
+        .map((result: any, index: number) => {
+          const latitude = Number(result?.geometry?.location?.lat);
+          const longitude = Number(result?.geometry?.location?.lng);
+          if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+          const label = this.buildGoogleSuggestionLabel(result);
+          if (!label) return null;
+
+          return {
+            id: `google:${String(result?.place_id || index)}`,
+            label,
+            queryValue: `${latitude},${longitude}`,
+            latitude,
+            longitude,
+            source: 'google' as const,
+            qualityScore: this.computeGoogleSuggestionScore(
+              label,
+              query,
+              focusLocation,
+              latitude,
+              longitude,
+              result,
+              index
+            ),
+            matchKind: 'google' as const,
+            distanceKmFromUser: focusLocation
+              ? this.distanceKm(
+                  focusLocation.latitude,
+                  focusLocation.longitude,
+                  latitude,
+                  longitude
+                )
+              : undefined,
+          };
+        });
+
+      return suggestions
+        .filter((item): item is AddressSuggestion => item !== null)
+        .sort((a: AddressSuggestion, b: AddressSuggestion) => b.qualityScore - a.qualityScore)
+        .slice(0, 6);
+    } catch (error) {
+      console.warn('[GoogleMapsService] Google geocode suggestion request failed:', error);
+      return [];
+    }
+  }
+
+  private static mergeGeocodeSuggestions(
+    primary: AddressSuggestion[],
+    secondary: AddressSuggestion[],
+    limit: number
+  ): AddressSuggestion[] {
+    const merged = new Map<string, AddressSuggestion>();
+    for (const item of [...primary, ...secondary]) {
+      const key = `${item.queryValue}|${this.normalizeSuggestionText(item.label)}`;
+      const existing = merged.get(key);
+      if (!existing || item.qualityScore > existing.qualityScore) {
+        merged.set(key, item);
+      }
+    }
+
+    return Array.from(merged.values())
+      .sort((a, b) => b.qualityScore - a.qualityScore)
+      .slice(0, limit);
+  }
+
+  private static async getGoogleRoadSpeedLimit(
+    latitude: number,
+    longitude: number
+  ): Promise<CoordinateSpeedLimitResult> {
+    try {
+      const snapUrl = `${GOOGLE_ROADS_BASE_URL}/snapToRoads?path=${latitude},${longitude}&interpolate=false&key=${GOOGLE_MAPS_RUNTIME_KEY}`;
+      const snapResponse = await fetch(snapUrl);
+
+      if (!snapResponse.ok) {
+        return this.unknownSpeed(snapResponse.status === 403 ? 'roads_unavailable' : 'unknown');
+      }
+
+      const snapData: any = await snapResponse.json();
+      const placeId = String(snapData?.snappedPoints?.[0]?.placeId || '');
+      if (!placeId) {
+        return this.unknownSpeed('unknown');
+      }
+
+      const placeKey = `place:${placeId}`;
+      const placeCached = this.getCachedSpeedLimit(placeKey);
+      if (placeCached && placeCached.speedLimit > 0) {
+        return placeCached;
+      }
+
+      const speedUrl = `${GOOGLE_ROADS_BASE_URL}/speedLimits?placeId=${encodeURIComponent(placeId)}&key=${GOOGLE_MAPS_RUNTIME_KEY}`;
+      const speedResponse = await fetch(speedUrl);
+      if (!speedResponse.ok) {
+        return this.unknownSpeed(speedResponse.status === 403 ? 'roads_unavailable' : 'unknown');
+      }
+
+      const speedData: any = await speedResponse.json();
+      const first = Array.isArray(speedData?.speedLimits)
+        ? speedData.speedLimits.find((item: any) => Number(item?.speedLimit) > 0)
+        : null;
+      const speedLimit = Number(first?.speedLimit);
+      if (!Number.isFinite(speedLimit) || speedLimit <= 0) {
+        return this.unknownSpeed('unknown');
+      }
+
+      const result: CoordinateSpeedLimitResult = {
+        speedLimit,
+        units: first?.units === 'KPH' ? 'KPH' : 'MPH',
+        placeId: String(first?.placeId || placeId),
+        source: 'roads_api',
+      };
+
+      this.setCachedSpeedLimit(placeKey, result);
+      return result;
+    } catch (error) {
+      console.warn('[GoogleMapsService] Google Roads speed limit lookup failed:', error);
+      return this.unknownSpeed('unknown');
+    }
+  }
+
+  private static async getOsmSpeedLimitForCoordinate(
+    latitude: number,
+    longitude: number
+  ): Promise<CoordinateSpeedLimitResult | null> {
+    try {
+      const query = `[out:json][timeout:7];(way(around:${OSM_SPEED_LIMIT_RADIUS_METERS},${latitude},${longitude})["maxspeed"];way(around:${OSM_SPEED_LIMIT_RADIUS_METERS},${latitude},${longitude})["maxspeed:forward"];way(around:${OSM_SPEED_LIMIT_RADIUS_METERS},${latitude},${longitude})["maxspeed:backward"];way(around:${OSM_SPEED_LIMIT_RADIUS_METERS},${latitude},${longitude})["maxspeed:type"];way(around:${OSM_SPEED_LIMIT_RADIUS_METERS},${latitude},${longitude})["source:maxspeed"];);out tags geom center;`;
+      const response = await fetch(OVERPASS_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain',
+          Accept: 'application/json',
+        },
+        body: query,
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data: any = await response.json();
+      const elements = Array.isArray(data?.elements) ? data.elements : [];
+      const candidates: Array<{
+        speedLimit: number;
+        units: 'KPH' | 'MPH';
+        distanceMeters: number;
+        highwayRank: number;
+      } | null> = elements
+        .map((element: any) => {
+          const parsed = this.parseOsmSpeedLimit(element?.tags);
+          if (!parsed) return null;
+
+          return {
+            speedLimit: parsed.speedLimit,
+            units: parsed.units,
+            distanceMeters: this.getOsmElementDistanceMeters(element, latitude, longitude),
+            highwayRank: this.getHighwayRank(element?.tags?.highway),
+          };
+        })
+        .filter(
+          (
+            item: {
+              speedLimit: number;
+              units: 'KPH' | 'MPH';
+              distanceMeters: number;
+              highwayRank: number;
+            } | null
+          ): item is {
+            speedLimit: number;
+            units: 'KPH' | 'MPH';
+            distanceMeters: number;
+            highwayRank: number;
+          } => item !== null && Number.isFinite(item.distanceMeters)
+        )
+        .sort(
+          (
+            a: {
+              speedLimit: number;
+              units: 'KPH' | 'MPH';
+              distanceMeters: number;
+              highwayRank: number;
+            },
+            b: {
+              speedLimit: number;
+              units: 'KPH' | 'MPH';
+              distanceMeters: number;
+              highwayRank: number;
+            }
+          ) => a.distanceMeters - b.distanceMeters || a.highwayRank - b.highwayRank
+        );
+
+      const best = candidates[0];
+      if (!best || best.speedLimit <= 0) {
+        return null;
+      }
+
+      return {
+        speedLimit: best.speedLimit,
+        units: best.units,
+        source: 'osm',
+      };
+    } catch (error) {
+      console.warn('[GoogleMapsService] OSM speed limit lookup failed:', error);
+      return null;
+    }
+  }
+
   private static getCachedSpeedLimit(key: string): CoordinateSpeedLimitResult | null {
     const cached = this.speedLimitCache.get(key);
     if (!cached) return null;
-    if (Date.now() - cached.timestamp > SPEED_LIMIT_CACHE_TTL_MS) {
+    if (Date.now() > cached.expiresAt) {
       this.speedLimitCache.delete(key);
       return null;
     }
@@ -467,7 +724,7 @@ export class GoogleMapsService {
   private static setCachedSpeedLimit(key: string, value: CoordinateSpeedLimitResult): void {
     this.speedLimitCache.set(key, {
       value,
-      timestamp: Date.now(),
+      expiresAt: Date.now() + this.getSpeedLimitCacheTtl(value),
     });
   }
 
@@ -476,9 +733,276 @@ export class GoogleMapsService {
   ): CoordinateSpeedLimitResult {
     return {
       speedLimit: 0,
-      units: 'MPH',
+      units: this.getDefaultSpeedUnits(),
       source,
     };
+  }
+
+  private static getSpeedLimitCacheTtl(value: CoordinateSpeedLimitResult): number {
+    if (value.speedLimit > 0) return SPEED_LIMIT_CACHE_TTL_MS;
+    if (value.source === 'roads_unavailable') return SPEED_LIMIT_ROADS_UNAVAILABLE_CACHE_TTL_MS;
+    return SPEED_LIMIT_NEGATIVE_CACHE_TTL_MS;
+  }
+
+  private static getCachedSuggestions(key: string): AddressSuggestion[] | null {
+    const cached = this.geocodeSuggestionCache.get(key);
+    if (!cached) return null;
+    if (Date.now() > cached.expiresAt) {
+      this.geocodeSuggestionCache.delete(key);
+      return null;
+    }
+    return cached.value;
+  }
+
+  private static setCachedSuggestions(key: string, value: AddressSuggestion[]): void {
+    this.geocodeSuggestionCache.set(key, {
+      value,
+      expiresAt: Date.now() + SUGGESTION_CACHE_TTL_MS,
+    });
+  }
+
+  private static buildSuggestionCacheKey(
+    query: string,
+    options?: GeocodeSuggestionOptions
+  ): string {
+    const countryCode = options?.countryCode?.trim().toLowerCase() || 'any';
+    const focusLocation = options?.focusLocation;
+    const focusBucket =
+      focusLocation &&
+      Number.isFinite(focusLocation.latitude) &&
+      Number.isFinite(focusLocation.longitude)
+        ? `${focusLocation.latitude.toFixed(2)},${focusLocation.longitude.toFixed(2)}`
+        : 'none';
+    return [this.normalizeSuggestionText(query), countryCode, focusBucket].join('|');
+  }
+
+  private static buildGoogleBounds(
+    latitude: number,
+    longitude: number,
+    radiusKm: number
+  ): string | null {
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return null;
+    }
+
+    const latDelta = radiusKm / 111;
+    const safeCos = Math.max(0.2, Math.cos((latitude * Math.PI) / 180));
+    const lonDelta = radiusKm / (111 * safeCos);
+    const southWestLat = latitude - latDelta;
+    const southWestLng = longitude - lonDelta;
+    const northEastLat = latitude + latDelta;
+    const northEastLng = longitude + lonDelta;
+    return `${southWestLat},${southWestLng}|${northEastLat},${northEastLng}`;
+  }
+
+  private static buildGoogleSuggestionLabel(result: any): string {
+    const formatted = String(result?.formatted_address || '').trim();
+    if (!formatted) return '';
+
+    const parts = formatted
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const compact = parts.length > 4 ? parts.slice(0, 4).join(', ') : formatted;
+    return compact.replace(/\s+/g, ' ').trim();
+  }
+
+  private static computeGoogleSuggestionScore(
+    label: string,
+    query: string,
+    focusLocation: GeocodeSuggestionOptions['focusLocation'],
+    latitude: number,
+    longitude: number,
+    result: any,
+    index: number
+  ): number {
+    const normalizedQuery = this.normalizeSuggestionText(query);
+    const normalizedLabel = this.normalizeSuggestionText(label);
+    const labelTokens = normalizedLabel
+      .split(/[\s,/-]+/)
+      .map((token) => token.trim())
+      .filter(Boolean);
+    const queryTokens = normalizedQuery
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 2);
+
+    let score = 95 - index * 5;
+    if (normalizedLabel.startsWith(normalizedQuery)) score += 70;
+    else if (normalizedLabel.includes(normalizedQuery)) score += 35;
+
+    const prefixMatches = queryTokens.filter((token) =>
+      labelTokens.some((labelToken) => labelToken.startsWith(token))
+    ).length;
+    score += prefixMatches * 18;
+
+    const types = Array.isArray(result?.types) ? result.types.map((item: any) => String(item)) : [];
+    if (types.some((type: string) => type === 'street_address' || type === 'premise' || type === 'route')) {
+      score += 20;
+    }
+    if (result?.partial_match) {
+      score -= 20;
+    }
+
+    if (focusLocation) {
+      const distanceKm = this.distanceKm(
+        focusLocation.latitude,
+        focusLocation.longitude,
+        latitude,
+        longitude
+      );
+      if (distanceKm < 5) score += 30;
+      else if (distanceKm < 25) score += 20;
+      else if (distanceKm < 80) score += 10;
+      else score -= 10;
+    }
+
+    return score;
+  }
+
+  private static parseOsmSpeedLimit(
+    tags: Record<string, unknown> | null | undefined
+  ): { speedLimit: number; units: 'KPH' | 'MPH' } | null {
+    if (!tags) return null;
+
+    const values = [
+      tags.maxspeed,
+      tags['maxspeed:forward'],
+      tags['maxspeed:backward'],
+    ];
+    for (const value of values) {
+      const parsed = this.parseOsmSpeedValue(value);
+      if (parsed) return parsed;
+    }
+
+    return this.parseImplicitOsmSpeedType(
+      String(tags['maxspeed:type'] || tags['source:maxspeed'] || '')
+    );
+  }
+
+  private static parseOsmSpeedValue(
+    rawValue: unknown
+  ): { speedLimit: number; units: 'KPH' | 'MPH' } | null {
+    const value = String(rawValue || '').trim().toLowerCase();
+    if (!value) return null;
+    if (
+      value === 'signals' ||
+      value === 'none' ||
+      value === 'variable' ||
+      value === 'walk'
+    ) {
+      return null;
+    }
+
+    const match = value.match(/(\d+(?:\.\d+)?)/);
+    if (!match) return null;
+    const speedLimit = Number(match[1]);
+    if (!Number.isFinite(speedLimit) || speedLimit <= 0) return null;
+
+    const units =
+      value.includes('mph') || value.includes('mp/h')
+        ? 'MPH'
+        : value.includes('km') || value.includes('kph')
+          ? 'KPH'
+          : this.getDefaultSpeedUnits();
+
+    return { speedLimit, units };
+  }
+
+  private static parseImplicitOsmSpeedType(
+    rawValue: string
+  ): { speedLimit: number; units: 'KPH' | 'MPH' } | null {
+    const value = rawValue.trim().toLowerCase();
+    if (!value) return null;
+
+    const defaults: Record<string, { speedLimit: number; units: 'KPH' | 'MPH' }> = {
+      'us:urban': { speedLimit: 30, units: 'MPH' },
+      'us:residential': { speedLimit: 25, units: 'MPH' },
+      'us:rural': { speedLimit: 55, units: 'MPH' },
+      'us:motorway': { speedLimit: 65, units: 'MPH' },
+      'us:school': { speedLimit: 15, units: 'MPH' },
+      'gb:urban': { speedLimit: 30, units: 'MPH' },
+      'gb:nsl_single': { speedLimit: 60, units: 'MPH' },
+      'gb:nsl_dual': { speedLimit: 70, units: 'MPH' },
+      'de:urban': { speedLimit: 50, units: 'KPH' },
+    };
+
+    return defaults[value] || null;
+  }
+
+  private static getOsmElementDistanceMeters(
+    element: any,
+    latitude: number,
+    longitude: number
+  ): number {
+    const geometry = Array.isArray(element?.geometry) ? element.geometry : [];
+    if (geometry.length > 0) {
+      let minDistance = Number.POSITIVE_INFINITY;
+      for (const point of geometry) {
+        const pointLat = Number(point?.lat);
+        const pointLon = Number(point?.lon);
+        if (!Number.isFinite(pointLat) || !Number.isFinite(pointLon)) continue;
+        const distanceMeters = this.distanceKm(latitude, longitude, pointLat, pointLon) * 1000;
+        if (distanceMeters < minDistance) {
+          minDistance = distanceMeters;
+        }
+      }
+      if (Number.isFinite(minDistance)) {
+        return minDistance;
+      }
+    }
+
+    const centerLat = Number(element?.center?.lat);
+    const centerLon = Number(element?.center?.lon);
+    if (Number.isFinite(centerLat) && Number.isFinite(centerLon)) {
+      return this.distanceKm(latitude, longitude, centerLat, centerLon) * 1000;
+    }
+
+    return Number.POSITIVE_INFINITY;
+  }
+
+  private static getHighwayRank(rawHighway: unknown): number {
+    const highway = String(rawHighway || '').trim().toLowerCase();
+    const ranks: Record<string, number> = {
+      motorway: 0,
+      trunk: 1,
+      primary: 2,
+      secondary: 3,
+      tertiary: 4,
+      residential: 5,
+      service: 6,
+      living_street: 7,
+    };
+    return ranks[highway] ?? 8;
+  }
+
+  private static getDefaultSpeedUnits(): 'KPH' | 'MPH' {
+    const envCountry = process.env.EXPO_PUBLIC_DEFAULT_COUNTRY_CODE?.trim().toLowerCase();
+    const localeCountry =
+      Intl.DateTimeFormat().resolvedOptions().locale.split('-')[1]?.toLowerCase() || '';
+    const country = envCountry || localeCountry;
+    return ['us', 'gb', 'lr', 'mm'].includes(country) ? 'MPH' : 'KPH';
+  }
+
+  private static normalizeSuggestionText(value: string): string {
+    return value.toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  private static distanceKm(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    return 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   }
 
   private static parseCoordinateInput(value: string): { lat: number; lng: number } | null {

@@ -310,7 +310,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
           style={styles.radarHeroGradient}
         >
           <View style={styles.radarHeroHeader}>
-            <Text style={styles.radarHeroTitle}>Live 3D Radar Field</Text>
+            <Text style={styles.radarHeroTitle}>Live Radar Field</Text>
             <Text style={styles.radarHeroMeta}>Contour + Orbit</Text>
           </View>
           <View style={styles.radarHeroBody}>

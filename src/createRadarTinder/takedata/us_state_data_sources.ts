@@ -29,6 +29,10 @@ export type GovNormalizerKey =
   | 'legacy_saveddata_json'
   | 'complete_us_snapshot_json'
   | 'sf_speed_socrata_json'
+  | 'sf_red_light_socrata_json'
+  | 'chicago_speed_socrata_json'
+  | 'chicago_red_light_socrata_json'
+  | 'la_speed_safety_attachment_pdf'
   | 'manual_review'
   | 'none';
 
@@ -126,6 +130,28 @@ export const VERIFIED_US_GOV_SOURCE_MANIFEST: VerifiedGovSourceManifestEntry[] =
       'Direct Socrata export for San Francisco automated speed enforcement. Parse by site_id instead of collapsing to raw lat/lng.',
   },
   {
+    key: 'gov_ca_san_francisco_red_light',
+    label: 'San Francisco Red Light Cameras',
+    stateCode: 'CA',
+    stateName: 'California',
+    city: 'San Francisco',
+    provider: 'government_open_data',
+    datasetKind: 'red_light_enforcement',
+    endpointKind: 'socrata',
+    importStrategy: 'external_radars',
+    alertPolicy: 'driver_alert',
+    status: 'verified',
+    normalizerKey: 'sf_red_light_socrata_json',
+    portalUrl: 'https://data.sfgov.org/',
+    landingPageUrl: 'https://data.sfgov.org/Transportation/Red-Light-Camera-Citations/uzmr-g2uc',
+    localSamplePath: 'src/createRadarTinder/takedata/saveddata/sfredlight.json',
+    defaultConfidence: 0.95,
+    updateFrequency: 'monthly',
+    lastValidatedAt: '2026-03-06',
+    notes:
+      'Direct Socrata export for San Francisco red-light enforcement. Group by intersection + movement so each enforced approach becomes a stable camera point.',
+  },
+  {
     key: 'gov_ca_san_francisco_traffic',
     label: 'San Francisco Traffic Cameras',
     stateCode: 'CA',
@@ -145,6 +171,30 @@ export const VERIFIED_US_GOV_SOURCE_MANIFEST: VerifiedGovSourceManifestEntry[] =
     lastValidatedAt: '2026-03-06',
     notes:
       'Aggregate snapshot shows San Francisco traffic camera points, but they are traffic cameras rather than speed enforcement. Keep map-only.',
+  },
+  {
+    key: 'gov_ca_los_angeles_speed_safety_planned',
+    label: 'Los Angeles Speed Safety System Locations (Proposed)',
+    stateCode: 'CA',
+    stateName: 'California',
+    city: 'Los Angeles',
+    provider: 'government_open_data',
+    datasetKind: 'speed_enforcement',
+    endpointKind: 'arcgis',
+    importStrategy: 'external_radars',
+    alertPolicy: 'ignore',
+    status: 'verified',
+    normalizerKey: 'la_speed_safety_attachment_pdf',
+    portalUrl: 'https://ladot.lacity.gov/speed-safety-system',
+    landingPageUrl: 'https://ladot.lacity.gov/sites/default/files/2026-02/speed-safety-program-attachment-a-impact-report.pdf',
+    apiUrl:
+      'https://services.arcgis.com/G3nmNsarwQblLhip/arcgis/rest/services/EligibleSegments_removehwys/FeatureServer/0/query',
+    includeInDefaultRun: false,
+    defaultConfidence: 0.88,
+    updateFrequency: 'program rollout dependent',
+    lastValidatedAt: '2026-03-06',
+    notes:
+      'Official LADOT Attachment A lists 125 proposed speed safety system segments. As of March 6, 2026 the program is still in public-review / rollout and should not trigger live driver alerts yet.',
   },
   {
     key: 'gov_md_speed_cameras',
@@ -202,20 +252,19 @@ export const VERIFIED_US_GOV_SOURCE_MANIFEST: VerifiedGovSourceManifestEntry[] =
     endpointKind: 'socrata',
     importStrategy: 'external_radars',
     alertPolicy: 'driver_alert',
-    status: 'candidate',
-    normalizerKey: 'legacy_saveddata_json',
+    status: 'verified',
+    normalizerKey: 'chicago_speed_socrata_json',
     portalUrl: 'https://data.cityofchicago.org/',
     landingPageUrl: 'https://data.cityofchicago.org/Transportation/Speed-Camera-Violations/hhkd-xvj4',
     apiUrl:
-      'https://data.cityofchicago.org/resource/hhkd-xvj4.json?$limit=100000&$group=intersection,latitude,longitude&$select=intersection,latitude,longitude',
-    localSamplePath: 'src/createRadarTinder/takedata/saveddata/IL_cameras.json',
-    savedDataSourceNames: ['Chicago Speed Cameras'],
-    savedDataCameraTypes: ['speed_fixed'],
-    defaultConfidence: 0.79,
+      'https://data.cityofchicago.org/resource/hhkd-xvj4.json?$limit=50000',
+    localSamplePath: 'src/createRadarTinder/takedata/saveddata/cityofchicago2.json',
+    includeInDefaultRun: false,
+    defaultConfidence: 0.93,
     updateFrequency: 'daily',
     lastValidatedAt: '2026-03-06',
     notes:
-      'Saved snapshot is derived from violation data and must be deduped aggressively. Import as candidate external feed with lower confidence.',
+      'Official City of Chicago Socrata export. Deduplicate by camera_id and keep the latest usable geocoded point per camera.',
   },
   {
     key: 'gov_il_chicago_red_light',
@@ -228,18 +277,17 @@ export const VERIFIED_US_GOV_SOURCE_MANIFEST: VerifiedGovSourceManifestEntry[] =
     endpointKind: 'socrata',
     importStrategy: 'external_radars',
     alertPolicy: 'driver_alert',
-    status: 'candidate',
-    normalizerKey: 'legacy_saveddata_json',
+    status: 'verified',
+    normalizerKey: 'chicago_red_light_socrata_json',
     portalUrl: 'https://data.cityofchicago.org/',
     landingPageUrl: 'https://data.cityofchicago.org/Transportation/Red-Light-Camera-Violations/spqx-js37',
-    localSamplePath: 'src/createRadarTinder/takedata/saveddata/IL_cameras.json',
-    savedDataSourceNames: ['Chicago Red Light Cameras'],
-    savedDataCameraTypes: ['red_light'],
-    defaultConfidence: 0.82,
+    localSamplePath: 'src/createRadarTinder/takedata/saveddata/cityofchicago.json',
+    includeInDefaultRun: false,
+    defaultConfidence: 0.92,
     updateFrequency: 'daily',
     lastValidatedAt: '2026-03-06',
     notes:
-      'Saved snapshot is derived from red-light violation data and dedupes into camera points. Import as candidate external feed.',
+      'Official Socrata export. Deduplicate by camera_id and keep the latest usable geocoded point per camera.',
   },
   {
     key: 'gov_wa_wsdot_cctv',

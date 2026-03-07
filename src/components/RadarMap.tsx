@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
+import MapView, { Circle, Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { StyleSheet, Platform, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { modernMapStyle } from '../utils/modernMapStyle';
@@ -335,6 +335,10 @@ const RadarMap = React.memo(({
 
   const sanitizedDestination = useMemo(() => toValidCoordinate(destinationPoint), [destinationPoint]);
   const invalidDestinationPoint = Boolean(destinationPoint) && !sanitizedDestination;
+  const locationAccuracyMeters = useMemo(() => {
+    const value = Number(location?.accuracy);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }, [location?.accuracy]);
 
   const finalDestination = useMemo(() => {
     if (sanitizedDestination) {
@@ -400,6 +404,36 @@ const RadarMap = React.memo(({
       );
     }
 
+    if (safeLocation) {
+      if (locationAccuracyMeters != null && locationAccuracyMeters <= 180) {
+        children.push(
+          <Circle
+            key="user-accuracy"
+            center={safeLocation}
+            radius={Math.max(12, Math.min(locationAccuracyMeters, 140))}
+            fillColor="rgba(77, 149, 255, 0.12)"
+            strokeColor="rgba(77, 149, 255, 0.22)"
+            strokeWidth={1}
+            zIndex={94}
+          />
+        );
+      }
+
+      children.push(
+        <Marker
+          key="user-location"
+          coordinate={safeLocation}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}
+          zIndex={95}
+        >
+          <View style={styles.userMarkerOuter}>
+            <View style={styles.userMarkerInner} />
+          </View>
+        </Marker>
+      );
+    }
+
     selectedRadarEntries.rendered.forEach(({ key, radar, coordinate }) => {
       children.push(
         <RadarMarker
@@ -412,7 +446,7 @@ const RadarMap = React.memo(({
     });
 
     return children;
-  }, [finalDestination, selectedRadarEntries.rendered, sanitizedRouteCoords]);
+  }, [finalDestination, locationAccuracyMeters, safeLocation, selectedRadarEntries.rendered, sanitizedRouteCoords]);
 
   const invalidSummaryRef = useRef('');
   const invalidRadarCount = sanitizedRadars.invalidCount;
@@ -467,7 +501,7 @@ const RadarMap = React.memo(({
       customMapStyle={modernMapStyle}
       provider={PROVIDER_GOOGLE}
       initialRegion={initialRegion}
-      showsUserLocation
+      showsUserLocation={false}
       showsMyLocationButton={false}
       followsUserLocation={false}
       userLocationUpdateInterval={1000}
@@ -509,7 +543,6 @@ const RadarMap = React.memo(({
     </MapView>
   );
 }, (prev, next) => {
-  // User location dot is native (showsUserLocation), so heading changes should not re-render map children.
   return (
     prev.radars === next.radars &&
     prev.routeCoords === next.routeCoords &&
@@ -518,7 +551,8 @@ const RadarMap = React.memo(({
     prev.mapPadding === next.mapPadding &&
     prev.mapInteractionEnabled === next.mapInteractionEnabled &&
     prev.location?.latitude === next.location?.latitude &&
-    prev.location?.longitude === next.location?.longitude
+    prev.location?.longitude === next.location?.longitude &&
+    prev.location?.accuracy === next.location?.accuracy
   );
 });
 
@@ -550,6 +584,24 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
+  },
+  userMarkerOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(109, 174, 255, 0.26)',
+    borderWidth: 2,
+    borderColor: 'rgba(224, 242, 254, 0.96)',
+  },
+  userMarkerInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#4D95FF',
+    borderWidth: 1,
+    borderColor: '#F8FAFC',
   },
 });
 

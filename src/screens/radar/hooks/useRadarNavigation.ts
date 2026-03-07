@@ -238,11 +238,7 @@ export function useRadarNavigation({
       .then((loc) => {
         if (cancelled || !loc) return;
         setCurrentLocation(loc);
-        currentLocationRef.current = {
-          ...loc,
-          heading: null,
-          speed: null,
-        };
+        currentLocationRef.current = loc;
       })
       .catch(() => {});
 
@@ -538,6 +534,14 @@ export function useRadarNavigation({
             loc.longitude,
             res.coordinates
           );
+          if (typeof routeHeading === 'number') {
+            const seededLocation = {
+              ...loc,
+              heading: routeHeading,
+            };
+            currentLocationRef.current = seededLocation;
+            setCurrentLocation(seededLocation);
+          }
           const followCenter =
             typeof routeHeading === 'number'
               ? LocationService.projectForwardCoordinate(
