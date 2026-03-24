@@ -1,3 +1,23 @@
+export type RadarSource = 'community' | 'external_osm' | 'external' | 'manual';
+export type RadarMarkerKind =
+  | 'camera'
+  | 'red_light'
+  | 'police'
+  | 'mobile'
+  | 'traffic_enforcement';
+export type RadarEtaConfidence = 'low' | 'medium' | 'high' | 'unknown';
+export type AccessBootstrapState = 'idle' | 'resolving' | 'ready' | 'error';
+
+export interface EntitlementSnapshot {
+  userId: string;
+  subscriptionType: 'free' | 'premium' | 'pro';
+  adsRemoved: boolean;
+  subscriptionExpiresAt?: Date;
+  accountLinkRequiredUntil?: Date;
+  rcCustomerId?: string;
+  syncedAt?: Date;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -6,6 +26,8 @@ export interface User {
   name: string;
   subscriptionType: 'free' | 'premium' | 'pro';
   subscriptionExpiresAt?: Date;
+  accountLinkRequiredUntil?: Date;
+  rcCustomerId?: string;
   carDetails?: {
     brand: string;
     model: string;
@@ -35,8 +57,15 @@ export interface RadarLocation {
   latitude: number;
   longitude: number;
   type: 'fixed' | 'mobile' | 'red_light' | 'speed_camera' | 'police' | 'traffic_enforcement';
+  source?: RadarSource;
+  sourceKey?: string;
+  sourceLabel?: string;
+  countryCode?: string;
   direction?: string;
   speedLimit?: number;
+  markerKind?: RadarMarkerKind;
+  etaConfidence?: RadarEtaConfidence;
+  approachLabel?: string;
   confidence: number;
   lastConfirmed: Date;
   reportedBy: string;
@@ -52,10 +81,20 @@ export interface RadarAlert {
   radarId: string;
   userId: string;
   type?: RadarLocation['type'];
+  countryCode?: string;
+  speedLimit?: number;
   distance: number;
   estimatedTime: number;
   severity: 'low' | 'medium' | 'high';
   locationLabel?: string;
+  routeMatched?: boolean;
+  corridorDistanceMeters?: number;
+  etaSeconds?: number;
+  etaConfidence?: RadarEtaConfidence;
+  approachLabel?: string;
+  markerKind?: RadarMarkerKind;
+  routeMatchScore?: number;
+  headingDeltaDeg?: number | null;
   acknowledged: boolean;
   createdAt: Date;
 }
@@ -68,6 +107,8 @@ export interface AddressSuggestion {
   longitude: number;
   source: 'recent' | 'nominatim' | 'google';
   qualityScore: number;
+  matchKind?: 'local_prefix' | 'google' | 'nominatim';
+  distanceKmFromUser?: number;
 }
 
 export interface SubscriptionPlan {

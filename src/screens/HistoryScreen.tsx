@@ -8,25 +8,35 @@ import { SupabaseService } from '../services/SupabaseService';
 import { useAuthStore } from '../store/authStore';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
-import { hasProAccess } from '../utils/access';
+import { hasProAccess, isPremiumAccessPending } from '../utils/access';
 import ProGate from '../components/ProGate';
-import AdBanner from '../components/AdBanner';
+import { useSettingsStore } from '../store/settingsStore';
+import { formatDistance } from '../utils/format';
+import { AccessBootstrapView } from '../components/AccessBootstrapView';
 
 const HistoryScreen = ({ navigation }: any) => {
-  const { user } = useAuthStore();
+  const { user, accessBootstrapState } = useAuthStore();
+  const unitSystem = useSettingsStore((state) => state.unitSystem);
   const canUse = hasProAccess(user);
+  const accessPending = isPremiumAccessPending(user, accessBootstrapState);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [trips, setTrips] = useState<any[]>([]);
+  const [pendingTripCount, setPendingTripCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const loadTrips = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await SupabaseService.getUserTrips(user?.id);
+      const [data, queuedCount] = await Promise.all([
+        SupabaseService.getUserTrips(user?.id),
+        SupabaseService.getPendingTripQueueCount(),
+      ]);
       setTrips(data || []);
+      setPendingTripCount(queuedCount);
     } catch (error) {
       console.error('Failed to load trips:', error);
       setTrips([]);
+      setPendingTripCount(0);
     } finally {
       setLoading(false);
     }
@@ -46,6 +56,15 @@ const HistoryScreen = ({ navigation }: any) => {
       return () => {};
     }, [canUse, loadTrips])
   );
+
+  if (accessPending) {
+    return (
+      <AccessBootstrapView
+        title="Checking Pro access"
+        subtitle="Restoring trip history access for your active subscription."
+      />
+    );
+  }
 
   if (!canUse) {
     return (
@@ -71,15 +90,20 @@ const HistoryScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
+      {pendingTripCount > 0 ? (
+        <View style={styles.syncBanner}>
+          <MaterialCommunityIcons name="cloud-sync-outline" size={16} color="#67E8F9" />
+          <Text style={styles.syncBannerText}>
+            {pendingTripCount} trip{pendingTripCount > 1 ? 's are' : ' is'} queued and will sync automatically.
+          </Text>
+        </View>
+      ) : null}
+
       <FlatList
         data={trips}
         keyExtractor={item => item.id}
         contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_HEIGHT + 24 }}
-        ListFooterComponent={
-          <View style={{ marginTop: 12 }}>
-            <AdBanner />
-          </View>
-        }
+        ListFooterComponent={null}
         onScroll={onScroll}
         onScrollBeginDrag={onScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
@@ -122,13 +146,18 @@ const HistoryScreen = ({ navigation }: any) => {
                 <View style={styles.statsRow}>
                     <View style={styles.stat}>
                         <MaterialCommunityIcons name="map-marker-distance" size={16} color="#94A3B8" />
-                        <Text style={styles.statText}>{((item.distance || 0) / 1000).toFixed(1)} km</Text>
+                        <Text style={styles.statText}>
+                          {formatDistance((item.distance || 0) / 1000, unitSystem)}
+                        </Text>
                     </View>
                     <View style={styles.stat}>
                         <MaterialCommunityIcons name="clock-outline" size={16} color="#94A3B8" />
                         <Text style={styles.statText}>{Math.round((item.duration || 0) / 60)}m</Text>
                     </View>
-                    <TouchableOpacity style={styles.detailsBtn}>
+                    <TouchableOpacity
+                      style={styles.detailsBtn}
+                      onPress={() => navigation.navigate('TripDetail', { trip: item })}
+                    >
                         <Text style={styles.detailsText}>Details</Text>
                         <MaterialCommunityIcons name="chevron-right" size={16} color="#4ECDC4" />
                     </TouchableOpacity>
@@ -146,6 +175,25 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 10 },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: 'white' },
   backBtn: { padding: 5 },
+  syncBanner: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(103,232,249,0.35)',
+    backgroundColor: 'rgba(2,26,43,0.8)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  syncBannerText: {
+    color: '#BAE6FD',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
   
   tripCard: { backgroundColor: '#1E293B', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   tripHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },

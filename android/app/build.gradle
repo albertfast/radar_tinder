@@ -100,6 +100,15 @@ def resolveDynamicVersionCode = {
     return candidate as int
 }
 
+configurations.all {
+  resolutionStrategy.eachDependency { details ->
+    if (details.requested.group == 'com.microsoft.onnxruntime') {
+      details.useVersion('1.23.2')
+      details.because('Pin ORT native artifacts for deterministic and 16 KB-safe builds')
+    }
+  }
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
 
@@ -116,6 +125,16 @@ android {
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -209,17 +228,3 @@ implementation project(':onnxruntime-react-native')
 
 apply plugin: 'com.google.gms.google-services'
 apply plugin: 'com.google.firebase.crashlytics'
-
-// RN new-architecture + pnpm pathing can leave clean-time autolinking CMake refs
-// pointing to codegen folders that do not exist yet. Skip fragile native clean steps
-// and remove native intermediates directly during clean.
-tasks.matching { it.name in ["externalNativeBuildCleanDebug", "externalNativeBuildCleanRelease"] }.configureEach {
-    enabled = false
-}
-
-tasks.matching { it.name == "clean" }.configureEach {
-    doFirst {
-        delete file("${projectDir}/.cxx")
-        delete file("${buildDir}/generated/autolinking")
-    }
-}

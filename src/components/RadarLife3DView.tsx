@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, UIManager, ViewProps, requireNativeComponent } from 'react-native';
+import { UIManager, ViewProps, requireNativeComponent } from 'react-native';
 import { logWarn } from '../utils/logger';
 
 export type RadarLifeThemeVariant = 'contour_orbit';
@@ -15,33 +15,23 @@ export interface RadarLife3DViewProps extends ViewProps {
 
 const NATIVE_VIEW_NAME = 'RTRadarLife3DView';
 const NATIVE_COMPONENT_CACHE_KEY = '__RT_NATIVE_COMPONENT_RTRadarLife3DView__';
-let nativeComponent:
-  | React.ComponentType<RadarLife3DViewProps>
-  | null
-  | undefined;
+let nativeComponent: React.ComponentType<RadarLife3DViewProps> | undefined;
 let unavailableLogged = false;
 
 const getNativeComponent = () => {
-  if (nativeComponent !== undefined) return nativeComponent;
+  if (nativeComponent) return nativeComponent;
   const globalCache = globalThis as unknown as Record<string, unknown>;
-  const cachedGlobal =
-    globalCache[NATIVE_COMPONENT_CACHE_KEY] as typeof nativeComponent;
-  if (cachedGlobal !== undefined) {
+  const cachedGlobal = globalCache[NATIVE_COMPONENT_CACHE_KEY] as
+    | React.ComponentType<RadarLife3DViewProps>
+    | undefined;
+  if (cachedGlobal) {
     nativeComponent = cachedGlobal;
-    return nativeComponent;
-  }
-
-  if (Platform.OS !== 'android') {
-    nativeComponent = null;
-    globalCache[NATIVE_COMPONENT_CACHE_KEY] = nativeComponent;
     return nativeComponent;
   }
 
   const config = UIManager.getViewManagerConfig?.(NATIVE_VIEW_NAME);
   if (!config) {
-    nativeComponent = null;
-    globalCache[NATIVE_COMPONENT_CACHE_KEY] = nativeComponent;
-    return nativeComponent;
+    return null;
   }
 
   nativeComponent = requireNativeComponent<RadarLife3DViewProps>(NATIVE_VIEW_NAME);

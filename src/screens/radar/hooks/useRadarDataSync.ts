@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapView from 'react-native-maps';
 import * as Haptics from 'expo-haptics';
-import * as Speech from 'expo-speech';
 import { RadarAlert } from '../../../types';
 import { useRadarStore } from '../../../store/radarStore';
 import { useSettingsStore } from '../../../store/settingsStore';
@@ -9,11 +8,17 @@ import { RadarService } from '../../../services/RadarService';
 import { LocationService } from '../../../services/LocationService';
 import { GoogleMapsService } from '../../../services/GoogleMapsService';
 import { NotificationService } from '../../../services/NotificationService';
+import { VoiceGuidanceService } from '../../../services/VoiceGuidanceService';
 import { formatDistance } from '../../../utils/format';
 import { useSpeedSmoothing } from './useSpeedSmoothing';
-import { MAP_TRACE_ENABLED } from '../constants';
+import { MAP_TRACE_ENABLED, ROUTE_RELEVANCE_V2_ENABLED } from '../constants';
 import { TabType } from '../types';
 import { extractShortStreetLabel, formatRadarLabel } from '../utils/radarFormatters';
+import {
+  formatRadarAnnouncementTiming,
+  formatRadarSpeedLimitAnnouncement,
+  getRadarShortLocation,
+} from '../../../utils/radarAlerts';
 
 type UseRadarDataSyncParams = {
   currentLocation: any;
@@ -58,6 +63,79 @@ const calculateBearing = (
   return normalizeHeading(angle);
 };
 
+const calculateHeadingDelta = (
+  fromHeading: number | null | undefined,
+  toHeading: number | null | undefined
+) => {
+  if (
+    typeof fromHeading !== 'number' ||
+    !Number.isFinite(fromHeading) ||
+    typeof toHeading !== 'number' ||
+    !Number.isFinite(toHeading)
+  ) {
+    return 0;
+  }
+
+  let delta = Math.abs(normalizeHeading(toHeading) - normalizeHeading(fromHeading));
+  if (delta > 180) delta = 360 - delta;
+  return delta;
+};
+
+const stepHeadingToward = (
+  fromHeading: number | null | undefined,
+  toHeading: number,
+  maxStepDeg: number
+) => {
+  const normalizedTo = normalizeHeading(toHeading);
+  if (typeof fromHeading !== 'number' || !Number.isFinite(fromHeading)) {
+    return normalizedTo;
+  }
+
+  const normalizedFrom = normalizeHeading(fromHeading);
+  let delta = normalizedTo - normalizedFrom;
+  if (delta > 180) delta -= 360;
+  if (delta < -180) delta += 360;
+
+  if (Math.abs(delta) <= maxStepDeg) {
+    return normalizedTo;
+  }
+
+  return normalizeHeading(normalizedFrom + Math.sign(delta) * maxStepDeg);
+};
+
+const projectForwardCoordinate = (
+  latitude: number,
+  longitude: number,
+  bearingDeg: number,
+  distanceMeters: number
+) => {
+  const earthRadiusMeters = 6378137;
+  const angularDistance = distanceMeters / earthRadiusMeters;
+  const bearingRad = (bearingDeg * Math.PI) / 180;
+  const latitudeRad = (latitude * Math.PI) / 180;
+  const longitudeRad = (longitude * Math.PI) / 180;
+
+  const projectedLatitude = Math.asin(
+    Math.sin(latitudeRad) * Math.cos(angularDistance) +
+      Math.cos(latitudeRad) * Math.sin(angularDistance) * Math.cos(bearingRad)
+  );
+  const projectedLongitude =
+    longitudeRad +
+    Math.atan2(
+      Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(latitudeRad),
+      Math.cos(angularDistance) - Math.sin(latitudeRad) * Math.sin(projectedLatitude)
+    );
+
+  return {
+    latitude: (projectedLatitude * 180) / Math.PI,
+    longitude: (projectedLongitude * 180) / Math.PI,
+  };
+};
+
+const REVERSE_GEOCODE_CACHE_TTL_MS = 10 * 60 * 1000;
+const REVERSE_GEOCODE_MAX_CONCURRENCY = 2;
+const RADAR_HINT_NEAREST_LIMIT = 6;
+
 export function useRadarDataSync({
   currentLocation,
   setCurrentLocation,
@@ -78,6 +156,7 @@ export function useRadarDataSync({
   unitSystem,
   setRadarLocations,
 }: UseRadarDataSyncParams) {
+  const routeCoords = useRadarStore((state) => state.routeGuidancePath);
   const [nearbyRadars, setNearbyRadars] = useState<any[]>([]);
   const [closestRadarHint, setClosestRadarHint] = useState('');
   const [radarLocationHints, setRadarLocationHints] = useState<Record<string, string>>({});
@@ -86,22 +165,41 @@ export function useRadarDataSync({
     calculateDistanceSync: LocationService.calculateDistanceSync,
   });
 
+  const currentSpeedRef = useRef(currentSpeed);
+  useEffect(() => {
+    currentSpeedRef.current = currentSpeed;
+  }, [currentSpeed]);
+
   const nearbyRadarsRef = useRef<any[]>([]);
+  const syncedStoreRadarsRef = useRef<any[]>([]);
   const lastCameraUpdateRef = useRef(0);
   const lastCameraCenterRef = useRef<{ latitude: number; longitude: number } | null>(null);
-  const lastCameraHeadingRef = useRef<number | null>(null);
+  const cameraAnimationInFlightRef = useRef(false);
   const lastUiLocationRef = useRef<any>(null);
   const lastUiLocationUpdateAtRef = useRef(0);
   const lastAnnouncedAlertIdRef = useRef<string | null>(null);
   const closestRadarLabelCacheRef = useRef<Record<string, string>>({});
-  const closestRadarLabelRequestRef = useRef<Record<string, boolean>>({});
-  const radarHintRequestRef = useRef<Record<string, boolean>>({});
+  const reverseGeocodeCacheRef = useRef<Record<string, { label: string; updatedAt: number }>>({});
+  const reverseGeocodeInFlightRef = useRef<Record<string, Promise<string>>>({});
+  const reverseGeocodeQueueRef = useRef<Array<() => void>>([]);
+  const reverseGeocodeActiveCountRef = useRef(0);
   const previousHeadingLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
-  const lastValidHeadingRef = useRef(0);
+  const lastValidHeadingRef = useRef<number | null>(null);
+  const lastCameraHeadingRef = useRef<number | null>(null);
 
   useEffect(() => {
     currentLocationRef.current = currentLocation;
   }, [currentLocation, currentLocationRef]);
+
+  useEffect(() => {
+    const seededHeading =
+      typeof currentLocation?.heading === 'number' && Number.isFinite(currentLocation.heading)
+        ? normalizeHeading(currentLocation.heading)
+        : null;
+    if (seededHeading !== null) {
+      lastValidHeadingRef.current = seededHeading;
+    }
+  }, [currentLocation]);
 
   const activeAlert = useMemo<RadarAlert | null>(() => {
     const unacknowledged = (activeAlerts as RadarAlert[]).filter((alert) => !alert.acknowledged);
@@ -129,18 +227,123 @@ export function useRadarDataSync({
     return true;
   }, []);
 
+  const applyRouteRelevanceFilter = useCallback(
+    (incoming: any[], loc: { latitude: number; longitude: number; heading?: number | null }) => {
+      if (!ROUTE_RELEVANCE_V2_ENABLED) return incoming;
+      const routeState = useRadarStore.getState();
+      if (!routeState.isRouteGuidanceActive || routeState.routeGuidancePath.length < 2) {
+        return incoming;
+      }
+
+      const relevant = RadarService.filterRouteRelevantRadars(incoming, {
+        currentLocation: {
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          heading: typeof loc.heading === 'number' ? loc.heading : null,
+        },
+        routeCoords: routeState.routeGuidancePath,
+        speedKph: Math.max(currentSpeedRef.current || 0, 10),
+        maxCorridorMeters: 180,
+        maxHeadingDeltaDeg: 75,
+        etaSecondsWindow: [0, 3600],
+        requireEtaWindow: false,
+      });
+
+      return relevant;
+    },
+    []
+  );
+
   const updateNearbyRadarsState = useCallback(
     (incoming: any[]) => {
-      setNearbyRadars((prev) => {
-        if (hasSameRadarSnapshot(prev, incoming)) {
-          return prev;
-        }
-        nearbyRadarsRef.current = incoming;
-        setRadarLocations(incoming);
-        return incoming;
-      });
+      if (hasSameRadarSnapshot(nearbyRadarsRef.current, incoming)) return;
+      nearbyRadarsRef.current = incoming;
+      setNearbyRadars(incoming);
     },
-    [hasSameRadarSnapshot, setRadarLocations]
+    [hasSameRadarSnapshot]
+  );
+
+  useEffect(() => {
+    nearbyRadarsRef.current = nearbyRadars;
+  }, [nearbyRadars]);
+
+  useEffect(() => {
+    if (hasSameRadarSnapshot(syncedStoreRadarsRef.current, nearbyRadars)) return;
+    syncedStoreRadarsRef.current = nearbyRadars;
+    setRadarLocations(nearbyRadars);
+  }, [hasSameRadarSnapshot, nearbyRadars, setRadarLocations]);
+
+  const getRadarLabelCacheKey = useCallback(
+    (radarId: string | undefined, latitude: number, longitude: number) =>
+      radarId || `${latitude.toFixed(5)},${longitude.toFixed(5)}`,
+    []
+  );
+
+  const runReverseGeocodeTask = useCallback(async <T,>(task: () => Promise<T>): Promise<T> => {
+    if (reverseGeocodeActiveCountRef.current >= REVERSE_GEOCODE_MAX_CONCURRENCY) {
+      await new Promise<void>((resolve) => {
+        reverseGeocodeQueueRef.current.push(resolve);
+      });
+    }
+
+    reverseGeocodeActiveCountRef.current += 1;
+    try {
+      return await task();
+    } finally {
+      reverseGeocodeActiveCountRef.current = Math.max(
+        0,
+        reverseGeocodeActiveCountRef.current - 1
+      );
+      const next = reverseGeocodeQueueRef.current.shift();
+      if (next) next();
+    }
+  }, []);
+
+  const resolveRadarShortLabel = useCallback(
+    async (radarId: string | undefined, latitude: number, longitude: number): Promise<string> => {
+      const cacheKey = getRadarLabelCacheKey(radarId, latitude, longitude);
+      const cached = reverseGeocodeCacheRef.current[cacheKey];
+      if (cached && Date.now() - cached.updatedAt <= REVERSE_GEOCODE_CACHE_TTL_MS) {
+        return cached.label;
+      }
+
+      const inflight = reverseGeocodeInFlightRef.current[cacheKey];
+      if (inflight) {
+        return inflight;
+      }
+
+      const request = runReverseGeocodeTask(async () => {
+        try {
+          const fullLabel = await GoogleMapsService.getReverseGeocoding(latitude, longitude);
+          const shortLabel = extractShortStreetLabel(fullLabel);
+          const resolved = shortLabel || '';
+          reverseGeocodeCacheRef.current[cacheKey] = {
+            label: resolved,
+            updatedAt: Date.now(),
+          };
+          if (radarId && resolved) {
+            closestRadarLabelCacheRef.current[radarId] = resolved;
+          }
+          return resolved;
+        } catch {
+          reverseGeocodeCacheRef.current[cacheKey] = {
+            label: '',
+            updatedAt: Date.now(),
+          };
+          return '';
+        }
+      });
+
+      reverseGeocodeInFlightRef.current[cacheKey] = request;
+      request.finally(() => {
+        if (reverseGeocodeInFlightRef.current[cacheKey] === request) {
+          delete reverseGeocodeInFlightRef.current[cacheKey];
+        }
+      });
+
+      return request;
+    },
+    [getRadarLabelCacheKey, runReverseGeocodeTask]
   );
 
   useEffect(() => {
@@ -164,18 +367,16 @@ export function useRadarDataSync({
       if (!liveVoiceEnabled) {
         return;
       }
-      const etaMinutes = Math.max(1, Math.round(activeAlert.estimatedTime * 60));
       const distanceText = formatDistance(activeAlert.distance, unitSystem);
-      const locationSuffix = activeAlert.locationLabel
-        ? ` near ${activeAlert.locationLabel.split(',').slice(0, 2).join(', ')}`
-        : '';
-      const message = `${formatRadarLabel(activeAlert.type)} ahead${locationSuffix}. ${distanceText}. Estimated ${etaMinutes} minutes.`;
-      Speech.stop();
-      Speech.speak(message, {
-        language: 'en-US',
-        pitch: 1,
-        rate: 0.95,
-        volume: warningVolume / 100,
+      const shortLocation = getRadarShortLocation(activeAlert.locationLabel);
+      const locationSuffix = shortLocation ? ` near ${shortLocation}` : '';
+      const timingText = formatRadarAnnouncementTiming(activeAlert);
+      const speedLimitText = formatRadarSpeedLimitAnnouncement(activeAlert, unitSystem);
+      const speedLimitSuffix = speedLimitText ? ` ${speedLimitText}.` : '';
+      const message = `${formatRadarLabel(activeAlert.type)} ahead${locationSuffix}.${speedLimitSuffix} ${distanceText}. ${timingText}.`;
+      VoiceGuidanceService.speak(message, {
+        cooldownKey: `active_alert:${activeAlert.id}`,
+        cooldownMs: 6000,
       });
     }
   }, [
@@ -190,8 +391,9 @@ export function useRadarDataSync({
 
   useEffect(() => {
     if (!voicePlaybackEnabled) {
+      VoiceGuidanceService.syncMuteState().catch(() => {});
       NotificationService.silenceAllAudioNow().catch(() => {
-        Speech.stop();
+        VoiceGuidanceService.stop().catch(() => {});
       });
     }
   }, [voicePlaybackEnabled]);
@@ -213,64 +415,60 @@ export function useRadarDataSync({
       setClosestRadarHint('');
       return;
     }
-    if (closestRadarLabelRequestRef.current[closestRadar.id]) {
-      return;
-    }
 
     let cancelled = false;
-    closestRadarLabelRequestRef.current[closestRadar.id] = true;
     (async () => {
       try {
-        const fullLabel = await GoogleMapsService.getReverseGeocoding(latitude, longitude);
+        const shortLabel = await resolveRadarShortLabel(
+          closestRadar.id,
+          latitude,
+          longitude
+        );
         if (cancelled) return;
-        const shortLabel = extractShortStreetLabel(fullLabel);
         if (shortLabel) {
           closestRadarLabelCacheRef.current[closestRadar.id] = shortLabel;
           setClosestRadarHint(shortLabel);
         } else {
           setClosestRadarHint('');
         }
-      } catch (error) {
+      } catch {
         if (!cancelled) {
           setClosestRadarHint('');
         }
-      } finally {
-        delete closestRadarLabelRequestRef.current[closestRadar.id];
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [closestRadar]);
+  }, [closestRadar, resolveRadarShortLabel]);
 
   useEffect(() => {
-    const candidates = nearbyRadars.slice(0, 10);
+    const candidates = [...nearbyRadars]
+      .sort((a, b) => Number(a?.distance || Number.MAX_SAFE_INTEGER) - Number(b?.distance || Number.MAX_SAFE_INTEGER))
+      .slice(0, RADAR_HINT_NEAREST_LIMIT);
+
     for (const radar of candidates) {
       if (!radar?.id) continue;
-      if (radarLocationHints[radar.id] || radarHintRequestRef.current[radar.id]) continue;
+      if (radarLocationHints[radar.id]) continue;
       const latitude = Number(radar.latitude);
       const longitude = Number(radar.longitude);
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
 
-      radarHintRequestRef.current[radar.id] = true;
       (async () => {
         try {
-          const fullLabel = await GoogleMapsService.getReverseGeocoding(latitude, longitude);
-          const shortLabel = extractShortStreetLabel(fullLabel);
+          const shortLabel = await resolveRadarShortLabel(radar.id, latitude, longitude);
           if (!shortLabel) return;
           setRadarLocationHints((prev) => {
             if (prev[radar.id] === shortLabel) return prev;
             return { ...prev, [radar.id]: shortLabel };
           });
-        } catch (error) {
+        } catch {
           // Ignore reverse geocode failures for non-critical hints.
-        } finally {
-          delete radarHintRequestRef.current[radar.id];
         }
       })();
     }
-  }, [nearbyRadars, radarLocationHints]);
+  }, [nearbyRadars, radarLocationHints, resolveRadarShortLabel]);
 
   const nearbyRadarsWithHints = useMemo(
     () =>
@@ -291,8 +489,14 @@ export function useRadarDataSync({
           location.longitude !== currentLocationRef.current.longitude)
       ) {
         const previousHeadingLocation = previousHeadingLocationRef.current;
+        const sampleSpeedKph =
+          typeof location.speed === 'number' && Number.isFinite(location.speed) && location.speed >= 0
+            ? location.speed * 3.6
+            : Math.max(0, currentSpeedRef.current || 0);
         const headingFromSensor =
-          typeof location.heading === 'number' && Number.isFinite(location.heading)
+          typeof location.heading === 'number' &&
+          Number.isFinite(location.heading) &&
+          location.heading >= 0
             ? normalizeHeading(location.heading)
             : null;
         const movementMeters = previousHeadingLocation
@@ -303,8 +507,9 @@ export function useRadarDataSync({
               location.longitude
             ) * 1000
           : 0;
+        const hasReliableMotion = movementMeters >= 4 || sampleSpeedKph >= 8;
         const bearingHeading =
-          headingFromSensor === null && previousHeadingLocation && movementMeters >= 3
+          previousHeadingLocation && movementMeters >= 4
             ? calculateBearing(
                 previousHeadingLocation.latitude,
                 previousHeadingLocation.longitude,
@@ -312,8 +517,18 @@ export function useRadarDataSync({
                 location.longitude
               )
             : null;
-        const resolvedHeading = headingFromSensor ?? bearingHeading ?? lastValidHeadingRef.current;
-        lastValidHeadingRef.current = normalizeHeading(resolvedHeading);
+        const motionHeading =
+          bearingHeading ?? (hasReliableMotion ? headingFromSensor : null);
+        const maxHeadingStepDeg =
+          sampleSpeedKph >= 90 ? 24 : sampleSpeedKph >= 55 ? 18 : sampleSpeedKph >= 25 ? 14 : 10;
+        const resolvedHeading =
+          motionHeading !== null
+            ? stepHeadingToward(lastValidHeadingRef.current, motionHeading, maxHeadingStepDeg)
+            : lastValidHeadingRef.current;
+        lastValidHeadingRef.current =
+          typeof resolvedHeading === 'number' && Number.isFinite(resolvedHeading)
+            ? normalizeHeading(resolvedHeading)
+            : lastValidHeadingRef.current;
         previousHeadingLocationRef.current = {
           latitude: location.latitude,
           longitude: location.longitude,
@@ -321,6 +536,8 @@ export function useRadarDataSync({
 
         const locationWithHeading = {
           ...location,
+          latitude: location.latitude,
+          longitude: location.longitude,
           heading: lastValidHeadingRef.current,
         };
 
@@ -346,8 +563,15 @@ export function useRadarDataSync({
           headingDelta = Math.abs(nextHeading - previousHeading);
           if (headingDelta > 180) headingDelta = 360 - headingDelta;
         }
+        const uiUpdateIntervalMs =
+          sampleSpeedKph >= 90 ? 200 : sampleSpeedKph >= 60 ? 250 : sampleSpeedKph >= 30 ? 320 : 420;
+        const uiMoveThresholdMeters =
+          sampleSpeedKph >= 90 ? 1.6 : sampleSpeedKph >= 60 ? 1.2 : sampleSpeedKph >= 30 ? 0.9 : 0.45;
         const shouldUpdateUiLocation =
-          !previousUiLocation || movedMeters >= 4 || headingDelta >= 10 || now - lastUiLocationUpdateAtRef.current >= 900;
+          !previousUiLocation ||
+          movedMeters >= uiMoveThresholdMeters ||
+          headingDelta >= 3 ||
+          now - lastUiLocationUpdateAtRef.current >= uiUpdateIntervalMs;
 
         if (shouldUpdateUiLocation && allowUiLocationUpdates) {
           lastUiLocationRef.current = locationWithHeading;
@@ -356,59 +580,79 @@ export function useRadarDataSync({
         }
 
         if (isDriving && activeTab === 'Map' && !manualPanModeRef.current && !isTypingRef.current) {
+          const currentHeading =
+            typeof locationWithHeading.heading === 'number' && Number.isFinite(locationWithHeading.heading)
+              ? normalizeHeading(locationWithHeading.heading)
+              : lastValidHeadingRef.current ?? 0;
+          const centerBearing = followHeading ? currentHeading : 0;
+          const cameraUpdateIntervalMs =
+            sampleSpeedKph >= 90 ? 240 : sampleSpeedKph >= 60 ? 300 : sampleSpeedKph >= 30 ? 360 : 430;
+          const cameraMoveThresholdMeters =
+            sampleSpeedKph >= 90 ? 5 : sampleSpeedKph >= 60 ? 4 : sampleSpeedKph >= 30 ? 3 : 2;
+          const cameraHeadingThresholdDeg =
+            sampleSpeedKph >= 90 ? 5 : sampleSpeedKph >= 60 ? 6 : sampleSpeedKph >= 30 ? 8 : 12;
+          const lookAheadMeters = Math.max(
+            18,
+            Math.min(36, 22 + Math.round((currentSpeedRef.current || 0) * 0.2))
+          );
+          const followCenter = followHeading
+            ? projectForwardCoordinate(
+                locationWithHeading.latitude,
+                locationWithHeading.longitude,
+                centerBearing,
+                lookAheadMeters
+              )
+            : { latitude: locationWithHeading.latitude, longitude: locationWithHeading.longitude };
           const lastCameraCenter = lastCameraCenterRef.current;
           const movedFromCameraMeters = lastCameraCenter
             ? LocationService.calculateDistanceSync(
                 lastCameraCenter.latitude,
                 lastCameraCenter.longitude,
-                locationWithHeading.latitude,
-                locationWithHeading.longitude
+                followCenter.latitude,
+                followCenter.longitude
               ) * 1000
             : Number.POSITIVE_INFINITY;
-          const currentHeading =
-            typeof locationWithHeading.heading === 'number' && Number.isFinite(locationWithHeading.heading)
-              ? normalizeHeading(locationWithHeading.heading)
-              : lastValidHeadingRef.current;
-          const targetHeading = followHeading ? currentHeading : 0;
-          const previousCameraHeading = lastCameraHeadingRef.current;
-          let cameraHeadingDelta = Number.POSITIVE_INFINITY;
-          if (typeof previousCameraHeading === 'number') {
-            cameraHeadingDelta = Math.abs(targetHeading - previousCameraHeading);
-            if (cameraHeadingDelta > 180) cameraHeadingDelta = 360 - cameraHeadingDelta;
-          }
+          const nextCameraHeading = followHeading ? currentHeading : 0;
+          const headingDeltaForCamera = calculateHeadingDelta(
+            lastCameraHeadingRef.current,
+            nextCameraHeading
+          );
+          const allowHeadingDrivenCameraUpdate =
+            followHeading && (sampleSpeedKph >= 10 || movementMeters >= 4);
 
           const shouldAnimateCamera =
             !lastCameraCenter ||
-            movedFromCameraMeters >= 4 ||
-            cameraHeadingDelta >= 6;
+            movedFromCameraMeters >= cameraMoveThresholdMeters ||
+            (allowHeadingDrivenCameraUpdate && headingDeltaForCamera >= cameraHeadingThresholdDeg);
 
-          if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= 700) {
+          if (shouldAnimateCamera && now - lastCameraUpdateRef.current >= cameraUpdateIntervalMs && !cameraAnimationInFlightRef.current) {
+            cameraAnimationInFlightRef.current = true;
+            const animationDuration = 300;
             mapRef.current?.animateCamera(
               {
                 center: {
-                  latitude: locationWithHeading.latitude,
-                  longitude: locationWithHeading.longitude,
+                  latitude: followCenter.latitude,
+                  longitude: followCenter.longitude,
                 },
-                pitch: 62,
-                heading: targetHeading,
-                zoom: 18.2,
+                pitch: 0,
+                heading: followHeading ? currentHeading : 0,
+                zoom: 18.85,
               },
-              { duration: 650 }
+              { duration: animationDuration }
             );
             lastCameraCenterRef.current = {
-              latitude: locationWithHeading.latitude,
-              longitude: locationWithHeading.longitude,
+              latitude: followCenter.latitude,
+              longitude: followCenter.longitude,
             };
-            lastCameraHeadingRef.current = targetHeading;
+            lastCameraHeadingRef.current = nextCameraHeading;
             lastCameraUpdateRef.current = now;
+            setTimeout(() => { cameraAnimationInFlightRef.current = false; }, animationDuration + 40);
 
             if (MAP_TRACE_ENABLED) {
               console.log('[MapTrace] cameraFollow', {
                 movedFromCameraMeters: Math.round(movedFromCameraMeters),
-                cameraHeadingDelta: Number.isFinite(cameraHeadingDelta)
-                  ? Math.round(cameraHeadingDelta)
-                  : 'first',
-                targetHeading: Math.round(targetHeading),
+                centerBearing: Math.round(centerBearing),
+                lookAheadMeters,
               });
             }
           }
@@ -426,45 +670,70 @@ export function useRadarDataSync({
     isTypingRef,
     mapRef,
     pushLocationSample,
+    routeCoords,
   ]);
 
   useEffect(() => {
     if (currentLocation && mapRef.current && !hasCenteredMapRef.current) {
-      const initialHeading =
-        followHeading && typeof currentLocation.heading === 'number' && Number.isFinite(currentLocation.heading)
+      const routeHeading =
+        followHeading && routeCoords.length > 1
+          ? LocationService.calculateRouteBearing(
+              currentLocation.latitude,
+              currentLocation.longitude,
+              routeCoords
+            )
+          : null;
+      const initialBearing =
+        followHeading && typeof routeHeading === 'number'
+          ? routeHeading
+          : followHeading &&
+              typeof currentLocation.heading === 'number' &&
+              Number.isFinite(currentLocation.heading)
           ? currentLocation.heading
           : 0;
+      const initialCenter = followHeading
+        ? projectForwardCoordinate(currentLocation.latitude, currentLocation.longitude, initialBearing, 28)
+        : { latitude: currentLocation.latitude, longitude: currentLocation.longitude };
       mapRef.current.animateCamera(
         {
-          center: { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
-          zoom: 17.8,
-          pitch: 60,
-          heading: initialHeading,
+          center: initialCenter,
+          zoom: 18.7,
+          pitch: 0,
+          heading: followHeading ? normalizeHeading(initialBearing) : 0,
         },
-        { duration: 650 }
+        { duration: 340 }
       );
+      if (followHeading) {
+        lastValidHeadingRef.current = normalizeHeading(initialBearing);
+      }
       lastCameraCenterRef.current = {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
+        latitude: initialCenter.latitude,
+        longitude: initialCenter.longitude,
       };
-      lastCameraHeadingRef.current = initialHeading;
+      lastCameraHeadingRef.current = followHeading ? normalizeHeading(initialBearing) : 0;
       lastCameraUpdateRef.current = Date.now();
       hasCenteredMapRef.current = true;
     }
-  }, [currentLocation, followHeading, hasCenteredMapRef, mapRef]);
+  }, [currentLocation, followHeading, hasCenteredMapRef, mapRef, routeCoords]);
 
   useEffect(() => {
     const fetchNearby = async () => {
       const loc = currentLocationRef.current || (await LocationService.getCurrentLocation());
-      if (loc) {
-        const radars = await RadarService.getNearbyRadars(loc.latitude, loc.longitude, 10);
-        updateNearbyRadarsState(radars);
-      }
+      if (!loc) return;
+
+      const radars = await RadarService.getNearbyRadars(loc.latitude, loc.longitude, 10);
+      const filtered = applyRouteRelevanceFilter(radars, {
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        heading: typeof loc.heading === 'number' ? loc.heading : null,
+      });
+      updateNearbyRadarsState(filtered);
     };
+
     fetchNearby();
     const interval = setInterval(fetchNearby, 15000);
     return () => clearInterval(interval);
-  }, [updateNearbyRadarsState]);
+  }, [applyRouteRelevanceFilter, updateNearbyRadarsState]);
 
   return {
     currentLocation,
@@ -482,6 +751,6 @@ export function useRadarDataSync({
     resolvedHeading:
       typeof currentLocation?.heading === 'number' && Number.isFinite(currentLocation.heading)
         ? normalizeHeading(currentLocation.heading)
-        : lastValidHeadingRef.current,
+        : lastValidHeadingRef.current ?? 0,
   };
 }

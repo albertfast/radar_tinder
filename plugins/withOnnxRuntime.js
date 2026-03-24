@@ -1,8 +1,67 @@
+const fs = require('fs');
+const path = require('path');
 const {
   withSettingsGradle,
   withAppBuildGradle,
   withMainApplication,
+  withDangerousMod,
 } = require('expo/config-plugins');
+
+const DEFAULT_ORT_ANDROID_VERSION = '1.23.2';
+
+const resolveOrtAndroidVersion = () => {
+  const raw = (process.env.EXPO_PUBLIC_ORT_ANDROID_VERSION || DEFAULT_ORT_ANDROID_VERSION).trim();
+  return raw || DEFAULT_ORT_ANDROID_VERSION;
+};
+
+const pinOnnxRuntimeAndroidBuildGradle = (projectRoot, ortVersion) => {
+  const ortBuildGradlePath = path.join(
+    projectRoot,
+    'node_modules',
+    'onnxruntime-react-native',
+    'android',
+    'build.gradle'
+  );
+
+  if (!fs.existsSync(ortBuildGradlePath)) {
+    console.warn(
+      '[withOnnxRuntime] onnxruntime-react-native/android/build.gradle not found, skipping version pin.'
+    );
+    return;
+  }
+
+  const original = fs.readFileSync(ortBuildGradlePath, 'utf8');
+  let patched = original;
+  patched = patched.replace(
+    /com\.microsoft\.onnxruntime:onnxruntime-android:latest\.integration@aar/g,
+    `com.microsoft.onnxruntime:onnxruntime-android:${ortVersion}@aar`
+  );
+  patched = patched.replace(
+    /com\.microsoft\.onnxruntime:onnxruntime-extensions-android:latest\.integration@aar/g,
+    `com.microsoft.onnxruntime:onnxruntime-extensions-android:${ortVersion}@aar`
+  );
+
+  if (patched === original) {
+    return;
+  }
+
+  fs.writeFileSync(ortBuildGradlePath, patched);
+  console.log(`[withOnnxRuntime] Pinned Android ONNX Runtime artifacts to ${ortVersion}.`);
+};
+
+const ensureOrtResolutionStrategy = (gradle, ortVersion) => {
+  if (gradle.includes("details.requested.group == 'com.microsoft.onnxruntime'")) {
+    return gradle;
+  }
+
+  const block = `configurations.all {\n  resolutionStrategy.eachDependency { details ->\n    if (details.requested.group == 'com.microsoft.onnxruntime') {\n      details.useVersion('${ortVersion}')\n      details.because('Pin ORT native artifacts for deterministic and 16 KB-safe builds')\n    }\n  }\n}`;
+
+  if (gradle.includes('android {')) {
+    return gradle.replace('android {', `${block}\n\nandroid {`);
+  }
+
+  return `${block}\n\n${gradle}`;
+};
 
 /**
  * Force-link onnxruntime-react-native on Android.
@@ -10,6 +69,8 @@ const {
  * which leaves the native module unavailable at runtime.
  */
 module.exports = function withOnnxRuntime(config) {
+  const ortVersion = resolveOrtAndroidVersion();
+
   // Ensure settings.gradle includes the project.
   config = withSettingsGradle(config, (config) => {
     const settings = config.modResults.contents;
@@ -53,6 +114,7 @@ module.exports = function withOnnxRuntime(config) {
       .join('\n');
     // Ensure a clean newline after the dependencies { line
     gradle = gradle.replace(/dependencies\s*\{\s*(?=\S)/, 'dependencies {\n');
+    gradle = ensureOrtResolutionStrategy(gradle, ortVersion);
     config.modResults.contents = gradle;
     return config;
   });
@@ -83,6 +145,15 @@ module.exports = function withOnnxRuntime(config) {
     config.modResults.contents = src;
     return config;
   });
+
+  // Pin dynamic ORT Android artifacts in the library module itself.
+  config = withDangerousMod(config, [
+    'android',
+    async (config) => {
+      pinOnnxRuntimeAndroidBuildGradle(config.modRequest.projectRoot, ortVersion);
+      return config;
+    },
+  ]);
 
   return config;
 };

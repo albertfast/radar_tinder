@@ -15,3 +15,29 @@ export const KEYBOARD_TRACE_ENABLED = /^(1|true|yes)$/i.test(
 export const MAP_TRACE_ENABLED = /^(1|true|yes)$/i.test(
   process.env.EXPO_PUBLIC_MAP_TRACE || ''
 );
+
+const parseFeatureFlag = (value: string | undefined, defaultValue: boolean = true) => {
+  if (value === undefined || value === null || value === '') return defaultValue;
+  return /^(1|true|yes)$/i.test(value);
+};
+
+export const AUTOCOMPLETE_V2_ENABLED = parseFeatureFlag(
+  process.env.EXPO_PUBLIC_AUTOCOMPLETE_V2,
+  true
+);
+export const VOICE_GATE_V2_ENABLED = parseFeatureFlag(
+  process.env.EXPO_PUBLIC_VOICE_GATE_V2,
+  true
+);
+export const ROUTE_RELEVANCE_V2_ENABLED = parseFeatureFlag(
+  process.env.EXPO_PUBLIC_ROUTE_RELEVANCE_V2,
+  true
+);
+export const SPEED_LIMIT_V2_ENABLED = parseFeatureFlag(
+  process.env.EXPO_PUBLIC_SPEED_LIMIT_V2,
+  true
+);
+export const ROUTE_STYLE_V2_ENABLED = parseFeatureFlag(
+  process.env.EXPO_PUBLIC_ROUTE_STYLE_V2,
+  true
+);

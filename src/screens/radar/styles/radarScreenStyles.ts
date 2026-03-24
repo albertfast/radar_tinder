@@ -272,6 +272,11 @@ export const radarScreenStyles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  navSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 12,
+  },
   navSummaryDistance: {
     color: '#F8FAFC',
     fontSize: 26,
@@ -279,9 +284,8 @@ export const radarScreenStyles = StyleSheet.create({
   },
   navSummaryEta: {
     color: '#67E8F9',
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: 2,
+    fontSize: 26,
+    fontWeight: '900',
   },
   navSummaryDestination: {
     color: '#94A3B8',

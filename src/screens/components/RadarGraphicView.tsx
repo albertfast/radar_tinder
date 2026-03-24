@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, useWindowDimensions, Image } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
@@ -12,10 +12,10 @@ import { DatabaseService } from '../../services/DatabaseService';
 import { useRadarStore } from '../../store/radarStore';
 import { useAutoHideTabBar } from '../../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../../constants/layout';
-import { hasProAccess } from '../../utils/access';
+import { hasProAccess, isPremiumAccessPending } from '../../utils/access';
 import ProGate from '../../components/ProGate';
-import AdBanner from '../../components/AdBanner';
 import { RadarAnimation, type RadarRendererMode } from '../../components/RadarAnimation';
+import { AccessBootstrapView } from '../../components/AccessBootstrapView';
 
 interface RadarGraphicViewProps {
   totalDistance: number;
@@ -48,8 +48,9 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   radarDangerLevel,
 }) => {
   const { width } = useWindowDimensions();
-  const { user } = useAuthStore();
+  const { user, accessBootstrapState } = useAuthStore();
   const canUse = hasProAccess(user);
+  const accessPending = isPremiumAccessPending(user, accessBootstrapState);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [weeklyData, setWeeklyData] = useState(emptyWeeklyTrips);
@@ -65,7 +66,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
     if (canUse) {
       loadDrivingData();
     }
-  }, [user?.id]);
+  }, [canUse, user?.id]);
 
   useEffect(() => {
     if (drivingStartTime) {
@@ -270,6 +271,15 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   const displayDistance = formatDistance(weeklyStats.totalDistance);
   const displayAvgSpeed = `${weeklyStats.avgSpeed} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`;
 
+  if (accessPending) {
+    return (
+      <AccessBootstrapView
+        title="Checking Pro access"
+        subtitle="Restoring graphs and trip analytics for your subscription."
+      />
+    );
+  }
+
   if (!canUse) {
     return (
       <ProGate
@@ -300,16 +310,18 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
           style={styles.radarHeroGradient}
         >
           <View style={styles.radarHeroHeader}>
-            <Text style={styles.radarHeroTitle}>Live 3D Radar Field</Text>
+            <Text style={styles.radarHeroTitle}>Live Radar Field</Text>
             <Text style={styles.radarHeroMeta}>Contour + Orbit</Text>
           </View>
           <View style={styles.radarHeroBody}>
-            <RadarAnimation
-              size={Math.max(150, Math.min(Math.round(width * 0.45), 220))}
-              rendererMode={radarRendererMode}
-              artPreset="contour_orbit"
-              signalLevel={radarSignalLevel}
-              dangerLevel={radarDangerLevel}
+            <Image
+              source={require('../../../assets/driving_mode_radar_panel.gif')}
+              style={{
+                width: Math.max(150, Math.min(Math.round(width * 0.45), 220)),
+                height: Math.max(150, Math.min(Math.round(width * 0.45), 220)),
+                borderRadius: Math.max(150, Math.min(Math.round(width * 0.45), 220)) / 2,
+              }}
+              resizeMode="cover"
             />
           </View>
         </LinearGradient>
@@ -548,10 +560,6 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
           </View>
         </LinearGradient>
       </Animated.View>
-
-      <View style={{ marginTop: 8 }}>
-        <AdBanner />
-      </View>
 
       <View style={styles.spacer} />
     </ScrollView>

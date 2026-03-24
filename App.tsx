@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { NavigationContainer, DarkTheme as NavigationDarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
@@ -7,66 +7,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AppState, View, ActivityIndicator, Platform } from 'react-native';
-import * as Reanimated from 'react-native-reanimated';
+import { AppState, View, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-
-const reanimated = Reanimated as any;
-const reanimatedVersion = reanimated.version || 'unknown';
-
-const trySetReanimatedProp = (key: string, value: any) => {
-  try {
-    const descriptor = Object.getOwnPropertyDescriptor(reanimated, key);
-    if (descriptor && !descriptor.writable && !descriptor.set) {
-      return false;
-    }
-    reanimated[key] = value;
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-// Reanimated 4 compatibility: apply only on Android and never hard-crash startup.
-if (Platform.OS === 'android' && !reanimated.useAnimatedGestureHandler) {
-  trySetReanimatedProp('useAnimatedGestureHandler', (config: any) => {
-    return {
-      onStart: config?.onStart || (() => {}),
-      onActive: config?.onActive || (() => {}),
-      onEnd: config?.onEnd || (() => {}),
-      onFinalize: config?.onFinalize || (() => {}),
-    };
-  });
-}
-
-if (
-  Platform.OS === 'android' &&
-  typeof reanimatedVersion === 'string' &&
-  reanimatedVersion.startsWith('4.')
-) {
-  console.warn('Reanimated 4 detected on Android, enabling compatibility fallbacks');
-
-  if (!reanimated.runOnJS) {
-    trySetReanimatedProp('runOnJS', (fn: any) => fn);
-  }
-  if (!reanimated.useSharedValue) {
-    trySetReanimatedProp('useSharedValue', (initial: any) => ({ value: initial }));
-  }
-  if (!reanimated.useAnimatedStyle) {
-    trySetReanimatedProp('useAnimatedStyle', () => ({}));
-  }
-  if (!reanimated.withTiming) {
-    trySetReanimatedProp('withTiming', (value: any) => value);
-  }
-  if (!reanimated.withSpring) {
-    trySetReanimatedProp('withSpring', (value: any) => value);
-  }
-}
-
-console.log('Reanimated version:', reanimatedVersion);
-console.log('React Native New Architecture (Fabric):', (global as any)._IS_FABRIC ? 'Enabled' : 'Disabled');
-console.log('React Native Bridgeless Mode:', (global as any).RN$Bridgeless ? 'Enabled' : 'Disabled');
 
 import { 
   MaterialCommunityIcons, 
@@ -95,6 +38,14 @@ import { NotificationService } from './src/services/NotificationService';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { supabase } from './utils/supabase';
 import { useSettingsStore } from './src/store/settingsStore';
+import {
+  appVersion,
+  nativeBuildVersion,
+  buildFingerprint,
+  gitCommitShort,
+  buildTimestampMs,
+  runtimeVersion,
+} from './src/utils/buildInfo';
 
 const isTruthyFlag = (value?: string) => value === '1' || value === 'true' || value === 'yes';
 const isAdDebugEnabled = () => __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG);
@@ -137,7 +88,17 @@ const combinedDarkTheme = {
 const prefix = Linking.createURL('/');
 
 export default function App() {
-  const { isAuthenticated, user } = useAuthStore();
+  const {
+    isAuthenticated,
+    user,
+    hasHydrated: authStoreHydrated,
+    hydrateFromSupabaseSession,
+    normalizeAccessState,
+    refreshProfile,
+    setAccessBootstrapState,
+  } = useAuthStore();
+  const [authBootstrapComplete, setAuthBootstrapComplete] = useState(false);
+  const lastRevenueCatUserIdRef = useRef<string | null>(null);
   const hasSettingsHydrated = useSettingsStore((state) => state.hasHydrated);
   const voiceWarningsEnabled = useSettingsStore((state) => state.voiceWarningsEnabled);
   const warningVolume = useSettingsStore((state) => state.warningVolume);
@@ -169,6 +130,15 @@ export default function App() {
 
   // Optimized service initialization with error boundaries
   useEffect(() => {
+    console.log('[BUILD] App launch context', {
+      appVersion,
+      nativeBuildVersion,
+      runtimeVersion,
+      buildFingerprint,
+      gitCommitShort,
+      buildTimestampMs,
+    });
+
     // Initialize services with proper error isolation
     const initializeServices = async () => {
       // Initialize crash reporting first (but don't let it crash the app)
@@ -199,6 +169,8 @@ export default function App() {
 
       try {
         await AdService.init();
+        await AdService.preloadAll();
+        AdService.showAppOpen('app_foreground').catch(() => {});
         if (isAdDebugEnabled()) {
           console.log('[ADS] init state', AdService.getAdsDebugState());
         }
@@ -208,6 +180,7 @@ export default function App() {
 
       try {
         await SubscriptionService.init();
+        SubscriptionService.attachCustomerInfoListener();
       } catch (error) {
         console.error('Error initializing subscription service:', error);
       }
@@ -222,6 +195,12 @@ export default function App() {
       try {
         await AnalyticsService.trackEvent('app_launch', {
           authenticated: useAuthStore.getState().isAuthenticated,
+          app_version: appVersion,
+          native_build_version: nativeBuildVersion,
+          runtime_version: runtimeVersion,
+          build_fingerprint: buildFingerprint,
+          git_commit_short: gitCommitShort,
+          build_timestamp_ms: buildTimestampMs,
         });
       } catch (error) {
         console.error('Error tracking app launch:', error);
@@ -232,6 +211,58 @@ export default function App() {
     const initTimeout = setTimeout(initializeServices, 100);
     return () => clearTimeout(initTimeout);
   }, []);
+
+  useEffect(() => {
+    if (!authStoreHydrated) return;
+    let cancelled = false;
+    const timeout = setTimeout(async () => {
+      setAccessBootstrapState('resolving');
+      try {
+        const hydrated = await hydrateFromSupabaseSession();
+        if (cancelled) return;
+        if (hydrated) {
+          await refreshProfile();
+          if (cancelled) return;
+        }
+        await normalizeAccessState();
+        if (cancelled) return;
+        if (useAuthStore.getState().user?.id) {
+          const synced = await SubscriptionService.syncAccessState().catch((error) => {
+            console.warn('Initial subscription sync failed:', error);
+            return false;
+          });
+          if (!cancelled) {
+            setAccessBootstrapState(synced ? 'ready' : 'error');
+          }
+        } else if (!cancelled) {
+          setAccessBootstrapState('ready');
+        }
+      } catch (error) {
+        console.warn('Initial auth normalization failed:', error);
+        if (!cancelled) {
+          setAccessBootstrapState('error');
+        }
+      } finally {
+        if (!cancelled) {
+          if (useAuthStore.getState().accessBootstrapState === 'resolving') {
+            setAccessBootstrapState('ready');
+          }
+          setAuthBootstrapComplete(true);
+        }
+      }
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [
+    authStoreHydrated,
+    hydrateFromSupabaseSession,
+    normalizeAccessState,
+    refreshProfile,
+    setAccessBootstrapState,
+  ]);
 
   useEffect(() => {
     if (!hasSettingsHydrated) return;
@@ -265,6 +296,9 @@ export default function App() {
       try {
         if (nextState === 'active' && hasSupabaseSession) {
           supabase.auth.startAutoRefresh?.();
+          refreshProfile().catch(() => {});
+          normalizeAccessState().catch(() => {});
+          SubscriptionService.syncAccessState().catch(() => {});
         } else {
           supabase.auth.stopAutoRefresh?.();
         }
@@ -276,6 +310,23 @@ export default function App() {
       authSub?.data?.subscription?.unsubscribe?.();
       appStateSub.remove();
       BackgroundService.stop().catch(console.error);
+    };
+  }, [normalizeAccessState, refreshProfile]);
+
+  useEffect(() => {
+    const appStateRef = { current: AppState.currentState };
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      const previous = appStateRef.current;
+      appStateRef.current = nextState;
+      const movedToForeground =
+        (previous === 'background' || previous === 'inactive') && nextState === 'active';
+      if (!movedToForeground) return;
+      AdService.showAppOpen('app_foreground').catch(() => {});
+      AdService.preloadAll().catch(() => {});
+    });
+
+    return () => {
+      appStateSubscription.remove();
     };
   }, []);
 
@@ -290,14 +341,18 @@ export default function App() {
         user_id: user.id,
       }).catch(() => {});
       AnalyticsService.setUserId(user.id).catch(() => {});
-      SubscriptionService.setUserId(user.id).catch(() => {});
+      if (lastRevenueCatUserIdRef.current !== user.id) {
+        lastRevenueCatUserIdRef.current = user.id;
+        SubscriptionService.setUserId(user.id).catch(() => {});
+      }
     } else {
+      lastRevenueCatUserIdRef.current = null;
       AnalyticsService.setUserId(null).catch(() => {});
     }
   }, [isAuthenticated, user]);
 
   // Don't render until fonts are loaded
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !authBootstrapComplete) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0F1A' }}>
         <ActivityIndicator size="large" color="#4ECDC4" />
@@ -312,7 +367,7 @@ export default function App() {
           <QueryClientProvider client={queryClient}>
             <PaperProvider theme={combinedDarkTheme}>
               <NavigationContainer
-                theme={combinedDarkTheme}
+                theme={combinedDarkTheme as any}
                 linking={{
                   prefixes: [prefix, 'radartinder://'],
                   config: {

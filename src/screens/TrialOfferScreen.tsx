@@ -14,7 +14,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 import { FirebaseAuthService } from '../services/FirebaseAuthService';
-import { SubscriptionService } from '../services/SubscriptionService';
+import { LocationService } from '../services/LocationService';
+import { AdService } from '../services/AdService';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -54,90 +55,21 @@ const FEATURES = [
   }
 ];
 
-// --- 3D Radar Scan Animation ---
-const RadarScan = () => {
-    const rotation = useSharedValue(0);
-    const scale = useSharedValue(1);
-    
-    useEffect(() => {
-        rotation.value = withRepeat(
-            withTiming(360, { duration: 4000, easing: Easing.linear }),
-            -1,
-            false
-        );
-        scale.value = withRepeat(
-            withSequence(
-                withTiming(1.2, { duration: 2000 }),
-                withTiming(1, { duration: 2000 })
-            ),
-            -1,
-            true
-        );
-    }, []);
-
-    const radarStyle = useAnimatedStyle(() => {
-        return {
-            transform: [
-                { rotate: `${rotation.value}deg` },
-                { scale: scale.value }
-            ]
-        };
-    });
-
-    const pulseStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ scale: scale.value }],
-            opacity: withRepeat(
-                withSequence(
-                    withTiming(0.1, { duration: 1000 }),
-                    withTiming(0.3, { duration: 1000 })
-                ),
-                -1,
-                true
-            )
-        };
-    });
-
-    return (
-        <View style={StyleSheet.absoluteFill}>
-            <LinearGradient
-                colors={['#000000', '#1A1A1A']}
-                style={StyleSheet.absoluteFill}
-            />
-            
-            {/* 3D Grid Floor Effect */}
-            <View style={styles.gridContainer}>
-                <View style={styles.grid} />
-            </View>
-
-            {/* Radar Center */}
-            <View style={styles.radarContainer}>
-                 {/* Pulse Rings */}
-                 <Animated.View style={[styles.pulseRing, pulseStyle, { width: 600, height: 600, borderRadius: 300 }]} />
-                 <Animated.View style={[styles.pulseRing, pulseStyle, { width: 400, height: 400, borderRadius: 200 }]} />
-                 
-                 {/* Rotating Beam */}
-                 <Animated.View style={[styles.scanner, radarStyle]}>
-                    <LinearGradient
-                        colors={['rgba(255, 82, 82, 0)', 'rgba(255, 82, 82, 0.4)']}
-                        style={styles.scannerGradient}
-                    />
-                 </Animated.View>
-            </View>
-        </View>
-    );
-};
+// --- Replaced RadarScan animation with GIF ---
 
 const TrialOfferScreen = ({ navigation }: any) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const [loading, setLoading] = useState(false);
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+  const [locationStepComplete, setLocationStepComplete] = useState(false);
+  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
   const { signInAnonymously } = useAuthStore();
   const scrollX = useSharedValue(0);
 
   // Auto-scrolling logic
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     
     // Start auto-scroll after a slight delay
     const startAutoScroll = () => {
@@ -172,9 +104,28 @@ const TrialOfferScreen = ({ navigation }: any) => {
     </View>
   );
 
+  const handleLocationStep = async () => {
+    if (isRequestingLocation || locationStepComplete) return;
+    setIsRequestingLocation(true);
+    setLocationPermissionDenied(false);
+    try {
+      await LocationService.requestLocationPermission();
+      await AdService.showAppOpen('onboarding_location_granted');
+    } catch (error) {
+      setLocationPermissionDenied(true);
+    } finally {
+      setIsRequestingLocation(false);
+      setLocationStepComplete(true);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <RadarScan />
+      <Image 
+          source={require('../../assets/premium_access_panel.gif')} 
+          style={StyleSheet.absoluteFill} 
+          resizeMode="cover" 
+      />
 
       <SafeAreaView style={styles.content}>
         
@@ -232,94 +183,127 @@ const TrialOfferScreen = ({ navigation }: any) => {
                 </View>
                 <Text style={styles.trialText}>3-Day Free Trial</Text>
                 <Text style={styles.priceText}>Then $19.99/year. Or start weekly at $3.99/week.</Text>
-                
-                <TouchableOpacity 
-                    style={styles.ctaButton}
-                    onPress={async () => {
-                        try {
-                            setLoading(true);
-                            
-                            // 1. First sign in anonymously to create user session
-                            try {
-                                await FirebaseAuthService.signInAnonymously();
-                            } catch (firebaseError) {
-                                console.warn('Firebase anonymous auth failed:', firebaseError);
-                            }
-                            await signInAnonymously();
-                            
-                            // 2. Now try to start the subscription with free trial
-                            // RevenueCat will handle the trial period
-                            try {
-                                const { SubscriptionService } = await import('../services/SubscriptionService');
-                                const offerings = await SubscriptionService.getOfferings();
-                                
-                                // Find the yearly package with trial
-                                const yearlyPackage = offerings?.availablePackages?.find(
-                                    (p: any) => p.identifier.includes('yearly') || p.identifier.includes('annual')
-                                );
-                                
-                                if (yearlyPackage) {
-                                    await SubscriptionService.purchasePackage(yearlyPackage);
+
+                {!locationStepComplete ? (
+                    <>
+                        <TouchableOpacity
+                            style={styles.ctaButton}
+                            onPress={handleLocationStep}
+                            disabled={isRequestingLocation || loading}
+                        >
+                            <LinearGradient
+                                colors={['#22C55E', '#16A34A']}
+                                style={styles.ctaGradient}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                            >
+                                {isRequestingLocation ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <Text style={styles.ctaText}>ENABLE LOCATION TO CONTINUE</Text>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+                        <Text style={styles.ctaSub}>
+                            Location helps detect nearby radars and unlocks the free/ad flow.
+                        </Text>
+                        {locationPermissionDenied ? (
+                            <Text style={styles.permissionHint}>
+                                Location not granted. You can still continue and allow it later in app settings.
+                            </Text>
+                        ) : null}
+                    </>
+                ) : (
+                    <>
+                        <TouchableOpacity 
+                            style={styles.ctaButton}
+                            onPress={async () => {
+                                try {
+                                    setLoading(true);
+                                    
+                                    // 1. First sign in anonymously to create user session
+                                    try {
+                                        await FirebaseAuthService.signInAnonymously();
+                                    } catch (firebaseError) {
+                                        console.warn('Firebase anonymous auth failed:', firebaseError);
+                                    }
+                                    await signInAnonymously();
+                                    
+                                    // 2. Now try to start the subscription with free trial
+                                    // RevenueCat will handle the trial period
+                                    try {
+                                        const { SubscriptionService } = await import('../services/SubscriptionService');
+                                        const offerings = await SubscriptionService.getOfferings();
+                                        
+                                        // Find the yearly package with trial
+                                        const yearlyPackage = offerings?.availablePackages?.find(
+                                            (p: any) => p.identifier.includes('yearly') || p.identifier.includes('annual')
+                                        );
+                                        
+                                        if (yearlyPackage) {
+                                            await SubscriptionService.purchasePackage(yearlyPackage);
+                                        }
+                                    } catch (subError) {
+                                        // Subscription failed or cancelled - user continues with free tier
+                                        console.log('Subscription not started:', subError);
+                                    }
+                                    
+                                    // User enters app (authenticated now)
+                                } catch (err: any) {
+                                    console.error('Silent identification error:', err);
+                                    const message =
+                                      typeof err?.message === 'string' && err.message.trim().length > 0
+                                        ? err.message
+                                        : 'Please check your internet connection and try again.';
+                                    Alert.alert('Sign-in Error', message);
+                                } finally {
+                                    setLoading(false);
                                 }
-                            } catch (subError) {
-                                // Subscription failed or cancelled - user continues with free tier
-                                console.log('Subscription not started:', subError);
-                            }
-                            
-                            // User enters app (authenticated now)
-                        } catch (err: any) {
-                            console.error('Silent identification error:', err);
-                            const message =
-                              typeof err?.message === 'string' && err.message.trim().length > 0
-                                ? err.message
-                                : 'Please check your internet connection and try again.';
-                            Alert.alert('Sign-in Error', message);
-                        } finally {
-                            setLoading(false);
-                        }
-                    }}
-                    disabled={loading}
-                >
-                    <LinearGradient
-                        colors={['#FF5252', '#D32F2F']}
-                        style={styles.ctaGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <Text style={styles.ctaText}>START 3-DAY FREE TRIAL</Text>
-                        )}
-                    </LinearGradient>
-                </TouchableOpacity>
-                
-                <Text style={styles.ctaSub}>Unlocks all features. Weekly plan bills immediately.</Text>
-                
-                {/* Skip option for free tier with ads */}
-                <TouchableOpacity 
-                    style={styles.skipBtn}
-                    onPress={async () => {
-                        try {
-                            setLoading(true);
-                            try {
-                                await FirebaseAuthService.signInAnonymously();
-                            } catch (firebaseError) {
-                                console.warn('Firebase anonymous auth failed:', firebaseError);
-                            }
-                            await signInAnonymously();
-                            // User continues with free tier (will see ads)
-                        } catch (err: any) {
-                            console.error('Skip sign-in error:', err);
-                            Alert.alert('Error', 'Please check your internet connection.');
-                        } finally {
-                            setLoading(false);
-                        }
-                    }}
-                    disabled={loading}
-                >
-                    <Text style={styles.skipText}>Continue with Ads (Free)</Text>
-                </TouchableOpacity>
+                            }}
+                            disabled={loading}
+                        >
+                            <LinearGradient
+                                colors={['#FF5252', '#D32F2F']}
+                                style={styles.ctaGradient}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <Text style={styles.ctaText}>START 3-DAY FREE TRIAL</Text>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+                        
+                        <Text style={styles.ctaSub}>Unlocks all features. Weekly plan bills immediately.</Text>
+                        
+                        {/* Skip option for free tier with ads */}
+                        <TouchableOpacity 
+                            style={styles.skipBtn}
+                            onPress={async () => {
+                                try {
+                                    setLoading(true);
+                                    try {
+                                        await FirebaseAuthService.signInAnonymously();
+                                    } catch (firebaseError) {
+                                        console.warn('Firebase anonymous auth failed:', firebaseError);
+                                    }
+                                    await signInAnonymously();
+                                    // User continues with free tier (will see ads)
+                                } catch (err: any) {
+                                    console.error('Skip sign-in error:', err);
+                                    Alert.alert('Error', 'Please check your internet connection.');
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }}
+                            disabled={loading}
+                        >
+                            <Text style={styles.skipText}>Continue with Ads (Free)</Text>
+                        </TouchableOpacity>
+                    </>
+                )}
             </LinearGradient>
             
             <TouchableOpacity style={styles.restoreBtn}>
@@ -517,6 +501,13 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 12,
     marginTop: 12,
+    textAlign: 'center',
+  },
+  permissionHint: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
   },
   skipBtn: {
     alignItems: 'center',

@@ -8,6 +8,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { Text, Surface, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,9 +20,10 @@ import { useSettingsStore } from '../store/settingsStore';
 import { ANIMATION_TIMING, STAGGER_DELAYS } from '../utils/animationConstants';
 import { HapticPatterns } from '../utils/hapticFeedback';
 import { SupabaseService } from '../services/SupabaseService';
+import { ProfileMediaService } from '../services/ProfileMediaService';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
-import AdBanner from '../components/AdBanner';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { appVersion, nativeBuildVersion } from '../utils/buildInfo';
 
 const StatBadge = ({ icon, value, label, color = '#4ECDC4', delay = 0 }: any) => (
   <Animated.View
@@ -84,6 +86,9 @@ const ProfileScreen = ({ navigation }: any) => {
   };
   const [isEditing, setIsEditing] = useState(false);
   const [username, setUsername] = useState(user?.username || user?.name || '');
+  const [adminEntryUnlocked, setAdminEntryUnlocked] = useState(false);
+  const [versionTapCount, setVersionTapCount] = useState(0);
+  const [uploadingMediaType, setUploadingMediaType] = useState<'profile' | 'car' | null>(null);
   
   // Local state for editing
   const [carBrand, setCarBrand] = useState(user?.carDetails?.brand || '');
@@ -106,23 +111,109 @@ const ProfileScreen = ({ navigation }: any) => {
       quality: 1,
     });
 
-    if (!result.canceled) {
-      updateUser(type === 'profile' ? { profileImage: result.assets[0].uri } : { carImage: result.assets[0].uri });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    const sourceUri = result.assets[0].uri;
+    if (!user?.id) {
+      updateUser(
+        type === 'profile'
+          ? { avatarUrl: sourceUri, profileImage: sourceUri }
+          : { carImage: sourceUri }
+      );
+      return;
+    }
+
+    setUploadingMediaType(type);
+    try {
+      const media = await ProfileMediaService.saveMedia({
+        userId: user.id,
+        type,
+        sourceUri,
+      });
+      const persistedUri = media.remoteUrl || media.localUri;
+
+      const updatedProfile = await SupabaseService.updateProfile(
+        user.id,
+        type === 'profile'
+          ? { avatar_url: persistedUri }
+          : { car_image_url: persistedUri }
+      );
+
+      const syncedUri =
+        type === 'profile'
+          ? updatedProfile?.avatar_url || persistedUri
+          : updatedProfile?.car_image_url || persistedUri;
+
+      updateUser(
+        type === 'profile'
+          ? { avatarUrl: syncedUri, profileImage: syncedUri }
+          : { carImage: syncedUri }
+      );
+    } catch (error) {
+      console.error('Profile media save failed:', error);
+      Alert.alert('Upload failed', 'Could not save this image right now. Please try again.');
+    } finally {
+      setUploadingMediaType(null);
     }
   };
 
   const handleUsernameSave = async () => {
     const clean = username.trim();
-    if (!clean) return;
-    updateUser({ username: clean, name: clean, displayName: clean });
-    if (user?.id) {
-      try {
-        await SupabaseService.updateProfile(user.id, {
-          username: clean,
-          display_name: clean,
-        });
-      } catch (error) {}
+    if (!clean) {
+      Alert.alert('Username', 'Please enter a username.');
+      return;
     }
+
+    const currentUsername = (user?.username || user?.name || '').trim();
+    if (clean.toLowerCase() === currentUsername.toLowerCase()) {
+      return;
+    }
+
+    if (!user?.id) {
+      updateUser({ username: clean, name: clean, displayName: clean });
+      return;
+    }
+
+    const available = await SupabaseService.isUsernameAvailable(clean, user.id);
+    if (available === false) {
+      Alert.alert('Username unavailable', 'This username is already in use. Please choose another one.');
+      return;
+    }
+
+    const updated = await SupabaseService.updateProfile(user.id, {
+      username: clean,
+      display_name: clean,
+    });
+
+    if (updated) {
+      updateUser({ username: clean, name: clean, displayName: clean });
+      return;
+    }
+
+    const availableAfterFail = await SupabaseService.isUsernameAvailable(clean, user.id);
+    if (availableAfterFail === false) {
+      Alert.alert('Username unavailable', 'This username was just taken. Please choose another one.');
+    } else {
+      Alert.alert('Save failed', 'Could not update username right now. Please try again.');
+    }
+    setUsername(currentUsername);
+  };
+
+  const handleVersionPress = () => {
+    if (adminEntryUnlocked) {
+      return;
+    }
+
+    const nextTapCount = versionTapCount + 1;
+    if (nextTapCount >= 7) {
+      setAdminEntryUnlocked(true);
+      setVersionTapCount(0);
+      HapticPatterns.success();
+      Alert.alert('Admin tools unlocked', 'Admin sign-in is now visible in this session.');
+      return;
+    }
+
+    setVersionTapCount(nextTapCount);
   };
 
   return (
@@ -189,7 +280,12 @@ const ProfileScreen = ({ navigation }: any) => {
                     </View>
                  )}
               </LinearGradient>
-              <View style={styles.editBadge}>
+              <View
+                style={[
+                  styles.editBadge,
+                  uploadingMediaType === 'profile' && styles.editBadgeBusy,
+                ]}
+              >
                  <MaterialCommunityIcons name="camera" size={12} color="white" />
               </View>
             </TouchableOpacity>
@@ -296,6 +392,14 @@ const ProfileScreen = ({ navigation }: any) => {
                             <Text style={styles.addPhotoText}>Add Vehicle Photo</Text>
                         </LinearGradient>
                     )}
+                    <View
+                      style={[
+                        styles.carImageBadge,
+                        uploadingMediaType === 'car' && styles.editBadgeBusy,
+                      ]}
+                    >
+                      <MaterialCommunityIcons name="camera" size={14} color="#fff" />
+                    </View>
                  </TouchableOpacity>
                  
                  <View style={styles.garageDetails}>
@@ -333,15 +437,17 @@ const ProfileScreen = ({ navigation }: any) => {
         {/* Menu Grid */}
         <Text style={styles.sectionHeader}>DASHBOARD</Text>
         <View style={styles.menuGrid}>
-             <MenuButton 
-                icon="shield-crown" 
-                label="Admin Sign In" 
-                subLabel="Enable admin testing session"
-                color="#EF4444"
-                onPress={() => {
-                  navigation.navigate('AdminLogin');
-                }} 
-             />
+             {adminEntryUnlocked && (
+               <MenuButton
+                  icon="shield-crown"
+                  label="Admin Sign In"
+                  subLabel="Enable admin testing session"
+                  color="#EF4444"
+                  onPress={() => {
+                    navigation.navigate('AdminLogin');
+                  }}
+               />
+             )}
              <MenuButton 
                 icon="trophy" 
                 label="Leaderboard" 
@@ -375,11 +481,14 @@ const ProfileScreen = ({ navigation }: any) => {
           <Text style={styles.legalText}>Privacy Policy</Text>
         </TouchableOpacity>
 
-        <View style={styles.adContainer}>
-          <AdBanner />
-        </View>
-
-        <Text style={styles.version}>v1.0.2 (Beta)</Text>
+        <TouchableOpacity
+          onPress={handleVersionPress}
+          accessibilityRole="button"
+          accessibilityLabel="Build information"
+          accessibilityHint="Tap seven times to unlock admin sign-in"
+        >
+          <Text style={styles.version}>v{appVersion} • build {nativeBuildVersion}</Text>
+        </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </Animated.View>
@@ -401,6 +510,7 @@ const styles = StyleSheet.create({
   avatarRing: { width: 110, height: 110, borderRadius: 55, padding: 3, justifyContent: 'center', alignItems: 'center' },
   avatarImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: '#020617' },
   editBadge: { position: 'absolute', bottom: 5, right: 5, backgroundColor: '#2563EB', padding: 6, borderRadius: 15, borderWidth: 2, borderColor: '#020617' },
+  editBadgeBusy: { backgroundColor: '#0284C7' },
   
   userName: { color: 'white', fontSize: 28, fontWeight: 'bold' },
   levelBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 215, 0, 0.1)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, marginTop: 8, borderWidth: 1, borderColor: 'rgba(255, 215, 0, 0.3)' },
@@ -430,6 +540,19 @@ const styles = StyleSheet.create({
   garageGradient: { padding: 4 },
   carImageWrapper: { height: 180, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden', backgroundColor: '#0F172A' },
   carImage: { width: '100%', height: '100%' },
+  carImageBadge: {
+    position: 'absolute',
+    right: 14,
+    bottom: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+  },
   carPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   addPhotoText: { color: '#64748B', marginTop: 10, fontWeight: '600' },
   

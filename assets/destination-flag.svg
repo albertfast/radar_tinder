@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+  <!-- Flag pole -->
+  <rect x="4" y="0" width="3" height="40" rx="1.5" fill="#0B1424"/>
+  
+  <!-- Flag background -->
+  <rect x="7" y="4" width="22" height="14" rx="2" fill="#FCD34D"/>
+  
+  <!-- Flag border -->
+  <rect x="7" y="4" width="22" height="14" rx="2" fill="none" stroke="#0B1424" stroke-width="2"/>
+  
+  <!-- Checkered pattern -->
+  <rect x="11" y="7" width="4" height="4" fill="#0B1424"/>
+  <rect x="19" y="7" width="4" height="4" fill="#0B1424"/>
+  <rect x="15" y="11" width="4" height="4" fill="#0B1424"/>
+  <rect x="23" y="11" width="4" height="4" fill="#0B1424"/>
+</svg>

@@ -21,8 +21,9 @@ module.exports = (() => {
   if (fs.existsSync(localPnpmStore)) {
     watchFolders.add(localPnpmStore);
   }
+  const enableWideMetroWatch = /^(1|true|yes)$/i.test(process.env.EXPO_USE_WIDE_METRO_WATCH || '');
   const pnpmDlxRoot = path.join(os.homedir(), '.cache', 'pnpm', 'dlx');
-  if (fs.existsSync(pnpmDlxRoot)) {
+  if (enableWideMetroWatch && fs.existsSync(pnpmDlxRoot)) {
     watchFolders.add(pnpmDlxRoot);
   }
   try {
@@ -36,8 +37,16 @@ module.exports = (() => {
       ? resolver.blockList
       : [resolver.blockList]
     : [];
+  const resolvedPlatforms = Array.isArray(resolver.platforms)
+    ? resolver.platforms.includes('native')
+      ? resolver.platforms
+      : [...resolver.platforms, 'native']
+    : ['ios', 'android', 'native'];
   config.resolver = {
     ...resolver,
+    // pnpm dependencies are symlinked inside node_modules/.pnpm; allow Metro to follow them.
+    unstable_enableSymlinks: true,
+    platforms: resolvedPlatforms,
     assetExts: [...resolver.assetExts.filter((ext) => ext !== 'svg'), 'onnx', 'data', 'bin'],
     sourceExts: [...resolver.sourceExts, 'svg'],
     nodeModulesPaths: [

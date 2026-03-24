@@ -7,14 +7,16 @@ import { getQuestionsForState, getAllStates } from '../services/PermitTestServic
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { useAuthStore } from '../store/authStore';
-import { hasProAccess } from '../utils/access';
+import { hasProAccess, isPremiumAccessPending } from '../utils/access';
 import ProGate from '../components/ProGate';
+import { AccessBootstrapView } from '../components/AccessBootstrapView';
 
 // Questions loaded from service
 
 const PermitTestScreen = ({ navigation }: any) => {
-  const { user } = useAuthStore();
+  const { user, accessBootstrapState } = useAuthStore();
   const canUse = hasProAccess(user);
+  const accessPending = isPremiumAccessPending(user, accessBootstrapState);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [questions, setQuestions] = useState<any[]>([]);
@@ -36,6 +38,15 @@ const PermitTestScreen = ({ navigation }: any) => {
         setSelectedOption(null);
     }
   }, [selectedState]);
+
+  if (accessPending) {
+    return (
+      <AccessBootstrapView
+        title="Checking Pro access"
+        subtitle="Restoring premium practice features for your subscription."
+      />
+    );
+  }
 
   if (!canUse) {
       return (

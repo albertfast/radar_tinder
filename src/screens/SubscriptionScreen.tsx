@@ -13,14 +13,19 @@ import type { PurchasesPackage } from 'react-native-purchases';
 const TITLE_FONT = Platform.select({ ios: 'Georgia', android: 'serif' });
 const DISPLAY_FONT = Platform.select({ ios: 'AvenirNext-Heavy', android: 'sans-serif-condensed' });
 type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+type PlanKey = 'weekly' | 'yearly' | 'adfree';
 
 const SubscriptionScreen = ({ navigation }: any) => {
-  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'yearly' | 'adfree'>('yearly');
+  const [selectedPlan, setSelectedPlan] = useState<PlanKey>('yearly');
   const [isTrialEnabled, setIsTrialEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
+  const { user } = useAuthStore();
   const trialAvailable = selectedPlan === 'yearly';
   const trialActive = trialAvailable && isTrialEnabled;
+  const successMessage = user?.accountLinkRequiredUntil
+    ? 'Your subscription is active. Link your account within 24h to keep access across devices.'
+    : 'Your subscription is active.';
 
   const plans = {
     adfree: {
@@ -34,7 +39,7 @@ const SubscriptionScreen = ({ navigation }: any) => {
       accent: '#F59E0B',
     },
     weekly: {
-      id: 'rc_weekly_399',
+      id: 'pro_subscription_weekly',
       name: 'Weekly',
       price: '$3.99',
       period: 'week',
@@ -44,7 +49,7 @@ const SubscriptionScreen = ({ navigation }: any) => {
       accent: '#FF8A3D',
     },
     yearly: {
-      id: 'rc_yearly_1999',
+      id: 'pro_subscription_yearly',
       name: 'Yearly',
       price: '$19.99',
       period: 'year',
@@ -55,19 +60,63 @@ const SubscriptionScreen = ({ navigation }: any) => {
     },
   };
 
-  const getProductHints = (plan: 'weekly' | 'yearly' | 'adfree'): string[] => {
+  const getProductHints = (plan: PlanKey): string[] => {
     const fromEnv = {
       weekly: process.env.EXPO_PUBLIC_RC_PRODUCT_WEEKLY,
       yearly: process.env.EXPO_PUBLIC_RC_PRODUCT_YEARLY,
       adfree: process.env.EXPO_PUBLIC_RC_PRODUCT_ADFREE,
     }[plan];
+    const fromPackageEnv = {
+      weekly: process.env.EXPO_PUBLIC_RC_PACKAGE_WEEKLY,
+      yearly: process.env.EXPO_PUBLIC_RC_PACKAGE_YEARLY,
+      adfree: process.env.EXPO_PUBLIC_RC_PACKAGE_LIFETIME,
+    }[plan];
     const fromPlan = plans[plan]?.id;
-    return [fromEnv, fromPlan]
+    const aliases = {
+      weekly: [
+        '$rc_weekly',
+        'rc_weekly',
+        'pro_subscription:weekly',
+        'pro_subscription_weekly',
+        'rc_weekly_399',
+        'weekly',
+        'pro_subscription_weekly_399',
+      ],
+      yearly: [
+        '$rc_annual',
+        'rc_annual',
+        '$rc_yearly',
+        'rc_yearly',
+        'pro_subscription:yearly',
+        'pro_subscription_yearly',
+        'rc_yearly_1999',
+        'yearly',
+        'annual',
+      ],
+      adfree: [
+        '$rc_lifetime',
+        'rc_lifetime',
+        'remove_ads',
+        'remove_advertisement',
+        'adfree',
+        'ad_free',
+        'lifetime',
+      ],
+    }[plan];
+
+    return [fromEnv, fromPackageEnv, fromPlan, ...aliases]
       .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
       .map((v) => v.toLowerCase());
   };
 
-  const packageMatchesPlan = (pkg: PurchasesPackage, plan: 'weekly' | 'yearly' | 'adfree') => {
+  const packageTypeMatchesPlan = (pkg: PurchasesPackage, plan: PlanKey): boolean => {
+    const packageType = String((pkg as any)?.packageType || '').toUpperCase();
+    if (plan === 'weekly') return packageType === 'WEEKLY';
+    if (plan === 'yearly') return packageType === 'ANNUAL' || packageType === 'YEARLY';
+    return packageType === 'LIFETIME';
+  };
+
+  const packageMatchesPlan = (pkg: PurchasesPackage, plan: PlanKey) => {
     const id = String(pkg?.identifier || '').toLowerCase();
     const productId = String(pkg?.product?.identifier || '').toLowerCase();
     const hints = getProductHints(plan);
@@ -87,9 +136,21 @@ const SubscriptionScreen = ({ navigation }: any) => {
 
   const findPackageForPlan = (
     availablePackages: PurchasesPackage[],
-    plan: 'weekly' | 'yearly' | 'adfree'
+    plan: PlanKey,
+    offering: any
   ): PurchasesPackage | null => {
-    return availablePackages.find((pkg) => packageMatchesPlan(pkg, plan)) || null;
+    const slotCandidate =
+      plan === 'weekly'
+        ? offering?.weekly
+        : plan === 'yearly'
+          ? offering?.annual || offering?.yearly
+          : offering?.lifetime;
+    if (slotCandidate) return slotCandidate as PurchasesPackage;
+
+    const byHints = availablePackages.find((pkg) => packageMatchesPlan(pkg, plan));
+    if (byHints) return byHints;
+
+    return availablePackages.find((pkg) => packageTypeMatchesPlan(pkg, plan)) || null;
   };
 
   const handleSubscribe = async () => {
@@ -120,14 +181,14 @@ const SubscriptionScreen = ({ navigation }: any) => {
         return;
       }
 
-      const targetPackage = findPackageForPlan(availablePackages, planToPurchase);
+      const targetPackage = findPackageForPlan(availablePackages, planToPurchase, offering);
       if (!targetPackage) {
         const packageDebug = availablePackages
-          .map((p) => `${p.identifier} (${p.product?.identifier || 'no-product-id'})`)
+          .map((p) => `${p.identifier} (${p.product?.identifier || 'no-product-id'}) [${(p as any)?.packageType || 'unknown'}]`)
           .join('\n');
         Alert.alert(
           'Package Mapping Missing',
-          `No package mapped for "${planToPurchase}".\n\nAvailable packages:\n${packageDebug}`
+          `No package mapped for "${planToPurchase}".\n\nExpected package IDs: $rc_weekly / $rc_annual / $rc_lifetime.\n\nAvailable packages:\n${packageDebug}`
         );
         return;
       }
@@ -138,7 +199,13 @@ const SubscriptionScreen = ({ navigation }: any) => {
         return;
       }
 
-      Alert.alert('Success', 'Your subscription is active.');
+      await AnalyticsService.trackEvent('subscription_success', {
+        source: 'direct_package',
+        package_id: targetPackage.identifier,
+        product_id: targetPackage.product?.identifier,
+      });
+
+      Alert.alert('Success', successMessage);
       navigation.goBack();
     } catch (err) {
       console.error('Subscription purchase error:', err);
@@ -281,8 +348,16 @@ const SubscriptionScreen = ({ navigation }: any) => {
         </TouchableOpacity>
 
         <Text style={styles.termsText}>
-          Recurring billing. Free trial applies to the yearly plan only. Cancel anytime.
-          By continuing you agree to our Terms of Service and Privacy Policy.
+          Recurring billing. Free trial applies to the yearly plan only. Cancel anytime.{"\n"}
+          By continuing you agree to our{' '}
+          <Text style={styles.termsLink} onPress={() => navigation.navigate('Terms')}>
+            Terms of Service
+          </Text>
+          {' '}and{' '}
+          <Text style={styles.termsLink} onPress={() => navigation.navigate('Privacy')}>
+            Privacy Policy
+          </Text>
+          .
         </Text>
       </ScrollView>
     </View>
@@ -380,6 +455,7 @@ const styles = StyleSheet.create({
   subscribeSubtext: { color: '#1E293B', fontSize: 12, marginTop: 6, fontWeight: '700' },
 
   termsText: { color: '#64748B', fontSize: 11, textAlign: 'center', marginTop: 20, lineHeight: 16 },
+  termsLink: { color: '#9BDCF8', textDecorationLine: 'underline' },
 });
 
 export default SubscriptionScreen;

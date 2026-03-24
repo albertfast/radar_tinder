@@ -174,43 +174,44 @@ const MainTabNavigator = () => {
 
   return (
     <Tab.Navigator
+      id="main-tabs"
       screenOptions={screenOptions}
       tabBar={(props) => <PillTabBar {...props} />}
     >
       <Tab.Screen
         name="Home"
         component={RadarNavigator}
-        options={{ lazy: true, unmountOnBlur: false }}
+        options={{ lazy: true }}
       />
 
       <Tab.Screen
         name="Permit"
         component={PermitTestScreen}
-        options={{ lazy: true, unmountOnBlur: false }}
+        options={{ lazy: true }}
       />
 
       <Tab.Screen
         name="Drive"
         component={DriveShortcutScreen}
-        options={{ lazy: true, unmountOnBlur: true }}
+        options={{ lazy: true }}
       />
 
       <Tab.Screen
         name="Diagnose"
         component={AIDiagnoseScreen}
-        options={{ lazy: true, unmountOnBlur: false }}
+        options={{ lazy: true }}
       />
 
       <Tab.Screen
         name="Leaderboard"
         component={LeaderboardScreen}
-        options={{ lazy: true, unmountOnBlur: false }}
+        options={{ lazy: true }}
       />
 
       <Tab.Screen
         name="Profile"
         component={ProfileNavigator}
-        options={{ lazy: true, unmountOnBlur: false }}
+        options={{ lazy: true }}
       />
     </Tab.Navigator>
   );

@@ -9,14 +9,21 @@ import { RadarAlert, RadarLocation } from '../../../../types';
 import { formatDistance } from '../../../../utils/format';
 import { TabType } from '../../types';
 import { radarScreenStyles as styles } from '../../styles/radarScreenStyles';
+import {
+  formatRadarSpeedLimitText,
+  formatRadarTimingText,
+  formatRadarTypeLabel,
+  getRadarShortLocation,
+} from '../../../../utils/radarAlerts';
 
 type IncidentOption = {
-  id: 'radar' | 'police' | 'crash' | 'roadwork';
+  id: 'radar' | 'police' | 'crash' | 'roadwork' | 'missed';
   label: string;
   emoji: string;
   icon: string;
   color: string;
   reportType: RadarLocation['type'];
+  reportTag?: 'default' | 'missed_camera';
 };
 
 const INCIDENT_OPTIONS: IncidentOption[] = [
@@ -48,9 +55,18 @@ const INCIDENT_OPTIONS: IncidentOption[] = [
     id: 'roadwork',
     label: 'Road Work',
     emoji: '🚧',
-    icon: 'barrier',
+    icon: 'traffic-cone',
     color: '#F59E0B',
     reportType: 'mobile',
+  },
+  {
+    id: 'missed',
+    label: 'Missed Camera',
+    emoji: '🎯',
+    icon: 'cctv',
+    color: '#F97316',
+    reportType: 'speed_camera',
+    reportTag: 'missed_camera',
   },
 ];
 
@@ -78,7 +94,7 @@ type RadarDrivingShellProps = {
   floatingFabBottom: number;
   reportModalVisible: boolean;
   setReportModalVisible: (visible: boolean) => void;
-  onReportRadar: (type: RadarLocation['type']) => void;
+  onReportRadar: (type: RadarLocation['type'], reportTag?: 'default' | 'missed_camera') => void;
 };
 
 export function RadarDrivingShell({
@@ -122,7 +138,7 @@ export function RadarDrivingShell({
         <IconButton icon="cog" iconColor="#fff" onPress={onOpenSettings} />
       </View>
 
-      {hasArrived ? (
+      {hasArrived && activeTab !== 'Map' ? (
         <Animated.View
           style={styles.navigationProgress}
           entering={FadeInUp.duration(300)}
@@ -147,14 +163,19 @@ export function RadarDrivingShell({
             <MaterialCommunityIcons name="alert" size={18} color="#FF5252" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.liveAlertTitle}>{activeAlert.type ? formatAlertType(activeAlert.type) : 'Alert'}</Text>
+            <Text style={styles.liveAlertTitle}>
+              {activeAlert.type ? formatRadarTypeLabel(activeAlert.type) : 'Alert'}
+            </Text>
             <Text style={styles.liveAlertSubtitle}>
               {formatDistance(activeAlert.distance, unitSystem)}
-              {activeAlert.locationLabel
-                ? ` • ${activeAlert.locationLabel.split(',').slice(0, 2).join(', ')}`
+              {getRadarShortLocation(activeAlert.locationLabel)
+                ? ` • ${getRadarShortLocation(activeAlert.locationLabel)}`
+                : ''}
+              {formatRadarSpeedLimitText(activeAlert, unitSystem)
+                ? ` • ${formatRadarSpeedLimitText(activeAlert, unitSystem)}`
                 : ''}
               {' • '}
-              ETA {Math.max(1, Math.round(activeAlert.estimatedTime * 60))} min
+              {formatRadarTimingText(activeAlert)}
             </Text>
           </View>
           <TouchableOpacity
@@ -182,25 +203,23 @@ export function RadarDrivingShell({
         </Animated.View>
       ) : null}
 
-      {activeTab !== 'Map' && !isMapNavigationActive && (
-        <View style={styles.tabBar}>
-          {(['Basic', 'Map', 'Graphic'] as TabType[]).map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tabItem, activeTab === tab && styles.activeTabItem]}
-              onPress={() => {
-                if (tab === 'Graphic' && !canUsePro) {
-                  onOpenSubscription();
-                  return;
-                }
-                setActiveTab(tab);
-              }}
-            >
-              <Text style={[styles.tabText, activeTab === tab && { color: '#FF5252' }]}>{tab}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+      <View style={styles.tabBar}>
+        {(['Basic', 'Map', 'Graphic'] as TabType[]).map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tabItem, activeTab === tab && styles.activeTabItem]}
+            onPress={() => {
+              if (tab === 'Graphic' && !canUsePro) {
+                onOpenSubscription();
+                return;
+              }
+              setActiveTab(tab);
+            }}
+          >
+            <Text style={[styles.tabText, activeTab === tab && { color: '#FF5252' }]}>{tab}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <View style={{ flex: 1 }}>
         <View style={{ flex: 1, display: activeTab === 'Basic' ? 'flex' : 'none' }}>
@@ -242,7 +261,7 @@ export function RadarDrivingShell({
               {INCIDENT_OPTIONS.map((option) => (
                 <TouchableOpacity
                   key={option.id}
-                  onPress={() => onReportRadar(option.reportType)}
+                  onPress={() => onReportRadar(option.reportType, option.reportTag || 'default')}
                   style={{
                     width: '48%',
                     borderRadius: 18,
@@ -279,24 +298,6 @@ export function RadarDrivingShell({
       </Modal>
     </View>
   );
-}
-
-function formatAlertType(type?: RadarAlert['type']) {
-  switch (type) {
-    case 'red_light':
-      return 'Red Light Camera';
-    case 'fixed':
-      return 'Fixed Camera';
-    case 'mobile':
-      return 'Mobile Radar';
-    case 'police':
-      return 'Police';
-    case 'traffic_enforcement':
-      return 'Traffic Enforcement';
-    case 'speed_camera':
-    default:
-      return 'Speed Camera';
-  }
 }
 
 export type { RadarDrivingShellProps };

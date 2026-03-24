@@ -45,7 +45,7 @@ if let mapsApiKey = Bundle.main.object(forInfoDictionaryKey: "GMSApiKey") as? St
     }
 
     // Ensure maps init appears before React startup.
-    const startCall = 'factory.startReactNative(';
+    const startCall = 'super.application(';
     const startIndex = src.indexOf(startCall);
     const blockIndex = src.indexOf(mapsInitBlock);
     if (startIndex !== -1 && blockIndex !== -1 && blockIndex > startIndex) {

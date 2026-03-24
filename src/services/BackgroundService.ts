@@ -8,13 +8,18 @@ import { RadarService } from './RadarService';
 import { GoogleMapsService } from './GoogleMapsService';
 import { OfflineService } from './OfflineService';
 import { DatabaseService } from './DatabaseService';
+import { AnalyticsService } from './AnalyticsService';
 import { useAuthStore } from '../store/authStore';
 import { useRadarStore } from '../store/radarStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { RadarLocation } from '../types';
 import { hasProAccess } from '../utils/access';
+import { readBooleanFlag } from '../utils/flags';
+import { describeRadarApproachByDistance } from '../utils/radarAlerts';
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
+const MAX_STARTUP_LOCATION_ACCURACY_METERS = 180;
+const MAX_RUNTIME_LOCATION_ACCURACY_METERS = 260;
 
 export class BackgroundService {
   private static locationSubscription: any = null;
@@ -22,7 +27,14 @@ export class BackgroundService {
   private static notificationSubscription: any = null;
   private static isRunning = false;
   private static radarLocationNameCache: Record<string, string> = {};
-  private static lastLocationUpdate: { latitude: number; longitude: number; timestamp: number } | null = null;
+  private static lastLocationUpdate: {
+    latitude: number;
+    longitude: number;
+    heading: number | null;
+    speed: number | null;
+    accuracy: number | null;
+    timestamp: number;
+  } | null = null;
   private static lastRadarFetch:
     | { latitude: number; longitude: number; timestamp: number; radius: number }
     | null = null;
@@ -35,6 +47,10 @@ export class BackgroundService {
   private static lastLocationUnavailableLogAt = 0;
   private static LOCATION_UNAVAILABLE_LOG_THROTTLE_MS = 60000;
   private static appStateChangeTimeout: ReturnType<typeof setTimeout> | null = null;
+  private static RADAR_ALERT_SCOPE_V2_ENABLED = readBooleanFlag(
+    'EXPO_PUBLIC_RADAR_ALERT_SCOPE_V2',
+    true
+  );
 
   static async init(): Promise<void> {
     try {
@@ -169,6 +185,10 @@ export class BackgroundService {
           longitude: location.coords.longitude,
           heading: location.coords.heading,
           speed: location.coords.speed,
+          accuracy:
+            typeof location.coords.accuracy === 'number' && Number.isFinite(location.coords.accuracy)
+              ? location.coords.accuracy
+              : null,
         });
       }
     }
@@ -186,44 +206,48 @@ export class BackgroundService {
         this.locationPollInterval = null;
       }
 
-      if (__DEV__) {
-        // ... (dev polling logic remains same)
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          console.warn('Location permission not granted');
-          return;
-        }
-        let consecutiveErrors = 0;
-        const MAX_CONSECUTIVE_ERRORS = 3;
-        const poll = async () => {
-          if (!this.isRunning) { // Removed !this.isAppActive check to allow background sim
-            return;
-          }
-          try {
-            const location = await Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.Balanced,
-            });
-            consecutiveErrors = 0;
-            await this.handleLocationUpdate({
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-              heading: location.coords.heading,
-              speed: location.coords.speed,
-            });
-          } catch (error) {
-             // ... error handling
-          }
-        };
-        await poll();
-        this.locationPollInterval = setInterval(poll, 5000);
+      try {
+        this.locationSubscription = await LocationService.watchLocation(
+          async (location) => {
+            await this.handleLocationUpdate(location);
+          },
+          { forDriving: true }
+        );
         return;
+      } catch (watchError) {
+        if (!__DEV__) {
+          throw watchError;
+        }
       }
 
-      this.locationSubscription = await LocationService.watchLocation(
-        async (location) => {
-          await this.handleLocationUpdate(location);
+      // Dev-only fallback for environments where location watch subscriptions are unavailable.
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.warn('Location permission not granted');
+        return;
+      }
+      const poll = async () => {
+        if (!this.isRunning) {
+          return;
         }
-      );
+        try {
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.BestForNavigation,
+          });
+          await this.handleLocationUpdate({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            heading: location.coords.heading,
+            speed: location.coords.speed,
+            accuracy:
+              typeof location.coords.accuracy === 'number' && Number.isFinite(location.coords.accuracy)
+                ? location.coords.accuracy
+                : null,
+          });
+        } catch {}
+      };
+      await poll();
+      this.locationPollInterval = setInterval(poll, 2500);
     } catch (error) {
       console.error('Error starting location tracking:', error);
     }
@@ -248,23 +272,135 @@ export class BackgroundService {
   private static isProtectionActive = false;
   private static lastAlertSent: Record<string, number> = {};
   private static lastRadarNotificationSent: Record<string, number> = {};
+  private static lastRadarNotificationByKey: Record<string, number> = {};
+  private static lastRadarNotificationStageByKey: Record<string, number> = {};
   private static lastAlertStored: Record<string, number> = {};
   private static lastActiveAlertsSignature = '';
-  private static ALERT_THROTTLE_MS = 60000;
+  private static ALERT_THROTTLE_MS = 75000;
+  private static NOTIFICATION_DEDUPE_MS = 240000;
+  private static lastRadarAlertMode = '';
+  private static routeSessionId: string | null = null;
+  private static lastRouteGuidanceState = false;
+  private static protectionSessionAnnouncedFor: string | null = null;
 
   private static toShortLocationLabel(label?: string | null): string {
     if (!label) return '';
-    return label
+    const parts = label
       .split(',')
-      .slice(0, 2)
-      .join(', ')
-      .trim();
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return '';
+
+    const stripHouseNumber = (value: string) => value.replace(/^\d+[A-Za-z-]*\s+/, '').trim();
+    const first = stripHouseNumber(parts[0]);
+    const second = parts[1] ? stripHouseNumber(parts[1]) : '';
+    const streetToken = /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|way)\b/i;
+    if (first && second && streetToken.test(first) && streetToken.test(second)) {
+      return `${first} & ${second}`;
+    }
+
+    return [first || parts[0], second].filter(Boolean).slice(0, 2).join(', ');
   }
 
   private static normalizeHeading(heading: number | null | undefined): number | null {
     if (typeof heading !== 'number' || !Number.isFinite(heading)) return null;
+    if (heading < 0) return null;
     const normalized = heading % 360;
     return normalized >= 0 ? normalized : normalized + 360;
+  }
+
+  private static getDirectionBucket(heading: number | null | undefined): string {
+    const normalized = this.normalizeHeading(heading);
+    if (normalized === null) return 'unknown';
+    const bucket = Math.round(normalized / 30) * 30;
+    return `${bucket % 360}`;
+  }
+
+  private static getAlertStageRank(distanceKm: number | null | undefined): number {
+    if (!Number.isFinite(distanceKm)) return 0;
+    const distance = Math.max(0, Number(distanceKm));
+    if (distance <= 0.08) return 3;
+    if (distance <= 0.35) return 2;
+    if (distance <= 1.2) return 1;
+    return 0;
+  }
+
+  private static distancePointToSegmentMeters(
+    pointLat: number,
+    pointLon: number,
+    aLat: number,
+    aLon: number,
+    bLat: number,
+    bLon: number
+  ): number {
+    const toXY = (lat: number, lon: number) => {
+      const x = lon * 111320 * Math.cos((lat * Math.PI) / 180);
+      const y = lat * 110540;
+      return { x, y };
+    };
+    const p = toXY(pointLat, pointLon);
+    const a = toXY(aLat, aLon);
+    const b = toXY(bLat, bLon);
+    const abx = b.x - a.x;
+    const aby = b.y - a.y;
+    const apx = p.x - a.x;
+    const apy = p.y - a.y;
+    const denom = abx * abx + aby * aby;
+    const t = denom <= 0 ? 0 : Math.max(0, Math.min(1, (apx * abx + apy * aby) / denom));
+    const cx = a.x + abx * t;
+    const cy = a.y + aby * t;
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  private static minDistanceToRouteMeters(
+    radar: { latitude: number; longitude: number },
+    routeCoords: Array<{ latitude: number; longitude: number }>
+  ): number {
+    if (!routeCoords.length) return Number.POSITIVE_INFINITY;
+    if (routeCoords.length === 1) {
+      return (
+        LocationService.calculateDistanceSync(
+          radar.latitude,
+          radar.longitude,
+          routeCoords[0].latitude,
+          routeCoords[0].longitude
+        ) * 1000
+      );
+    }
+
+    let minMeters = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < routeCoords.length - 1; i += 1) {
+      const a = routeCoords[i];
+      const b = routeCoords[i + 1];
+      const d = this.distancePointToSegmentMeters(
+        radar.latitude,
+        radar.longitude,
+        a.latitude,
+        a.longitude,
+        b.latitude,
+        b.longitude
+      );
+      if (d < minMeters) minMeters = d;
+      if (minMeters <= 120) break;
+    }
+    return minMeters;
+  }
+
+  private static ensureRouteSession(isRouteGuidanceActive: boolean): void {
+    if (isRouteGuidanceActive && !this.lastRouteGuidanceState) {
+      this.routeSessionId = `route-${Date.now()}`;
+      this.protectionSessionAnnouncedFor = null;
+      this.lastRadarNotificationByKey = {};
+      this.lastRadarNotificationStageByKey = {};
+    } else if (!isRouteGuidanceActive && this.lastRouteGuidanceState) {
+      this.routeSessionId = null;
+      this.protectionSessionAnnouncedFor = null;
+      this.lastRadarNotificationByKey = {};
+      this.lastRadarNotificationStageByKey = {};
+    }
+    this.lastRouteGuidanceState = isRouteGuidanceActive;
   }
 
   private static shouldPublishLocationUpdate(
@@ -274,6 +410,7 @@ export class BackgroundService {
           longitude: number;
           heading?: number | null;
           speed?: number | null;
+          accuracy?: number | null;
         }
       | null,
     next: {
@@ -281,6 +418,7 @@ export class BackgroundService {
       longitude: number;
       heading: number | null;
       speed: number | null;
+      accuracy?: number | null;
     },
     nowMs: number
   ): boolean {
@@ -305,18 +443,35 @@ export class BackgroundService {
     const previousSpeed = typeof previous.speed === 'number' && Number.isFinite(previous.speed) ? previous.speed : 0;
     const nextSpeed = typeof next.speed === 'number' && Number.isFinite(next.speed) ? next.speed : 0;
     const speedDelta = Math.abs(nextSpeed - previousSpeed);
+    const nextSpeedKph = Math.max(0, nextSpeed * 3.6);
+    const lowAccuracy = typeof next.accuracy === 'number' && Number.isFinite(next.accuracy) && next.accuracy > 55;
     const elapsedSinceLastUpdate = this.lastLocationUpdate
       ? nowMs - this.lastLocationUpdate.timestamp
       : Number.POSITIVE_INFINITY;
 
-    return movedMeters >= 3 || headingDelta >= 8 || speedDelta >= 0.8 || elapsedSinceLastUpdate >= 1500;
+    const minMovedMeters =
+      nextSpeedKph >= 90 ? 2.2 : nextSpeedKph >= 50 ? 1.6 : nextSpeedKph >= 20 ? 1.0 : 0.7;
+    const minHeadingDelta = nextSpeedKph >= 50 ? 4 : 6;
+    const minElapsedMs = nextSpeedKph >= 90 ? 350 : nextSpeedKph >= 50 ? 450 : 700;
+
+    if (lowAccuracy && movedMeters < 5 && elapsedSinceLastUpdate < 900) {
+      return false;
+    }
+
+    return (
+      movedMeters >= minMovedMeters ||
+      headingDelta >= minHeadingDelta ||
+      speedDelta >= 0.35 ||
+      elapsedSinceLastUpdate >= minElapsedMs
+    );
   }
 
-  private static async handleLocationUpdate(location: { 
-    latitude: number; 
-    longitude: number; 
-    heading: number | null; 
-    speed: number | null 
+  private static async handleLocationUpdate(location: {
+    latitude: number;
+    longitude: number;
+    heading: number | null;
+    speed: number | null;
+    accuracy?: number | null;
   }): Promise<void> {
     try {
       const { user } = useAuthStore.getState();
@@ -326,61 +481,166 @@ export class BackgroundService {
         setActiveAlerts,
         setCurrentLocation,
         isRouteGuidanceActive,
-      } =
-        useRadarStore.getState();
+        routeGuidancePath,
+      } = useRadarStore.getState();
+
+      this.ensureRouteSession(isRouteGuidanceActive);
 
       const now = Date.now();
-      if (this.lastLocationUpdate) {
-        const distanceKm = LocationService.calculateDistanceSync(
+      const previousUpdate = this.lastLocationUpdate;
+      const currentAccuracy =
+        typeof location.accuracy === 'number' && Number.isFinite(location.accuracy)
+          ? location.accuracy
+          : null;
+
+      if (currentAccuracy != null && currentAccuracy > MAX_RUNTIME_LOCATION_ACCURACY_METERS) {
+        return;
+      }
+      if (
+        !previousUpdate &&
+        currentAccuracy != null &&
+        currentAccuracy > MAX_STARTUP_LOCATION_ACCURACY_METERS
+      ) {
+        return;
+      }
+
+      if (previousUpdate) {
+        const movedMeters =
+          LocationService.calculateDistanceSync(
+            location.latitude,
+            location.longitude,
+            previousUpdate.latitude,
+            previousUpdate.longitude
+          ) * 1000;
+        const elapsedMs = now - previousUpdate.timestamp;
+        const speedFromSensorKph =
+          typeof location.speed === 'number' && Number.isFinite(location.speed) && location.speed >= 0
+            ? location.speed * 3.6
+            : null;
+        const lowSignal =
+          typeof location.accuracy === 'number' && Number.isFinite(location.accuracy) && location.accuracy > 65;
+        const tinyMovement =
+          movedMeters < 0.9 &&
+          elapsedMs < 900 &&
+          (speedFromSensorKph == null || speedFromSensorKph < 18);
+        if (tinyMovement || (lowSignal && movedMeters < 4 && elapsedMs < 1200)) {
+          return;
+        }
+
+        const distanceKm = movedMeters / 1000;
+        if (distanceKm > 0.35 && elapsedMs < 2000 && (speedFromSensorKph == null || speedFromSensorKph < 45)) {
+          // Ignore likely GPS jumps that would create jittery camera snaps.
+          return;
+        }
+
+        const previousAccuracy =
+          typeof previousUpdate.accuracy === 'number' && Number.isFinite(previousUpdate.accuracy)
+            ? previousUpdate.accuracy
+            : null;
+        if (
+          previousAccuracy != null &&
+          typeof location.accuracy === 'number' &&
+          Number.isFinite(location.accuracy) &&
+          location.accuracy > previousAccuracy + 45 &&
+          movedMeters < 12
+        ) {
+          return;
+        }
+
+        const prevDistanceKm = LocationService.calculateDistanceSync(
           location.latitude,
           location.longitude,
-          this.lastLocationUpdate.latitude,
-          this.lastLocationUpdate.longitude
+          previousUpdate.latitude,
+          previousUpdate.longitude
         );
-        if (distanceKm < 0.02 && now - this.lastLocationUpdate.timestamp < 3000) {
+        if (prevDistanceKm < 0.00035 && elapsedMs < 550) {
           return;
         }
       }
-      this.lastLocationUpdate = {
+
+      const normalizedHeading = this.normalizeHeading(location.heading);
+      const normalizedLocation = {
         latitude: location.latitude,
         longitude: location.longitude,
+        heading: normalizedHeading,
+        speed:
+          typeof location.speed === 'number' && Number.isFinite(location.speed) && location.speed >= 0
+            ? location.speed
+            : null,
+        accuracy:
+          typeof location.accuracy === 'number' && Number.isFinite(location.accuracy)
+            ? location.accuracy
+            : null,
+      };
+
+      let inferredSpeedKph: number | null = null;
+      if (normalizedLocation.speed == null && previousUpdate) {
+        const elapsedSeconds = (now - previousUpdate.timestamp) / 1000;
+        if (elapsedSeconds >= 0.7 && elapsedSeconds <= 12) {
+          const movedKm = LocationService.calculateDistanceSync(
+            previousUpdate.latitude,
+            previousUpdate.longitude,
+            normalizedLocation.latitude,
+            normalizedLocation.longitude
+          );
+          inferredSpeedKph = Math.max(0, Math.min(220, (movedKm / elapsedSeconds) * 3600));
+        }
+      }
+
+      const speedFromSensorKph =
+        normalizedLocation.speed != null ? Math.max(0, normalizedLocation.speed * 3.6) : null;
+      const hasReliableSpeed = speedFromSensorKph != null || inferredSpeedKph != null;
+      const speedKph = speedFromSensorKph ?? inferredSpeedKph ?? 0;
+
+      this.lastLocationUpdate = {
+        ...normalizedLocation,
         timestamp: now,
       };
 
-      if (this.shouldPublishLocationUpdate(storeLocation, location, now)) {
-        setCurrentLocation(location);
+      if (this.shouldPublishLocationUpdate(storeLocation, normalizedLocation, now)) {
+        setCurrentLocation(normalizedLocation);
       }
 
       if (!user) return;
 
-      const speedKph = (location.speed || 0) * 3.6;
       const settings = useSettingsStore.getState();
       const alertsHydrated = settings.hasHydrated;
       const playSound = alertsHydrated && settings.voiceWarningsEnabled && settings.warningVolume > 0;
       const vibrate = alertsHydrated && settings.hapticAlertsEnabled;
 
-      if (isRouteGuidanceActive && speedKph > 20 && !this.isProtectionActive) {
+      if (
+        isRouteGuidanceActive &&
+        speedKph > 20 &&
+        this.protectionSessionAnnouncedFor !== this.routeSessionId
+      ) {
         this.isProtectionActive = true;
         if (alertsHydrated) {
-          await NotificationService.sendInfoNotification('Driving Protection Active', 'Drive detected. Radar protection is now active.', {
-            playSound,
-            vibrate,
-          });
+          await NotificationService.sendInfoNotification(
+            'Driving Protection Active',
+            'Drive detected. Radar protection is now active.',
+            {
+              playSound,
+              vibrate,
+            }
+          );
         }
-      } else if (!isRouteGuidanceActive || speedKph < 5) {
+        this.protectionSessionAnnouncedFor = this.routeSessionId;
+      } else if (speedKph < 5) {
         this.isProtectionActive = false;
       }
 
       const radiusKm = hasProAccess(user) ? 10 : 5;
       const minIntervalMs =
-        speedKph > 10 ? this.RADAR_FETCH_MIN_INTERVAL_MS_MOVING : this.RADAR_FETCH_MIN_INTERVAL_MS_STATIONARY;
+        speedKph > 10
+          ? this.RADAR_FETCH_MIN_INTERVAL_MS_MOVING
+          : this.RADAR_FETCH_MIN_INTERVAL_MS_STATIONARY;
 
       let shouldFetch = !this.lastRadarFetch || this.lastRadarFetch.radius !== radiusKm;
       if (!shouldFetch && this.lastRadarFetch) {
         const sinceLastMs = now - this.lastRadarFetch.timestamp;
         const movedKm = LocationService.calculateDistanceSync(
-          location.latitude,
-          location.longitude,
+          normalizedLocation.latitude,
+          normalizedLocation.longitude,
           this.lastRadarFetch.latitude,
           this.lastRadarFetch.longitude
         );
@@ -388,31 +648,47 @@ export class BackgroundService {
       }
 
       const nearbyRadars: (RadarLocation & { distance: number })[] = shouldFetch
-        ? await RadarService.getNearbyRadars(location.latitude, location.longitude, radiusKm)
+        ? await RadarService.getNearbyRadars(
+            normalizedLocation.latitude,
+            normalizedLocation.longitude,
+            radiusKm
+          )
         : this.lastNearbyRadars
-            .map((r) => ({
-              ...r,
+            .map((radar) => ({
+              ...radar,
               distance: LocationService.calculateDistanceSync(
-                location.latitude,
-                location.longitude,
-                r.latitude,
-                r.longitude
+                normalizedLocation.latitude,
+                normalizedLocation.longitude,
+                radar.latitude,
+                radar.longitude
               ),
             }))
-            .filter((r) => r.distance <= radiusKm)
+            .filter((radar) => radar.distance <= radiusKm)
             .sort((a, b) => a.distance - b.distance);
 
       if (shouldFetch) {
         this.lastRadarFetch = {
-          latitude: location.latitude,
-          longitude: location.longitude,
+          latitude: normalizedLocation.latitude,
+          longitude: normalizedLocation.longitude,
           timestamp: now,
           radius: radiusKm,
         };
         this.lastNearbyRadars = nearbyRadars;
       }
 
-      if (!isRouteGuidanceActive) {
+      const routeMode = isRouteGuidanceActive && routeGuidancePath.length > 1;
+      const allowFreeDriveAlerts =
+        this.RADAR_ALERT_SCOPE_V2_ENABLED && !routeMode && speedKph >= 8;
+      const radarAlertMode = routeMode ? 'route' : allowFreeDriveAlerts ? 'free_drive' : 'idle';
+      if (radarAlertMode !== this.lastRadarAlertMode) {
+        this.lastRadarAlertMode = radarAlertMode;
+        AnalyticsService.trackEvent('radar_alert_mode', {
+          mode: radarAlertMode,
+          speed_kph: Math.round(speedKph),
+          reliable_speed: hasReliableSpeed,
+        }).catch(() => {});
+      }
+      if (!routeMode && !allowFreeDriveAlerts) {
         this.isProtectionActive = false;
         if (this.lastActiveAlertsSignature || activeAlerts.length > 0) {
           this.lastActiveAlertsSignature = '';
@@ -423,46 +699,87 @@ export class BackgroundService {
         return;
       }
 
-      let baseThreshold = 0.8;
-      if (speedKph > 100) baseThreshold = 2.0;
-      else if (speedKph > 60) baseThreshold = 1.2;
-      else if (speedKph < 30) baseThreshold = 0.5;
+      this.isProtectionActive = true;
 
-      const radarById = new Map<string, (RadarLocation & { distance: number })>();
+      let baseThreshold = 0.8;
+      if (routeMode) {
+        if (speedKph > 100) baseThreshold = 2.0;
+        else if (speedKph > 60) baseThreshold = 1.2;
+        else if (speedKph < 30) baseThreshold = 0.5;
+      } else {
+        if (speedKph > 110) baseThreshold = 2.6;
+        else if (speedKph > 80) baseThreshold = 1.9;
+        else if (speedKph > 50) baseThreshold = 1.35;
+        else if (speedKph > 20) baseThreshold = 0.9;
+        else baseThreshold = 0.6;
+        if (!hasReliableSpeed) {
+          baseThreshold = Math.max(baseThreshold, 1.05);
+        }
+      }
+
+      const radarById = new Map<string, RadarLocation & { distance: number }>();
       for (const radar of nearbyRadars) {
         if (radar?.id) radarById.set(radar.id, radar);
       }
+      const etaConfidence = speedFromSensorKph != null ? 'high' : inferredSpeedKph != null ? 'medium' : 'low';
 
       const alerts = [];
       for (const radar of nearbyRadars) {
         const distance = radar.distance || 0;
-        let isHeadingTowards = true;
-        if (location.heading !== null && location.heading !== undefined) {
-          const bearing = LocationService.calculateBearing(
-            location.latitude,
-            location.longitude,
-            radar.latitude,
-            radar.longitude
-          );
-          const diff = Math.abs((bearing - location.heading + 540) % 360 - 180);
-          isHeadingTowards = diff < 45;
-        }
+          const relevance = RadarService.evaluateRouteRelevance({
+            radar,
+            currentLocation: {
+              latitude: normalizedLocation.latitude,
+              longitude: normalizedLocation.longitude,
+              heading: normalizedHeading,
+            },
+            routeCoords: routeMode ? routeGuidancePath : [],
+            speedKph: hasReliableSpeed ? speedKph : 5,
+            maxCorridorMeters: routeMode ? 170 : 240,
+            maxHeadingDeltaDeg: routeMode ? 70 : 75,
+            etaSecondsWindow: hasReliableSpeed
+              ? routeMode
+                ? [5, 240]
+                : [8, 220]
+              : [0, Number.MAX_SAFE_INTEGER],
+          });
 
         let threshold = baseThreshold;
-        const isMobileRadar = radar.type === 'mobile' || radar.type === 'traffic_enforcement' || radar.type === 'police';
+        const isMobileRadar =
+          radar.type === 'mobile' || radar.type === 'traffic_enforcement' || radar.type === 'police';
         if (isMobileRadar && speedKph >= 80) {
-          threshold = Math.max(threshold, 4.0);
+          threshold = Math.max(threshold, routeMode ? 4.0 : 5.0);
         }
 
-        if (distance < threshold && isHeadingTowards) {
+        const headingMatched = relevance.headingDeltaDeg == null || relevance.headingDeltaDeg <= (routeMode ? 70 : 75);
+        const relevanceMatched = routeMode
+          ? relevance.isRelevant
+          : headingMatched && (hasReliableSpeed ? relevance.etaSeconds <= 220 : true);
+
+        if (distance < threshold && relevanceMatched) {
+          const distanceScore = 1 - Math.min(distance / Math.max(threshold, 0.1), 1);
+          const corridorScore =
+            relevance.corridorDistanceMeters == null
+              ? 1
+              : 1 - Math.min(relevance.corridorDistanceMeters / (routeMode ? 120 : 240), 1);
           alerts.push({
             id: `alert-${radar.id}`,
             radarId: radar.id,
             userId: user.id,
             type: radar.type,
-            distance: distance,
-            estimatedTime: distance / (speedKph || 60),
-            severity: distance < (threshold / 2) ? 'high' : 'medium',
+            countryCode: radar.countryCode,
+            speedLimit: radar.speedLimit,
+            distance,
+            estimatedTime: relevance.etaSeconds / 60,
+            etaConfidence,
+            approachLabel: describeRadarApproachByDistance(distance),
+            markerKind: radar.markerKind,
+            severity: distance < threshold / 2 ? 'high' : distance < threshold * 0.8 ? 'medium' : 'low',
+            routeMatched: relevance.routeMatched,
+            corridorDistanceMeters: relevance.corridorDistanceMeters,
+            etaSeconds: relevance.etaSeconds,
+            routeMatchScore: Number(((distanceScore * 0.55) + (corridorScore * 0.45)).toFixed(3)),
+            headingDeltaDeg: relevance.headingDeltaDeg ?? null,
             acknowledged: false,
             createdAt: new Date(),
           });
@@ -477,32 +794,45 @@ export class BackgroundService {
       const nowMs = Date.now();
       for (const alert of enrichedAlerts) {
         const lastSent = this.lastAlertSent[alert.radarId] || 0;
-        if (
-          alertsHydrated &&
-          !alert.locationLabel &&
-          nowMs - lastSent > this.ALERT_THROTTLE_MS
-        ) {
+        if (alertsHydrated && !alert.locationLabel && nowMs - lastSent > this.ALERT_THROTTLE_MS) {
           const radar = radarById.get(alert.radarId);
           if (radar) {
             try {
-              const resolved = await GoogleMapsService.getReverseGeocoding(radar.latitude, radar.longitude);
+              const resolved = await GoogleMapsService.getReverseGeocoding(
+                radar.latitude,
+                radar.longitude
+              );
               if (resolved) {
                 const shortResolved = this.toShortLocationLabel(resolved);
                 this.radarLocationNameCache[alert.radarId] = shortResolved;
                 alert.locationLabel = shortResolved;
               }
-            } catch (error) {}
+            } catch {}
           }
           this.lastAlertSent[alert.radarId] = nowMs;
         }
 
+        const directionBucket = this.getDirectionBucket(normalizedHeading);
+        const dedupeScope = routeMode ? this.routeSessionId || 'route' : 'free-drive';
+        const dedupeKey = `${alert.radarId}:${dedupeScope}:${directionBucket}`;
+        const lastNotificationByKey = this.lastRadarNotificationByKey[dedupeKey] || 0;
+        const lastStageRank = this.lastRadarNotificationStageByKey[dedupeKey] || 0;
         const lastNotificationSent = this.lastRadarNotificationSent[alert.radarId] || 0;
-        if (nowMs - lastNotificationSent > this.ALERT_THROTTLE_MS) {
+        const stageRank = this.getAlertStageRank(alert.distance);
+        const allowUrgencyUpgrade =
+          stageRank > lastStageRank && nowMs - lastNotificationByKey > 20000;
+        if (
+          (nowMs - lastNotificationSent > this.ALERT_THROTTLE_MS &&
+            nowMs - lastNotificationByKey > this.NOTIFICATION_DEDUPE_MS) ||
+          allowUrgencyUpgrade
+        ) {
           await NotificationService.sendRadarAlert(alert as any, alert.locationLabel, {
             playSound,
             vibrate,
           });
           this.lastRadarNotificationSent[alert.radarId] = nowMs;
+          this.lastRadarNotificationByKey[dedupeKey] = nowMs;
+          this.lastRadarNotificationStageByKey[dedupeKey] = stageRank;
         }
 
         const lastStored = this.lastAlertStored[alert.radarId] || 0;
@@ -516,14 +846,17 @@ export class BackgroundService {
         }
       }
 
+      const previousSignature = this.lastActiveAlertsSignature;
       const alertsSignature = this.buildAlertsSignature(enrichedAlerts);
-      if (alertsSignature !== this.lastActiveAlertsSignature) {
+      if (alertsSignature !== previousSignature) {
         this.lastActiveAlertsSignature = alertsSignature;
         setActiveAlerts(enrichedAlerts as any);
       }
+      if (!alertsSignature && (previousSignature || activeAlerts.length > 0)) {
+        await NotificationService.cancelAllNotifications().catch(() => {});
+      }
 
       await OfflineService.cacheRadarLocations(nearbyRadars);
-
     } catch (error) {
       console.error('Error handling location update:', error);
     }
