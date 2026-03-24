@@ -5,16 +5,19 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
-    "jsx": "react-jsx",
-    "module": "es2020",
-    "target": "es2020"
+    "allowSyntheticDefaultImports": true
   },
   "exclude": [
+    "node_modules",
+    "android",
+    "ios",
+    "babel.config.js",
+    "metro.config.js",
+    "jest.config.js",
     "src/app/**",
     "src/components/ui/**",
     "src/hooks/**",
-    "src/lib/**"
+    "src/lib/**",
+    "supabase/functions/**"
   ]
 }

@@ -8,7 +8,7 @@ const DriveShortcutScreen = ({ navigation }: any) => {
       const timeout = setTimeout(() => {
         navigation.navigate('Home', {
           screen: 'RadarMain',
-          params: { forceTab: 'Basic' },
+          params: { forceTab: 'Map' },
         });
       }, 0);
 

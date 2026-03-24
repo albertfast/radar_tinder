@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
-import * as Speech from 'expo-speech';
 import { NotificationService } from '../../../services/NotificationService';
+import { VoiceGuidanceService } from '../../../services/VoiceGuidanceService';
 
 type UseVoiceModeArgs = {
   hasHydrated: boolean;
@@ -36,9 +36,8 @@ export function useVoiceMode({
     }
 
     if (!nextEnabled) {
-      NotificationService.silenceAllAudioNow().catch(() => {
-        Speech.stop();
-      });
+      VoiceGuidanceService.stop().catch(() => {});
+      NotificationService.silenceAllAudioNow().catch(() => {});
     }
   }, [setVoiceWarningsEnabled, setWarningVolume, voiceWarningsEnabled, warningVolume]);
 

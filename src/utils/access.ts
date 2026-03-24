@@ -1,4 +1,4 @@
-import type { User } from '../types';
+import type { AccessBootstrapState, User } from '../types';
 
 const DEFAULT_ADMIN_EMAILS = ['ahmetsahinersf@gmail.com'];
 
@@ -25,10 +25,32 @@ export const isAdminUser = (user?: User | null) => {
 };
 
 export const hasProAccess = (user?: User | null) =>
-  user?.isAdminSession || user?.subscriptionType === 'pro' || isAdminUser(user);
+  Boolean(user?.isAdminSession) ||
+  user?.subscriptionType === 'pro' ||
+  user?.subscriptionType === 'premium' ||
+  isAdminUser(user);
+
+export const isPremiumAccessPending = (
+  user?: User | null,
+  accessBootstrapState?: AccessBootstrapState
+) =>
+  !hasProAccess(user) &&
+  (accessBootstrapState === 'idle' || accessBootstrapState === 'resolving');
 
 export const isAdFreeLimited = (user?: User | null) =>
-  !isAdminUser(user) && user?.subscriptionType !== 'pro' && Boolean(user?.adsRemoved);
+  !isAdminUser(user) &&
+  !user?.isAdminSession &&
+  user?.subscriptionType !== 'pro' &&
+  user?.subscriptionType !== 'premium' &&
+  Boolean(user?.adsRemoved);
 
 export const isFreeWithAds = (user?: User | null) =>
-  !isAdminUser(user) && user?.subscriptionType === 'free' && !user?.adsRemoved;
+  !isAdminUser(user) &&
+  !user?.isAdminSession &&
+  user?.subscriptionType === 'free' &&
+  !user?.adsRemoved;
+
+export const shouldShowHomeAds = (user?: User | null) => {
+  if (!user) return true;
+  return isFreeWithAds(user);
+};

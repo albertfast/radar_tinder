@@ -16,11 +16,12 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { useAuthStore } from '../store/authStore';
-import { hasProAccess } from '../utils/access';
+import { hasProAccess, isPremiumAccessPending } from '../utils/access';
 import ProGate from '../components/ProGate';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AdBanner from '../components/AdBanner';
+import { AIService, AIModelErrorCode } from '../services/AIService';
+import { AccessBootstrapView } from '../components/AccessBootstrapView';
 
 // Suppress specific warnings that might cause crashes
 LogBox.ignoreLogs([
@@ -50,8 +51,9 @@ type DiagnosisOutput = {
 };
 
 const AIDiagnoseScreen = ({ navigation }: any) => {
-  const { user } = useAuthStore();
+  const { user, accessBootstrapState } = useAuthStore();
   const canUse = hasProAccess(user);
+  const accessPending = isPremiumAccessPending(user, accessBootstrapState);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -63,6 +65,8 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
   const [voiceDescription, setVoiceDescription] = useState<string | null>(null);
   const [modelReady, setModelReady] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
+  const [modelErrorCode, setModelErrorCode] = useState<AIModelErrorCode | null>(null);
+  const [modelDiagnostics, setModelDiagnostics] = useState<any | null>(null);
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
@@ -100,46 +104,46 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     return () => clearTimeout(loadTimeout);
   }, [canUse]);
 
+  if (accessPending) {
+    return (
+      <AccessBootstrapView
+        title="Checking Pro access"
+        subtitle="Restoring AI Diagnose access for your active subscription."
+      />
+    );
+  }
+
   const loadModels = async () => {
     if (!isMounted.current || isModelLoading) return;
     
     setIsModelLoading(true);
     setModelError(null);
+    setModelErrorCode(null);
     
     try {
-      let AIService;
-      try {
-        const module = await import('../services/AIService');
-        AIService = module.AIService;
-      } catch (e) {
-        console.error("AIService import failed:", e);
-        throw new Error("AI Module not available");
-      }
-      
       console.log('Loading AI models...');
-      await AIService.preloadModels();
+      const runtime = await AIService.prepareDiagnosisRuntime();
       
       if (isMounted.current) {
-        const status = AIService.getModelStatus();
-        const dashboardReady = !!status.dashboardLoaded;
-        setModelReady(dashboardReady);
+        setModelDiagnostics(runtime.diagnostics || null);
+        const dashboardReady = !!runtime.status.dashboardLoaded;
+        setModelReady(Boolean(dashboardReady && runtime.ready));
         setModelError(
           dashboardReady
             ? null
-            : (status.error || 'AI model could not be prepared. Please rebuild the app and try again.')
+            : (runtime.status.error || 'AI model could not be prepared. Please rebuild the app and try again.')
         );
       }
     } catch (error) {
       console.error('AI preload failed', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorCode = (error as any)?.code as AIModelErrorCode | undefined;
       
       if (isMounted.current) {
-        // iOS için daha iyi hata yönetimi
-        if (Platform.OS === 'ios' && errorMessage.includes('Failed to load')) {
-          setModelError('Model loading on iOS. This may take a moment. Please try again.');
-        } else {
-          setModelError(`AI model could not be prepared: ${errorMessage}`);
-        }
+        setModelReady(false);
+        setModelErrorCode(errorCode || null);
+        setModelDiagnostics(AIService.getModelDiagnostics?.() || null);
+        setModelError(`AI model could not be prepared: ${errorMessage}`);
       }
     } finally {
       if (isMounted.current) {
@@ -255,6 +259,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     setIsAnalyzing(true);
     setLoadingStep('uploading');
     setModelError(null);
+    setModelErrorCode(null);
     
     try {
       // Simulate steps for premium feel
@@ -266,19 +271,11 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       
       await new Promise(r => setTimeout(r, 1500));
 
-      // Lazy-load AI service to avoid native module crashes at app startup.
-      let AIService;
-      try {
-        const module = await import('../services/AIService');
-        AIService = module.AIService;
-      } catch (e) {
-        throw new Error("AI Module failed to load. Please rebuild the app.");
-      }
-      
       // Model durumunu kontrol et - iOS için daha güvenli kontrol
       let modelStatus;
       try {
         modelStatus = AIService.getModelStatus();
+        setModelDiagnostics(AIService.getModelDiagnostics?.() || null);
       } catch (statusError) {
         console.warn('Could not get model status, proceeding with analysis:', statusError);
         modelStatus = { ocrLoaded: true, dashboardLoaded: true };
@@ -290,10 +287,20 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       
       console.log('Starting analysis...');
       const result = (await AIService.analyzeDashboardLight(selectedImage)) as DiagnosisOutput;
+      setModelDiagnostics(AIService.getModelDiagnostics?.() || null);
 
       const issueLabel = (result.issue || '').toLowerCase();
       if (result.category === 'Error' || issueLabel.includes('fail')) {
-        const message = 'AI model cannot be loaded right now. Please check your internet connection and device storage and try again.';
+        const modelErrorCode = (result.details as any)?.code;
+        const message =
+          modelErrorCode === 'native_module_missing'
+            ? 'This build is missing ONNX Runtime native module. Rebuild and reinstall the app.'
+            : modelErrorCode === 'file_corrupt'
+              ? 'Model cache appears corrupted. Use reset/retry and preload models again.'
+              : modelErrorCode === 'model_uri_invalid'
+                ? 'Model is not resolving from embedded app assets. Install an internal/release build and retry.'
+                : 'AI model could not be prepared from local app assets.';
+        setModelErrorCode((modelErrorCode as AIModelErrorCode) || null);
         setModelError(message);
         Alert.alert('Model failed to load', message);
         return;
@@ -305,12 +312,12 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     } catch (error) {
       console.error('Analysis error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorCode = (error as any)?.code as AIModelErrorCode | undefined;
+      setModelErrorCode(errorCode || null);
       
       // Daha iyi hata yönetimi
       if (errorMessage.includes('already loading')) {
         setModelError('AI model is currently loading. Please wait a moment and try again.');
-      } else if (errorMessage.includes('Failed to load')) {
-        setModelError('Model loading failed. Please check your internet connection and try again.');
       } else {
         setModelError(`Analysis failed: ${errorMessage}`);
       }
@@ -379,11 +386,31 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
              isModelLoading ? '⏳ Loading AI models...' :
              '⏳ Preparing on-device model...'}
           </Text>
+          {modelDiagnostics ? (
+            <Text style={styles.modelDebugText}>
+              native module: {modelDiagnostics?.nativeModuleAvailable === true ? 'available' : modelDiagnostics?.nativeModuleAvailable === false ? 'missing' : 'unknown'}
+            </Text>
+          ) : null}
+          {modelDiagnostics?.lastErrorCode ? (
+            <Text style={styles.modelDebugText}>
+              Last model error: {modelDiagnostics.lastErrorCode}
+            </Text>
+          ) : null}
         </View>
         {modelError && (
           <Surface style={[styles.infoBox, { borderColor: '#FF6B6B', marginBottom: 14 }]} elevation={1}>
             <MaterialCommunityIcons name="alert" size={24} color="#FF6B6B" />
             <Text style={[styles.infoText, { color: '#FCA5A5' }]}>{modelError}</Text>
+            {modelErrorCode ? (
+              <Text style={styles.modelDebugText}>
+                error code: {modelErrorCode}
+              </Text>
+            ) : null}
+            {modelDiagnostics ? (
+              <Text style={styles.modelDebugText}>
+                dashboard: {modelDiagnostics?.dashboard?.loaded ? 'loaded' : 'not-loaded'} ({modelDiagnostics?.dashboard?.sizeBytes || 0} B) | ocr: {modelDiagnostics?.ocr?.loaded ? 'loaded' : 'not-loaded'} ({modelDiagnostics?.ocr?.sizeBytes || 0} B)
+              </Text>
+            ) : null}
             <TouchableOpacity onPress={retryLoading} style={{ marginTop: 10 }}>
               <Text style={{ color: '#2196F3', fontWeight: '600' }}>Try Again</Text>
             </TouchableOpacity>
@@ -512,9 +539,6 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
           </Text>
         </Surface>
 
-        <View style={styles.adContainer}>
-          <AdBanner />
-        </View>
       </ScrollView>
     </View>
     </ErrorBoundary>
@@ -528,6 +552,7 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 40 },
   subtitle: { color: '#8E8E93', fontSize: 16, textAlign: 'center', marginBottom: 20 },
   modelStatus: { textAlign: 'center', fontSize: 13, fontWeight: '600' },
+  modelDebugText: { color: '#94A3B8', fontSize: 12, marginTop: 6, textAlign: 'center' },
   voiceContainer: { backgroundColor: '#1C1C1E', borderRadius: 20, padding: 20, alignItems: 'center', marginBottom: 30, borderWidth: 1, borderColor: '#333' },
   micButton: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#2196F3', justifyContent: 'center', alignItems: 'center', marginBottom: 10, elevation: 5 },
   micButtonActive: { backgroundColor: '#FF5252', transform: [{ scale: 1.1 }] },

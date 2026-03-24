@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://catalog.data.gov/dataset/traffic-camera-a0cad",
+    "name": "Traffic Camera - Dataset - Catalog - Data.gov",
+    "snippet": "The dataset contains location and attributes of traffic controls located at each intersection in the District of Columbia.",
+    "host_name": "catalog.data.gov",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.data.gov.in/keywords/Cameras",
+    "name": "Cameras |Open Government Data (OGD) Platform India",
+    "snippet": "Open Government Data Platform (OGD) India is a single-point of access to Resources in an open format published by Ministries/Departments/Organizations of ...",
+    "host_name": "www.data.gov.in",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.sciencedirect.com/science/article/pii/S2590198225004531",
+    "name": "Open webcam data for traffic monitoring: YOLOv8 detection",
+    "snippet": "2026 — To assess their potential for traffic monitoring, we utilize open webcam data from Germany to evaluate the performance of YOLOv8′s model variants, testing 110 ...",
+    "host_name": "www.sciencedirect.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://ouvert.canada.ca/data/dataset/d2f1dce5-35c5-4bb5-a54c-3b8ec9ac9de9",
+    "name": "Traffic camera - Open Government Portal",
+    "snippet": "These cameras are located at strategic locations on the road network to ensure the safety of road users. Each camera has a URL that allows you to view the video ...",
+    "host_name": "ouvert.canada.ca",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "http://papers.neurips.cc/paper/9213-streets-a-novel-camera-network-dataset-for-traffic-flow.pdf",
+    "name": "STREETS: A Novel Camera Network Dataset for Traffic Flow",
+    "snippet": "Cited by 74 — In this paper, we introduce STREETS, a novel traffic flow dataset from publicly available web cameras in the suburbs of Chicago, IL. We seek to address the. 12 pages",
+    "host_name": "papers.neurips.cc",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.researchgate.net/figure/Sources-of-open-traffic-camera-image-data-used-in-this-research-and-date-when-ingestion_tbl1_353002562",
+    "name": "Sources of open traffic camera image data used in this",
+    "snippet": "Traffic cameras are a widely available source of open data that offer tremendous value to public authorities by providing real-time statistics.",
+    "host_name": "www.researchgate.net",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://data.nsw.gov.au/data/dataset/?tags=cameras",
+    "name": "Search Open Data - Datasets - Page 1 - Data.NSW",
+    "snippet": "The Open Data Hub has numerous data relating to roads and speed, whether it be the Sydney Region Carriageway, the Tolls on our NSW roads, or the speed zones ...",
+    "host_name": "data.nsw.gov.au",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.mdpi.com/1424-8220/25/11/3259",
+    "name": "TU-DAT: A Computer Vision Dataset on Road Traffic",
+    "snippet": "2025 · Cited by 6 — This paper introduces TU-DAT , a novel, freely downloadable computer vision dataset for analyzing traffic accidents using roadside cameras.",
+    "host_name": "www.mdpi.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.nature.com/articles/s41597-023-02589-y",
+    "name": "City-scale Vehicle Trajectory Data from Traffic Camera",
+    "snippet": "2023 · Cited by 45 — A comprehensive vehicle trajectory dataset that covers almost full-amount of city vehicle trajectories, with approximately 5 million trajectories recovered.",
+    "host_name": "www.nature.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.ons.gov.uk/economy/economicoutputandproductivity/output/datasets/trafficcameraactivity/2024",
+    "name": "Dataset(s): Traffic camera activity",
+    "snippet": "Daily data showing weekday adjusted busyness indices using traffic camera data to monitor flows of cars, pedestrians, cyclists, buses and commercial vehicles.",
+    "host_name": "www.ons.gov.uk",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

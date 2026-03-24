@@ -1,7 +1,6 @@
+import 'react-native-gesture-handler';
 import 'react-native-url-polyfill/auto';
-import { AppRegistry } from 'react-native';
+import { registerRootComponent } from 'expo';
 import App from './App';
 
-const appName = "main";
-
-AppRegistry.registerComponent(appName, () => App);
+registerRootComponent(App);

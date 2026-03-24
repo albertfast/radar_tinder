@@ -1,0 +1,4 @@
+project_id = "igtbffnatbbtdghvcvhx"
+
+[functions.radar-ingest-osm]
+verify_jwt = false

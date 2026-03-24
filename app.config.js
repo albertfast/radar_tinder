@@ -1,7 +1,32 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
-const getVersionCode = () => {
+const DEFAULT_ORT_ANDROID_VERSION = '1.23.2';
+const ORT_ANDROID_VERSION = (
+  process.env.EXPO_PUBLIC_ORT_ANDROID_VERSION || DEFAULT_ORT_ANDROID_VERSION
+).trim();
+
+const getGitShortCommit = () => {
+  try {
+    return execSync('git rev-parse --short HEAD', {
+      cwd: __dirname,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return 'nogit';
+  }
+};
+
+const BUILD_TIMESTAMP_MS = process.env.BUILD_TIMESTAMP_MS || Date.now().toString();
+const GIT_COMMIT_SHORT = process.env.GIT_COMMIT_SHORT || getGitShortCommit();
+const BUILD_FINGERPRINT = (
+  process.env.EXPO_PUBLIC_BUILD_FINGERPRINT || `${GIT_COMMIT_SHORT}-${BUILD_TIMESTAMP_MS}`
+).trim();
+
+const getAndroidVersionCode = () => {
   try {
     // Current timestamp logic
     const now = Math.floor(Date.now() / 1000);
@@ -13,6 +38,15 @@ const getVersionCode = () => {
     console.warn('Version code generation failed, using fallback:', e);
     return 2100000000;
   }
+};
+
+const getIosBuildNumber = () => {
+  if (process.env.IOS_BUILD_NUMBER) {
+    return process.env.IOS_BUILD_NUMBER;
+  }
+
+  // Millisecond precision prevents duplicate uploads from rapid consecutive archives.
+  return Date.now().toString();
 };
 
 const APP_VERSION = "1.0.5";
@@ -36,14 +70,13 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.radartinder.app",
-      // Use the same dynamic logic as Android for auto-incrementing build numbers
-      buildNumber: getVersionCode().toString(),
+      buildNumber: getIosBuildNumber(),
       googleServicesFile: "./GoogleService-Info.plist",
       config: {
         googleMapsApiKey: "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
       },
       infoPlist: {
-        GADApplicationIdentifier: "ca-app-pub-9670547831022880~5105162950",
+        GADApplicationIdentifier: "ca-app-pub-9670547831022880~2252519276",
         SKAdNetworkItems: [
           { SKAdNetworkIdentifier: "cstr6suwn9.skadnetwork" },
           { SKAdNetworkIdentifier: "4fzdc2evr5.skadnetwork" },
@@ -69,7 +102,7 @@ module.exports = {
           "location",
           "fetch"
         ],
-        NSCameraUsageDescription: "This app needs camera access for the AR Radar view.",
+        NSCameraUsageDescription: "This app needs camera access to capture dashboard photos in AI Diagnose.",
         NSMicrophoneUsageDescription: "This app needs microphone access for AI car diagnosis voice input.",
         NSPhotoLibraryUsageDescription: "This app needs access to photo library to select images for diagnosis.",
         NSMotionUsageDescription: "This app needs access to motion data for enhanced radar detection.",
@@ -78,7 +111,7 @@ module.exports = {
     },
     android: {
       package: "com.radartinder.app",
-      versionCode: getVersionCode(),
+      versionCode: getAndroidVersionCode(),
       googleServicesFile: "./google-services.json",
       softwareKeyboardLayoutMode: "pan",
       adaptiveIcon: {
@@ -129,9 +162,10 @@ module.exports = {
         {
           android: {
             minSdkVersion: 24,
-            targetSdkVersion: 35,
-            compileSdkVersion: 35,
-            gradlePluginVersion: "8.0.2",
+            targetSdkVersion: 36,
+            compileSdkVersion: 36,
+            gradlePluginVersion: "8.5.2",
+            ndkVersion: "28.0.13004108",
 
             packagingOptions: {
               pickFirst: ["**/libreactnative.so"]
@@ -142,7 +176,8 @@ module.exports = {
           },
           ios: {
             deploymentTarget: "16.1",
-            useFrameworks: "static"
+            useFrameworks: "static",
+            buildReactNativeFromSource: true
           }
         }
       ],
@@ -161,9 +196,14 @@ module.exports = {
       "./plugins/withSettingsGradleFix.js",
       "./plugins/withAndroidReleaseSigning.js",
       "./plugins/withOnnxRuntime.js",
-      "./plugins/withIosGoogleMapsInitFix.js"
+      "./plugins/withIosGoogleMapsInitFix.js",
+      "./plugins/withLottieNewArchDisable.js"
     ],
     extra: {
+      buildFingerprint: BUILD_FINGERPRINT,
+      buildTimestampMs: BUILD_TIMESTAMP_MS,
+      gitCommitShort: GIT_COMMIT_SHORT,
+      ortAndroidVersion: ORT_ANDROID_VERSION,
       eas: {
         projectId: "62bbc6f8-257a-48e8-adb8-0b80558e3e92"
       }
@@ -182,6 +222,6 @@ module.exports = {
   },
   "react-native-google-mobile-ads": {
     "android_app_id": "ca-app-pub-9670547831022880~5105162950",
-    "ios_app_id": "ca-app-pub-9670547831022880~5105162950"
+    "ios_app_id": "ca-app-pub-9670547831022880~2252519276"
   }
 };

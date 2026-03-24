@@ -1,17 +1,23 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   FlatList,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
+  Image,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import { formatDistance, formatSpeed } from '../../../utils/format';
 import { getResponsiveHeight } from '../../../constants/layout';
-import AdBanner from '../../../components/AdBanner';
 import { RadarAnimation, type RadarRendererMode } from '../../../components/RadarAnimation';
 
 type ProFeature = {
@@ -52,7 +58,6 @@ type RadarHomeDashboardProps = {
   onOpenAlerts: () => void;
   onToggleVoiceWarnings: () => void;
   pauseRadarAnimation: boolean;
-  showHomeAd: boolean;
 };
 
 type StatPillProps = {
@@ -150,19 +155,40 @@ export function RadarHomeDashboard({
   onOpenAlerts,
   onToggleVoiceWarnings,
   pauseRadarAnimation,
-  showHomeAd,
 }: RadarHomeDashboardProps) {
-  const homeBottomInset = tabBarInset + Math.max(34, Math.round(width * 0.1));
+  const legacyHomeRadarMode: RadarRendererMode = 'legacy2d';
+  const heroPulse = useSharedValue(0);
+  const heroSweep = useSharedValue(0);
+
+  useEffect(() => {
+    if (pauseRadarAnimation) return;
+    heroPulse.value = withRepeat(withTiming(1, { duration: 2600 }), -1, true);
+    heroSweep.value = withRepeat(withTiming(360, { duration: 5200 }), -1, false);
+  }, [heroPulse, heroSweep, pauseRadarAnimation]);
+
+  const pulseAuraStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 0.84 + heroPulse.value * 0.24 }],
+    opacity: 0.22 - heroPulse.value * 0.14,
+  }));
+
+  const sweepAuraStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${heroSweep.value}deg` }],
+    opacity: 0.28,
+  }));
+
+  const homeBottomInset = tabBarInset + Math.max(28, Math.round(width * 0.08));
   const isCompactWidth = width <= 420;
   const heroVerticalPadding = isCompactWidth ? 10 : 14;
   const heroTopMargin = isCompactWidth ? 2 : 6;
   const buttonBottomSpacing = isCompactWidth ? getResponsiveHeight(8) : getResponsiveHeight(10);
-  const contentBottomPadding = showHomeAd
-    ? Math.max(getResponsiveHeight(16), Math.round(tabBarInset * 0.36))
-    : Math.max(getResponsiveHeight(10), Math.round(tabBarInset * 0.22));
-  const quickPanelMinHeight = showHomeAd
-    ? Math.max(getResponsiveHeight(56), Math.round(tabBarInset * 0.42))
-    : Math.max(getResponsiveHeight(118), Math.round(tabBarInset * 0.86));
+  const contentBottomPadding = Math.max(
+    homeBottomInset,
+    getResponsiveHeight(52)
+  );
+  const quickPanelMinHeight = Math.max(
+    getResponsiveHeight(118),
+    Math.round(tabBarInset * 0.86)
+  );
 
   return (
     <View style={styles.container}>
@@ -242,12 +268,6 @@ export function RadarHomeDashboard({
           </View>
         )}
 
-        {showHomeAd ? (
-          <View style={styles.homeAdContainer}>
-            <AdBanner />
-          </View>
-        ) : null}
-
         <View style={[styles.heroCard, { marginTop: heroTopMargin, paddingVertical: heroVerticalPadding }]}>
           <LinearGradient
             colors={['#0B1224', '#08101f']}
@@ -294,23 +314,14 @@ export function RadarHomeDashboard({
           </View>
 
           <View style={styles.radarShell}>
-            <View
-              style={[
-                styles.radarAura,
-                {
-                  width: radarAuraSize,
-                  height: radarAuraSize,
-                  borderRadius: radarAuraSize / 2,
-                },
-              ]}
-            />
-            <RadarAnimation
-              size={radarAnimationSize}
-              rendererMode={radarRendererMode}
-              artPreset="contour_orbit"
-              signalLevel={radarSignalLevel}
-              dangerLevel={radarDangerLevel}
-              paused={pauseRadarAnimation}
+            <Image 
+              source={require('../../../../assets/radar_loopnice.gif')}
+              style={{
+                width: radarAnimationSize,
+                height: radarAnimationSize,
+                borderRadius: radarAnimationSize / 2,
+              }}
+              resizeMode="cover"
             />
             <View style={[styles.radarChip, styles.radarChipLeft]}>
               <MaterialCommunityIcons name="radar" size={18} color="#4ECDC4" />

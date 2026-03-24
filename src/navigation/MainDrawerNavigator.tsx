@@ -8,6 +8,8 @@ import Animated, { FadeInLeft, FadeInDown } from 'react-native-reanimated';
 import { useAuthStore } from '../store/authStore';
 import MainTabNavigator from './MainTabNavigator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AdService } from '../services/AdService';
+import { appVersion, nativeBuildVersion } from '../utils/buildInfo';
 
 const Drawer = createDrawerNavigator();
 const allowLayoutAnimations = Platform.OS !== 'android';
@@ -33,6 +35,10 @@ const CustomDrawerContent = (props: any) => {
   ];
 
   const handleNavigate = (screen: string, params?: any) => {
+    if (screen === 'Settings' || screen === 'Leaderboard') {
+      AdService.trackNavigationEntry(screen).catch(() => {});
+    }
+
     const tabScreens = new Set(['Home', 'Permit', 'Drive', 'Diagnose', 'Leaderboard', 'Profile']);
 
     if (tabScreens.has(screen)) {
@@ -150,7 +156,7 @@ const CustomDrawerContent = (props: any) => {
                  <MaterialCommunityIcons name="logout" size={20} color="#FF5252" />
                  <Text style={styles.logoutText}>Log Out</Text>
              </TouchableOpacity>
-             <Text style={styles.versionText}>RADAR TINDER v1.0.2</Text>
+             <Text style={styles.versionText}>RADAR TINDER v{appVersion} • {nativeBuildVersion}</Text>
         </View>
     </View>
   );
@@ -161,6 +167,8 @@ const MainDrawerNavigator = () => {
     const drawerWidth = Math.max(280, Math.min(Math.round(width * 0.82), 380));
     return (
         <Drawer.Navigator
+            id="main-drawer"
+            useLegacyImplementation={false}
             drawerContent={(props) => <CustomDrawerContent {...props} />}
             screenOptions={{
                 headerShown: false,
@@ -172,7 +180,6 @@ const MainDrawerNavigator = () => {
                 overlayColor: 'rgba(0,0,0,0.8)',
                 sceneContainerStyle: { backgroundColor: '#0F172A' },
             }}
-            useLegacyImplementation={false}
         >
         <Drawer.Screen name="MainTabs" component={MainTabNavigator} />
         </Drawer.Navigator>

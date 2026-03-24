@@ -117,6 +117,11 @@ For detailed iOS build instructions, including fixing Firebase build errors and 
 
 ### Quick Build Commands
 
+**Before every local archive (recommended):**
+```bash
+pnpm run ios:archive:preflight
+```
+
 **Using GitHub Actions** (Recommended):
 - Push to `master` branch or manually trigger workflow in GitHub Actions tab
 

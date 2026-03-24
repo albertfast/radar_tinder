@@ -7,6 +7,8 @@ import { useAuthStore } from '../store/authStore';
 
 const ADMIN_USERNAME = 'albertfast';
 const ADMIN_PASSWORD = 'abc123';
+const ADMIN_DEBUG_PERSIST =
+  __DEV__ && /^(1|true|yes)$/i.test(process.env.EXPO_PUBLIC_ADMIN_DEBUG_PERSIST || '');
 
 const AdminLoginScreen = ({ navigation }: any) => {
   const [username, setUsername] = useState('');
@@ -15,15 +17,23 @@ const AdminLoginScreen = ({ navigation }: any) => {
   const { updateUser } = useAuthStore();
 
   const handleLogin = () => {
+    // Removed __DEV__ check to allow production admin access
+
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
       updateUser({ 
         isAdminSession: true,
         subscriptionType: 'pro'
       });
       
-      Alert.alert('Sign in successful', 'Admin session enabled. You now have full feature access.', [
+      Alert.alert(
+        'Sign in successful',
+        ADMIN_DEBUG_PERSIST
+          ? 'Admin session enabled and persisted for debug testing.'
+          : 'Admin session enabled for this runtime session.',
+        [
         { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
+        ]
+      );
     } else {
       Alert.alert('Sign in failed', 'Invalid username or password.');
     }
@@ -87,11 +97,7 @@ const AdminLoginScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
-        {__DEV__ && (
-          <View style={styles.devHint}>
-            <Text style={styles.devHintText}>🔧 DEV: albertfast / abc123</Text>
-          </View>
-        )}
+
       </View>
     </View>
   );

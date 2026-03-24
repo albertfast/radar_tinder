@@ -14,16 +14,23 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Speech from 'expo-speech';
 import * as Haptics from 'expo-haptics';
 import { useSettingsStore } from '../store/settingsStore';
 import { useAuthStore } from '../store/authStore';
 import { SupabaseService } from '../services/SupabaseService';
 import { NotificationService } from '../services/NotificationService';
+import { VoiceGuidanceService } from '../services/VoiceGuidanceService';
 import { ANIMATION_TIMING } from '../utils/animationConstants';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
-import AdBanner from '../components/AdBanner';
+import {
+  appVersion,
+  nativeBuildVersion,
+  runtimeVersion,
+  buildFingerprint,
+  gitCommitShort,
+  buildTimestampMs,
+} from '../utils/buildInfo';
 
 const RadarSettingsScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
@@ -96,13 +103,13 @@ const RadarSettingsScreen = ({ navigation }: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     }
     if (voiceWarningsEnabled && warningVolume > 0) {
-      Speech.stop();
-      Speech.speak('Speed camera ahead. Eight hundred feet. Drive carefully.', {
-        language: 'en-US',
-        rate: 0.95,
-        pitch: 1,
-        volume: warningVolume / 100,
-      });
+      await VoiceGuidanceService.speak(
+        'Speed camera ahead. Eight hundred feet. Drive carefully.',
+        {
+          cooldownKey: 'settings_preview_alert',
+          cooldownMs: 1200,
+        }
+      );
       return;
     }
     Alert.alert(
@@ -114,6 +121,7 @@ const RadarSettingsScreen = ({ navigation }: any) => {
   const handleVoiceToggle = (enabled: boolean) => {
     setVoiceWarningsEnabled(enabled);
     if (!enabled || warningVolume <= 0) {
+      VoiceGuidanceService.stop().catch(() => {});
       NotificationService.silenceAllAudioNow().catch(() => {});
     }
   };
@@ -121,6 +129,7 @@ const RadarSettingsScreen = ({ navigation }: any) => {
   const handleVolumeChange = (value: number) => {
     setWarningVolume(value);
     if (value <= 0 || !voiceWarningsEnabled) {
+      VoiceGuidanceService.stop().catch(() => {});
       NotificationService.silenceAllAudioNow().catch(() => {});
     }
   };
@@ -140,6 +149,7 @@ const RadarSettingsScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     if (!voiceWarningsEnabled || warningVolume <= 0) {
+      VoiceGuidanceService.syncMuteState().catch(() => {});
       NotificationService.silenceAllAudioNow().catch(() => {});
     }
   }, [voiceWarningsEnabled, warningVolume]);
@@ -350,13 +360,28 @@ const RadarSettingsScreen = ({ navigation }: any) => {
           </LinearGradient>
         </Animated.View>
 
+        <SettingCard
+          title="Build Fingerprint"
+          subtitle={`v${appVersion} • build ${nativeBuildVersion}`}
+          icon="fingerprint"
+          delay={470}
+          right={
+            <Text style={styles.fingerprintValue} numberOfLines={1}>
+              {buildFingerprint}
+            </Text>
+          }
+        >
+          <View style={styles.buildMetaBlock}>
+            <Text style={styles.buildMetaText}>Runtime: {runtimeVersion}</Text>
+            <Text style={styles.buildMetaText}>Commit: {gitCommitShort}</Text>
+            <Text style={styles.buildMetaText}>Timestamp: {buildTimestampMs}</Text>
+          </View>
+        </SettingCard>
+
         <Text style={styles.footerHint}>
           Settings are stored on device. Distance unit syncs to profile when logged in.
         </Text>
 
-        <View style={styles.adContainer}>
-          <AdBanner />
-        </View>
       </ScrollView>
     </View>
   );
@@ -464,6 +489,21 @@ const styles = StyleSheet.create({
     color: '#6EE7E3',
     fontSize: 12,
     fontWeight: '700',
+  },
+  fingerprintValue: {
+    color: '#67E8F9',
+    fontSize: 10,
+    fontWeight: '700',
+    maxWidth: 168,
+    textAlign: 'right',
+  },
+  buildMetaBlock: {
+    marginTop: 2,
+    gap: 4,
+  },
+  buildMetaText: {
+    color: '#93C5FD',
+    fontSize: 11,
   },
   volumeRow: {
     flexDirection: 'row',

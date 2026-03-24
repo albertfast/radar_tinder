@@ -1,14 +1,22 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
-import * as Speech from 'expo-speech';
+import { AppState, Platform } from 'react-native';
 import { RadarAlert } from '../types';
 import { useSettingsStore } from '../store/settingsStore';
+import { VoiceGuidanceService } from './VoiceGuidanceService';
+import { formatDistance } from '../utils/format';
+import {
+  formatRadarSpeedLimitText,
+  formatRadarTimingText,
+  formatRadarTypeLabel,
+  getRadarShortLocation,
+} from '../utils/radarAlerts';
 
 type RadarAlertOptions = {
   playSound?: boolean;
   vibrate?: boolean;
   channelId?: string;
+  allowForeground?: boolean;
 };
 
 const CHANNEL_SOUND = 'radar-alerts';
@@ -16,6 +24,12 @@ const CHANNEL_VIBRATE = 'radar-alerts-vibrate';
 const CHANNEL_SILENT = 'radar-alerts-silent';
 
 export class NotificationService {
+  private static canPublishSystemNotification(options?: RadarAlertOptions): boolean {
+    const allowForeground = options?.allowForeground === true;
+    if (allowForeground) return true;
+    return AppState.currentState !== 'active';
+  }
+
   static async init(): Promise<void> {
     try {
       await this.requestPermissions();
@@ -107,6 +121,9 @@ export class NotificationService {
     options?: RadarAlertOptions
   ): Promise<void> {
     try {
+      if (!this.canPublishSystemNotification(options)) {
+        return;
+      }
       const settings = useSettingsStore.getState();
       const hydrated = settings.hasHydrated;
       const defaultPlaySound =
@@ -118,28 +135,23 @@ export class NotificationService {
         options?.channelId ||
         (playSound ? CHANNEL_SOUND : vibrate ? CHANNEL_VIBRATE : CHANNEL_SILENT);
 
-      const radarLabel = (() => {
-        const type = String(alert.type || '');
-        if (type === 'speed_camera' || type === 'fixed') return 'Speed Camera';
-        if (type === 'police' || type === 'mobile' || type === 'traffic_enforcement') return 'Speed Trap';
-        if (type === 'red_light') return 'Red Light Camera';
-        return 'Radar';
-      })();
+      const radarLabel = formatRadarTypeLabel(alert.type);
 
       const title = `${radarLabel} Ahead`;
       const hasDistance = Number.isFinite(alert.distance);
-      const hasEta = Number.isFinite(alert.estimatedTime);
       const locationSource = locationName || alert.locationLabel;
-      const shortLocation = locationSource
-        ? locationSource.split(',').slice(0, 2).join(', ')
-        : '';
+      const shortLocation = getRadarShortLocation(locationSource);
 
       let body = shortLocation ? `${radarLabel} near ${shortLocation}.` : `${radarLabel} detected.`;
 
       if (hasDistance) {
-        const etaPart = hasEta ? ` ETA: ${alert.estimatedTime.toFixed(1)} min` : '';
         const locationPart = shortLocation ? ` near ${shortLocation}` : '';
-        body = `${radarLabel} ${alert.distance.toFixed(1)} km ahead${locationPart}.${etaPart}`;
+        const speedLimitText = formatRadarSpeedLimitText(alert, settings.unitSystem);
+        body = `${radarLabel} ${formatDistance(alert.distance, settings.unitSystem)} ahead${locationPart}.`;
+        if (speedLimitText) {
+          body += ` ${speedLimitText}.`;
+        }
+        body += ` ${formatRadarTimingText(alert)}`;
       }
 
       await Notifications.scheduleNotificationAsync({
@@ -165,6 +177,9 @@ export class NotificationService {
     options?: RadarAlertOptions
   ): Promise<void> {
     try {
+      if (!this.canPublishSystemNotification(options)) {
+        return;
+      }
       const settings = useSettingsStore.getState();
       const hydrated = settings.hasHydrated;
       const defaultPlaySound =
@@ -194,7 +209,7 @@ export class NotificationService {
 
   static async silenceAllAudioNow(): Promise<void> {
     try {
-      Speech.stop();
+      await VoiceGuidanceService.stop();
     } catch {}
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
