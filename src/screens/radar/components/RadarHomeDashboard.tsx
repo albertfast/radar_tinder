@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  Image,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -313,61 +314,14 @@ export function RadarHomeDashboard({
           </View>
 
           <View style={styles.radarShell}>
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                {
-                  position: 'absolute',
-                  width: radarAnimationSize * 1.02,
-                  height: radarAnimationSize * 1.02,
-                  borderRadius: (radarAnimationSize * 1.02) / 2,
-                  borderWidth: 1,
-                  borderColor: 'rgba(78,205,196,0.28)',
-                },
-                pulseAuraStyle,
-              ]}
-            />
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                {
-                  position: 'absolute',
-                  width: radarAnimationSize * 0.98,
-                  height: radarAnimationSize * 0.98,
-                  borderRadius: (radarAnimationSize * 0.98) / 2,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                },
-                sweepAuraStyle,
-              ]}
-            >
-              <View
-                style={{
-                  width: radarAnimationSize * 0.42,
-                  height: 2,
-                  borderRadius: 2,
-                  backgroundColor: 'rgba(78,205,196,0.65)',
-                  transform: [{ translateX: radarAnimationSize * 0.2 }],
-                }}
-              />
-            </Animated.View>
-            <View
-              style={[
-                styles.radarAura,
-                {
-                  width: radarAuraSize,
-                  height: radarAuraSize,
-                  borderRadius: radarAuraSize / 2,
-                },
-              ]}
-            />
-            <RadarAnimation
-              size={radarAnimationSize}
-              rendererMode={legacyHomeRadarMode}
-              artPreset="contour_orbit"
-              signalLevel={radarSignalLevel}
-              dangerLevel={radarDangerLevel}
-              paused={pauseRadarAnimation}
+            <Image 
+              source={require('../../../../assets/radar_loopnice.gif')}
+              style={{
+                width: radarAnimationSize,
+                height: radarAnimationSize,
+                borderRadius: radarAnimationSize / 2,
+              }}
+              resizeMode="cover"
             />
             <View style={[styles.radarChip, styles.radarChipLeft]}>
               <MaterialCommunityIcons name="radar" size={18} color="#4ECDC4" />

@@ -170,6 +170,7 @@ export default function App() {
       try {
         await AdService.init();
         await AdService.preloadAll();
+        AdService.showAppOpen('app_foreground').catch(() => {});
         if (isAdDebugEnabled()) {
           console.log('[ADS] init state', AdService.getAdsDebugState());
         }

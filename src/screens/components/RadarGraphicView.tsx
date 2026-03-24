@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, useWindowDimensions, Image } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
@@ -314,12 +314,14 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             <Text style={styles.radarHeroMeta}>Contour + Orbit</Text>
           </View>
           <View style={styles.radarHeroBody}>
-            <RadarAnimation
-              size={Math.max(150, Math.min(Math.round(width * 0.45), 220))}
-              rendererMode={radarRendererMode}
-              artPreset="contour_orbit"
-              signalLevel={radarSignalLevel}
-              dangerLevel={radarDangerLevel}
+            <Image
+              source={require('../../../assets/driving_mode_radar_panel.gif')}
+              style={{
+                width: Math.max(150, Math.min(Math.round(width * 0.45), 220)),
+                height: Math.max(150, Math.min(Math.round(width * 0.45), 220)),
+                borderRadius: Math.max(150, Math.min(Math.round(width * 0.45), 220)) / 2,
+              }}
+              resizeMode="cover"
             />
           </View>
         </LinearGradient>

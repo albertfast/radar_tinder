@@ -55,79 +55,7 @@ const FEATURES = [
   }
 ];
 
-// --- 3D Radar Scan Animation ---
-const RadarScan = () => {
-    const rotation = useSharedValue(0);
-    const scale = useSharedValue(1);
-    
-    useEffect(() => {
-        rotation.value = withRepeat(
-            withTiming(360, { duration: 4000, easing: Easing.linear }),
-            -1,
-            false
-        );
-        scale.value = withRepeat(
-            withSequence(
-                withTiming(1.2, { duration: 2000 }),
-                withTiming(1, { duration: 2000 })
-            ),
-            -1,
-            true
-        );
-    }, []);
-
-    const radarStyle = useAnimatedStyle(() => {
-        return {
-            transform: [
-                { rotate: `${rotation.value}deg` },
-                { scale: scale.value }
-            ]
-        };
-    });
-
-    const pulseStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ scale: scale.value }],
-            opacity: withRepeat(
-                withSequence(
-                    withTiming(0.1, { duration: 1000 }),
-                    withTiming(0.3, { duration: 1000 })
-                ),
-                -1,
-                true
-            )
-        };
-    });
-
-    return (
-        <View style={StyleSheet.absoluteFill}>
-            <LinearGradient
-                colors={['#000000', '#1A1A1A']}
-                style={StyleSheet.absoluteFill}
-            />
-            
-            {/* 3D Grid Floor Effect */}
-            <View style={styles.gridContainer}>
-                <View style={styles.grid} />
-            </View>
-
-            {/* Radar Center */}
-            <View style={styles.radarContainer}>
-                 {/* Pulse Rings */}
-                 <Animated.View style={[styles.pulseRing, pulseStyle, { width: 600, height: 600, borderRadius: 300 }]} />
-                 <Animated.View style={[styles.pulseRing, pulseStyle, { width: 400, height: 400, borderRadius: 200 }]} />
-                 
-                 {/* Rotating Beam */}
-                 <Animated.View style={[styles.scanner, radarStyle]}>
-                    <LinearGradient
-                        colors={['rgba(255, 82, 82, 0)', 'rgba(255, 82, 82, 0.4)']}
-                        style={styles.scannerGradient}
-                    />
-                 </Animated.View>
-            </View>
-        </View>
-    );
-};
+// --- Replaced RadarScan animation with GIF ---
 
 const TrialOfferScreen = ({ navigation }: any) => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -193,7 +121,11 @@ const TrialOfferScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      <RadarScan />
+      <Image 
+          source={require('../../assets/premium_access_panel.gif')} 
+          style={StyleSheet.absoluteFill} 
+          resizeMode="cover" 
+      />
 
       <SafeAreaView style={styles.content}>
         

@@ -168,6 +168,7 @@ const MainDrawerNavigator = () => {
     return (
         <Drawer.Navigator
             id="main-drawer"
+            useLegacyImplementation={false}
             drawerContent={(props) => <CustomDrawerContent {...props} />}
             screenOptions={{
                 headerShown: false,
@@ -177,7 +178,7 @@ const MainDrawerNavigator = () => {
                 },
                 drawerType: 'slide',
                 overlayColor: 'rgba(0,0,0,0.8)',
-                sceneStyle: { backgroundColor: '#0F172A' },
+                sceneContainerStyle: { backgroundColor: '#0F172A' },
             }}
         >
         <Drawer.Screen name="MainTabs" component={MainTabNavigator} />

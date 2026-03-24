@@ -429,20 +429,6 @@ const RadarMap = React.memo(({
           />
         );
       }
-
-      children.push(
-        <Marker
-          key="user-location"
-          coordinate={safeLocation}
-          anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
-          zIndex={95}
-        >
-          <View style={styles.userMarkerOuter}>
-            <View style={styles.userMarkerInner} />
-          </View>
-        </Marker>
-      );
     }
 
     selectedRadarEntries.rendered.forEach(({ key, radar, coordinate }) => {
@@ -509,11 +495,10 @@ const RadarMap = React.memo(({
     <MapView
       ref={mapRef}
       style={StyleSheet.absoluteFill}
-      customMapStyle={modernMapStyle}
       provider={PROVIDER_GOOGLE}
       initialRegion={initialRegion}
-      showsUserLocation={false}
-      showsMyLocationButton={false}
+      showsUserLocation={true}
+      showsMyLocationButton={true}
       followsUserLocation={false}
       userLocationUpdateInterval={1000}
       userLocationFastestInterval={500}
