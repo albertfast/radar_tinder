@@ -13,6 +13,7 @@ import ComponentsShowcaseScreen from '../screens/ComponentsShowcaseScreen';
 import AlertsScreen from '../screens/AlertsScreen';
 import MapScreen from '../screens/MapScreen';
 import AdminLoginScreen from '../screens/AdminLoginScreen';
+import RadarDriveNavigationScreen from '../screens/RadarDriveNavigationScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -38,6 +39,7 @@ const RadarNavigator = ({ route, navigation }: any) => {
       <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
       <Stack.Screen name="Settings" component={RadarSettingsScreen} />
       <Stack.Screen name="Alerts" component={AlertsScreen} />
+      <Stack.Screen name="RadarDriveNavigation" component={RadarDriveNavigationScreen} />
       <Stack.Screen name="MapLegacy" component={MapScreen} />
       <Stack.Screen name="AdminLogin" component={AdminLoginScreen} />
       <Stack.Screen 

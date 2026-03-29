@@ -314,7 +314,7 @@ async function setupGeofences(cameras: CachedCamera[]) {
   }));
 
   // Task tanımla
-  TaskManager.defineTask(GEOFENCE_TASK, ({ data, error }) => {
+  TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
     if (error) {
       console.error('Geofence error:', error);
       return;

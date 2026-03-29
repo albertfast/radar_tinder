@@ -463,18 +463,9 @@ const RadarScreen = ({ navigation, route }: any) => {
     };
   }, [route?.params?.forceTab, canUsePro, driving.resetDrivingSession, driving.startDrivingSession, navigation]);
 
-  const toggleDrivingMode = useCallback(async () => {
-    if (!driving.isDriving) {
-      await driving.startDrivingSession({
-        setActiveTab,
-        activateMapTab: true,
-        source: 'manual',
-        hasActiveRoute: navigationState.routeCoords.length > 0,
-      });
-      return;
-    }
-    await driving.stopDrivingSession({ setActiveTab });
-  }, [driving, navigationState.routeCoords.length]);
+  const toggleDrivingMode = useCallback(() => {
+    navigation.navigate('RadarDriveNavigation');
+  }, [navigation]);
 
   const centerMap = useCallback(async () => {
     let location = dataSync.currentLocationRef.current || dataSync.currentLocation;
@@ -816,9 +807,7 @@ const RadarScreen = ({ navigation, route }: any) => {
       onOpenProfile={() => navigation.navigate('Profile')}
       onNavigateSubscription={() => navigation.navigate('Subscription')}
       onToggleDrivingMode={toggleDrivingMode}
-      onOpenDriveBasic={() => {
-        navigation.setParams?.({ forceTab: 'Basic' });
-      }}
+      onOpenDriveBasic={() => navigation.navigate('RadarDriveNavigation')}
       onOpenAlerts={() => navigation.navigate('Alerts')}
       onToggleVoiceWarnings={toggleVoiceWarnings}
       pauseRadarAnimation={false}

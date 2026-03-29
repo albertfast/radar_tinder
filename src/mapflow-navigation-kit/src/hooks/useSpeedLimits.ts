@@ -17,7 +17,7 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 
 export function useSpeedLimits() {
   const { userLocation, isNavigating, userHeading, routeHeading, speedLimit, setSpeedLimit } = useNavigationStore();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastLookupRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const failureCountRef = useRef(0);
 

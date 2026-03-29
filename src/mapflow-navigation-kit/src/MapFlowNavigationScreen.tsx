@@ -22,11 +22,19 @@ import { useNavigationTracking } from './hooks/useNavigationTracking';
 import { useNavigation } from './hooks/useNavigation';
 
 import { useNavigationStore } from './stores/navigationStore';
-import { SearchResult } from './types/map';
+import { RadarMapMarker, SearchResult } from './types/map';
 import { COLORS } from './utils/colors';
 import { reverseGeocode } from './services/api';
 
-export default function MapFlowNavigationScreen() {
+type MapFlowNavigationScreenProps = {
+  radarMarkers?: RadarMapMarker[];
+  highlightedRadarId?: string | null;
+};
+
+export default function MapFlowNavigationScreen({
+  radarMarkers = [],
+  highlightedRadarId = null,
+}: MapFlowNavigationScreenProps) {
   const insets = useSafeAreaInsets();
   const searchBarTop = insets.top + 8;
   const searchResultsTop = searchBarTop + 66;
@@ -168,6 +176,33 @@ export default function MapFlowNavigationScreen() {
       sendToMap({ type: 'clearRoute' });
     }
   }, [mapReady, route, sendToMap]);
+
+  useEffect(() => {
+    if (!mapReady) {
+      return;
+    }
+
+    if (radarMarkers.length > 0) {
+      sendToMap({
+        type: 'setRadarMarkers',
+        payload: radarMarkers,
+      });
+      return;
+    }
+
+    sendToMap({ type: 'clearRadarMarkers' });
+  }, [mapReady, radarMarkers, sendToMap]);
+
+  useEffect(() => {
+    if (!mapReady) {
+      return;
+    }
+
+    sendToMap({
+      type: 'highlightRadar',
+      payload: highlightedRadarId ? { id: highlightedRadarId } : null,
+    });
+  }, [highlightedRadarId, mapReady, sendToMap]);
 
   useEffect(() => {
     if (!destination || !userLocation) {

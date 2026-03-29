@@ -47,6 +47,17 @@ export interface LocationData {
   heading: number | null;
 }
 
+export interface RadarMapMarker {
+  id: string;
+  lat: number;
+  lng: number;
+  type: string;
+  markerKind?: string | null;
+  speedLimit?: number | null;
+  active?: boolean;
+  iconUri?: string | null;
+}
+
 export type UnitSystem = 'metric' | 'imperial';
 
 export interface MapMessage {

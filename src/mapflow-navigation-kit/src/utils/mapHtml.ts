@@ -54,6 +54,8 @@ const MAP_HTML = `<!DOCTYPE html>
     var userMarker = null;
     var userMarkerElement = null;
     var destMarker = null;
+    var radarMarkers = {};
+    var highlightedRadarId = null;
 
     var map = new maplibregl.Map({
       container: 'map',
@@ -187,6 +189,153 @@ const MAP_HTML = `<!DOCTYPE html>
       destMarker = new maplibregl.Marker({ element: element, anchor: 'bottom' })
         .setLngLat([payload.lng, payload.lat])
         .addTo(map);
+    }
+
+    function createRadarMarkerElement(marker) {
+      var wrapper = document.createElement('div');
+      wrapper.style.position = 'relative';
+      wrapper.style.width = '44px';
+      wrapper.style.height = '44px';
+      wrapper.style.pointerEvents = 'none';
+      wrapper.style.transformOrigin = '50% 50%';
+      wrapper.style.transition = 'transform 160ms ease, filter 160ms ease';
+
+      var glow = document.createElement('div');
+      glow.setAttribute('data-radar-glow', '1');
+      glow.style.position = 'absolute';
+      glow.style.inset = '-4px';
+      glow.style.borderRadius = '999px';
+      glow.style.background = 'radial-gradient(circle, rgba(88,226,255,0.34) 0%, rgba(88,226,255,0.16) 45%, rgba(88,226,255,0) 72%)';
+      glow.style.opacity = '0';
+      glow.style.transition = 'opacity 160ms ease';
+
+      var iconWrap = document.createElement('div');
+      iconWrap.style.position = 'absolute';
+      iconWrap.style.inset = '0';
+      iconWrap.style.display = 'flex';
+      iconWrap.style.alignItems = 'center';
+      iconWrap.style.justifyContent = 'center';
+
+      var img = document.createElement('img');
+      img.setAttribute('data-radar-icon', '1');
+      img.alt = 'radar marker';
+      img.draggable = false;
+      img.style.width = '44px';
+      img.style.height = '44px';
+      img.style.objectFit = 'contain';
+      if (marker.iconUri) {
+        img.src = marker.iconUri;
+      }
+
+      iconWrap.appendChild(img);
+      wrapper.appendChild(glow);
+      wrapper.appendChild(iconWrap);
+
+      return wrapper;
+    }
+
+    function updateRadarMarkerVisual(record, marker) {
+      if (!record || !record.element) {
+        return;
+      }
+
+      var icon = record.element.querySelector('[data-radar-icon]');
+      if (icon && marker.iconUri && icon.getAttribute('src') !== marker.iconUri) {
+        icon.setAttribute('src', marker.iconUri);
+      }
+
+      var isActive = Boolean(marker.active) || (highlightedRadarId && marker.id === highlightedRadarId);
+      record.element.style.transform = isActive ? 'scale(1.12)' : 'scale(1)';
+      record.element.style.filter = isActive
+        ? 'drop-shadow(0 0 18px rgba(88, 226, 255, 0.42))'
+        : 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.28))';
+
+      var glow = record.element.querySelector('[data-radar-glow]');
+      if (glow) {
+        glow.style.opacity = isActive ? '1' : '0';
+      }
+    }
+
+    function upsertRadarMarker(marker) {
+      if (!marker || !marker.id) {
+        return;
+      }
+
+      var latitude = Number(marker.lat);
+      var longitude = Number(marker.lng);
+      if (!isFinite(latitude) || !isFinite(longitude)) {
+        return;
+      }
+
+      var record = radarMarkers[marker.id];
+      if (!record) {
+        var element = createRadarMarkerElement(marker);
+        var markerInstance = new maplibregl.Marker({
+          element: element,
+          anchor: 'center',
+        })
+          .setLngLat([longitude, latitude])
+          .addTo(map);
+
+        record = {
+          marker: markerInstance,
+          element: element,
+          data: marker,
+        };
+        radarMarkers[marker.id] = record;
+      } else {
+        record.marker.setLngLat([longitude, latitude]);
+        record.data = marker;
+      }
+
+      updateRadarMarkerVisual(record, marker);
+    }
+
+    function setRadarMarkers(payload) {
+      if (!Array.isArray(payload)) {
+        clearRadarMarkers();
+        return;
+      }
+
+      var nextIds = {};
+      payload.forEach(function (marker) {
+        if (!marker || !marker.id) return;
+        nextIds[marker.id] = true;
+        upsertRadarMarker(marker);
+      });
+
+      Object.keys(radarMarkers).forEach(function (id) {
+        if (nextIds[id]) {
+          return;
+        }
+
+        var record = radarMarkers[id];
+        if (record && record.marker) {
+          record.marker.remove();
+        }
+        delete radarMarkers[id];
+      });
+    }
+
+    function clearRadarMarkers() {
+      Object.keys(radarMarkers).forEach(function (id) {
+        var record = radarMarkers[id];
+        if (record && record.marker) {
+          record.marker.remove();
+        }
+        delete radarMarkers[id];
+      });
+      highlightedRadarId = null;
+    }
+
+    function highlightRadar(payload) {
+      highlightedRadarId = payload && payload.id ? payload.id : null;
+
+      Object.keys(radarMarkers).forEach(function (id) {
+        var record = radarMarkers[id];
+        if (!record) return;
+        updateRadarMarkerVisual(record, record.data || {});
+      });
     }
 
     function ensureRouteLayers(geojson) {
@@ -636,6 +785,15 @@ const MAP_HTML = `<!DOCTYPE html>
             break;
           case 'clearRoute':
             clearRoute();
+            break;
+          case 'setRadarMarkers':
+            setRadarMarkers(message.payload);
+            break;
+          case 'clearRadarMarkers':
+            clearRadarMarkers();
+            break;
+          case 'highlightRadar':
+            highlightRadar(message.payload);
             break;
         }
       } catch (error) {

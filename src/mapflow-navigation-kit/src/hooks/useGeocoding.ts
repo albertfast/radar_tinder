@@ -4,7 +4,7 @@ import { useNavigationStore } from '../stores/navigationStore';
 
 export function useGeocoding() {
   const { searchQuery, setSearchResults, setIsSearching, userLocation } = useNavigationStore();
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const search = useCallback(
     async (query?: string) => {
