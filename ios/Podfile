@@ -24,6 +24,8 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 prepare_react_native_project!
 
 target 'RadarTinder' do
+  onnx_path = File.dirname(`node --print "require.resolve('onnxruntime-react-native/package.json')"`.strip)
+  pod 'onnxruntime-react-native', :path => onnx_path
   use_expo_modules!
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'

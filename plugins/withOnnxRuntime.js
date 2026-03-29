@@ -155,5 +155,33 @@ module.exports = function withOnnxRuntime(config) {
     },
   ]);
 
+  // Inject ONNX Runtime pod into iOS Podfile
+  // Since we replaced the default plugin to fix Android 16KB max-page-size issues,
+  // we must manually perform the iOS pod injection that the official plugin would do.
+  config = withDangerousMod(config, [
+    'ios',
+    (config) => {
+      const podFilePath = path.join(config.modRequest.platformProjectRoot, 'Podfile');
+      if (!fs.existsSync(podFilePath)) return config;
+
+      let contents = fs.readFileSync(podFilePath, 'utf8');
+
+      const podCode = `  onnx_path = File.dirname(\`node --print "require.resolve('onnxruntime-react-native/package.json')"\`.strip)\n  pod 'onnxruntime-react-native', :path => onnx_path`;
+
+      if (!contents.includes("pod 'onnxruntime-react-native'")) {
+        const targetMatch = contents.match(/^target.+do$/m);
+        if (targetMatch) {
+          contents = contents.replace(
+            targetMatch[0],
+            `${targetMatch[0]}\n${podCode}`
+          );
+          fs.writeFileSync(podFilePath, contents);
+          console.log('[withOnnxRuntime] Injected onnxruntime-react-native pod into iOS Podfile.');
+        }
+      }
+      return config;
+    },
+  ]);
+
   return config;
 };

@@ -12,6 +12,7 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from 'react-native';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { useAuthStore } from '../store/authStore';
 import { FirebaseAuthService } from '../services/FirebaseAuthService';
 import { LocationService } from '../services/LocationService';
@@ -127,6 +128,52 @@ const RadarScan = () => {
             </View>
         </View>
     );
+};
+
+const getYearlyHints = (): string[] => {
+  const envProduct = process.env.EXPO_PUBLIC_RC_PRODUCT_YEARLY;
+  const envPackage = process.env.EXPO_PUBLIC_RC_PACKAGE_YEARLY;
+  const aliases = [
+    '$rc_annual',
+    'rc_annual',
+    '$rc_yearly',
+    'rc_yearly',
+    'pro_subscription:yearly',
+    'pro_subscription_yearly',
+    'rc_yearly_1999',
+    'yearly',
+    'annual',
+  ];
+
+  return [envProduct, envPackage, ...aliases]
+    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    .map((v) => v.toLowerCase());
+};
+
+const packageLooksYearly = (pkg: PurchasesPackage): boolean => {
+  const id = String(pkg?.identifier || '').toLowerCase();
+  const productId = String(pkg?.product?.identifier || '').toLowerCase();
+  const packageType = String((pkg as any)?.packageType || '').toUpperCase();
+  const hints = getYearlyHints();
+
+  if (hints.some((hint) => id === hint || productId === hint || id.includes(hint) || productId.includes(hint))) {
+    return true;
+  }
+
+  if (packageType === 'ANNUAL' || packageType === 'YEARLY') return true;
+
+  return /annual|year|yearly/.test(id) || /annual|year|yearly/.test(productId);
+};
+
+const findYearlyPackage = (offering: any): PurchasesPackage | null => {
+  const slotCandidate = offering?.annual || offering?.yearly;
+  if (slotCandidate) return slotCandidate as PurchasesPackage;
+
+  const availablePackages: PurchasesPackage[] = offering?.availablePackages || [];
+  const byHints = availablePackages.find((pkg) => packageLooksYearly(pkg));
+  if (byHints) return byHints;
+
+  return null;
 };
 
 const TrialOfferScreen = ({ navigation }: any) => {
@@ -301,15 +348,24 @@ const TrialOfferScreen = ({ navigation }: any) => {
                                     // RevenueCat will handle the trial period
                                     try {
                                         const { SubscriptionService } = await import('../services/SubscriptionService');
-                                        const offerings = await SubscriptionService.getOfferings();
-                                        
-                                        // Find the yearly package with trial
-                                        const yearlyPackage = offerings?.availablePackages?.find(
-                                            (p: any) => p.identifier.includes('yearly') || p.identifier.includes('annual')
-                                        );
-                                        
+                                        const offering = await SubscriptionService.getOfferings();
+                                        const availablePackages: PurchasesPackage[] = offering?.availablePackages || [];
+
+                                        const packageDebug = availablePackages
+                                          .map((p) => `${p.identifier} (${p.product?.identifier || 'no-product-id'}) [${(p as any)?.packageType || 'unknown'}]`)
+                                          .join(' | ');
+                                        console.log('[TrialOffer] available packages:', packageDebug);
+
+                                        const yearlyPackage = findYearlyPackage(offering);
+
                                         if (yearlyPackage) {
+                                            console.log(
+                                              '[TrialOffer] selected yearly package:',
+                                              `${yearlyPackage.identifier} (${yearlyPackage.product?.identifier || 'no-product-id'}) [${(yearlyPackage as any)?.packageType || 'unknown'}]`
+                                            );
                                             await SubscriptionService.purchasePackage(yearlyPackage);
+                                        } else {
+                                            console.warn('[TrialOffer] yearly package not found');
                                         }
                                     } catch (subError) {
                                         // Subscription failed or cancelled - user continues with free tier

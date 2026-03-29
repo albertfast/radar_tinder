@@ -273,10 +273,6 @@ PODS:
     - ExpoModulesCore
   - ExpoBlur (15.0.8):
     - ExpoModulesCore
-  - ExpoCamera (17.0.10):
-    - ExpoModulesCore
-    - ZXingObjC/OneD
-    - ZXingObjC/PDF417
   - ExpoCrypto (15.0.8):
     - ExpoModulesCore
   - ExpoDevice (8.0.10):
@@ -3581,11 +3577,6 @@ PODS:
   - SocketRocket (0.7.1)
   - UMAppLoader (6.0.8)
   - Yoga (0.0.0)
-  - ZXingObjC/Core (3.6.9)
-  - ZXingObjC/OneD (3.6.9):
-    - ZXingObjC/Core
-  - ZXingObjC/PDF417 (3.6.9):
-    - ZXingObjC/Core
 
 DEPENDENCIES:
   - "boost (from `../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0/node_modules/react-native/third-party-podspecs/boost.podspec`)"
@@ -3607,7 +3598,6 @@ DEPENDENCIES:
   - "ExpoAppleAuthentication (from `../node_modules/.pnpm/expo-apple-authentication@8.0.8_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-na_e8df1f9a1eace90dc0813b4c0c510bbe/node_modules/expo-apple-authentication/ios`)"
   - "ExpoAsset (from `../node_modules/.pnpm/expo-asset@12.0.12_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native@0.81.5_@_36737d68333bfd6f6bc4e81702bcf58b/node_modules/expo-asset/ios`)"
   - "ExpoBlur (from `../node_modules/.pnpm/expo-blur@15.0.8_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native@0.81.5_@ba_40c018299ed7b0d85b0c23088dfa4373/node_modules/expo-blur/ios`)"
-  - "ExpoCamera (from `../node_modules/.pnpm/expo-camera@17.0.10_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native@0.81.5__fbc6f9248bea2b415fe89bcd3b15bdaa/node_modules/expo-camera/ios`)"
   - "ExpoCrypto (from `../node_modules/.pnpm/expo-crypto@15.0.8_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native@0.81.5_@_60953df45f6d7612c23d98cfcf2c2f24/node_modules/expo-crypto/ios`)"
   - "ExpoDevice (from `../node_modules/.pnpm/expo-device@8.0.10_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native@0.81.5_@_97939d5c0e86b50be8f090cbdfa5148c/node_modules/expo-device/ios`)"
   - "ExpoFileSystem (from `../node_modules/.pnpm/expo-file-system@19.0.21_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native@0._960df727bda55e3d7eea2a369a2b1554/node_modules/expo-file-system/ios`)"
@@ -3636,7 +3626,7 @@ DEPENDENCIES:
   - "glog (from `../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0/node_modules/react-native/third-party-podspecs/glog.podspec`)"
   - "hermes-engine (from `../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)"
   - "lottie-react-native (from `../node_modules/.pnpm/lottie-react-native@7.3.5_react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/lottie-react-native`)"
-  - "onnxruntime-react-native (from `../node_modules/.pnpm/onnxruntime-react-native@1.23.2_react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/onnxruntime-react-native`)"
+  - "onnxruntime-react-native (from `/Volumes/devssd/Projects/radar_tinder/node_modules/.pnpm/onnxruntime-react-native@1.23.2_react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/onnxruntime-react-native`)"
   - "RCT-Folly (from `../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)"
   - "RCTDeprecation (from `../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0/node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)"
   - "RCTRequired (from `../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0/node_modules/react-native/Libraries/Required`)"
@@ -3769,7 +3759,6 @@ SPEC REPOS:
     - SDWebImage
     - SDWebImageWebPCoder
     - SocketRocket
-    - ZXingObjC
 
 EXTERNAL SOURCES:
   boost:
@@ -3810,8 +3799,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/.pnpm/expo-asset@12.0.12_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native@0.81.5_@_36737d68333bfd6f6bc4e81702bcf58b/node_modules/expo-asset/ios"
   ExpoBlur:
     :path: "../node_modules/.pnpm/expo-blur@15.0.8_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native@0.81.5_@ba_40c018299ed7b0d85b0c23088dfa4373/node_modules/expo-blur/ios"
-  ExpoCamera:
-    :path: "../node_modules/.pnpm/expo-camera@17.0.10_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native@0.81.5__fbc6f9248bea2b415fe89bcd3b15bdaa/node_modules/expo-camera/ios"
   ExpoCrypto:
     :path: "../node_modules/.pnpm/expo-crypto@15.0.8_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native@0.81.5_@_60953df45f6d7612c23d98cfcf2c2f24/node_modules/expo-crypto/ios"
   ExpoDevice:
@@ -3870,7 +3857,7 @@ EXTERNAL SOURCES:
   lottie-react-native:
     :path: "../node_modules/.pnpm/lottie-react-native@7.3.5_react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/lottie-react-native"
   onnxruntime-react-native:
-    :path: "../node_modules/.pnpm/onnxruntime-react-native@1.23.2_react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/onnxruntime-react-native"
+    :path: "/Volumes/devssd/Projects/radar_tinder/node_modules/.pnpm/onnxruntime-react-native@1.23.2_react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/onnxruntime-react-native"
   RCT-Folly:
     :podspec: "../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec"
   RCTDeprecation:
@@ -4063,7 +4050,6 @@ SPEC CHECKSUMS:
   ExpoAppleAuthentication: 9413ae9a5e631a424cc04c1b13b0694dbab7d594
   ExpoAsset: f867e55ceb428aab99e1e8c082b5aee7c159ea18
   ExpoBlur: b90747a3f22a8b6ceffd9cb0dc41a4184efdc656
-  ExpoCamera: 6a326deb45ba840749652e4c15198317aa78497e
   ExpoCrypto: b6105ebaa15d6b38a811e71e43b52cd934945322
   ExpoDevice: 6327c3c200816795708885adf540d26ecab83d1a
   ExpoFileSystem: 858a44267a3e6e9057e0888ad7c7cfbf55d52063
@@ -4219,8 +4205,7 @@ SPEC CHECKSUMS:
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   UMAppLoader: 145337733539f9af9b3dd97eeaa7f3bd97cacb23
   Yoga: cc4a6600d61e4e9276e860d4d68eebb834a050ba
-  ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: b5eb5a3284988babd7174ac84c6ac199357c5198
+PODFILE CHECKSUM: 8045357939454ad1c89503a6cdac7e558cf835c8
 
 COCOAPODS: 1.16.2

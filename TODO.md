@@ -1,0 +1,4 @@
+- [x] Add robust yearly package resolver to `src/screens/TrialOfferScreen.tsx`
+- [x] Use RevenueCat standard ids (`$rc_annual`) and packageType fallback (`ANNUAL`)
+- [x] Improve debug logging for available packages and chosen target package
+- [x] Mark this TODO as completed after edits

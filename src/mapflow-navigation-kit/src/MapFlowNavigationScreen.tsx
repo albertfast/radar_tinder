@@ -1,0 +1,380 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  Keyboard,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import MapView, { useMapBridge } from './components/map/MapView.native';
+import SearchBar from './components/navigation/SearchBar';
+import SearchResults from './components/navigation/SearchResults';
+import NavigationPanel from './components/navigation/NavigationPanel';
+import SpeedIndicator from './components/navigation/SpeedIndicator';
+import IconButton from './components/ui/IconButton';
+
+import { useLocation } from './hooks/useLocation';
+import { useGeocoding } from './hooks/useGeocoding';
+import { useRouting } from './hooks/useRouting';
+import { useSpeedLimits } from './hooks/useSpeedLimits';
+import { useNavigationTracking } from './hooks/useNavigationTracking';
+import { useNavigation } from './hooks/useNavigation';
+
+import { useNavigationStore } from './stores/navigationStore';
+import { SearchResult } from './types/map';
+import { COLORS } from './utils/colors';
+import { reverseGeocode } from './services/api';
+
+export default function MapFlowNavigationScreen() {
+  const insets = useSafeAreaInsets();
+  const searchBarTop = insets.top + 8;
+  const searchResultsTop = searchBarTop + 66;
+  const [mapReady, setMapReady] = useState(false);
+  const hasCenteredInitialLocation = useRef(false);
+  const lastDestinationKey = useRef<string | null>(null);
+  const rerouteAtRef = useRef(0);
+  const { webViewRef, sendToMap } = useMapBridge();
+
+  const { isNavigating, isRouting, route, navigateTo, start, stop } = useNavigation();
+
+  const {
+    userLocation,
+    userHeading,
+    userSpeed,
+    routeHeading,
+    searchQuery,
+    searchResults,
+    destination,
+    unitSystem,
+    isSearching,
+    isOffRoute,
+    setSearchQuery,
+    setSearchResults,
+    setIsOffRoute,
+  } = useNavigationStore();
+
+  useLocation();
+  useSpeedLimits();
+  useNavigationTracking();
+
+  const { debouncedSearch } = useGeocoding();
+  const { calculateRoute } = useRouting();
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    debouncedSearch(query);
+  }, [searchQuery, debouncedSearch, setSearchResults]);
+
+  const handleMapReady = useCallback(() => {
+    setMapReady(true);
+  }, []);
+
+  const handleMapClick = useCallback(
+    async (lat: number, lng: number) => {
+      if (!isNavigating) {
+        Keyboard.dismiss();
+        try {
+          const location = await reverseGeocode(lat, lng);
+          const resolvedName =
+            location.road ||
+            location.displayName?.split(',').slice(0, 2).join(', ').trim() ||
+            location.city ||
+            'Dropped Pin';
+          navigateTo(lat, lng, resolvedName);
+        } catch {
+          navigateTo(lat, lng, 'Dropped Pin');
+        }
+      }
+    },
+    [isNavigating, navigateTo],
+  );
+
+  useEffect(() => {
+    if (!mapReady || !userLocation) {
+      return;
+    }
+
+    sendToMap({
+      type: 'updateLocation',
+      payload: {
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+        heading: userHeading,
+        routeHeading,
+      },
+    });
+
+    if (isNavigating) {
+      sendToMap({
+        type: 'followUser',
+        payload: {
+          lat: userLocation.lat,
+          lng: userLocation.lng,
+          heading: userHeading,
+          routeHeading,
+          speed: userSpeed,
+          pitch: 58,
+          navigation: true,
+        },
+      });
+    }
+  }, [isNavigating, mapReady, routeHeading, sendToMap, userHeading, userLocation, userSpeed]);
+
+  useEffect(() => {
+    if (!mapReady || !userLocation || hasCenteredInitialLocation.current) {
+      return;
+    }
+
+    hasCenteredInitialLocation.current = true;
+    sendToMap({
+      type: 'flyTo',
+      payload: {
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+        heading: 0,
+        pitch: 0,
+        zoom: 16.4,
+        navigation: false,
+      },
+    });
+  }, [mapReady, sendToMap, userLocation]);
+
+  useEffect(() => {
+    if (mapReady && destination) {
+      sendToMap({
+        type: 'updateDestination',
+        payload: destination,
+      });
+    }
+  }, [destination, mapReady, sendToMap]);
+
+  useEffect(() => {
+    if (!mapReady) {
+      return;
+    }
+
+    if (route?.geometry) {
+      sendToMap({
+        type: 'updateRoute',
+        payload: { geometry: route.geometry },
+      });
+    } else {
+      sendToMap({ type: 'clearRoute' });
+    }
+  }, [mapReady, route, sendToMap]);
+
+  useEffect(() => {
+    if (!destination || !userLocation) {
+      lastDestinationKey.current = null;
+      return;
+    }
+
+    const destinationKey = `${destination.lat.toFixed(6)}:${destination.lng.toFixed(6)}`;
+    if (lastDestinationKey.current === destinationKey) {
+      return;
+    }
+
+    lastDestinationKey.current = destinationKey;
+    calculateRoute();
+  }, [calculateRoute, destination, userLocation]);
+
+  useEffect(() => {
+    if (!isNavigating || !isOffRoute || isRouting) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - rerouteAtRef.current < 8000) {
+      return;
+    }
+
+    rerouteAtRef.current = now;
+    setIsOffRoute(false);
+    calculateRoute();
+  }, [calculateRoute, isNavigating, isOffRoute, isRouting, setIsOffRoute]);
+
+  const handleSelectPlace = useCallback(
+    (result: SearchResult) => {
+      setSearchQuery(result.name);
+      setSearchResults([]);
+      Keyboard.dismiss();
+      navigateTo(result.lat, result.lng, result.name);
+    },
+    [navigateTo, setSearchQuery, setSearchResults],
+  );
+
+  const handleStartNavigation = useCallback(() => {
+    start();
+
+    if (!userLocation) {
+      return;
+    }
+
+    sendToMap({
+      type: 'flyTo',
+      payload: {
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+        heading: userHeading,
+        routeHeading,
+        speed: userSpeed,
+        pitch: 58,
+        navigation: true,
+      },
+    });
+  }, [routeHeading, sendToMap, start, userHeading, userLocation, userSpeed]);
+
+  const handleStopNavigation = useCallback(() => {
+    stop();
+
+    if (!userLocation) {
+      return;
+    }
+
+    sendToMap({
+      type: 'flyTo',
+      payload: {
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+        heading: 0,
+        pitch: 0,
+        zoom: 15.8,
+        navigation: false,
+      },
+    });
+  }, [sendToMap, stop, userLocation]);
+
+  const handleMyLocation = useCallback(() => {
+    if (!userLocation) {
+      return;
+    }
+
+    sendToMap({
+      type: 'flyTo',
+      payload: {
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+        heading: isNavigating ? userHeading : 0,
+        routeHeading,
+        speed: userSpeed,
+        pitch: isNavigating ? 58 : 0,
+        zoom: isNavigating ? undefined : 16.4,
+        navigation: isNavigating,
+      },
+    });
+  }, [isNavigating, routeHeading, sendToMap, userHeading, userLocation, userSpeed]);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSearchResults([]);
+    Keyboard.dismiss();
+  }, [setSearchQuery, setSearchResults]);
+
+  const showResults = searchResults.length > 0 && !isNavigating;
+
+  return (
+    <View style={styles.root}>
+      <MapView
+        webViewRef={webViewRef}
+        onMapReady={handleMapReady}
+        onMapClick={handleMapClick}
+      />
+
+      <View style={styles.overlay}>
+        {!isNavigating && (
+          <SearchBar
+            value={searchQuery}
+            onChangeQuery={setSearchQuery}
+            onClear={handleClearSearch}
+            onMyLocation={handleMyLocation}
+            isSearching={isSearching}
+            topOffset={searchBarTop}
+          />
+        )}
+
+        {showResults && (
+          <View style={[styles.searchResultsWrap, { top: searchResultsTop }]}>
+            <SearchResults
+              results={searchResults}
+              onSelect={handleSelectPlace}
+              unitSystem={unitSystem}
+            />
+          </View>
+        )}
+
+        {!isNavigating && (
+          <View style={[styles.fabColumn, { top: searchResultsTop + 70 }]}>
+            <IconButton icon="explore" onPress={handleMyLocation} />
+          </View>
+        )}
+
+        {isNavigating && (
+          <View style={[styles.fabColumn, { top: insets.top + 104 }]}>
+            <IconButton icon="3d-rotation" onPress={handleMyLocation} color={COLORS.primary} />
+          </View>
+        )}
+
+        <SpeedIndicator />
+
+        <NavigationPanel
+          onStartNavigation={handleStartNavigation}
+          onStopNavigation={handleStopNavigation}
+        />
+
+        {isRouting && (
+          <View style={styles.loading}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        )}
+
+        {!mapReady && (
+          <View style={styles.welcome}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    pointerEvents: 'box-none',
+  },
+  fabColumn: {
+    position: 'absolute',
+    right: 16,
+    gap: 10,
+  },
+  searchResultsWrap: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 21,
+  },
+  loading: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(5, 12, 24, 0.34)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+  },
+  welcome: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(5, 12, 24, 0.78)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+  },
+});
