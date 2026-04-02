@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   Dimensions,
-  FlatList,
   Platform,
   StyleSheet,
   TouchableOpacity,
@@ -21,8 +20,8 @@ import { RadarAnimation } from '../components/RadarAnimation';
 
 const { width, height } = Dimensions.get('window');
 const allowLayoutAnimations = Platform.OS !== 'android';
-const isCompactDevice = height < 760;
-const heroRadarSize = isCompactDevice ? Math.min(width * 0.46, 168) : Math.min(width * 0.5, 196);
+const isCompactDevice = height < 940;
+const heroRadarSize = isCompactDevice ? Math.min(width * 0.34, 132) : Math.min(width * 0.4, 158);
 
 const FEATURES = [
   {
@@ -50,26 +49,9 @@ const FEATURES = [
 
 const TrialOfferScreen = () => {
   const { signInAnonymously } = useAuthStore();
-  const [activeIndex, setActiveIndex] = useState(0);
   const [loadingAction, setLoadingAction] = useState<'subscribe' | 'ads' | 'location' | null>(null);
   const [locationEnabled, setLocationEnabled] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const nextIndex = (activeIndex + 1) % FEATURES.length;
-      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
-      setActiveIndex(nextIndex);
-    }, 3200);
-
-    return () => clearInterval(interval);
-  }, [activeIndex]);
-
-  const activeFeature = FEATURES[activeIndex];
-  const heroTitle = useMemo(
-    () => (isCompactDevice ? 'Premium driving without the noise' : 'Premium driving that feels built for the road'),
-    []
-  );
+  const heroTitle = isCompactDevice ? 'Premium drive, zero clutter' : 'Premium driving, built for the road';
 
   const ensureAnonymousSession = async () => {
     try {
@@ -154,18 +136,6 @@ const TrialOfferScreen = () => {
     }
   };
 
-  const renderFeature = ({ item }: { item: (typeof FEATURES)[number] }) => (
-    <View style={styles.featureSlide}>
-      <View style={[styles.featureIcon, { backgroundColor: `${item.color}14`, borderColor: `${item.color}40` }]}>
-        <MaterialCommunityIcons name={item.icon as any} size={18} color={item.color} />
-      </View>
-      <View style={styles.featureCopy}>
-        <Text style={styles.featureTitle}>{item.title}</Text>
-        <Text style={styles.featureSubtitle}>{item.subtitle}</Text>
-      </View>
-    </View>
-  );
-
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#070B19', '#0A1021', '#161121']} style={StyleSheet.absoluteFill} />
@@ -190,7 +160,7 @@ const TrialOfferScreen = () => {
                 <Text style={styles.heroEyebrow}>PREMIUM ACCESS</Text>
                 <Text style={styles.heroTitle}>{heroTitle}</Text>
                 <Text style={styles.heroSubtitle}>
-                  Subscribe directly with no ad interruption, or continue free and watch an ad first.
+                  Subscribe with no ad interruption, or use the free ad-supported flow.
                 </Text>
               </View>
 
@@ -216,36 +186,16 @@ const TrialOfferScreen = () => {
               </View>
             </View>
 
-            <View style={styles.carouselShell}>
-              <FlatList
-                ref={flatListRef}
-                data={FEATURES}
-                renderItem={renderFeature}
-                keyExtractor={(item) => item.id}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={(ev) => {
-                  const index = Math.round(ev.nativeEvent.contentOffset.x / (width - 40));
-                  setActiveIndex(Math.max(0, Math.min(index, FEATURES.length - 1)));
-                }}
-                getItemLayout={(_, index) => ({
-                  length: width - 40,
-                  offset: (width - 40) * index,
-                  index,
-                })}
-              />
-              <View style={styles.pagination}>
-                {FEATURES.map((item, index) => (
-                  <View
-                    key={item.id}
-                    style={[
-                      styles.dot,
-                      index === activeIndex && { width: 18, backgroundColor: activeFeature.color },
-                    ]}
-                  />
-                ))}
-              </View>
+            <View style={styles.featureGrid}>
+              {FEATURES.map((item) => (
+                <View key={item.id} style={styles.featureTile}>
+                  <View style={[styles.featureIcon, { backgroundColor: `${item.color}12`, borderColor: `${item.color}38` }]}>
+                    <MaterialCommunityIcons name={item.icon as any} size={16} color={item.color} />
+                  </View>
+                  <Text style={styles.featureTitle}>{item.title}</Text>
+                  <Text style={styles.featureSubtitle}>{item.subtitle}</Text>
+                </View>
+              ))}
             </View>
           </Animated.View>
 
@@ -262,9 +212,9 @@ const TrialOfferScreen = () => {
             </View>
 
             <View style={styles.offerBenefits}>
-              <Benefit label="Graphic mode" value="Included" color="#4ECDC4" />
+              <Benefit label="Graphic" value="Included" color="#4ECDC4" />
               <Benefit label="Safe route" value="Included" color="#FFE66D" />
-              <Benefit label="Ad-free" value="Premium only" color="#FF8A65" />
+              <Benefit label="Ad-free" value="Premium" color="#FF8A65" />
             </View>
 
             <TouchableOpacity
@@ -297,7 +247,7 @@ const TrialOfferScreen = () => {
                 ) : (
                   <>
                     <MaterialCommunityIcons name="play-circle-outline" size={18} color="#D6DEED" />
-                    <Text style={styles.secondaryButtonText}>Continue with Ads</Text>
+                    <Text style={styles.secondaryButtonText}>Use Free with Ads</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -372,7 +322,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 125, 72, 0.16)',
   },
   header: {
-    marginTop: 4,
+    marginTop: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -404,15 +354,15 @@ const styles = StyleSheet.create({
   },
   main: {
     flex: 1,
-    paddingTop: isCompactDevice ? 14 : 18,
-    paddingBottom: 14,
+    paddingTop: isCompactDevice ? 10 : 16,
+    paddingBottom: 10,
     justifyContent: 'space-between',
   },
   heroPanel: {
-    borderRadius: 30,
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 16,
+    borderRadius: 28,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
     backgroundColor: 'rgba(7, 12, 24, 0.78)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
@@ -436,20 +386,21 @@ const styles = StyleSheet.create({
   heroTitle: {
     marginTop: 8,
     color: '#FFFFFF',
-    fontSize: isCompactDevice ? 28 : 32,
-    lineHeight: isCompactDevice ? 31 : 36,
+    fontSize: isCompactDevice ? 22 : 28,
+    lineHeight: isCompactDevice ? 25 : 32,
     fontWeight: '900',
+    maxWidth: isCompactDevice ? 150 : 210,
   },
   heroSubtitle: {
-    marginTop: 10,
+    marginTop: 8,
     color: '#97A4BC',
-    fontSize: 14,
-    lineHeight: 20,
-    maxWidth: 210,
+    fontSize: 13,
+    lineHeight: 18,
+    maxWidth: isCompactDevice ? 155 : 220,
   },
   radarShell: {
-    width: heroRadarSize + 18,
-    height: heroRadarSize + 18,
+    width: heroRadarSize + 10,
+    height: heroRadarSize + 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -461,15 +412,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(37, 208, 200, 0.08)',
   },
   infoRail: {
-    marginTop: 10,
+    marginTop: 8,
     flexDirection: 'row',
     gap: 10,
   },
   infoChip: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 40,
     borderRadius: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
@@ -479,66 +430,49 @@ const styles = StyleSheet.create({
   },
   infoChipText: {
     color: '#D5DEEC',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     flex: 1,
   },
-  carouselShell: {
-    marginTop: 12,
-    minHeight: isCompactDevice ? 92 : 102,
+  featureGrid: {
+    marginTop: 10,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  featureIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  featureSlide: {
-    width: width - 40,
-    minHeight: isCompactDevice ? 74 : 82,
+  featureTile: {
+    flex: 1,
+    minHeight: isCompactDevice ? 78 : 88,
     borderRadius: 18,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featureCopy: {
-    flex: 1,
   },
   featureTitle: {
+    marginTop: 8,
     color: '#F8FAFC',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '800',
   },
   featureSubtitle: {
-    marginTop: 4,
+    marginTop: 3,
     color: '#91A0B7',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  pagination: {
-    marginTop: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 99,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    fontSize: 11,
+    lineHeight: 15,
   },
   offerPanel: {
-    marginTop: 14,
-    borderRadius: 28,
-    padding: 18,
+    marginTop: 10,
+    borderRadius: 26,
+    padding: 16,
     backgroundColor: 'rgba(17, 20, 31, 0.94)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -556,16 +490,16 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
   },
   offerTitle: {
-    marginTop: 8,
+    marginTop: 6,
     color: '#FFFFFF',
-    fontSize: isCompactDevice ? 28 : 30,
-    lineHeight: isCompactDevice ? 30 : 33,
+    fontSize: isCompactDevice ? 22 : 28,
+    lineHeight: isCompactDevice ? 24 : 31,
     fontWeight: '900',
   },
   offerPricePill: {
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 16,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -573,25 +507,25 @@ const styles = StyleSheet.create({
   },
   offerPriceTop: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
   offerPriceBottom: {
     color: '#97A4BC',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   offerBenefits: {
-    marginTop: 14,
+    marginTop: 10,
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   benefitCard: {
     flex: 1,
-    minHeight: 60,
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    minHeight: 52,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
@@ -599,20 +533,20 @@ const styles = StyleSheet.create({
   },
   benefitLabel: {
     color: '#8E9AAF',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   benefitValue: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
   },
   primaryButton: {
-    marginTop: 14,
+    marginTop: 12,
     borderRadius: 18,
     overflow: 'hidden',
   },
   primaryButtonGradient: {
-    minHeight: 56,
+    minHeight: 52,
     borderRadius: 18,
     flexDirection: 'row',
     alignItems: 'center',
@@ -625,13 +559,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   secondaryRow: {
-    marginTop: 12,
+    marginTop: 10,
     flexDirection: 'row',
     gap: 10,
   },
   secondaryButton: {
     flex: 1,
-    minHeight: 50,
+    minHeight: 46,
     borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderWidth: 1,
@@ -643,12 +577,12 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: '#E2E8F0',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
   },
   locationButton: {
     flex: 1,
-    minHeight: 50,
+    minHeight: 46,
     borderRadius: 16,
     backgroundColor: 'rgba(78,205,196,0.09)',
     borderWidth: 1,
@@ -660,14 +594,14 @@ const styles = StyleSheet.create({
   },
   locationButtonText: {
     color: '#7CE8DF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
   },
   restoreButton: {
-    marginTop: 12,
+    marginTop: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 30,
+    minHeight: 24,
   },
   restoreText: {
     color: '#94A3B8',

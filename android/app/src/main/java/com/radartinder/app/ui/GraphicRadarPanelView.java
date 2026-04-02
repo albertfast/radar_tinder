@@ -18,7 +18,7 @@ import java.util.Random;
 
 public class GraphicRadarPanelView extends View {
     private static final float TAU = (float) (Math.PI * 2.0);
-    private static final int PARTICLE_COUNT = 84;
+    private static final int PARTICLE_COUNT = 118;
 
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -72,10 +72,11 @@ public class GraphicRadarPanelView extends View {
         float t = (SystemClock.uptimeMillis() - startTimeMs) / 1000f;
         drawBackdrop(canvas, w, h);
         drawFloorGrid(canvas, w, h, t);
+        drawSignalBands(canvas, w, h, t);
 
-        float radarSize = Math.min(w, h) * 0.42f;
-        float cx = w * 0.5f;
-        float cy = h * 0.60f;
+        float radarSize = Math.min(w * 0.58f, h * 0.92f);
+        float cx = w * 0.54f;
+        float cy = h * 0.58f;
         drawRadar(canvas, cx, cy, radarSize, t);
 
         if (!paused) {
@@ -121,18 +122,18 @@ public class GraphicRadarPanelView extends View {
     private void drawFloorGrid(Canvas canvas, float w, float h, float t) {
         canvas.save();
         canvas.translate(w * 0.5f, h * 0.86f);
-        canvas.scale(1f, 0.52f);
+        canvas.scale(1f, 0.50f);
 
         gridPaint.setStyle(Paint.Style.STROKE);
         gridPaint.setStrokeWidth(dp(1f));
-        gridPaint.setColor(withAlpha(Color.rgb(38, 88, 122), 56));
+        gridPaint.setColor(withAlpha(Color.rgb(38, 88, 122), 66));
 
-        for (int i = -8; i <= 8; i++) {
-            float x = i * w * 0.09f;
-            canvas.drawLine(x, 0f, x * 1.5f, -h * 0.72f, gridPaint);
+        for (int i = -9; i <= 9; i++) {
+            float x = i * w * 0.085f;
+            canvas.drawLine(x, 0f, x * 1.42f, -h * 0.72f, gridPaint);
         }
 
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < 10; i++) {
             float y = -i * h * 0.07f;
             canvas.drawLine(-w * 0.75f, y, w * 0.75f, y, gridPaint);
         }
@@ -140,10 +141,41 @@ public class GraphicRadarPanelView extends View {
         canvas.restore();
     }
 
+    private void drawSignalBands(Canvas canvas, float w, float h, float t) {
+        float centerY = h * 0.60f;
+        float wave = (float) Math.sin(t * 1.2f) * h * 0.012f;
+
+        strokePaint.setStyle(Paint.Style.STROKE);
+        strokePaint.setStrokeWidth(dp(1.2f));
+        strokePaint.setColor(withAlpha(Color.rgb(40, 180, 210), 42));
+
+        for (int i = 0; i < 3; i++) {
+            float y = centerY + wave + (i - 1) * h * 0.035f;
+            canvas.drawLine(0f, y, w, y, strokePaint);
+        }
+
+        fillPaint.setShader(new LinearGradient(
+            0f,
+            centerY,
+            w,
+            centerY,
+            new int[]{
+                withAlpha(Color.rgb(44, 214, 218), 0),
+                withAlpha(Color.rgb(44, 214, 218), 48),
+                withAlpha(Color.rgb(255, 182, 110), 54),
+                withAlpha(Color.rgb(255, 182, 110), 0)
+            },
+            new float[]{0f, 0.28f, 0.74f, 1f},
+            Shader.TileMode.CLAMP
+        ));
+        canvas.drawRect(0f, centerY - h * 0.05f, w, centerY + h * 0.05f, fillPaint);
+        fillPaint.setShader(null);
+    }
+
     private void drawRadar(Canvas canvas, float cx, float cy, float size, float t) {
         float radius = size * 0.5f;
-        float planeRx = radius * 0.88f;
-        float planeRy = radius * 0.88f;
+        float planeRx = radius * 1.02f;
+        float planeRy = radius * 0.82f;
 
         fillPaint.setShader(new RadialGradient(
             cx, cy, radius,
@@ -156,23 +188,25 @@ public class GraphicRadarPanelView extends View {
 
         strokePaint.setStyle(Paint.Style.STROKE);
         strokePaint.setStrokeWidth(dp(1.5f));
-        strokePaint.setColor(withAlpha(Color.rgb(21, 228, 214), 42));
+        strokePaint.setColor(withAlpha(Color.rgb(21, 228, 214), 56));
         canvas.drawCircle(cx, cy, radius, strokePaint);
+        strokePaint.setColor(withAlpha(Color.rgb(255, 182, 110), 24));
+        canvas.drawCircle(cx, cy, radius * 1.08f, strokePaint);
 
-        for (int i = 0; i < 6; i++) {
-            float lat = -0.65f + i * 0.26f;
-            float ry = radius * (0.10f + (1f - Math.abs(lat)) * 0.16f);
+        for (int i = 0; i < 7; i++) {
+            float lat = -0.72f + i * 0.24f;
+            float ry = radius * (0.12f + (1f - Math.abs(lat)) * 0.18f);
             float y = cy + lat * radius * 0.55f;
             strokePaint.setColor(withAlpha(lerpColor(Color.rgb(47, 167, 255), Color.rgb(21, 228, 214), i / 5f), 38 + i * 6));
-            canvas.drawOval(new RectF(cx - radius * 0.82f, y - ry, cx + radius * 0.82f, y + ry), strokePaint);
+            canvas.drawOval(new RectF(cx - radius * 0.9f, y - ry, cx + radius * 0.9f, y + ry), strokePaint);
         }
 
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {
             canvas.save();
             canvas.rotate((float) Math.sin(t * (0.8f + i * 0.18f)) * (8f + i * 4f), cx, cy);
-            float rx = radius * (0.50f + i * 0.10f);
-            float ry = radius * 0.86f;
-            strokePaint.setColor(withAlpha(Color.rgb(20, 128, 200), 24 + i * 8));
+            float rx = radius * (0.44f + i * 0.11f);
+            float ry = radius * 0.92f;
+            strokePaint.setColor(withAlpha(Color.rgb(20, 128, 200), 24 + i * 10));
             canvas.drawOval(new RectF(cx - rx, cy - ry, cx + rx, cy + ry), strokePaint);
             canvas.restore();
         }
@@ -181,8 +215,8 @@ public class GraphicRadarPanelView extends View {
         fillPaint.setColor(withAlpha(Color.rgb(6, 18, 26), 228));
         canvas.drawOval(new RectF(cx - planeRx, cy - planeRy, cx + planeRx, cy + planeRy), fillPaint);
 
-        for (int i = 0; i < 7; i++) {
-            float ratio = 0.14f + i * 0.11f;
+        for (int i = 0; i < 8; i++) {
+            float ratio = 0.12f + i * 0.105f;
             float rx = planeRx * ratio;
             float ry = planeRy * ratio;
             strokePaint.setColor(withAlpha((i % 2 == 0) ? Color.rgb(255, 177, 112) : Color.rgb(37, 214, 224), 84 - i * 8));
@@ -199,9 +233,23 @@ public class GraphicRadarPanelView extends View {
             canvas.restore();
         }
 
+        drawRadarEchoes(canvas, cx, cy, planeRx, planeRy, t);
         drawSweep(canvas, cx, cy, planeRx, planeRy, t);
         drawParticles(canvas, cx, cy, planeRx, planeRy, t);
         drawCenterCore(canvas, cx, cy, radius, t);
+    }
+
+    private void drawRadarEchoes(Canvas canvas, float cx, float cy, float rx, float ry, float t) {
+        strokePaint.setStyle(Paint.Style.STROKE);
+        strokePaint.setStrokeWidth(dp(1.4f));
+
+        for (int i = 0; i < 4; i++) {
+            float phase = (t * (0.75f + i * 0.16f) + i * 0.42f) % 1f;
+            float scale = 0.22f + phase * 0.9f;
+            int alpha = (int) (54f * (1f - phase));
+            strokePaint.setColor(withAlpha(i % 2 == 0 ? Color.rgb(44, 214, 218) : Color.rgb(255, 182, 110), alpha));
+            canvas.drawOval(new RectF(cx - rx * scale, cy - ry * scale, cx + rx * scale, cy + ry * scale), strokePaint);
+        }
     }
 
     private void drawSweep(Canvas canvas, float cx, float cy, float rx, float ry, float t) {
