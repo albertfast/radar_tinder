@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ANIMATION_TIMING, STAGGER_DELAYS } from '../../utils/animationConstants';
 import { BarChart, LineChart, StatCard } from '../../components/AnimatedCharts';
+import GraphicRadarPanelView from '../../components/GraphicRadarPanelView';
 import { SupabaseService } from '../../services/SupabaseService';
 import { useAuthStore } from '../../store/authStore';
 import { DatabaseService } from '../../services/DatabaseService';
@@ -14,8 +15,6 @@ import { useAutoHideTabBar } from '../../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../../constants/layout';
 import { hasProAccess } from '../../utils/access';
 import ProGate from '../../components/ProGate';
-
-const graphicRadarPanelGif = require('../../../assets/driving_mode_radar_panel.gif');
 
 interface RadarGraphicViewProps {
   totalDistance: number;
@@ -42,7 +41,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   unitSystem,
   topOverlayInset = 0,
 }) => {
-  const heroTopInset = Math.max(18, topOverlayInset - 50);
+  const heroTopInset = Math.max(6, topOverlayInset - 104);
   const { user } = useAuthStore();
   const canUse = hasProAccess(user);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
@@ -258,6 +257,21 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   const speedSeries = speedData.length ? speedData : [{ time: '--', speed: 0 }];
   const displayDistance = formatDistance(weeklyStats.totalDistance);
   const displayAvgSpeed = `${weeklyStats.avgSpeed} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`;
+  const heroSignalLevel = useMemo(
+    () => Math.max(0.32, Math.min(1, (nearbyAlertIntensity(activeAlerts.length) + currentSpeed / 120) * 0.7)),
+    [activeAlerts.length, currentSpeed]
+  );
+  const heroDangerLevel = useMemo(
+    () => Math.max(0.1, Math.min(0.82, activeAlerts.length > 0 ? 0.3 + activeAlerts.length * 0.08 : 0.18)),
+    [activeAlerts.length]
+  );
+  const heroNearestLabel = useMemo(() => {
+    const nearest = activeAlerts[0];
+    if (!nearest || typeof nearest.distance !== 'number' || !Number.isFinite(nearest.distance)) {
+      return 'Live scan';
+    }
+    return `${formatDistance(nearest.distance)} ahead`;
+  }, [activeAlerts, unitSystem]);
 
   if (!canUse) {
     return (
@@ -287,12 +301,38 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         style={[styles.radarHeroStage, { paddingTop: heroTopInset }]}
         entering={FadeInDown.delay(0).duration(ANIMATION_TIMING.BASE)}
       >
+        <View style={styles.radarHeroHeader}>
+          <View>
+            <Text style={styles.radarHeroEyebrow}>Premium graphic</Text>
+            <Text style={styles.radarHeroTitle}>Drive Visualization</Text>
+          </View>
+          <View style={styles.radarHeroChip}>
+            <MaterialCommunityIcons name="diamond-stone" size={15} color="#4ECDC4" />
+            <Text style={styles.radarHeroChipText}>Pro live panel</Text>
+          </View>
+        </View>
+
         <View style={styles.radarHeroImageShell}>
-          <Image
-            source={graphicRadarPanelGif}
-            resizeMode="contain"
+          <GraphicRadarPanelView
             style={styles.radarHeroImage}
+            signalLevel={heroSignalLevel}
+            dangerLevel={heroDangerLevel}
+            paused={false}
           />
+          <LinearGradient
+            colors={['rgba(3, 7, 18, 0.05)', 'rgba(3, 7, 18, 0.72)']}
+            style={styles.radarHeroShade}
+          />
+          <View style={styles.heroOverlayTopRow}>
+            <View style={styles.heroOverlayPill}>
+              <MaterialCommunityIcons name="radar" size={15} color="#4ECDC4" />
+              <Text style={styles.heroOverlayPillText}>Neon tracking</Text>
+            </View>
+            <View style={styles.heroOverlayPill}>
+              <MaterialCommunityIcons name="map-marker-distance" size={15} color="#FFB36B" />
+              <Text style={styles.heroOverlayPillText}>{heroNearestLabel}</Text>
+            </View>
+          </View>
         </View>
         <Animated.View
           style={styles.statsGrid}
@@ -579,6 +619,8 @@ const ActivityStat = ({ icon, label, value, color, delay }: any) => (
   </Animated.View>
 );
 
+const nearbyAlertIntensity = (count: number) => Math.min(1, count / 6);
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -590,25 +632,94 @@ const styles = StyleSheet.create({
   radarHeroStage: {
     marginHorizontal: -16,
     marginBottom: 20,
-    paddingBottom: 22,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     backgroundColor: '#020617',
   },
+  radarHeroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  radarHeroEyebrow: {
+    color: '#4ECDC4',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.3,
+    textTransform: 'uppercase',
+  },
+  radarHeroTitle: {
+    marginTop: 6,
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  radarHeroChip: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: 'rgba(78,205,196,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(78,205,196,0.16)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  radarHeroChipText: {
+    color: '#D7F5F2',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   radarHeroImageShell: {
+    borderRadius: 28,
+    overflow: 'hidden',
     width: '100%',
     aspectRatio: 640 / 426,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#050B16',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   radarHeroImage: {
     width: '100%',
     height: '100%',
   },
+  radarHeroShade: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroOverlayTopRow: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    right: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  heroOverlayPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(2,7,18,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  heroOverlayPillText: {
+    color: '#E2E8F0',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   statsGrid: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 16,
-    paddingHorizontal: 16,
+    marginTop: -28,
+    paddingHorizontal: 0,
+    zIndex: 2,
   },
   statBox: {
     flex: 1,

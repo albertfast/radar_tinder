@@ -46,11 +46,11 @@ export const RadarAnimation = ({
   const resolvedSize = size || Math.max(220, Math.min(Math.round(width * 0.8), 360));
   const dynamicStyles = useMemo(() => createDynamicStyles(resolvedSize), [resolvedSize]);
 
+  const selectedMode = rendererMode || ENV_RENDERER_MODE;
   const canUseLife3D = useMemo(() => {
     return !!UIManager.getViewManagerConfig?.('RTRadarLife3DView');
   }, []);
 
-  const selectedMode = rendererMode || ENV_RENDERER_MODE;
   const shouldUseLife3D = useMemo(() => {
     if (preferFallback) return false;
     if (selectedMode === 'legacy2d') return false;

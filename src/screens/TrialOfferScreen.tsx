@@ -1,537 +1,677 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  Dimensions, 
-  Image, 
-  TouchableOpacity, 
-  FlatList, 
-  Platform 
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Alert,
+  Dimensions,
+  FlatList,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Alert } from 'react-native';
-import { useAuthStore } from '../store/authStore';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { FirebaseAuthService } from '../services/FirebaseAuthService';
 import { LocationService } from '../services/LocationService';
 import { AdService } from '../services/AdService';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withRepeat, 
-  withTiming, 
-  Easing,
-  FadeInDown,
-  withSequence,
-  withDelay
-} from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthStore } from '../store/authStore';
+import { RadarAnimation } from '../components/RadarAnimation';
 
 const { width, height } = Dimensions.get('window');
 const allowLayoutAnimations = Platform.OS !== 'android';
+const isCompactDevice = height < 760;
+const heroRadarSize = isCompactDevice ? Math.min(width * 0.46, 168) : Math.min(width * 0.5, 196);
 
 const FEATURES = [
   {
-    id: '1',
-    title: 'Avoid Police Radars',
-    subtitle: 'Real-time detection of speed traps and mobile patrols.',
-    icon: 'police-badge',
-    color: '#FF5252' // Vibrant Red
+    id: 'live',
+    title: 'Live radar',
+    subtitle: 'Community radar stream',
+    icon: 'radar',
+    color: '#4ECDC4',
   },
   {
-    id: '2',
-    title: 'AI Diagnostics',
-    subtitle: 'Scan dashboard lights with AI. Know your car\'s health.',
-    icon: 'car-cog',
-    color: '#4ECDC4' // Vibrant Teal
+    id: 'graphic',
+    title: 'Graphic mode',
+    subtitle: 'Premium driving panel',
+    icon: 'chart-areaspline',
+    color: '#FF8A65',
   },
   {
-    id: '3',
-    title: 'Safe Route Match',
-    subtitle: 'Find the safest route with our community-driven data.',
+    id: 'route',
+    title: 'Safe route',
+    subtitle: 'Route-aware alerts',
     icon: 'map-marker-path',
-    color: '#FFE66D' // Vibrant Yellow
-  }
+    color: '#FFE66D',
+  },
 ];
 
-// --- Replaced RadarScan animation with GIF ---
-
-const TrialOfferScreen = ({ navigation }: any) => {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
-  const [loading, setLoading] = useState(false);
-  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
-  const [locationStepComplete, setLocationStepComplete] = useState(false);
-  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+const TrialOfferScreen = () => {
   const { signInAnonymously } = useAuthStore();
-  const scrollX = useSharedValue(0);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [loadingAction, setLoadingAction] = useState<'subscribe' | 'ads' | 'location' | null>(null);
+  const [locationEnabled, setLocationEnabled] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
 
-  // Auto-scrolling logic
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    
-    // Start auto-scroll after a slight delay
-    const startAutoScroll = () => {
-        interval = setInterval(() => {
-            let nextIndex = activeIndex + 1;
-            if (nextIndex >= FEATURES.length) {
-                nextIndex = 0;
-            }
-            flatListRef.current?.scrollToIndex({
-                index: nextIndex,
-                animated: true,
-            });
-            setActiveIndex(nextIndex);
-        }, 3000); // Change slide every 3 seconds
-    };
-
-    startAutoScroll();
+    const interval = setInterval(() => {
+      const nextIndex = (activeIndex + 1) % FEATURES.length;
+      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+      setActiveIndex(nextIndex);
+    }, 3200);
 
     return () => clearInterval(interval);
   }, [activeIndex]);
 
-  const renderItem = ({ item }: any) => (
-    <View style={styles.slide}>
-      <Animated.View
-        style={[styles.iconContainer, { shadowColor: item.color }]}
-        entering={allowLayoutAnimations ? FadeInDown.springify() : undefined}
-      >
-        <MaterialCommunityIcons name={item.icon} size={80} color={item.color} />
-      </Animated.View>
-      <Text style={styles.slideTitle}>{item.title}</Text>
-      <Text style={[styles.slideSubtitle, { color: '#aaa' }]}>{item.subtitle}</Text>
-    </View>
+  const activeFeature = FEATURES[activeIndex];
+  const heroTitle = useMemo(
+    () => (isCompactDevice ? 'Premium driving without the noise' : 'Premium driving that feels built for the road'),
+    []
   );
 
-  const handleLocationStep = async () => {
-    if (isRequestingLocation || locationStepComplete) return;
-    setIsRequestingLocation(true);
-    setLocationPermissionDenied(false);
+  const ensureAnonymousSession = async () => {
+    try {
+      await FirebaseAuthService.signInAnonymously();
+    } catch (firebaseError) {
+      console.warn('Firebase anonymous auth failed:', firebaseError);
+    }
+    await signInAnonymously();
+  };
+
+  const requestLocation = async () => {
+    setLoadingAction('location');
     try {
       await LocationService.requestLocationPermission();
-      await AdService.showAppOpen('onboarding_location_granted');
-    } catch (error) {
-      setLocationPermissionDenied(true);
+      setLocationEnabled(true);
+    } catch {
+      Alert.alert(
+        'Location Not Enabled',
+        'You can continue without location and enable it later from settings.'
+      );
     } finally {
-      setIsRequestingLocation(false);
-      setLocationStepComplete(true);
+      setLoadingAction(null);
     }
   };
 
+  const handleSubscribe = async () => {
+    try {
+      setLoadingAction('subscribe');
+      await ensureAnonymousSession();
+
+      const { SubscriptionService } = await import('../services/SubscriptionService');
+      const offerings = await SubscriptionService.getOfferings();
+      const yearlyPackage = offerings?.availablePackages?.find(
+        (p: any) => p.identifier.includes('yearly') || p.identifier.includes('annual')
+      );
+
+      if (!yearlyPackage) {
+        throw new Error('No annual plan is available right now.');
+      }
+
+      await SubscriptionService.purchasePackage(yearlyPackage);
+    } catch (err: any) {
+      const message =
+        typeof err?.message === 'string' && err.message.trim().length > 0
+          ? err.message
+          : 'Subscription could not be started.';
+      Alert.alert('Subscription Error', message);
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  const handleContinueWithAds = async () => {
+    try {
+      setLoadingAction('ads');
+      await AdService.showAppOpen('trial_offer_continue_with_ads');
+      await ensureAnonymousSession();
+    } catch (err: any) {
+      const message =
+        typeof err?.message === 'string' && err.message.trim().length > 0
+          ? err.message
+          : 'Please check your internet connection and try again.';
+      Alert.alert('Continue Failed', message);
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      setLoadingAction('subscribe');
+      await ensureAnonymousSession();
+      const { SubscriptionService } = await import('../services/SubscriptionService');
+      const restored = await SubscriptionService.restorePurchases();
+      if (!restored) {
+        Alert.alert('Restore Failed', 'No previous purchase was found.');
+      }
+    } catch (err: any) {
+      Alert.alert('Restore Failed', err?.message || 'Could not restore purchases.');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  const renderFeature = ({ item }: { item: (typeof FEATURES)[number] }) => (
+    <View style={styles.featureSlide}>
+      <View style={[styles.featureIcon, { backgroundColor: `${item.color}14`, borderColor: `${item.color}40` }]}>
+        <MaterialCommunityIcons name={item.icon as any} size={18} color={item.color} />
+      </View>
+      <View style={styles.featureCopy}>
+        <Text style={styles.featureTitle}>{item.title}</Text>
+        <Text style={styles.featureSubtitle}>{item.subtitle}</Text>
+      </View>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <Image 
-          source={require('../../assets/premium_access_panel.gif')} 
-          style={StyleSheet.absoluteFill} 
-          resizeMode="cover" 
-      />
+      <LinearGradient colors={['#070B19', '#0A1021', '#161121']} style={StyleSheet.absoluteFill} />
+      <View style={styles.backGlowLeft} />
+      <View style={styles.backGlowRight} />
 
-      <SafeAreaView style={styles.content}>
-        
-        {/* Header */}
-        <Animated.View entering={allowLayoutAnimations ? FadeInDown.delay(200) : undefined} style={styles.header}>
-            <View style={styles.brandContainer}>
-                <MaterialCommunityIcons name="radar" size={24} color="#FF5252" />
-                <Text style={styles.appName}>RADAR TINDER</Text>
-            </View>
+      <SafeAreaView style={styles.safeArea}>
+        <Animated.View entering={allowLayoutAnimations ? FadeInDown.delay(80) : undefined} style={styles.header}>
+          <View style={styles.brandRow}>
+            <MaterialCommunityIcons name="radar" size={20} color="#FF646B" />
+            <Text style={styles.brandText}>RADAR TINDER</Text>
+          </View>
+          <View style={styles.premiumBadge}>
+            <Text style={styles.premiumBadgeText}>PREMIUM</Text>
+          </View>
         </Animated.View>
 
-        {/* Carousel */}
-        <View style={styles.carouselContainer}>
-            <FlatList
+        <View style={styles.main}>
+          <Animated.View entering={allowLayoutAnimations ? FadeInDown.delay(140) : undefined} style={styles.heroPanel}>
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroTextColumn}>
+                <Text style={styles.heroEyebrow}>PREMIUM ACCESS</Text>
+                <Text style={styles.heroTitle}>{heroTitle}</Text>
+                <Text style={styles.heroSubtitle}>
+                  Subscribe directly with no ad interruption, or continue free and watch an ad first.
+                </Text>
+              </View>
+
+              <View style={styles.radarShell}>
+                <View style={styles.radarOrbitGlow} />
+                <RadarAnimation
+                  size={heroRadarSize}
+                  rendererMode="life3d"
+                  signalLevel={0.84}
+                  dangerLevel={0.26}
+                />
+              </View>
+            </View>
+
+            <View style={styles.infoRail}>
+              <View style={styles.infoChip}>
+                <MaterialCommunityIcons name="shield-check-outline" size={16} color="#4ECDC4" />
+                <Text style={styles.infoChipText}>No ad on subscribe</Text>
+              </View>
+              <View style={styles.infoChip}>
+                <MaterialCommunityIcons name="map-marker-radius-outline" size={16} color="#7CE8DF" />
+                <Text style={styles.infoChipText}>{locationEnabled ? 'Location enabled' : 'Location optional now'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.carouselShell}>
+              <FlatList
                 ref={flatListRef}
                 data={FEATURES}
-                renderItem={renderItem}
+                renderItem={renderFeature}
+                keyExtractor={(item) => item.id}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 onMomentumScrollEnd={(ev) => {
-                    const index = Math.round(ev.nativeEvent.contentOffset.x / width);
-                    setActiveIndex(index);
+                  const index = Math.round(ev.nativeEvent.contentOffset.x / (width - 40));
+                  setActiveIndex(Math.max(0, Math.min(index, FEATURES.length - 1)));
                 }}
-            />
-            
-            {/* Pagination Dots */}
-            <View style={styles.pagination}>
-                {FEATURES.map((feat, i) => (
-                    <Animated.View 
-                        key={i} 
-                        style={[
-                            styles.dot, 
-                            { 
-                                backgroundColor: i === activeIndex ? feat.color : '#333',
-                                width: i === activeIndex ? 24 : 8 
-                            }
-                        ]} 
-                    />
+                getItemLayout={(_, index) => ({
+                  length: width - 40,
+                  offset: (width - 40) * index,
+                  index,
+                })}
+              />
+              <View style={styles.pagination}>
+                {FEATURES.map((item, index) => (
+                  <View
+                    key={item.id}
+                    style={[
+                      styles.dot,
+                      index === activeIndex && { width: 18, backgroundColor: activeFeature.color },
+                    ]}
+                  />
                 ))}
+              </View>
             </View>
-        </View>
+          </Animated.View>
 
-        {/* Action Card */}
-        <Animated.View
-          entering={allowLayoutAnimations ? FadeInDown.delay(400).springify() : undefined}
-          style={styles.footer}
-        >
-            <LinearGradient
-                colors={['rgba(30,30,30,0.9)', 'rgba(10,10,10,0.95)']}
-                style={styles.offerCard}
+          <Animated.View entering={allowLayoutAnimations ? FadeInDown.delay(200) : undefined} style={styles.offerPanel}>
+            <View style={styles.offerHeaderRow}>
+              <View>
+                <Text style={styles.offerTag}>3-DAY FREE TRIAL</Text>
+                <Text style={styles.offerTitle}>Unlock Graphic Drive</Text>
+              </View>
+              <View style={styles.offerPricePill}>
+                <Text style={styles.offerPriceTop}>$19.99</Text>
+                <Text style={styles.offerPriceBottom}>per year</Text>
+              </View>
+            </View>
+
+            <View style={styles.offerBenefits}>
+              <Benefit label="Graphic mode" value="Included" color="#4ECDC4" />
+              <Benefit label="Safe route" value="Included" color="#FFE66D" />
+              <Benefit label="Ad-free" value="Premium only" color="#FF8A65" />
+            </View>
+
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={handleSubscribe}
+              disabled={loadingAction !== null}
+              activeOpacity={0.92}
             >
-                <View style={styles.planBadge}>
-                    <Text style={styles.planBadgeText}>PREMIUM ACCESS</Text>
-                </View>
-                <Text style={styles.trialText}>3-Day Free Trial</Text>
-                <Text style={styles.priceText}>Then $19.99/year. Or start weekly at $3.99/week.</Text>
-
-                {!locationStepComplete ? (
-                    <>
-                        <TouchableOpacity
-                            style={styles.ctaButton}
-                            onPress={handleLocationStep}
-                            disabled={isRequestingLocation || loading}
-                        >
-                            <LinearGradient
-                                colors={['#22C55E', '#16A34A']}
-                                style={styles.ctaGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                            >
-                                {isRequestingLocation ? (
-                                    <ActivityIndicator color="white" />
-                                ) : (
-                                    <Text style={styles.ctaText}>ENABLE LOCATION TO CONTINUE</Text>
-                                )}
-                            </LinearGradient>
-                        </TouchableOpacity>
-                        <Text style={styles.ctaSub}>
-                            Location helps detect nearby radars and unlocks the free/ad flow.
-                        </Text>
-                        {locationPermissionDenied ? (
-                            <Text style={styles.permissionHint}>
-                                Location not granted. You can still continue and allow it later in app settings.
-                            </Text>
-                        ) : null}
-                    </>
+              <LinearGradient colors={['#FF6A6A', '#FF4F63']} style={styles.primaryButtonGradient}>
+                {loadingAction === 'subscribe' ? (
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                    <>
-                        <TouchableOpacity 
-                            style={styles.ctaButton}
-                            onPress={async () => {
-                                try {
-                                    setLoading(true);
-                                    
-                                    // 1. First sign in anonymously to create user session
-                                    try {
-                                        await FirebaseAuthService.signInAnonymously();
-                                    } catch (firebaseError) {
-                                        console.warn('Firebase anonymous auth failed:', firebaseError);
-                                    }
-                                    await signInAnonymously();
-                                    
-                                    // 2. Now try to start the subscription with free trial
-                                    // RevenueCat will handle the trial period
-                                    try {
-                                        const { SubscriptionService } = await import('../services/SubscriptionService');
-                                        const offerings = await SubscriptionService.getOfferings();
-                                        
-                                        // Find the yearly package with trial
-                                        const yearlyPackage = offerings?.availablePackages?.find(
-                                            (p: any) => p.identifier.includes('yearly') || p.identifier.includes('annual')
-                                        );
-                                        
-                                        if (yearlyPackage) {
-                                            await SubscriptionService.purchasePackage(yearlyPackage);
-                                        }
-                                    } catch (subError) {
-                                        // Subscription failed or cancelled - user continues with free tier
-                                        console.log('Subscription not started:', subError);
-                                    }
-                                    
-                                    // User enters app (authenticated now)
-                                } catch (err: any) {
-                                    console.error('Silent identification error:', err);
-                                    const message =
-                                      typeof err?.message === 'string' && err.message.trim().length > 0
-                                        ? err.message
-                                        : 'Please check your internet connection and try again.';
-                                    Alert.alert('Sign-in Error', message);
-                                } finally {
-                                    setLoading(false);
-                                }
-                            }}
-                            disabled={loading}
-                        >
-                            <LinearGradient
-                                colors={['#FF5252', '#D32F2F']}
-                                style={styles.ctaGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                            >
-                                {loading ? (
-                                    <ActivityIndicator color="white" />
-                                ) : (
-                                    <Text style={styles.ctaText}>START 3-DAY FREE TRIAL</Text>
-                                )}
-                            </LinearGradient>
-                        </TouchableOpacity>
-                        
-                        <Text style={styles.ctaSub}>Unlocks all features. Weekly plan bills immediately.</Text>
-                        
-                        {/* Skip option for free tier with ads */}
-                        <TouchableOpacity 
-                            style={styles.skipBtn}
-                            onPress={async () => {
-                                try {
-                                    setLoading(true);
-                                    try {
-                                        await FirebaseAuthService.signInAnonymously();
-                                    } catch (firebaseError) {
-                                        console.warn('Firebase anonymous auth failed:', firebaseError);
-                                    }
-                                    await signInAnonymously();
-                                    // User continues with free tier (will see ads)
-                                } catch (err: any) {
-                                    console.error('Skip sign-in error:', err);
-                                    Alert.alert('Error', 'Please check your internet connection.');
-                                } finally {
-                                    setLoading(false);
-                                }
-                            }}
-                            disabled={loading}
-                        >
-                            <Text style={styles.skipText}>Continue with Ads (Free)</Text>
-                        </TouchableOpacity>
-                    </>
+                  <>
+                    <MaterialCommunityIcons name="shield-crown-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.primaryButtonText}>Start Premium Trial</Text>
+                  </>
                 )}
-            </LinearGradient>
-            
-            <TouchableOpacity style={styles.restoreBtn}>
-                <Text style={styles.restoreText}>Restore Purchase</Text>
+              </LinearGradient>
             </TouchableOpacity>
-        </Animated.View>
 
+            <View style={styles.secondaryRow}>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={handleContinueWithAds}
+                disabled={loadingAction !== null}
+                activeOpacity={0.9}
+              >
+                {loadingAction === 'ads' ? (
+                  <ActivityIndicator color="#D6DEED" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="play-circle-outline" size={18} color="#D6DEED" />
+                    <Text style={styles.secondaryButtonText}>Continue with Ads</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.locationButton}
+                onPress={requestLocation}
+                disabled={loadingAction !== null}
+                activeOpacity={0.9}
+              >
+                {loadingAction === 'location' ? (
+                  <ActivityIndicator color="#4ECDC4" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons
+                      name={locationEnabled ? 'crosshairs-gps' : 'map-marker-radius-outline'}
+                      size={18}
+                      color="#4ECDC4"
+                    />
+                    <Text style={styles.locationButtonText}>
+                      {locationEnabled ? 'Location enabled' : 'Enable location'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.restoreButton} onPress={handleRestore} disabled={loadingAction !== null}>
+              <Text style={styles.restoreText}>Restore Purchase</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
       </SafeAreaView>
     </View>
   );
 };
 
+const Benefit = ({ label, value, color }: { label: string; value: string; color: string }) => (
+  <View style={styles.benefitCard}>
+    <Text style={styles.benefitLabel}>{label}</Text>
+    <Text style={[styles.benefitValue, { color }]}>{value}</Text>
+  </View>
+);
+
+export default TrialOfferScreen;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#070B19',
   },
-  // 3D/Radar Styles
-  gridContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    opacity: 0.2,
-    transform: [{ perspective: 1000 }, { rotateX: '60deg' }, { scale: 2 }]
-  },
-  grid: {
-    width: width * 2,
-    height: height * 2,
-    borderWidth: 1,
-    borderColor: '#333',
-    backgroundColor: 'transparent',
-    // In a real app, uses an image pattern or SVG for grid lines
-  },
-  radarContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    transform: [{ perspective: 1000 }, { rotateX: '45deg' }] // Adds depth tilt
-  },
-  pulseRing: {
-    position: 'absolute',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 82, 82, 0.3)',
-  },
-  scanner: {
-    width: 600,
-    height: 600,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scannerGradient: {
-    width: 300, 
-    height: 300,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    borderRightWidth: 2,
-    borderColor: '#FF5252',
-    transform: [{ rotate: '-45deg' }, { translateX: 150 }, { translateY: 150 }] // Half fan shape
-  },
-
-  // Content Styles
-  content: {
+  safeArea: {
     flex: 1,
-    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+  },
+  backGlowLeft: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 999,
+    left: -120,
+    top: isCompactDevice ? 110 : 140,
+    backgroundColor: 'rgba(45, 192, 191, 0.20)',
+  },
+  backGlowRight: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 999,
+    right: -140,
+    bottom: 120,
+    backgroundColor: 'rgba(255, 125, 72, 0.16)',
   },
   header: {
+    marginTop: 4,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 24,
-    alignItems: 'center',
   },
-  brandContainer: {
+  brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: 8,
   },
-  appName: {
-    color: '#fff',
-    fontWeight: '900',
-    letterSpacing: 2,
-    fontSize: 16,
-  },
-  loginLink: {
-    color: '#FF5252',
-    fontWeight: 'bold',
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  carouselContainer: {
-    height: 380,
-  },
-  slide: {
-    width: width,
-    alignItems: 'center',
-    padding: 20,
-    justifyContent: 'center',
-  },
-  iconContainer: {
-    width: 140,
-    height: 140,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 30,
-    // Note: Shadow requires bg color on iOS
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 20,
-    elevation: 10, // Android
-  },
-  slideTitle: {
-    color: '#fff',
-    fontSize: 36,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
-    letterSpacing: 0.5,
-  },
-  slideSubtitle: {
+  brandText: {
+    color: '#F7FAFC',
     fontSize: 18,
-    textAlign: 'center',
-    paddingHorizontal: 30,
-    lineHeight: 26,
-    fontWeight: '500',
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+  premiumBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  premiumBadgeText: {
+    color: '#FFB2B6',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+  },
+  main: {
+    flex: 1,
+    paddingTop: isCompactDevice ? 14 : 18,
+    paddingBottom: 14,
+    justifyContent: 'space-between',
+  },
+  heroPanel: {
+    borderRadius: 30,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
+    backgroundColor: 'rgba(7, 12, 24, 0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    overflow: 'hidden',
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  heroTextColumn: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  heroEyebrow: {
+    color: '#4ECDC4',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+  },
+  heroTitle: {
+    marginTop: 8,
+    color: '#FFFFFF',
+    fontSize: isCompactDevice ? 28 : 32,
+    lineHeight: isCompactDevice ? 31 : 36,
+    fontWeight: '900',
+  },
+  heroSubtitle: {
+    marginTop: 10,
+    color: '#97A4BC',
+    fontSize: 14,
+    lineHeight: 20,
+    maxWidth: 210,
+  },
+  radarShell: {
+    width: heroRadarSize + 18,
+    height: heroRadarSize + 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radarOrbitGlow: {
+    position: 'absolute',
+    width: heroRadarSize + 6,
+    height: heroRadarSize + 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(37, 208, 200, 0.08)',
+  },
+  infoRail: {
+    marginTop: 10,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  infoChip: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoChipText: {
+    color: '#D5DEEC',
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
+  },
+  carouselShell: {
+    marginTop: 12,
+    minHeight: isCompactDevice ? 92 : 102,
+    justifyContent: 'center',
+  },
+  featureSlide: {
+    width: width - 40,
+    minHeight: isCompactDevice ? 74 : 82,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  featureIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureCopy: {
+    flex: 1,
+  },
+  featureTitle: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  featureSubtitle: {
+    marginTop: 4,
+    color: '#91A0B7',
+    fontSize: 13,
+    lineHeight: 18,
   },
   pagination: {
-    flexDirection: 'row',
-    justifyContent: 'center',
     marginTop: 10,
-    gap: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   dot: {
+    width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 99,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
-  footer: {
-    padding: 20,
-    paddingBottom: 30,
-  },
-  offerCard: {
-    alignItems: 'center',
-    padding: 25,
-    borderRadius: 24,
+  offerPanel: {
+    marginTop: 14,
+    borderRadius: 28,
+    padding: 18,
+    backgroundColor: 'rgba(17, 20, 31, 0.94)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  planBadge: {
-    backgroundColor: 'rgba(255, 82, 82, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 82, 82, 0.5)',
+  offerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  planBadgeText: {
-    color: '#FF5252',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1.5,
+  offerTag: {
+    color: '#FFB0B6',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
   },
-  trialText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  priceText: {
-    color: '#94A3B8',
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  ctaButton: {
-    width: '100%',
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#FF5252',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  ctaGradient: {
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  ctaText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  ctaSub: {
-    color: '#64748B',
-    fontSize: 12,
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  permissionHint: {
-    color: '#94A3B8',
-    fontSize: 12,
+  offerTitle: {
     marginTop: 8,
-    textAlign: 'center',
+    color: '#FFFFFF',
+    fontSize: isCompactDevice ? 28 : 30,
+    lineHeight: isCompactDevice ? 30 : 33,
+    fontWeight: '900',
   },
-  skipBtn: {
-    alignItems: 'center',
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+  offerPricePill: {
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 8,
+    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'flex-end',
   },
-  skipText: {
-    color: '#888',
-    fontSize: 14,
-    fontWeight: '500',
+  offerPriceTop: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
-  restoreBtn: {
+  offerPriceBottom: {
+    color: '#97A4BC',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  offerBenefits: {
+    marginTop: 14,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  benefitCard: {
+    flex: 1,
+    minHeight: 60,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    justifyContent: 'space-between',
+  },
+  benefitLabel: {
+    color: '#8E9AAF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  benefitValue: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  primaryButton: {
+    marginTop: 14,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  primaryButtonGradient: {
+    minHeight: 56,
+    borderRadius: 18,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    justifyContent: 'center',
+    gap: 8,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  secondaryRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  secondaryButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  secondaryButtonText: {
+    color: '#E2E8F0',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  locationButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 16,
+    backgroundColor: 'rgba(78,205,196,0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(78,205,196,0.20)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  locationButtonText: {
+    color: '#7CE8DF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  restoreButton: {
+    marginTop: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 30,
   },
   restoreText: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: '600',
-  }
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });
-
-export default TrialOfferScreen;

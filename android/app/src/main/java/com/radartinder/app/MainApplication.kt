@@ -14,6 +14,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactNativeHost
 import ai.onnxruntime.reactnative.OnnxruntimePackage
 import com.radartinder.app.radarlife.RadarLifePackage
+import com.radartinder.app.ui.UIPackage
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
@@ -29,6 +30,7 @@ class MainApplication : Application(), ReactApplication {
               // add(MyReactNativePackage())
               add(OnnxruntimePackage())
               add(RadarLifePackage())
+              add(UIPackage())
             }
 
           override fun getJSMainModuleName(): String = ".expo/.virtual-metro-entry"

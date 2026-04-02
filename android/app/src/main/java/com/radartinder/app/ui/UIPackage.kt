@@ -10,7 +10,7 @@ class UIPackage : ReactPackage {
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
         return listOf(
-            // PremiumPanelViewManager buraya eklenecek
+            GraphicRadarPanelViewManager(),
         )
     }
 }
