@@ -314,14 +314,12 @@ export function RadarHomeDashboard({
           </View>
 
           <View style={styles.radarShell}>
-            <Image 
-              source={require('../../../../assets/radar_loopnice.gif')}
-              style={{
-                width: radarAnimationSize,
-                height: radarAnimationSize,
-                borderRadius: radarAnimationSize / 2,
-              }}
-              resizeMode="cover"
+            <RadarAnimation
+              size={radarAnimationSize}
+              rendererMode="life3d"
+              signalLevel={radarSignalLevel}
+              dangerLevel={radarDangerLevel}
+              paused={pauseRadarAnimation}
             />
             <View style={[styles.radarChip, styles.radarChipLeft]}>
               <MaterialCommunityIcons name="radar" size={18} color="#4ECDC4" />

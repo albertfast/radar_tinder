@@ -66,6 +66,8 @@ export interface RadarLocation {
   markerKind?: RadarMarkerKind;
   etaConfidence?: RadarEtaConfidence;
   approachLabel?: string;
+  locationLabel?: string;
+  locationHint?: string;
   confidence: number;
   lastConfirmed: Date;
   reportedBy: string;

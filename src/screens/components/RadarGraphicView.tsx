@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, useWindowDimensions, Image } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
@@ -12,19 +12,17 @@ import { DatabaseService } from '../../services/DatabaseService';
 import { useRadarStore } from '../../store/radarStore';
 import { useAutoHideTabBar } from '../../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../../constants/layout';
-import { hasProAccess, isPremiumAccessPending } from '../../utils/access';
+import { hasProAccess } from '../../utils/access';
 import ProGate from '../../components/ProGate';
-import { RadarAnimation, type RadarRendererMode } from '../../components/RadarAnimation';
-import { AccessBootstrapView } from '../../components/AccessBootstrapView';
+
+const graphicRadarPanelGif = require('../../../assets/driving_mode_radar_panel.gif');
 
 interface RadarGraphicViewProps {
   totalDistance: number;
   drivingStartTime: Date | null;
   currentSpeed: number;
   unitSystem: 'metric' | 'imperial';
-  radarRendererMode: RadarRendererMode;
-  radarSignalLevel: number;
-  radarDangerLevel: number;
+  topOverlayInset?: number;
 }
 
 const emptyWeeklyTrips = [
@@ -37,20 +35,16 @@ const emptyWeeklyTrips = [
   { day: 'Sat', trips: 0, distance: 0 },
 ];
 
-
 export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   totalDistance,
   drivingStartTime,
   currentSpeed,
   unitSystem,
-  radarRendererMode,
-  radarSignalLevel,
-  radarDangerLevel,
+  topOverlayInset = 0,
 }) => {
-  const { width } = useWindowDimensions();
-  const { user, accessBootstrapState } = useAuthStore();
+  const heroTopInset = Math.max(18, topOverlayInset - 50);
+  const { user } = useAuthStore();
   const canUse = hasProAccess(user);
-  const accessPending = isPremiumAccessPending(user, accessBootstrapState);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [weeklyData, setWeeklyData] = useState(emptyWeeklyTrips);
@@ -59,9 +53,8 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
   const [weeklyDurationSeconds, setWeeklyDurationSeconds] = useState(0);
   const [weeklyAlertCount, setWeeklyAlertCount] = useState(0);
-  const lastRecentIds = useRef<string>('');
+  const lastRecentIds = useRef('');
 
-  // Load real data from Supabase
   useEffect(() => {
     if (canUse) {
       loadDrivingData();
@@ -93,16 +86,13 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
 
   const loadDrivingData = async () => {
     try {
-      
-      // Load user's weekly trip statistics
       const trips = await SupabaseService.getUserTrips(user?.id);
-      // Group trips by day of week
       const dayMap: { [key: string]: { trips: number; distance: number } } = {};
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const weekStart = Date.now() - 7 * 24 * 60 * 60 * 1000;
       let durationSeconds = 0;
-      
-      days.forEach(day => {
+
+      days.forEach((day) => {
         dayMap[day] = { trips: 0, distance: 0 };
       });
 
@@ -113,26 +103,20 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         const dayName = days[date.getDay()];
         if (dayMap[dayName]) {
           dayMap[dayName].trips += 1;
-          dayMap[dayName].distance += (trip.distance || 0) / 1000; // Convert to km
+          dayMap[dayName].distance += (trip.distance || 0) / 1000;
           durationSeconds += Number(trip.duration || 0);
         }
       });
 
-      const newWeeklyData = days.map(day => ({
+      const newWeeklyData = days.map((day) => ({
         day,
         trips: dayMap[day].trips,
         distance: dayMap[day].distance,
       }));
       setWeeklyData(newWeeklyData);
       setWeeklyDurationSeconds(durationSeconds);
-
-      // Load recent radar alerts/incidents if available
-      // Note: This assumes you have a method to fetch recent radar incidents
-      // For now, using mock data
-      
     } catch (error) {
       console.error('Failed to load driving data:', error);
-      // Keep using mock data on error
     }
   };
 
@@ -190,11 +174,12 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             ? `${formatDistance(alert.distance)} away`
             : 'Nearby';
 
-        const createdAt = alert.createdAt instanceof Date
-          ? alert.createdAt
-          : alert.createdAt
-            ? new Date(alert.createdAt)
-            : undefined;
+        const createdAt =
+          alert.createdAt instanceof Date
+            ? alert.createdAt
+            : alert.createdAt
+              ? new Date(alert.createdAt)
+              : undefined;
 
         return {
           id: alert.id,
@@ -216,6 +201,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
       console.warn('Failed to load recent activity:', error);
     }
   };
+
   const formatDistance = (km: number) => {
     if (unitSystem === 'imperial') {
       const miles = km * 0.621371;
@@ -239,10 +225,10 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   }, [user?.id, activeAlerts.length, canUse]);
 
   const weeklyStats = {
-    totalDistance: weeklyData.reduce((acc, d) => acc + d.distance, 0),
-    totalTrips: weeklyData.reduce((acc, d) => acc + d.trips, 0),
+    totalDistance: weeklyData.reduce((acc, item) => acc + item.distance, 0),
+    totalTrips: weeklyData.reduce((acc, item) => acc + item.trips, 0),
     avgSpeed: speedData.length
-      ? Math.round(speedData.reduce((acc, d) => acc + d.speed, 0) / speedData.length)
+      ? Math.round(speedData.reduce((acc, item) => acc + item.speed, 0) / speedData.length)
       : 0,
   };
 
@@ -258,27 +244,20 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
 
   const speedSummary = {
     average: speedData.length
-      ? Math.round(speedData.reduce((acc, d) => acc + d.speed, 0) / speedData.length)
+      ? Math.round(speedData.reduce((acc, item) => acc + item.speed, 0) / speedData.length)
       : 0,
-    peak: speedData.length ? Math.max(...speedData.map(d => d.speed)) : 0,
+    peak: speedData.length ? Math.max(...speedData.map((item) => item.speed)) : 0,
     stability: speedData.length
-      ? Math.max(0, 100 - (Math.max(...speedData.map(d => d.speed)) - Math.min(...speedData.map(d => d.speed))))
+      ? Math.max(
+          0,
+          100 - (Math.max(...speedData.map((item) => item.speed)) - Math.min(...speedData.map((item) => item.speed)))
+        )
       : 0,
   };
 
   const speedSeries = speedData.length ? speedData : [{ time: '--', speed: 0 }];
-
   const displayDistance = formatDistance(weeklyStats.totalDistance);
   const displayAvgSpeed = `${weeklyStats.avgSpeed} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`;
-
-  if (accessPending) {
-    return (
-      <AccessBootstrapView
-        title="Checking Pro access"
-        subtitle="Restoring graphs and trip analytics for your subscription."
-      />
-    );
-  }
 
   if (!canUse) {
     return (
@@ -292,7 +271,12 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={[styles.containerContent, { paddingBottom: TAB_BAR_HEIGHT + 32 }]}
+      contentContainerStyle={[
+        styles.containerContent,
+        {
+          paddingBottom: TAB_BAR_HEIGHT + 32,
+        },
+      ]}
       showsVerticalScrollIndicator={false}
       onScroll={onScroll}
       onScrollBeginDrag={onScrollBeginDrag}
@@ -300,62 +284,44 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
       scrollEventThrottle={16}
     >
       <Animated.View
-        style={styles.radarHeroCard}
+        style={[styles.radarHeroStage, { paddingTop: heroTopInset }]}
         entering={FadeInDown.delay(0).duration(ANIMATION_TIMING.BASE)}
       >
-        <LinearGradient
-          colors={['#0B1224', '#091426']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.radarHeroGradient}
+        <View style={styles.radarHeroImageShell}>
+          <Image
+            source={graphicRadarPanelGif}
+            resizeMode="contain"
+            style={styles.radarHeroImage}
+          />
+        </View>
+        <Animated.View
+          style={styles.statsGrid}
+          entering={FadeInDown.delay(STAGGER_DELAYS.ITEM_FAST).duration(ANIMATION_TIMING.BASE)}
         >
-          <View style={styles.radarHeroHeader}>
-            <Text style={styles.radarHeroTitle}>Live Radar Field</Text>
-            <Text style={styles.radarHeroMeta}>Contour + Orbit</Text>
-          </View>
-          <View style={styles.radarHeroBody}>
-            <Image
-              source={require('../../../assets/driving_mode_radar_panel.gif')}
-              style={{
-                width: Math.max(150, Math.min(Math.round(width * 0.45), 220)),
-                height: Math.max(150, Math.min(Math.round(width * 0.45), 220)),
-                borderRadius: Math.max(150, Math.min(Math.round(width * 0.45), 220)) / 2,
-              }}
-              resizeMode="cover"
-            />
-          </View>
-        </LinearGradient>
+          <StatBox
+            icon="navigation"
+            label="Distance"
+            value={formatDistance(totalDistance)}
+            color="#4ECDC4"
+            delay={0}
+          />
+          <StatBox
+            icon="clock-outline"
+            label="Duration"
+            value={formatDuration(drivingStartTime)}
+            color="#FFD700"
+            delay={100}
+          />
+          <StatBox
+            icon="speedometer"
+            label="Current Speed"
+            value={`${Math.round(currentSpeed)} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`}
+            color="#FF5252"
+            delay={200}
+          />
+        </Animated.View>
       </Animated.View>
 
-      {/* Current Session Stats */}
-      <Animated.View
-        style={styles.statsGrid}
-        entering={FadeInDown.delay(STAGGER_DELAYS.ITEM_FAST).duration(ANIMATION_TIMING.BASE)}
-      >
-        <StatBox
-          icon="navigation"
-          label="Distance"
-          value={formatDistance(totalDistance)}
-          color="#4ECDC4"
-          delay={0}
-        />
-        <StatBox
-          icon="clock-outline"
-          label="Duration"
-          value={formatDuration(drivingStartTime)}
-          color="#FFD700"
-          delay={100}
-        />
-        <StatBox
-          icon="speedometer"
-          label="Current Speed"
-          value={`${Math.round(currentSpeed)} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`}
-          color="#FF5252"
-          delay={200}
-        />
-      </Animated.View>
-
-      {/* Weekly Trips Chart */}
       <Animated.View
         style={styles.section}
         entering={FadeInDown.delay(100).duration(ANIMATION_TIMING.SLOW)}
@@ -369,10 +335,10 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             <Text style={styles.sectionTitle}>Weekly Trips</Text>
           </View>
           <BarChart
-            data={weeklyData.map(d => ({ 
-              label: d.day, 
-              value: d.trips,
-              color: ['#FF6B6B', '#FFA500', '#FFD700', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'][weeklyData.indexOf(d)]
+            data={weeklyData.map((item) => ({
+              label: item.day,
+              value: item.trips,
+              color: ['#FF6B6B', '#FFA500', '#FFD700', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'][weeklyData.indexOf(item)],
             }))}
             height={180}
             maxValue={7}
@@ -380,7 +346,6 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         </LinearGradient>
       </Animated.View>
 
-      {/* Speed History Chart */}
       <Animated.View
         style={styles.section}
         entering={FadeInDown.delay(200).duration(ANIMATION_TIMING.SLOW)}
@@ -420,8 +385,8 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             </View>
           </View>
           <LineChart
-            data={speedSeries.map(d => d.speed)}
-            labels={speedSeries.map(d => d.time)}
+            data={speedSeries.map((item) => item.speed)}
+            labels={speedSeries.map((item) => item.time)}
             height={160}
             maxValue={100}
             color="#45B7D1"
@@ -429,7 +394,6 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         </LinearGradient>
       </Animated.View>
 
-      {/* Performance Metrics */}
       <Animated.View
         style={styles.section}
         entering={FadeInDown.delay(300).duration(ANIMATION_TIMING.SLOW)}
@@ -475,7 +439,6 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         </LinearGradient>
       </Animated.View>
 
-      {/* Recent Activities */}
       <Animated.View
         style={styles.section}
         entering={FadeInDown.delay(400).duration(ANIMATION_TIMING.SLOW)}
@@ -491,38 +454,39 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
           <View>
             {recentAlerts.length === 0 ? (
               <Text style={styles.emptyActivityText}>No recent activity yet.</Text>
-            ) : recentAlerts.map((activity, idx) => (
-              <Animated.View
-                key={activity.id}
-                entering={FadeInDown.delay(420 + idx * 50).duration(ANIMATION_TIMING.BASE)}
-                style={styles.activityItem}
-              >
-                <LinearGradient
-                  colors={[`${activity.color}20`, `${activity.color}10`]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.activityGradient}
+            ) : (
+              recentAlerts.map((activity, index) => (
+                <Animated.View
+                  key={activity.id}
+                  entering={FadeInDown.delay(420 + index * 50).duration(ANIMATION_TIMING.BASE)}
+                  style={styles.activityItem}
                 >
-                  <View style={styles.activityIconBox}>
-                    <MaterialCommunityIcons 
-                      name={activity.icon as any} 
-                      size={20} 
-                      color={activity.color}
-                    />
-                  </View>
-                  <View style={styles.activityContent}>
-                    <Text style={styles.activityTitle}>{activity.title}</Text>
-                    <Text style={styles.activityLocation}>{activity.location}</Text>
-                  </View>
-                  <Text style={styles.activityTime}>{activity.time}</Text>
-                </LinearGradient>
-              </Animated.View>
-            ))}
+                  <LinearGradient
+                    colors={[`${activity.color}20`, `${activity.color}10`]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.activityGradient}
+                  >
+                    <View style={styles.activityIconBox}>
+                      <MaterialCommunityIcons
+                        name={activity.icon as any}
+                        size={20}
+                        color={activity.color}
+                      />
+                    </View>
+                    <View style={styles.activityContent}>
+                      <Text style={styles.activityTitle}>{activity.title}</Text>
+                      <Text style={styles.activityLocation}>{activity.location}</Text>
+                    </View>
+                    <Text style={styles.activityTime}>{activity.time}</Text>
+                  </LinearGradient>
+                </Animated.View>
+              ))
+            )}
           </View>
         </LinearGradient>
       </Animated.View>
 
-      {/* Weekly Summary */}
       <Animated.View
         style={styles.section}
         entering={FadeInDown.delay(500).duration(ANIMATION_TIMING.SLOW)}
@@ -621,45 +585,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
   },
   containerContent: {
-    padding: 16,
+    paddingHorizontal: 16,
   },
-  radarHeroCard: {
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(78,205,196,0.24)',
+  radarHeroStage: {
+    marginHorizontal: -16,
+    marginBottom: 20,
+    paddingBottom: 22,
+    backgroundColor: '#020617',
   },
-  radarHeroGradient: {
-    padding: 14,
-  },
-  radarHeroHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  radarHeroTitle: {
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  radarHeroMeta: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  radarHeroBody: {
-    alignItems: 'center',
+  radarHeroImageShell: {
+    width: '100%',
+    aspectRatio: 640 / 426,
     justifyContent: 'center',
-    paddingVertical: 2,
+    alignItems: 'center',
+    backgroundColor: '#050B16',
+  },
+  radarHeroImage: {
+    width: '100%',
+    height: '100%',
   },
   statsGrid: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 24,
+    marginTop: 16,
+    paddingHorizontal: 16,
   },
   statBox: {
     flex: 1,
@@ -668,7 +617,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(103, 232, 249, 0.16)',
+    backgroundColor: 'rgba(6, 17, 29, 0.92)',
     minHeight: 100,
   },
   statLabel: {
@@ -702,7 +652,9 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 12,
   },
-  speedCardWrapper: { flex: 1 },
+  speedCardWrapper: {
+    flex: 1,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',

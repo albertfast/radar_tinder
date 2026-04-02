@@ -1316,50 +1316,6 @@ const restoreExpoModulesCoreJSIUtils = () => {
   }
 };
 
-const patchLottieReactNativeCodegen = () => {
-  const pkg = 'lottie-react-native';
-  const resolvedDir = resolvePackageDir(pkg);
-  if (!resolvedDir) {
-    console.warn(`prepare-patches: could not resolve ${pkg}: unable to resolve path`);
-    return;
-  }
-
-  // Create the missing codegen directory structure for lottie-react-native
-  const codegenDir = path.join(
-    __dirname,
-    '..',
-    'ios',
-    'build',
-    'generated',
-    'ios',
-    'ReactCodegen',
-    'react',
-    'renderer',
-    'components',
-    'lottiereactnative'
-  );
-
-  if (!fs.existsSync(codegenDir)) {
-    fs.mkdirSync(codegenDir, { recursive: true });
-    console.log('Created lottie-react-native codegen directory structure');
-  }
-
-  // Create placeholder header files if they don't exist
-  const headerFiles = ['States.h', 'ShadowNodes.h', 'RCTComponentViewHelpers.h', 'Props.h', 'EventEmitters.h', 'ComponentDescriptors.h'];
-
-  for (const headerFile of headerFiles) {
-    const headerPath = path.join(codegenDir, headerFile);
-    if (!fs.existsSync(headerPath)) {
-      const content = `// Placeholder header for ${headerFile}
-// This file is auto-generated but may be missing in some build configurations
-#pragma once
-`;
-      fs.writeFileSync(headerPath, content);
-      console.log(`Created placeholder ${headerFile} for lottie-react-native`);
-    }
-  }
-};
-
 const patchReactNativeXcodeMetroIpWriteGuard = () => {
   const pkg = 'react-native';
   const resolvedDir = resolvePackageDir(pkg);
@@ -1570,6 +1526,5 @@ patchExpoDevMenuPackagerConnectionForRN84();
 patchExpoDevLauncherBridgeForRN84();
 patchExpoDevLauncherAutoSetupPrepare();
 restoreExpoModulesCoreJSIUtils();
-patchLottieReactNativeCodegen();
 patchReactNativeXcodeMetroIpWriteGuard();
 patchExpoUpdatesReactDelegateHandler();

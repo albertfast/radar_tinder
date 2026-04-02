@@ -150,15 +150,5 @@ target 'RadarTinder' do
       )
       File.write(rn_maps_marker_header, marker_patched) if marker_patched != marker_content
     end
-
-    # Disable new architecture for lottie-react-native due to incomplete codegen support
-    installer.pods_project.targets.each do |target|
-      if target.name == 'lottie-react-native'
-        target.build_configurations.each do |config|
-          config.build_settings['RCT_NEW_ARCH_ENABLED'] = 'NO'
-        end
-      end
-    end
-
   end
 end
