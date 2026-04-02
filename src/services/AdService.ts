@@ -5,6 +5,7 @@ import { AnalyticsService } from './AnalyticsService';
 
 export type AdPlacement =
   | 'onboarding_location_granted'
+  | 'trial_offer_continue_with_ads'
   | 'app_foreground'
   | 'navigate_route'
   | 'start_driving_basic'
@@ -654,7 +655,10 @@ export class AdService {
     if (placement === 'onboarding_location_granted' && this.hasShownOnboardingAppOpen) {
       return 'skipped_not_eligible';
     }
-    if (placement === 'app_foreground' && now - this.lastAppOpenShownAt < APP_OPEN_COOLDOWN_MS) {
+    if (
+      (placement === 'app_foreground' || placement === 'trial_offer_continue_with_ads') &&
+      now - this.lastAppOpenShownAt < APP_OPEN_COOLDOWN_MS
+    ) {
       return 'skipped_cooldown';
     }
     return null;

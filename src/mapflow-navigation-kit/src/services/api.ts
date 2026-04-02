@@ -1098,10 +1098,10 @@ export async function searchPlaces(query: string, lat?: number, lng?: number) {
     };
 
     const variantRuns = [
-      { name: 'geoapify', run: () => searchGeoapify(variantOptions) },
       { name: 'google', run: () => searchGoogle(variantOptions) },
       { name: 'photon', run: () => searchPhoton(variantOptions) },
       { name: 'nominatim', run: () => searchNominatim(variantOptions) },
+      { name: 'geoapify', run: () => searchGeoapify(variantOptions) },
     ];
 
     const variantResults = await Promise.allSettled(
@@ -1134,59 +1134,68 @@ export async function searchPlaces(query: string, lat?: number, lng?: number) {
 }
 
 export async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeResult> {
-  if (GEOAPIFY_API_KEY) {
-    try {
-      const params = new URLSearchParams({
-        lat: String(lat),
-        lon: String(lng),
-        format: 'json',
-        apiKey: GEOAPIFY_API_KEY,
-      });
-
-      const data = await fetchJson<{ results?: any[] }>(
-        `https://api.geoapify.com/v1/geocode/reverse?${params.toString()}`,
-        {
-          headers: {
-            Accept: 'application/json',
-          },
+  try {
+    const nominatim = await fetchJson<any>(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`,
+      {
+        headers: {
+          Accept: 'application/json',
         },
-      );
-
-      const result = data.results?.[0];
-      if (result) {
-        return {
-          countryCode: result.country_code?.toUpperCase() || null,
-          country: result.country || null,
-          city: result.city || result.town || result.village || null,
-          state: result.state || null,
-          road: result.street || result.address_line1 || null,
-          displayName: result.formatted || null,
-          provider: 'geoapify',
-        };
-      }
-    } catch (error) {
-      console.warn('Geoapify reverse geocoding failed', error);
-    }
-  }
-
-  const nominatim = await fetchJson<any>(
-    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`,
-    {
-      headers: {
-        Accept: 'application/json',
       },
-    },
-  );
+    );
 
-  return {
-    countryCode: nominatim.address?.country_code?.toUpperCase() || null,
-    country: nominatim.address?.country || null,
-    city: nominatim.address?.city || nominatim.address?.town || nominatim.address?.village || null,
-    state: nominatim.address?.state || null,
-    road: nominatim.address?.road || null,
-    displayName: nominatim.display_name || null,
-    provider: 'nominatim',
-  };
+    return {
+      countryCode: nominatim.address?.country_code?.toUpperCase() || null,
+      country: nominatim.address?.country || null,
+      city: nominatim.address?.city || nominatim.address?.town || nominatim.address?.village || null,
+      state: nominatim.address?.state || null,
+      road: nominatim.address?.road || null,
+      displayName: nominatim.display_name || null,
+      provider: 'nominatim',
+    };
+  } catch (nominatimError) {
+    if (GEOAPIFY_API_KEY) {
+      try {
+        const params = new URLSearchParams({
+          lat: String(lat),
+          lon: String(lng),
+          format: 'json',
+          apiKey: GEOAPIFY_API_KEY,
+        });
+
+        const data = await fetchJson<{ results?: any[] }>(
+          `https://api.geoapify.com/v1/geocode/reverse?${params.toString()}`,
+          {
+            headers: {
+              Accept: 'application/json',
+            },
+          },
+        );
+
+        const result = data.results?.[0];
+        if (result) {
+          return {
+            countryCode: result.country_code?.toUpperCase() || null,
+            country: result.country || null,
+            city: result.city || result.town || result.village || null,
+            state: result.state || null,
+            road: result.street || result.address_line1 || null,
+            displayName: result.formatted || null,
+            provider: 'geoapify',
+          };
+        }
+      } catch (geoapifyError) {
+        console.warn('Reverse geocoding failed for Nominatim and Geoapify', {
+          nominatimError,
+          geoapifyError,
+        });
+      }
+    } else {
+      console.warn('Nominatim reverse geocoding failed', nominatimError);
+    }
+
+    throw nominatimError;
+  }
 }
 
 export async function getRoute(originLat: number, originLng: number, destLat: number, destLng: number) {
