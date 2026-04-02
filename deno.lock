@@ -23,12 +23,9 @@
         "npm:@react-navigation/drawer@7",
         "npm:@react-navigation/native-stack@7",
         "npm:@react-navigation/native@7",
-        "npm:@react-three/drei@^10.7.7",
-        "npm:@react-three/fiber@^9.5.0",
         "npm:@supabase/supabase-js@^2.89.0",
         "npm:@tanstack/react-query@^5.28.9",
         "npm:@types/react@~19.1.17",
-        "npm:@types/three@0.182",
         "npm:babel-preset-expo@^54.0.10",
         "npm:expo-apple-authentication@~8.0.8",
         "npm:expo-asset@~12.0.12",
@@ -61,7 +58,6 @@
         "npm:expo-updates@~29.0.16",
         "npm:expo@~54.0.33",
         "npm:jpeg-js@~0.4.4",
-        "npm:lottie-react-native@7.3.5",
         "npm:nopt@9",
         "npm:onnxruntime-react-native@1.23.2",
         "npm:react-native-fs@^2.20.0",
@@ -81,7 +77,6 @@
         "npm:react-native-worklets@~0.5.1",
         "npm:react-native@~0.81.5",
         "npm:react@19.1.0",
-        "npm:three@0.182",
         "npm:typescript@~5.9.3",
         "npm:zustand@^4.5.2"
       ]

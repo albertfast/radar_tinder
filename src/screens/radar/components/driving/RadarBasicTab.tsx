@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { formatSpeed } from '../../../../utils/format';
-import { GoogleMapsService } from '../../../../services/GoogleMapsService';
+import { useNavigationStore } from '../../../../mapflow-navigation-kit';
 import { LocationService } from '../../../../services/LocationService';
+import { formatDistance, formatDuration, convertSpeed, getUnitLabel } from '../../../../mapflow-navigation-kit/src/utils/units';
 import {
   describeRadarApproach,
   describeRadarLocation,
@@ -14,102 +14,129 @@ import {
 } from '../../utils/radarFormatters';
 
 type RadarBasicTabProps = {
-  currentSpeed: number;
-  unitSystem: 'metric' | 'imperial';
   nearbyRadars: any[];
-  tabBarInset: number;
-  currentLocation?: {
-    latitude: number;
-    longitude: number;
-  } | null;
+  topContentInset: number;
+  bottomContentInset: number;
+  unitSystem: 'metric' | 'imperial';
+};
+
+const getTurnIcon = (type?: string, modifier?: string) => {
+  switch (type) {
+    case 'turn':
+      switch (modifier) {
+        case 'left':
+        case 'slight left':
+        case 'sharp left':
+          return 'arrow-top-left';
+        case 'right':
+        case 'slight right':
+        case 'sharp right':
+          return 'arrow-top-right';
+        case 'uturn':
+          return 'backup-restore';
+        default:
+          return 'arrow-up';
+      }
+    case 'merge':
+    case 'fork':
+    case 'on ramp':
+    case 'off ramp':
+      return 'call-merge';
+    case 'roundabout':
+    case 'rotary':
+      return 'rotate-right';
+    case 'arrive':
+      return 'flag-checkered';
+    case 'continue':
+    case 'depart':
+    default:
+      return 'arrow-up';
+  }
 };
 
 export function RadarBasicTab({
-  currentSpeed,
-  unitSystem,
   nearbyRadars,
-  tabBarInset,
-  currentLocation,
+  topContentInset,
+  bottomContentInset,
+  unitSystem,
 }: RadarBasicTabProps) {
-  const [speedLimit, setSpeedLimit] = useState<{ value: number; units: 'KPH' | 'MPH' } | null>(null);
-  const [speedLimitSource, setSpeedLimitSource] = useState<
-    'roads_api' | 'osm' | 'unknown' | 'roads_unavailable' | null
-  >(null);
-  const lastSpeedLimitFetchAtRef = useRef(0);
-  const lastSpeedLimitLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const {
+    userSpeed,
+    speedLimit,
+    route,
+    isNavigating,
+    currentStepIndex,
+    remainingStepDistance,
+    remainingDistance,
+    remainingDuration,
+    eta,
+    destinationName,
+    hasArrived,
+    startNavigation,
+    stopNavigation,
+  } = useNavigationStore();
+  const [resolvedLabels, setResolvedLabels] = useState<Record<string, string>>({});
 
+  // Lazy reverse-geocoding for radars without labels
   useEffect(() => {
-    if (!currentLocation) return;
-    const now = Date.now();
-    const previous = lastSpeedLimitLocationRef.current;
-    const movedMeters = previous
-      ? LocationService.calculateDistanceSync(
-          currentLocation.latitude,
-          currentLocation.longitude,
-          previous.latitude,
-          previous.longitude
-        ) * 1000
-      : Number.POSITIVE_INFINITY;
+    if (!nearbyRadars || nearbyRadars.length === 0) return;
 
-    if (now - lastSpeedLimitFetchAtRef.current < 12000 && movedMeters < 55) {
-      return;
-    }
+    const resolveVisible = async () => {
+      // Prioritize closest 5 radars that don't have a label yet
+      const targets = nearbyRadars
+        .filter((r) => !r.locationLabel && !resolvedLabels[r.id])
+        .slice(0, 5);
 
-    let cancelled = false;
-    lastSpeedLimitFetchAtRef.current = now;
-    lastSpeedLimitLocationRef.current = {
-      latitude: currentLocation.latitude,
-      longitude: currentLocation.longitude,
-    };
+      if (targets.length === 0) return;
 
-    (async () => {
-      const result = await GoogleMapsService.getSpeedLimitForCoordinate(
-        currentLocation.latitude,
-        currentLocation.longitude
-      );
-      if (cancelled) return;
-      if (!result || result.speedLimit <= 0) {
-        setSpeedLimit(null);
-        setSpeedLimitSource(result?.source || 'unknown');
-        return;
+      for (const radar of targets) {
+        try {
+          const addresses = await LocationService.reverseGeocode(
+            radar.latitude,
+            radar.longitude
+          );
+          if (addresses && addresses[0]) {
+            const addr = addresses[0];
+            const streetNumber = addr.streetNumber || (addr.name && addr.name !== addr.street ? addr.name : '');
+            const streetLine = streetNumber && addr.street
+              ? `${streetNumber} ${addr.street}`
+              : (addr.name || addr.street || '');
+            const label = [streetLine, addr.city || addr.subregion]
+              .filter(Boolean)
+              .join(', ');
+            if (label) {
+              setResolvedLabels((prev) => ({ ...prev, [radar.id]: label }));
+            }
+          }
+        } catch (err) {
+          console.warn('[RadarBasicTab] Reverse geocode failed for radar:', radar.id);
+        }
       }
-      setSpeedLimit({ value: result.speedLimit, units: result.units });
-      setSpeedLimitSource(result.source);
-    })();
-
-    return () => {
-      cancelled = true;
     };
-  }, [currentLocation]);
+
+    resolveVisible();
+  }, [nearbyRadars, resolvedLabels]);
 
   const sortedRadars = useMemo(
     () =>
       [...(Array.isArray(nearbyRadars) ? nearbyRadars : [])].sort(
-        (a, b) => Number(a?.distance || 9999) - Number(b?.distance || 9999)
+        (left, right) => Number(left?.distance || 9999) - Number(right?.distance || 9999),
       ),
-    [nearbyRadars]
+    [nearbyRadars],
   );
   const closestRadar = sortedRadars[0] || null;
-  const radarCount = sortedRadars.length;
-  const radarCountLabel = radarCount === 1 ? '1 radar' : `${radarCount} radars`;
   const displayRadars = sortedRadars.slice(0, 14);
-
-  const speedParts = formatSpeed(currentSpeed, unitSystem).split(' ');
-  const currentSpeedValue = Number(speedParts[0]) || 0;
-  const currentSpeedUnit = speedParts[1] || (unitSystem === 'imperial' ? 'MPH' : 'KM/H');
-
-  const limitDisplay = useMemo(() => {
-    if (!speedLimit) return null;
-    if (unitSystem === 'imperial') {
-      return Math.round(speedLimit.units === 'MPH' ? speedLimit.value : speedLimit.value * 0.621371);
-    }
-    return Math.round(speedLimit.units === 'KPH' ? speedLimit.value : speedLimit.value * 1.60934);
-  }, [speedLimit, unitSystem]);
-
+  const currentSpeedValue = convertSpeed(userSpeed, unitSystem);
+  const currentSpeedUnit = getUnitLabel(unitSystem).toUpperCase();
+  const limitDisplay =
+    typeof speedLimit === 'number' && speedLimit > 0
+      ? unitSystem === 'imperial'
+        ? Math.round(speedLimit * 0.621371)
+        : Math.round(speedLimit)
+      : null;
   const speedDelta = limitDisplay ? currentSpeedValue - limitDisplay : null;
   const isOverspeed = typeof speedDelta === 'number' && speedDelta > 0;
   const speedTone = isOverspeed ? '#FF6B6B' : '#4ECDC4';
-
   const riskLabel = useMemo(() => {
     const distanceKm = Number(closestRadar?.distance);
     if (!Number.isFinite(distanceKm)) return 'Scanning';
@@ -118,7 +145,6 @@ export function RadarBasicTab({
     if (distanceKm <= 0.9) return 'Guarded';
     return 'Calm';
   }, [closestRadar?.distance]);
-
   const riskColor = useMemo(() => {
     switch (riskLabel) {
       case 'Critical':
@@ -133,15 +159,6 @@ export function RadarBasicTab({
         return '#94A3B8';
     }
   }, [riskLabel]);
-
-  const getCardAccent = (distanceKm: number) => {
-    if (!Number.isFinite(distanceKm)) return '#334155';
-    if (distanceKm <= 0.08) return '#FF5252';
-    if (distanceKm <= 0.35) return '#F97316';
-    if (distanceKm <= 0.9) return '#22D3EE';
-    return '#4ECDC4';
-  };
-
   const speedArcRotation = useMemo(() => {
     if (!limitDisplay || limitDisplay <= 0) {
       return Math.min(320, Math.max(25, currentSpeedValue * 2.2));
@@ -149,12 +166,14 @@ export function RadarBasicTab({
     const ratio = Math.max(0.06, Math.min(1, currentSpeedValue / limitDisplay));
     return 35 + ratio * 290;
   }, [currentSpeedValue, limitDisplay]);
-
-  const closestLocationDescriptor = useMemo(() => {
-    const source = closestRadar?.locationHint || closestRadar?.locationLabel || '';
-    return describeRadarLocation(source);
-  }, [closestRadar?.locationHint, closestRadar?.locationLabel]);
-
+  const currentStep = route?.steps?.[currentStepIndex] || route?.steps?.[0] || null;
+  const nextStep = route?.steps?.[currentStepIndex + 1] || null;
+  const routeDistanceLabel = route ? formatDistance(route.distance, unitSystem) : '';
+  const routeDurationLabel = route ? formatDuration(route.duration) : '';
+  const turnDistanceLabel =
+    hasArrived
+      ? 'Destination reached'
+      : formatDistance(remainingStepDistance || currentStep?.distance || 0, unitSystem);
   const speedLimitSubtitle = useMemo(() => {
     if (!limitDisplay) return 'No speed-limit feed yet';
     if (isOverspeed) {
@@ -165,103 +184,153 @@ export function RadarBasicTab({
     }
     return 'Within legal speed';
   }, [currentSpeedUnit, isOverspeed, limitDisplay, speedDelta]);
+  const closestLocationDescriptor = useMemo(
+    () => describeRadarLocation(closestRadar?.locationLabel || resolvedLabels[closestRadar?.id] || closestRadar?.locationHint || ''),
+    [closestRadar?.locationLabel, closestRadar?.id, closestRadar?.locationHint, resolvedLabels],
+  );
 
-  const sourceLabel = useMemo(() => {
-    switch (speedLimitSource) {
-      case 'roads_api':
-        return 'Roads API';
-      case 'osm':
-        return 'OSM';
-      case 'unknown':
-        return 'Unknown';
-      case 'roads_unavailable':
-        return 'Roads Off';
-      default:
-        return 'Live';
-    }
-  }, [speedLimitSource]);
-
-  const statusLabel = closestRadar
-    ? `${formatRadarDistanceAdaptive(Number(closestRadar.distance || 0), unitSystem)} to nearest`
-    : 'No immediate cameras';
+  const getCardAccent = (distanceKm: number) => {
+    if (!Number.isFinite(distanceKm)) return '#334155';
+    if (distanceKm <= 0.08) return '#FF5252';
+    if (distanceKm <= 0.35) return '#F97316';
+    if (distanceKm <= 0.9) return '#22D3EE';
+    return '#4ECDC4';
+  };
 
   const getRadarSubtitle = (radar: any) => {
     const approach = describeRadarApproach(Number(radar?.distance), unitSystem);
-    const locationDescriptor = describeRadarLocation(radar?.locationHint || radar?.locationLabel || '');
-    return locationDescriptor ? `${approach} • ${locationDescriptor}` : approach;
+    const label = radar?.locationLabel || resolvedLabels[radar?.id] || radar?.locationHint || '';
+    const locationDescriptor = describeRadarLocation(label);
+    return locationDescriptor ? `${approach} | ${locationDescriptor}` : approach;
   };
 
   return (
     <ScrollView
-      style={localStyles.screen}
-      contentContainerStyle={[localStyles.content, { paddingBottom: tabBarInset + 28 }]}
+      style={styles.screen}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: topContentInset + 12,
+          paddingBottom: bottomContentInset + 28,
+        },
+      ]}
       showsVerticalScrollIndicator={false}
-      scrollEnabled
     >
+      {route ? (
+        <LinearGradient
+          colors={['rgba(15,22,42,0.96)', 'rgba(8,13,28,0.96)']}
+          style={styles.navCard}
+        >
+          <View style={styles.navCardRow}>
+            <View style={styles.navIconWrap}>
+              <MaterialCommunityIcons
+                name={getTurnIcon(currentStep?.maneuver?.type, currentStep?.maneuver?.modifier) as any}
+                size={20}
+                color="#F8FAFC"
+              />
+            </View>
+            <View style={styles.navCopy}>
+              <Text style={styles.navDistance}>{isNavigating ? turnDistanceLabel : routeDistanceLabel}</Text>
+              <Text style={styles.navInstruction} numberOfLines={1}>
+                {hasArrived
+                  ? 'You have arrived'
+                  : isNavigating
+                    ? currentStep?.instruction || destinationName || 'Continue on route'
+                    : destinationName || 'Route ready'}
+              </Text>
+              {!hasArrived ? (
+                <Text style={styles.navSubtext} numberOfLines={1}>
+                  {isNavigating
+                    ? nextStep?.instruction
+                      ? `Then ${nextStep.instruction}`
+                      : `${formatDistance(remainingDistance, unitSystem)} | ${formatDuration(remainingDuration)}`
+                    : `${routeDurationLabel}${eta ? ` | ETA ${eta.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`}
+                </Text>
+              ) : null}
+            </View>
+            {isNavigating || hasArrived ? (
+              <TouchableOpacity onPress={stopNavigation} style={styles.navActionDanger} activeOpacity={0.85}>
+                <MaterialCommunityIcons name={hasArrived ? 'flag-checkered' : 'close'} size={18} color="#FB7185" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={startNavigation} style={styles.navActionPrimary} activeOpacity={0.88}>
+                <Text style={styles.navActionPrimaryText}>GO</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </LinearGradient>
+      ) : null}
+
       <LinearGradient
         colors={['rgba(6,12,25,0.96)', 'rgba(4,9,19,0.93)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={localStyles.dashboardCard}
+        style={styles.dashboardCard}
       >
-        <Text style={localStyles.eyebrow}>BASIC DASHBOARD</Text>
+        <Text style={styles.eyebrow}>BASIC DASHBOARD</Text>
 
-        <View style={localStyles.speedDialWrap}>
-          <View style={localStyles.speedDialOuter}>
-            <View style={localStyles.speedDialOrbit} />
+        <View style={styles.speedDialWrap}>
+          <View style={styles.speedDialOuter}>
+            <View style={styles.speedDialOrbit} />
             <View
               style={[
-                localStyles.speedDialSweep,
+                styles.speedDialSweep,
                 {
                   transform: [{ rotate: `${speedArcRotation}deg` }],
                 },
               ]}
             />
-            <View style={localStyles.speedDialInner}>
-              <Text style={localStyles.speedValue}>{currentSpeedValue}</Text>
-              <Text style={localStyles.speedUnit}>{currentSpeedUnit}</Text>
+            <View style={styles.speedDialInner}>
+              <Text style={styles.speedValue}>{currentSpeedValue}</Text>
+              <Text style={styles.speedUnit}>{currentSpeedUnit}</Text>
             </View>
           </View>
         </View>
 
-        <View style={localStyles.pillRow}>
-          <View style={localStyles.metaPill}>
+        <View style={styles.pillRow}>
+          <View style={styles.metaPill}>
             <MaterialCommunityIcons name="radar" size={16} color="#4ECDC4" />
-            <Text style={localStyles.metaPillText}>{radarCountLabel}</Text>
+            <Text style={styles.metaPillText}>
+              {sortedRadars.length === 1 ? '1 radar' : `${sortedRadars.length} radars`}
+            </Text>
           </View>
-          <View style={localStyles.metaPill}>
-            <View style={[localStyles.liveDot, { backgroundColor: riskColor }]} />
-            <Text style={localStyles.metaPillText}>{riskLabel}</Text>
+          <View style={styles.metaPill}>
+            <View style={[styles.liveDot, { backgroundColor: riskColor }]} />
+            <Text style={styles.metaPillText}>{riskLabel}</Text>
           </View>
-          <View style={localStyles.metaPill}>
+          <View style={styles.metaPill}>
             <MaterialCommunityIcons name="map-marker-distance" size={16} color="#38BDF8" />
-            <Text style={localStyles.metaPillText}>{statusLabel}</Text>
+            <Text style={styles.metaPillText}>
+              {closestRadar
+                ? `${formatRadarDistanceAdaptive(Number(closestRadar.distance || 0), unitSystem)} to nearest`
+                : 'No immediate cameras'}
+            </Text>
           </View>
         </View>
 
-        <View style={localStyles.kpiRow}>
+        <View style={styles.kpiRow}>
           <LinearGradient
             colors={['rgba(26,32,52,0.95)', 'rgba(11,16,30,0.95)']}
-            style={localStyles.kpiCard}
+            style={styles.kpiCard}
           >
-            <Text style={localStyles.kpiLabel}>Closest camera</Text>
-            <Text style={localStyles.kpiValue}>
+            <Text style={styles.kpiLabel}>Closest camera</Text>
+            <Text style={styles.kpiValue}>
               {closestRadar
                 ? formatRadarDistanceAdaptive(Number(closestRadar.distance || 0), unitSystem)
-                : '—'}
+                : '--'}
             </Text>
-            <Text style={localStyles.kpiHint} numberOfLines={2}>
+            <Text style={styles.kpiHint} numberOfLines={2}>
               {closestLocationDescriptor || 'Waiting for location intelligence'}
             </Text>
           </LinearGradient>
 
           <LinearGradient
             colors={['rgba(36,22,32,0.95)', 'rgba(18,12,22,0.95)']}
-            style={localStyles.kpiCard}
+            style={styles.kpiCard}
           >
-            <Text style={localStyles.kpiLabel}>Threat level</Text>
-            <Text style={[localStyles.kpiValue, { color: riskColor }]}>{riskLabel}</Text>
-            <Text style={localStyles.kpiHint}>
+            <Text style={styles.kpiLabel}>Threat level</Text>
+            <Text style={[styles.kpiValue, { color: riskColor }]}>{riskLabel}</Text>
+            <Text style={styles.kpiHint}>
               {closestRadar
                 ? describeRadarApproach(Number(closestRadar.distance || 0), unitSystem)
                 : 'No active threats in your lane'}
@@ -271,37 +340,35 @@ export function RadarBasicTab({
 
         <LinearGradient
           colors={['rgba(9,22,32,0.95)', 'rgba(6,14,22,0.95)']}
-          style={localStyles.limitPanel}
+          style={styles.limitPanel}
         >
-          <View style={localStyles.limitHeaderRow}>
-            <Text style={localStyles.limitTitle}>SPEED LIMIT BOARD</Text>
-            <View style={localStyles.limitSourceChip}>
-              <Text style={localStyles.limitSourceText}>{sourceLabel}</Text>
+          <View style={styles.limitHeaderRow}>
+            <Text style={styles.limitTitle}>SPEED LIMIT BOARD</Text>
+            <View style={styles.limitSourceChip}>
+              <Text style={styles.limitSourceText}>{limitDisplay ? 'Live' : 'Waiting'}</Text>
             </View>
           </View>
-          <View style={localStyles.limitBody}>
-            <View style={localStyles.limitSign}>
-              <Text style={localStyles.limitSignTop}>LIMIT</Text>
-              <Text style={[localStyles.limitSignValue, { color: speedTone }]}>
-                {limitDisplay ?? '--'}
-              </Text>
-              <Text style={localStyles.limitSignUnit}>{currentSpeedUnit}</Text>
+          <View style={styles.limitBody}>
+            <View style={styles.limitSign}>
+              <Text style={styles.limitSignTop}>LIMIT</Text>
+              <Text style={[styles.limitSignValue, { color: speedTone }]}>{limitDisplay ?? '--'}</Text>
+              <Text style={styles.limitSignUnit}>{currentSpeedUnit}</Text>
             </View>
-            <View style={localStyles.limitCopy}>
-              <Text style={[localStyles.limitStatus, { color: speedTone }]}>
+            <View style={styles.limitCopy}>
+              <Text style={[styles.limitStatus, { color: speedTone }]}>
                 {isOverspeed ? 'Reduce speed now' : 'Stable driving pace'}
               </Text>
-              <Text style={localStyles.limitSub}>{speedLimitSubtitle}</Text>
+              <Text style={styles.limitSub}>{speedLimitSubtitle}</Text>
             </View>
           </View>
         </LinearGradient>
       </LinearGradient>
 
-      <View style={localStyles.listSection}>
-        <View style={localStyles.listHeader}>
-          <Text style={localStyles.listTitle}>NEARBY CAMERAS</Text>
-          <View style={localStyles.listCount}>
-            <Text style={localStyles.listCountText}>{displayRadars.length}</Text>
+      <View style={styles.listSection}>
+        <View style={styles.listHeader}>
+          <Text style={styles.listTitle}>NEARBY CAMERAS</Text>
+          <View style={styles.listCount}>
+            <Text style={styles.listCountText}>{displayRadars.length}</Text>
           </View>
         </View>
 
@@ -309,27 +376,28 @@ export function RadarBasicTab({
           displayRadars.map((radar, index) => {
             const distanceKm = Number(radar?.distance || 0);
             const accent = getCardAccent(distanceKm);
+
             return (
               <LinearGradient
                 key={radar?.id || `radar-${index}`}
                 colors={['rgba(12,18,30,0.94)', 'rgba(9,14,26,0.94)']}
-                style={[localStyles.radarCard, { borderColor: `${accent}44` }]}
+                style={[styles.radarCard, { borderColor: `${accent}44` }]}
               >
-                <View style={localStyles.radarIconWrap}>
+                <View style={styles.radarIconWrap}>
                   <MaterialCommunityIcons
-                    name={radar?.type === 'police' ? 'alarm-light' : 'camera-outline'}
+                    name={radar?.type === 'police' ? 'alarm-light' : radar?.type === 'red_light' ? 'traffic-light' : 'camera-outline'}
                     size={20}
                     color={accent}
                   />
                 </View>
-                <View style={localStyles.radarCopy}>
-                  <Text style={localStyles.radarTitle}>{formatRadarLabel(radar?.type)}</Text>
-                  <Text style={localStyles.radarSubtitle} numberOfLines={2}>
+                <View style={styles.radarCopy}>
+                  <Text style={styles.radarTitle}>{formatRadarLabel(radar?.type)}</Text>
+                  <Text style={styles.radarSubtitle} numberOfLines={2}>
                     {getRadarSubtitle(radar)}
                   </Text>
                 </View>
-                <View style={[localStyles.radarDistanceBadge, { backgroundColor: `${accent}24` }]}>
-                  <Text style={[localStyles.radarDistanceText, { color: accent }]}>
+                <View style={[styles.radarDistanceBadge, { backgroundColor: `${accent}24` }]}>
+                  <Text style={[styles.radarDistanceText, { color: accent }]}>
                     {formatRadarDistanceAdaptive(distanceKm, unitSystem)}
                   </Text>
                 </View>
@@ -337,28 +405,84 @@ export function RadarBasicTab({
             );
           })
         ) : (
-          <View style={localStyles.emptyState}>
+          <View style={styles.emptyState}>
             <MaterialCommunityIcons name="radar" size={24} color="#4ECDC4" />
-            <Text style={localStyles.emptyStateText}>Scanning nearby roads for cameras...</Text>
+            <Text style={styles.emptyStateText}>Scanning nearby roads for cameras...</Text>
           </View>
         )}
       </View>
-
     </ScrollView>
   );
 }
 
-export type { RadarBasicTabProps };
-
-const localStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#020617',
   },
   content: {
     paddingHorizontal: 14,
-    paddingTop: 12,
     gap: 12,
+  },
+  navCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.22)',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  navCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  navIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(51,65,85,0.6)',
+  },
+  navCopy: {
+    flex: 1,
+  },
+  navDistance: {
+    color: '#38BDF8',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  navInstruction: {
+    color: '#F8FAFC',
+    fontSize: 22,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  navSubtext: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  navActionPrimary: {
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#2563EB',
+  },
+  navActionPrimaryText: {
+    color: '#F8FAFC',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  navActionDanger: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(127,29,29,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,113,133,0.22)',
   },
   dashboardCard: {
     borderRadius: 22,
@@ -419,7 +543,7 @@ const localStyles = StyleSheet.create({
     backgroundColor: 'rgba(6,13,28,0.95)',
   },
   speedValue: {
-    color: 'white',
+    color: '#FFFFFF',
     fontSize: 58,
     fontWeight: '900',
     lineHeight: 62,
@@ -541,7 +665,6 @@ const localStyles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   limitSignValue: {
-    color: '#0F172A',
     fontSize: 32,
     fontWeight: '900',
     lineHeight: 36,

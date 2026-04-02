@@ -151,11 +151,10 @@ export const describeRadarLocation = (label?: string | null) => {
     return `Near ${houseAndStreet.houseNumber} ${houseAndStreet.street}`;
   }
 
-  if (firstStreet && STREET_TOKEN.test(firstStreet)) {
-    if (secondStreet && STREET_TOKEN.test(secondStreet)) {
-      return `${firstStreet}, approaching ${secondStreet}`;
-    }
-    return `Along ${firstStreet}`;
+  if (parts.length > 1) {
+    // If it looks like a full address (Street, City, etc), return at least two parts
+    const joined = parts.slice(0, 2).join(', ');
+    return joined;
   }
 
   return first;

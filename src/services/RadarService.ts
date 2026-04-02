@@ -536,6 +536,29 @@ export class RadarService {
     };
   }
 
+  private static getOsmLocationLabel(tags: any): string {
+    if (!tags) return '';
+    const name = tags.name || tags.operator || tags.description || '';
+    const street = tags['addr:street'] || tags['addr:road'] || '';
+    const houseNumber = tags['addr:housenumber'] || '';
+    const suburb = tags['addr:suburb'] || tags['addr:neighbourhood'] || '';
+    const city = tags['addr:city'] || tags['addr:town'] || tags['addr:village'] || '';
+
+    if (houseNumber && street) {
+      return `${houseNumber} ${street}${city ? `, ${city}` : ''}`;
+    }
+    if (street) {
+      return `${street}${city ? `, ${city}` : ''}`;
+    }
+    if (name) {
+      return `${name}${city ? `, ${city}` : ''}`;
+    }
+    if (suburb && city) {
+      return `${suburb}, ${city}`;
+    }
+    return city || suburb || '';
+  }
+
   private static mapOsmElementToRadar(element: any): RadarLocation | null {
     const lat = element?.lat ?? element?.center?.lat;
     const lon = element?.lon ?? element?.center?.lon ?? element?.center?.lng;
@@ -556,6 +579,7 @@ export class RadarService {
       latitude: Number(lat),
       longitude: Number(lon),
       type,
+      locationLabel: this.getOsmLocationLabel(tags),
       countryCode: 'US',
       speedLimit: this.parseMaxspeed(tags),
       confidence: 1.0,
@@ -581,6 +605,11 @@ export class RadarService {
     }
     const confidence = Number(row?.confidence);
     const countryCode = this.parseCountryCode(row, sourceMeta.sourceKey);
+    const metadata = this.readRowMetadata(row);
+    
+    // Attempt to find address in metadata
+    const locationLabel = (metadata.address || metadata.full_address || metadata.location_label || row.location_label) as string | undefined;
+
     return this.withRadarMetadata({
       id: String(
         row?.id || `${sourceMeta.source}:${latitude.toFixed(5)}:${longitude.toFixed(5)}`
@@ -588,6 +617,7 @@ export class RadarService {
       latitude,
       longitude,
       type: this.normalizeRadarType(row?.type),
+      locationLabel,
       speedLimit: this.parseSupabaseSpeedLimit(row),
       countryCode,
       confidence:

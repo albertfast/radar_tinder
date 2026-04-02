@@ -58,6 +58,8 @@ module.exports = (() => {
       // Exclude the huge modelx python environment and .git folder (project-local only)
       new RegExp('^' + escapeRegExp(path.join(__dirname, 'modelx')) + '.*'),
       new RegExp('^' + escapeRegExp(path.join(__dirname, '.git')) + '.*'),
+      // Exclude C++ build directories to prevent Metro watcher ENOENT crashes during native builds
+      /.*\/android\/\.cxx\/.*/,
     ],
   };
 

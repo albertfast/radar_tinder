@@ -12,14 +12,14 @@ import ProfileNavigator from './ProfileNavigator';
 import AIDiagnoseScreen from '../screens/AIDiagnoseScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
 import PermitTestScreen from '../screens/PermitTestScreen';
-import DriveShortcutScreen from '../screens/DriveShortcutScreen';
+import DriveScreen from '../screens/DriveScreen';
 import { useUiStore } from '../store/uiStore';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 
 export type MainTabParamList = {
-  Home: { forceTab?: string } | undefined;
+  Home: { screen?: string; params?: any } | undefined;
   Permit: undefined;
-  Drive: undefined;
+  Drive: { initialMode?: 'Basic' | 'Map' | 'Graphic' } | undefined;
   Diagnose: undefined;
   Leaderboard: undefined;
   Profile: undefined;
@@ -192,7 +192,7 @@ const MainTabNavigator = () => {
 
       <Tab.Screen
         name="Drive"
-        component={DriveShortcutScreen}
+        component={DriveScreen}
         options={{ lazy: true }}
       />
 
