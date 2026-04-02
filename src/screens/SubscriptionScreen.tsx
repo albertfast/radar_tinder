@@ -8,7 +8,6 @@ import { SubscriptionService } from '../services/SubscriptionService';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
-import type { PurchasesPackage } from 'react-native-purchases';
 
 const TITLE_FONT = Platform.select({ ios: 'Georgia', android: 'serif' });
 const DISPLAY_FONT = Platform.select({ ios: 'AvenirNext-Heavy', android: 'sans-serif-condensed' });
@@ -60,99 +59,6 @@ const SubscriptionScreen = ({ navigation }: any) => {
     },
   };
 
-  const getProductHints = (plan: PlanKey): string[] => {
-    const fromEnv = {
-      weekly: process.env.EXPO_PUBLIC_RC_PRODUCT_WEEKLY,
-      yearly: process.env.EXPO_PUBLIC_RC_PRODUCT_YEARLY,
-      adfree: process.env.EXPO_PUBLIC_RC_PRODUCT_ADFREE,
-    }[plan];
-    const fromPackageEnv = {
-      weekly: process.env.EXPO_PUBLIC_RC_PACKAGE_WEEKLY,
-      yearly: process.env.EXPO_PUBLIC_RC_PACKAGE_YEARLY,
-      adfree: process.env.EXPO_PUBLIC_RC_PACKAGE_LIFETIME,
-    }[plan];
-    const fromPlan = plans[plan]?.id;
-    const aliases = {
-      weekly: [
-        '$rc_weekly',
-        'rc_weekly',
-        'pro_subscription:weekly',
-        'pro_subscription_weekly',
-        'rc_weekly_399',
-        'weekly',
-        'pro_subscription_weekly_399',
-      ],
-      yearly: [
-        '$rc_annual',
-        'rc_annual',
-        '$rc_yearly',
-        'rc_yearly',
-        'pro_subscription:yearly',
-        'pro_subscription_yearly',
-        'rc_yearly_1999',
-        'yearly',
-        'annual',
-      ],
-      adfree: [
-        '$rc_lifetime',
-        'rc_lifetime',
-        'remove_ads',
-        'remove_advertisement',
-        'adfree',
-        'ad_free',
-        'lifetime',
-      ],
-    }[plan];
-
-    return [fromEnv, fromPackageEnv, fromPlan, ...aliases]
-      .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
-      .map((v) => v.toLowerCase());
-  };
-
-  const packageTypeMatchesPlan = (pkg: PurchasesPackage, plan: PlanKey): boolean => {
-    const packageType = String((pkg as any)?.packageType || '').toUpperCase();
-    if (plan === 'weekly') return packageType === 'WEEKLY';
-    if (plan === 'yearly') return packageType === 'ANNUAL' || packageType === 'YEARLY';
-    return packageType === 'LIFETIME';
-  };
-
-  const packageMatchesPlan = (pkg: PurchasesPackage, plan: PlanKey) => {
-    const id = String(pkg?.identifier || '').toLowerCase();
-    const productId = String(pkg?.product?.identifier || '').toLowerCase();
-    const hints = getProductHints(plan);
-    if (hints.some((hint) => id === hint || productId === hint || id.includes(hint) || productId.includes(hint))) {
-      return true;
-    }
-
-    if (plan === 'yearly') {
-      return /annual|year|yearly/.test(id) || /annual|year|yearly/.test(productId);
-    }
-    if (plan === 'weekly') {
-      return /week|weekly/.test(id) || /week|weekly/.test(productId);
-    }
-    return /lifetime|one[_-]?time|remove[_-]?ads|ad[_-]?free/.test(id) ||
-      /lifetime|one[_-]?time|remove[_-]?ads|ad[_-]?free/.test(productId);
-  };
-
-  const findPackageForPlan = (
-    availablePackages: PurchasesPackage[],
-    plan: PlanKey,
-    offering: any
-  ): PurchasesPackage | null => {
-    const slotCandidate =
-      plan === 'weekly'
-        ? offering?.weekly
-        : plan === 'yearly'
-          ? offering?.annual || offering?.yearly
-          : offering?.lifetime;
-    if (slotCandidate) return slotCandidate as PurchasesPackage;
-
-    const byHints = availablePackages.find((pkg) => packageMatchesPlan(pkg, plan));
-    if (byHints) return byHints;
-
-    return availablePackages.find((pkg) => packageTypeMatchesPlan(pkg, plan)) || null;
-  };
-
   const handleSubscribe = async () => {
     setLoading(true);
     try {
@@ -171,38 +77,47 @@ const SubscriptionScreen = ({ navigation }: any) => {
         trial: trialActive,
       });
 
-      const offering = await SubscriptionService.getOfferings();
-      const availablePackages: PurchasesPackage[] = offering?.availablePackages || [];
+      const resolution = await SubscriptionService.getPackageResolution(planToPurchase);
+      const availablePackages = resolution.availablePackages;
       if (availablePackages.length === 0) {
-        Alert.alert(
-          'No Packages Available',
-          'No purchasable package was found. Check RevenueCat Offering and App Store / Play products.'
-        );
-        return;
+        console.warn('[Subscription] offering packages empty for plan:', planToPurchase);
       }
 
-      const targetPackage = findPackageForPlan(availablePackages, planToPurchase, offering);
-      if (!targetPackage) {
-        const packageDebug = availablePackages
-          .map((p) => `${p.identifier} (${p.product?.identifier || 'no-product-id'}) [${(p as any)?.packageType || 'unknown'}]`)
-          .join('\n');
-        Alert.alert(
-          'Package Mapping Missing',
-          `No package mapped for "${planToPurchase}".\n\nExpected package IDs: $rc_weekly / $rc_annual / $rc_lifetime.\n\nAvailable packages:\n${packageDebug}`
-        );
-        return;
+      let purchaseSource = resolution.matchSource || 'unresolved_package';
+      let purchased = false;
+      let purchasedProductId =
+        resolution.targetPackage?.product?.identifier || null;
+
+      if (resolution.targetPackage) {
+        purchased = await SubscriptionService.purchasePackage(resolution.targetPackage);
+      } else {
+        const directResolution = await SubscriptionService.getDirectProductResolution(planToPurchase);
+        if (directResolution.targetProduct) {
+          purchaseSource = directResolution.matchSource || 'canonical_product';
+          purchasedProductId = directResolution.targetProduct.identifier;
+          purchased = await SubscriptionService.purchaseStoreProduct(directResolution.targetProduct);
+        } else {
+          const availableProductsCopy = directResolution.debugProducts || 'None';
+          Alert.alert(
+            'Package Mapping Missing',
+            `${resolution.offering?.identifier ? `Current offering: ${resolution.offering.identifier}\n\n` : ''}No package mapped for "${planToPurchase}".\n\nExpected package IDs:\n${resolution.expectedPackageIds.join(' / ')}\n\nExpected product IDs:\n${directResolution.expectedProductIds.join(' / ')}\n\nAvailable packages:\n${resolution.debugPackages || 'None'}\n\nAvailable direct products:\n${availableProductsCopy}`
+          );
+          return;
+        }
       }
 
-      const purchased = await SubscriptionService.purchasePackage(targetPackage);
       if (!purchased) {
-        Alert.alert('Payment Failed', 'Purchase could not be completed. Please try again.');
+        Alert.alert(
+          'Payment Failed',
+          'Purchase could not be completed. Please try again.'
+        );
         return;
       }
 
       await AnalyticsService.trackEvent('subscription_success', {
-        source: 'direct_package',
-        package_id: targetPackage.identifier,
-        product_id: targetPackage.product?.identifier,
+        source: purchaseSource,
+        package_id: resolution.targetPackage?.identifier,
+        product_id: purchasedProductId,
       });
 
       Alert.alert('Success', successMessage);

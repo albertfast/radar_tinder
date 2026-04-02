@@ -5,8 +5,6 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import MapView, { useMapBridge } from './components/map/MapView.native';
 import SearchBar from './components/navigation/SearchBar';
 import SearchResults from './components/navigation/SearchResults';
@@ -24,24 +22,27 @@ import { useNavigation } from './hooks/useNavigation';
 import { useNavigationStore } from './stores/navigationStore';
 import { RadarMapMarker, SearchResult } from './types/map';
 import { COLORS } from './utils/colors';
-import { reverseGeocode } from './services/api';
 
 type MapFlowNavigationScreenProps = {
   radarMarkers?: RadarMapMarker[];
   highlightedRadarId?: string | null;
+  onMapUnavailable?: (reason: string) => void;
 };
 
 export default function MapFlowNavigationScreen({
   radarMarkers = [],
   highlightedRadarId = null,
+  onMapUnavailable,
 }: MapFlowNavigationScreenProps) {
-  const insets = useSafeAreaInsets();
-  const searchBarTop = insets.top + 8;
-  const searchResultsTop = searchBarTop + 66;
+  const searchBarTop = 0;
+  const searchResultsTop = searchBarTop + 54;
   const [mapReady, setMapReady] = useState(false);
   const hasCenteredInitialLocation = useRef(false);
   const lastDestinationKey = useRef<string | null>(null);
   const rerouteAtRef = useRef(0);
+  const hasExplicitNavigationStartRef = useRef(false);
+  const suppressNextSearchRef = useRef(false);
+  const selectedSearchValueRef = useRef<string | null>(null);
   const { webViewRef, sendToMap } = useMapBridge();
 
   const { isNavigating, isRouting, route, navigateTo, start, stop } = useNavigation();
@@ -54,30 +55,60 @@ export default function MapFlowNavigationScreen({
     searchQuery,
     searchResults,
     destination,
+    destinationName,
     unitSystem,
     isSearching,
     isOffRoute,
     setSearchQuery,
     setSearchResults,
     setIsOffRoute,
+    setIsNavigating,
   } = useNavigationStore();
 
   useLocation();
   useSpeedLimits();
   useNavigationTracking();
 
-  const { debouncedSearch } = useGeocoding();
+  const { debouncedSearch, cancelPendingSearch } = useGeocoding();
   const { calculateRoute } = useRouting();
 
   useEffect(() => {
+    if (suppressNextSearchRef.current) {
+      suppressNextSearchRef.current = false;
+      return;
+    }
+
     const query = searchQuery.trim();
     if (query.length < 2) {
       setSearchResults([]);
       return;
     }
 
+    if (
+      selectedSearchValueRef.current &&
+      query === selectedSearchValueRef.current &&
+      searchResults.length === 0
+    ) {
+      return;
+    }
+
+    if (destinationName.trim() && query === destinationName.trim() && searchResults.length === 0) {
+      return;
+    }
+
     debouncedSearch(query);
-  }, [searchQuery, debouncedSearch, setSearchResults]);
+  }, [destinationName, searchQuery, debouncedSearch, searchResults.length, setSearchResults]);
+
+  useEffect(() => {
+    if (!isNavigating) {
+      hasExplicitNavigationStartRef.current = false;
+      return;
+    }
+
+    if (!hasExplicitNavigationStartRef.current) {
+      setIsNavigating(false);
+    }
+  }, [isNavigating, setIsNavigating]);
 
   const handleMapReady = useCallback(() => {
     setMapReady(true);
@@ -85,22 +116,9 @@ export default function MapFlowNavigationScreen({
 
   const handleMapClick = useCallback(
     async (lat: number, lng: number) => {
-      if (!isNavigating) {
-        Keyboard.dismiss();
-        try {
-          const location = await reverseGeocode(lat, lng);
-          const resolvedName =
-            location.road ||
-            location.displayName?.split(',').slice(0, 2).join(', ').trim() ||
-            location.city ||
-            'Dropped Pin';
-          navigateTo(lat, lng, resolvedName);
-        } catch {
-          navigateTo(lat, lng, 'Dropped Pin');
-        }
-      }
+      Keyboard.dismiss();
     },
-    [isNavigating, navigateTo],
+    [],
   );
 
   useEffect(() => {
@@ -135,6 +153,36 @@ export default function MapFlowNavigationScreen({
   }, [isNavigating, mapReady, routeHeading, sendToMap, userHeading, userLocation, userSpeed]);
 
   useEffect(() => {
+    if (!mapReady || isNavigating) {
+      return;
+    }
+
+    if (route?.geometry?.length) {
+      sendToMap({
+        type: 'updateRoute',
+        payload: { geometry: route.geometry },
+      });
+      return;
+    }
+
+    if (!userLocation) {
+      return;
+    }
+
+    sendToMap({
+      type: 'flyTo',
+      payload: {
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+        heading: 0,
+        pitch: 0,
+        zoom: 14.8,
+        navigation: false,
+      },
+    });
+  }, [isNavigating, mapReady, route?.geometry, sendToMap, userLocation]);
+
+  useEffect(() => {
     if (!mapReady || !userLocation || hasCenteredInitialLocation.current) {
       return;
     }
@@ -147,7 +195,7 @@ export default function MapFlowNavigationScreen({
         lng: userLocation.lng,
         heading: 0,
         pitch: 0,
-        zoom: 16.4,
+        zoom: 14.95,
         navigation: false,
       },
     });
@@ -236,15 +284,32 @@ export default function MapFlowNavigationScreen({
 
   const handleSelectPlace = useCallback(
     (result: SearchResult) => {
-      setSearchQuery(result.name);
+      const selectedLabel = (result.name || result.address || '').trim();
+      suppressNextSearchRef.current = true;
+      selectedSearchValueRef.current = selectedLabel || null;
+      cancelPendingSearch();
+      setIsNavigating(false);
+      setSearchQuery(selectedLabel);
       setSearchResults([]);
       Keyboard.dismiss();
       navigateTo(result.lat, result.lng, result.name);
     },
-    [navigateTo, setSearchQuery, setSearchResults],
+    [cancelPendingSearch, navigateTo, setIsNavigating, setSearchQuery, setSearchResults],
+  );
+
+  const handleSearchQueryChange = useCallback(
+    (query: string) => {
+      if (selectedSearchValueRef.current && query.trim() !== selectedSearchValueRef.current) {
+        selectedSearchValueRef.current = null;
+      }
+
+      setSearchQuery(query);
+    },
+    [setSearchQuery],
   );
 
   const handleStartNavigation = useCallback(() => {
+    hasExplicitNavigationStartRef.current = true;
     start();
 
     if (!userLocation) {
@@ -266,6 +331,7 @@ export default function MapFlowNavigationScreen({
   }, [routeHeading, sendToMap, start, userHeading, userLocation, userSpeed]);
 
   const handleStopNavigation = useCallback(() => {
+    hasExplicitNavigationStartRef.current = false;
     stop();
 
     if (!userLocation) {
@@ -299,13 +365,14 @@ export default function MapFlowNavigationScreen({
         routeHeading,
         speed: userSpeed,
         pitch: isNavigating ? 58 : 0,
-        zoom: isNavigating ? undefined : 16.4,
+        zoom: isNavigating ? undefined : 14.95,
         navigation: isNavigating,
       },
     });
   }, [isNavigating, routeHeading, sendToMap, userHeading, userLocation, userSpeed]);
 
   const handleClearSearch = useCallback(() => {
+    selectedSearchValueRef.current = null;
     setSearchQuery('');
     setSearchResults([]);
     Keyboard.dismiss();
@@ -319,13 +386,14 @@ export default function MapFlowNavigationScreen({
         webViewRef={webViewRef}
         onMapReady={handleMapReady}
         onMapClick={handleMapClick}
+        onUnavailable={onMapUnavailable}
       />
 
       <View style={styles.overlay}>
         {!isNavigating && (
           <SearchBar
             value={searchQuery}
-            onChangeQuery={setSearchQuery}
+            onChangeQuery={handleSearchQueryChange}
             onClear={handleClearSearch}
             onMyLocation={handleMyLocation}
             isSearching={isSearching}
@@ -350,7 +418,7 @@ export default function MapFlowNavigationScreen({
         )}
 
         {isNavigating && (
-          <View style={[styles.fabColumn, { top: insets.top + 104 }]}>
+          <View style={[styles.fabColumn, { top: 96 }]}>
             <IconButton icon="3d-rotation" onPress={handleMyLocation} color={COLORS.primary} />
           </View>
         )}

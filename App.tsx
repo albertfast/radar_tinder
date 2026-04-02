@@ -388,6 +388,19 @@ export default function App() {
                               Diagnose: {
                                 path: 'diagnose',
                               },
+                              Profile: {
+                                screens: {
+                                  ProfileMain: {
+                                    path: 'profile',
+                                  },
+                                  Subscription: {
+                                    path: 'subscription',
+                                  },
+                                  AdminLogin: {
+                                    path: 'admin',
+                                  },
+                                },
+                              },
                             },
                           },
                         },

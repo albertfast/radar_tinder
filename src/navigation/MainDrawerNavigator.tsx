@@ -22,7 +22,13 @@ const CustomDrawerContent = (props: any) => {
   const topPadding = insets.top + Math.max(20, Math.min(36, Math.round(width * 0.04)));
 
   const menuItems: Array<{ icon: string; label: string; screen: string; color: string; params?: any }> = [
-    { icon: 'radar', label: 'Radar Map', screen: 'RadarDriveNavigation', color: '#FF5252' },
+    {
+      icon: 'radar',
+      label: 'Radar Map',
+      screen: 'RadarDriveNavigation',
+      color: '#FF5252',
+      params: { initialTab: 'Map' },
+    },
     { icon: 'car-cog', label: 'AI Diagnosis', screen: 'Diagnose', color: '#4ECDC4' },
     { icon: 'book-open-variant', label: 'Permit Test', screen: 'Permit', color: '#96CEB4' },
     { icon: 'trophy-outline', label: 'Leaderboard', screen: 'Leaderboard', color: '#FFD700' },
@@ -50,7 +56,7 @@ const CustomDrawerContent = (props: any) => {
     // Nested stack routes in RadarNavigator.
     props.navigation.navigate('MainTabs', {
       screen: 'Home',
-      params: { screen, ...(params || {}) },
+      params: params ? { screen, params } : { screen },
     });
     props.navigation.closeDrawer();
   };

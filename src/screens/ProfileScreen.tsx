@@ -71,7 +71,7 @@ const MenuButton = ({ icon, label, subLabel, onPress, color = 'white', delay = 0
 );
 
 const ProfileScreen = ({ navigation }: any) => {
-  const { user, logout, updateUser } = useAuthStore();
+  const { user, logout, updateUser, normalizeAccessState } = useAuthStore();
   const { unitSystem } = useSettingsStore();
   const insets = useSafeAreaInsets();
   const tabBarInset = TAB_BAR_HEIGHT + Math.max(insets.bottom, 10) + 16;
@@ -84,10 +84,21 @@ const ProfileScreen = ({ navigation }: any) => {
     });
     await logout();
   };
+  const handleExitAdminMode = async () => {
+    if (user?.id === 'local-admin') {
+      await logout();
+      Alert.alert('Admin mode disabled', 'Local admin mode was cleared.');
+      return;
+    }
+
+    updateUser({
+      isAdminSession: false,
+    });
+    await normalizeAccessState();
+    Alert.alert('Admin mode disabled', 'The app returned to your normal account permissions.');
+  };
   const [isEditing, setIsEditing] = useState(false);
   const [username, setUsername] = useState(user?.username || user?.name || '');
-  const [adminEntryUnlocked, setAdminEntryUnlocked] = useState(false);
-  const [versionTapCount, setVersionTapCount] = useState(0);
   const [uploadingMediaType, setUploadingMediaType] = useState<'profile' | 'car' | null>(null);
   
   // Local state for editing
@@ -199,23 +210,6 @@ const ProfileScreen = ({ navigation }: any) => {
     setUsername(currentUsername);
   };
 
-  const handleVersionPress = () => {
-    if (adminEntryUnlocked) {
-      return;
-    }
-
-    const nextTapCount = versionTapCount + 1;
-    if (nextTapCount >= 7) {
-      setAdminEntryUnlocked(true);
-      setVersionTapCount(0);
-      HapticPatterns.success();
-      Alert.alert('Admin tools unlocked', 'Admin sign-in is now visible in this session.');
-      return;
-    }
-
-    setVersionTapCount(nextTapCount);
-  };
-
   return (
     <Animated.View
       style={styles.container}
@@ -304,6 +298,16 @@ const ProfileScreen = ({ navigation }: any) => {
                 <MaterialCommunityIcons name="shield-star" size={16} color="#FFD700" />
                 <Text style={styles.levelText}>Level {user?.level || 1} • {user?.rank || 'Novice'}</Text>
             </Animated.View>
+
+            {user?.isAdminSession ? (
+              <Animated.View
+                style={styles.adminBadge}
+                entering={FadeInDown.delay(165).duration(ANIMATION_TIMING.BASE)}
+              >
+                <MaterialCommunityIcons name="shield-crown" size={16} color="#FCA5A5" />
+                <Text style={styles.adminBadgeText}>Admin mode active</Text>
+              </Animated.View>
+            ) : null}
 
             {/* Username / leaderboard handle */}
             <Animated.View
@@ -437,15 +441,22 @@ const ProfileScreen = ({ navigation }: any) => {
         {/* Menu Grid */}
         <Text style={styles.sectionHeader}>DASHBOARD</Text>
         <View style={styles.menuGrid}>
-             {adminEntryUnlocked && (
+             <MenuButton
+                icon="shield-crown"
+                label="Admin Mode"
+                subLabel={user?.isAdminSession ? 'Admin mode is currently active' : 'Enter admin testing mode'}
+                color="#EF4444"
+                onPress={() => {
+                  navigation.navigate('AdminLogin');
+                }}
+             />
+             {user?.isAdminSession && (
                <MenuButton
-                  icon="shield-crown"
-                  label="Admin Sign In"
-                  subLabel="Enable admin testing session"
-                  color="#EF4444"
-                  onPress={() => {
-                    navigation.navigate('AdminLogin');
-                  }}
+                  icon="shield-off"
+                  label="Exit Admin Mode"
+                  subLabel="Return to your normal account permissions"
+                  color="#FCA5A5"
+                  onPress={handleExitAdminMode}
                />
              )}
              <MenuButton 
@@ -482,10 +493,8 @@ const ProfileScreen = ({ navigation }: any) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={handleVersionPress}
-          accessibilityRole="button"
+          accessibilityRole="text"
           accessibilityLabel="Build information"
-          accessibilityHint="Tap seven times to unlock admin sign-in"
         >
           <Text style={styles.version}>v{appVersion} • build {nativeBuildVersion}</Text>
         </TouchableOpacity>
@@ -515,6 +524,23 @@ const styles = StyleSheet.create({
   userName: { color: 'white', fontSize: 28, fontWeight: 'bold' },
   levelBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 215, 0, 0.1)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, marginTop: 8, borderWidth: 1, borderColor: 'rgba(255, 215, 0, 0.3)' },
   levelText: { color: '#FFD700', fontWeight: 'bold', fontSize: 13, marginLeft: 6 },
+  adminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(127, 29, 29, 0.45)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.35)',
+  },
+  adminBadgeText: {
+    color: '#FECACA',
+    fontWeight: '800',
+    fontSize: 13,
+    marginLeft: 6,
+  },
   
   xpWrapper: { flexDirection: 'row', alignItems: 'center', width: '70%', marginTop: 20, gap: 10 },
   xpTrack: { flex: 1, height: 6, backgroundColor: '#1E293B', borderRadius: 3, overflow: 'hidden' },

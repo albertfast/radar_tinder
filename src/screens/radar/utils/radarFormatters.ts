@@ -161,6 +161,16 @@ export const describeRadarLocation = (label?: string | null) => {
   return first;
 };
 
+export const formatRadarFullAddress = (label?: string | null) => {
+  if (!label) return '';
+
+  return String(label)
+    .split(',')
+    .map((part) => cleanAddressPart(part))
+    .filter(Boolean)
+    .join(', ');
+};
+
 export const describeRadarApproach = (
   distanceKm: number,
   unitSystem: 'metric' | 'imperial'

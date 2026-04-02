@@ -111,10 +111,10 @@ const MAP_HTML = `<!DOCTYPE html>
 
     function getBrowsePadding() {
       return {
-        top: 126,
-        bottom: 304,
-        left: 28,
-        right: 28,
+        top: 104,
+        bottom: 284,
+        left: 24,
+        right: 24,
       };
     }
 
@@ -191,45 +191,126 @@ const MAP_HTML = `<!DOCTYPE html>
         .addTo(map);
     }
 
+    function getRadarMarkerColors(marker) {
+      var kind = marker && marker.markerKind ? marker.markerKind : (marker && marker.type ? marker.type : 'camera');
+
+      if (kind === 'red_light') {
+        return {
+          shell: '#3A0910',
+          border: '#FF5B5B',
+          core: '#FFE8E8',
+        };
+      }
+
+      if (kind === 'police') {
+        return {
+          shell: '#0E2748',
+          border: '#60A5FA',
+          core: '#E0F2FE',
+        };
+      }
+
+      if (kind === 'mobile') {
+        return {
+          shell: '#3B1D07',
+          border: '#F59E0B',
+          core: '#FEF3C7',
+        };
+      }
+
+      if (kind === 'traffic_enforcement') {
+        return {
+          shell: '#3A0D17',
+          border: '#FB7185',
+          core: '#FFE4E6',
+        };
+      }
+
+      return {
+        shell: '#3A0F0A',
+        border: '#FF7849',
+        core: '#FFF4EE',
+      };
+    }
+
     function createRadarMarkerElement(marker) {
+      var colors = getRadarMarkerColors(marker);
       var wrapper = document.createElement('div');
       wrapper.style.position = 'relative';
-      wrapper.style.width = '44px';
-      wrapper.style.height = '44px';
+      wrapper.style.width = '40px';
+      wrapper.style.height = '54px';
       wrapper.style.pointerEvents = 'none';
-      wrapper.style.transformOrigin = '50% 50%';
+      wrapper.style.transformOrigin = '50% 88%';
       wrapper.style.transition = 'transform 160ms ease, filter 160ms ease';
 
       var glow = document.createElement('div');
       glow.setAttribute('data-radar-glow', '1');
       glow.style.position = 'absolute';
-      glow.style.inset = '-4px';
+      glow.style.left = '50%';
+      glow.style.top = '5px';
+      glow.style.width = '24px';
+      glow.style.height = '24px';
+      glow.style.marginLeft = '-12px';
       glow.style.borderRadius = '999px';
       glow.style.background = 'radial-gradient(circle, rgba(88,226,255,0.34) 0%, rgba(88,226,255,0.16) 45%, rgba(88,226,255,0) 72%)';
       glow.style.opacity = '0';
       glow.style.transition = 'opacity 160ms ease';
 
-      var iconWrap = document.createElement('div');
-      iconWrap.style.position = 'absolute';
-      iconWrap.style.inset = '0';
-      iconWrap.style.display = 'flex';
-      iconWrap.style.alignItems = 'center';
-      iconWrap.style.justifyContent = 'center';
+      var shadow = document.createElement('div');
+      shadow.setAttribute('data-radar-shadow', '1');
+      shadow.style.position = 'absolute';
+      shadow.style.left = '50%';
+      shadow.style.bottom = '4px';
+      shadow.style.width = '14px';
+      shadow.style.height = '4px';
+      shadow.style.marginLeft = '-7px';
+      shadow.style.borderRadius = '999px';
+      shadow.style.background = 'rgba(2, 8, 19, 0.55)';
+      shadow.style.filter = 'blur(4px)';
+      shadow.style.opacity = '0.9';
+      shadow.style.transition = 'opacity 160ms ease, transform 160ms ease';
 
-      var img = document.createElement('img');
-      img.setAttribute('data-radar-icon', '1');
-      img.alt = 'radar marker';
-      img.draggable = false;
-      img.style.width = '44px';
-      img.style.height = '44px';
-      img.style.objectFit = 'contain';
-      if (marker.iconUri) {
-        img.src = marker.iconUri;
-      }
+      var pin = document.createElement('div');
+      pin.setAttribute('data-radar-pin', '1');
+      pin.style.position = 'absolute';
+      pin.style.left = '50%';
+      pin.style.top = '8px';
+      pin.style.width = '24px';
+      pin.style.height = '24px';
+      pin.style.marginLeft = '-12px';
+      pin.style.borderRadius = '999px';
+      pin.style.border = '1.6px solid ' + colors.border;
+      pin.style.background = colors.shell;
+      pin.style.display = 'flex';
+      pin.style.alignItems = 'center';
+      pin.style.justifyContent = 'center';
+      pin.style.boxShadow = '0 6px 14px rgba(2, 8, 19, 0.24)';
 
-      iconWrap.appendChild(img);
+      var core = document.createElement('div');
+      core.setAttribute('data-radar-core', '1');
+      core.style.width = '8px';
+      core.style.height = '8px';
+      core.style.borderRadius = '999px';
+      core.style.background = colors.core;
+      core.style.border = '1px solid rgba(255,255,255,0.18)';
+
+      var stem = document.createElement('div');
+      stem.setAttribute('data-radar-stem', '1');
+      stem.style.position = 'absolute';
+      stem.style.left = '50%';
+      stem.style.top = '29px';
+      stem.style.width = '2px';
+      stem.style.height = '12px';
+      stem.style.marginLeft = '-1px';
+      stem.style.borderRadius = '999px';
+      stem.style.background = colors.border;
+      stem.style.opacity = '0.92';
+
       wrapper.appendChild(glow);
-      wrapper.appendChild(iconWrap);
+      wrapper.appendChild(shadow);
+      pin.appendChild(core);
+      wrapper.appendChild(pin);
+      wrapper.appendChild(stem);
 
       return wrapper;
     }
@@ -239,20 +320,39 @@ const MAP_HTML = `<!DOCTYPE html>
         return;
       }
 
-      var icon = record.element.querySelector('[data-radar-icon]');
-      if (icon && marker.iconUri && icon.getAttribute('src') !== marker.iconUri) {
-        icon.setAttribute('src', marker.iconUri);
+      var colors = getRadarMarkerColors(marker);
+
+      var pin = record.element.querySelector('[data-radar-pin]');
+      if (pin) {
+        pin.style.background = colors.shell;
+        pin.style.borderColor = colors.border;
+      }
+
+      var core = record.element.querySelector('[data-radar-core]');
+      if (core) {
+        core.style.background = colors.core;
+      }
+
+      var stem = record.element.querySelector('[data-radar-stem]');
+      if (stem) {
+        stem.style.background = colors.border;
       }
 
       var isActive = Boolean(marker.active) || (highlightedRadarId && marker.id === highlightedRadarId);
-      record.element.style.transform = isActive ? 'scale(1.12)' : 'scale(1)';
+      record.element.style.transform = isActive ? 'scale(1.06)' : 'scale(1)';
       record.element.style.filter = isActive
-        ? 'drop-shadow(0 0 18px rgba(88, 226, 255, 0.42))'
-        : 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.28))';
+        ? 'drop-shadow(0 6px 10px rgba(0, 0, 0, 0.24))'
+        : 'drop-shadow(0 5px 8px rgba(0, 0, 0, 0.18))';
 
       var glow = record.element.querySelector('[data-radar-glow]');
       if (glow) {
         glow.style.opacity = isActive ? '1' : '0';
+      }
+
+      var shadow = record.element.querySelector('[data-radar-shadow]');
+      if (shadow) {
+        shadow.style.opacity = isActive ? '0.72' : '0.9';
+        shadow.style.transform = isActive ? 'scale(1.08)' : 'scale(1)';
       }
     }
 
@@ -272,7 +372,7 @@ const MAP_HTML = `<!DOCTYPE html>
         var element = createRadarMarkerElement(marker);
         var markerInstance = new maplibregl.Marker({
           element: element,
-          anchor: 'center',
+          anchor: 'bottom',
         })
           .setLngLat([longitude, latitude])
           .addTo(map);

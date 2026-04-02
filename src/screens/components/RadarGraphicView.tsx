@@ -53,8 +53,10 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   const accessPending = isPremiumAccessPending(user, accessBootstrapState);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
+  const [tripHistory, setTripHistory] = useState<any[]>([]);
   const [weeklyData, setWeeklyData] = useState(emptyWeeklyTrips);
   const [speedData, setSpeedData] = useState<Array<{ time: string; speed: number }>>([]);
+  const [historicalSpeedData, setHistoricalSpeedData] = useState<Array<{ time: string; speed: number }>>([]);
   const lastSpeedSampleRef = useRef(0);
   const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
   const [weeklyDurationSeconds, setWeeklyDurationSeconds] = useState(0);
@@ -93,9 +95,10 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
 
   const loadDrivingData = async () => {
     try {
-      
-      // Load user's weekly trip statistics
       const trips = await SupabaseService.getUserTrips(user?.id);
+      const safeTrips = Array.isArray(trips) ? trips : [];
+      setTripHistory(safeTrips);
+
       // Group trips by day of week
       const dayMap: { [key: string]: { trips: number; distance: number } } = {};
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -106,7 +109,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         dayMap[day] = { trips: 0, distance: 0 };
       });
 
-      trips.forEach((trip: any) => {
+      safeTrips.forEach((trip: any) => {
         const date = trip.createdAt ? new Date(trip.createdAt) : null;
         if (!date || Number.isNaN(date.getTime())) return;
         if (date.getTime() < weekStart) return;
@@ -125,14 +128,41 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
       }));
       setWeeklyData(newWeeklyData);
       setWeeklyDurationSeconds(durationSeconds);
+      setHistoricalSpeedData(
+        safeTrips
+          .filter((trip: any) => {
+            const derivedAvgKph =
+              Number.isFinite(Number(trip?.avgSpeedKph)) && Number(trip.avgSpeedKph) > 0
+                ? Number(trip.avgSpeedKph)
+                : trip?.distance > 0 && trip?.duration > 0
+                  ? (Number(trip.distance) / 1000) / (Number(trip.duration) / 3600)
+                  : 0;
+            return Number.isFinite(derivedAvgKph) && derivedAvgKph > 0;
+          })
+          .slice(0, 12)
+          .reverse()
+          .map((trip: any) => {
+            const date = trip.createdAt ? new Date(trip.createdAt) : null;
+            const derivedAvgKph =
+              Number.isFinite(Number(trip?.avgSpeedKph)) && Number(trip.avgSpeedKph) > 0
+                ? Number(trip.avgSpeedKph)
+                : trip?.distance > 0 && trip?.duration > 0
+                  ? (Number(trip.distance) / 1000) / (Number(trip.duration) / 3600)
+                  : 0;
 
-      // Load recent radar alerts/incidents if available
-      // Note: This assumes you have a method to fetch recent radar incidents
-      // For now, using mock data
-      
+            return {
+              time:
+                date && !Number.isNaN(date.getTime())
+                  ? `${date.getMonth() + 1}/${date.getDate()}`
+                  : '--',
+              speed: derivedAvgKph,
+            };
+          })
+      );
     } catch (error) {
       console.error('Failed to load driving data:', error);
-      // Keep using mock data on error
+      setTripHistory([]);
+      setHistoricalSpeedData([]);
     }
   };
 
@@ -177,13 +207,13 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
       const activities = merged.slice(0, 6).map((alert: any) => {
         const type = String(alert.type || 'radar');
         const meta = {
-          speed_camera: { title: 'Speed Camera', icon: 'radar', color: '#FF5252' },
-          police: { title: 'Police Spotted', icon: 'police-badge', color: '#FF6B6B' },
-          mobile: { title: 'Mobile Radar', icon: 'car-wrench', color: '#FFB300' },
-          red_light: { title: 'Red Light Camera', icon: 'traffic-light', color: '#FF8A65' },
-          traffic_enforcement: { title: 'Traffic Enforcement', icon: 'alert-circle', color: '#FFA500' },
-          info: { title: 'Driving Session', icon: 'road-variant', color: '#4ECDC4' },
-        }[type] || { title: 'Radar Alert', icon: 'alert', color: '#FFA500' };
+          speed_camera: { title: 'Speed Camera', color: '#FF5252' },
+          police: { title: 'Police Spotted', color: '#FF6B6B' },
+          mobile: { title: 'Mobile Radar', color: '#FFB300' },
+          red_light: { title: 'Red Light Camera', color: '#FF8A65' },
+          traffic_enforcement: { title: 'Traffic Enforcement', color: '#FFA500' },
+          info: { title: 'Driving Session', color: '#4ECDC4' },
+        }[type] || { title: 'Radar Alert', color: '#FFA500' };
 
         const distanceLabel =
           typeof alert.distance === 'number' && Number.isFinite(alert.distance)
@@ -202,7 +232,6 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
           title: meta.title,
           location: distanceLabel,
           time: formatTimeAgo(createdAt),
-          icon: meta.icon,
           color: meta.color,
         };
       });
@@ -233,6 +262,10 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
     return `${minutes}m`;
   };
 
+  const speedUnitLabel = unitSystem === 'imperial' ? 'MPH' : 'KM/H';
+  const toDisplaySpeed = (speedKph: number) =>
+    unitSystem === 'imperial' ? Math.round(speedKph * 0.621371) : Math.round(speedKph);
+
   useEffect(() => {
     if (!canUse) return;
     loadRecentActivity();
@@ -241,9 +274,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   const weeklyStats = {
     totalDistance: weeklyData.reduce((acc, d) => acc + d.distance, 0),
     totalTrips: weeklyData.reduce((acc, d) => acc + d.trips, 0),
-    avgSpeed: speedData.length
-      ? Math.round(speedData.reduce((acc, d) => acc + d.speed, 0) / speedData.length)
-      : 0,
+    avgSpeed: 0,
   };
 
   const weeklyDurationLabel = useMemo(() => {
@@ -256,20 +287,88 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
     return `${hours.toFixed(1)}h`;
   }, [weeklyDurationSeconds]);
 
+  const tripMetrics = useMemo(() => {
+    const averageSpeedSamples = tripHistory
+      .map((trip) => {
+        if (Number.isFinite(Number(trip?.avgSpeedKph)) && Number(trip.avgSpeedKph) > 0) {
+          return Number(trip.avgSpeedKph);
+        }
+        if (trip?.distance > 0 && trip?.duration > 0) {
+          return (Number(trip.distance) / 1000) / (Number(trip.duration) / 3600);
+        }
+        return null;
+      })
+      .filter((value): value is number => value !== null && Number.isFinite(value) && value > 0);
+
+    const peakSpeedSamples = tripHistory
+      .map((trip) => Number(trip?.topSpeedKph))
+      .filter((value) => Number.isFinite(value) && value > 0);
+
+    const scoreSamples = tripHistory
+      .map((trip) => Number(trip?.score))
+      .filter((value) => Number.isFinite(value) && value > 0);
+
+    const movingRatioSamples = tripHistory
+      .map((trip) => {
+        const duration = Number(trip?.duration || 0);
+        const movingDuration = Number(trip?.movingDuration || 0);
+        if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(movingDuration)) {
+          return null;
+        }
+        return Math.max(0, Math.min(1, movingDuration / duration));
+      })
+      .filter((value): value is number => value !== null);
+
+    return {
+      averageSpeedKph: averageSpeedSamples.length
+        ? averageSpeedSamples.reduce((acc, value) => acc + value, 0) / averageSpeedSamples.length
+        : 0,
+      peakSpeedKph: peakSpeedSamples.length ? Math.max(...peakSpeedSamples) : 0,
+      averageScore: scoreSamples.length
+        ? scoreSamples.reduce((acc, value) => acc + value, 0) / scoreSamples.length
+        : 0,
+      movingRatioPct: movingRatioSamples.length
+        ? Math.round(
+            (movingRatioSamples.reduce((acc, value) => acc + value, 0) / movingRatioSamples.length) *
+              100
+          )
+        : 0,
+    };
+  }, [tripHistory]);
+
+  const speedSeries = useMemo(() => {
+    const rawSeries = speedData.length ? speedData : historicalSpeedData;
+    if (!rawSeries.length) {
+      return [{ time: '--', speed: 0 }];
+    }
+
+    return rawSeries.map((point) => ({
+      time: point.time,
+      speed: toDisplaySpeed(point.speed),
+    }));
+  }, [historicalSpeedData, speedData, unitSystem]);
+
   const speedSummary = {
-    average: speedData.length
-      ? Math.round(speedData.reduce((acc, d) => acc + d.speed, 0) / speedData.length)
-      : 0,
-    peak: speedData.length ? Math.max(...speedData.map(d => d.speed)) : 0,
-    stability: speedData.length
-      ? Math.max(0, 100 - (Math.max(...speedData.map(d => d.speed)) - Math.min(...speedData.map(d => d.speed))))
-      : 0,
+    average: speedSeries.length
+      ? Math.round(speedSeries.reduce((acc, d) => acc + d.speed, 0) / speedSeries.length)
+      : toDisplaySpeed(tripMetrics.averageSpeedKph),
+    peak: speedSeries.length
+      ? Math.max(...speedSeries.map((d) => d.speed))
+      : toDisplaySpeed(tripMetrics.peakSpeedKph),
+    stability: speedSeries.length > 1
+      ? Math.max(
+          0,
+          100 - (Math.max(...speedSeries.map((d) => d.speed)) - Math.min(...speedSeries.map((d) => d.speed)))
+        )
+      : tripMetrics.movingRatioPct,
   };
 
-  const speedSeries = speedData.length ? speedData : [{ time: '--', speed: 0 }];
-
   const displayDistance = formatDistance(weeklyStats.totalDistance);
-  const displayAvgSpeed = `${weeklyStats.avgSpeed} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`;
+  const displayAvgSpeed = `${toDisplaySpeed(tripMetrics.averageSpeedKph)} ${speedUnitLabel}`;
+  const displayPeakSpeed = `${toDisplaySpeed(tripMetrics.peakSpeedKph)} ${speedUnitLabel}`;
+  const displaySafetyScore = tripMetrics.averageScore
+    ? `${(tripMetrics.averageScore / 10).toFixed(1)}/10`
+    : '—';
 
   if (accessPending) {
     return (
@@ -347,7 +446,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         <StatBox
           icon="speedometer"
           label="Current Speed"
-          value={`${Math.round(currentSpeed)} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`}
+          value={`${toDisplaySpeed(currentSpeed)} ${speedUnitLabel}`}
           color="#FF5252"
           delay={200}
         />
@@ -373,7 +472,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
               color: ['#FF6B6B', '#FFA500', '#FFD700', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'][weeklyData.indexOf(d)]
             }))}
             height={180}
-            maxValue={7}
+            maxValue={Math.max(3, ...weeklyData.map((item) => item.trips), 1)}
           />
         </LinearGradient>
       </Animated.View>
@@ -395,7 +494,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             <View style={styles.speedCardWrapper}>
               <StatCard
                 title="Avg speed"
-                value={`${speedSummary.average} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`}
+                value={`${speedSummary.average} ${speedUnitLabel}`}
                 color="#45B7D1"
                 trend="stable"
               />
@@ -403,7 +502,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             <View style={styles.speedCardWrapper}>
               <StatCard
                 title="Top speed"
-                value={`${speedSummary.peak} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`}
+                value={`${speedSummary.peak} ${speedUnitLabel}`}
                 color="#FF6B6B"
                 trend="up"
               />
@@ -421,7 +520,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             data={speedSeries.map(d => d.speed)}
             labels={speedSeries.map(d => d.time)}
             height={160}
-            maxValue={100}
+            maxValue={Math.max(50, ...speedSeries.map((item) => item.speed), 1)}
             color="#45B7D1"
           />
         </LinearGradient>
@@ -450,22 +549,22 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             />
             <MetricCard
               icon="chart-line"
-              label="Efficiency"
-              value="94%"
+              label="Peak Speed"
+              value={displayPeakSpeed}
               color="#96CEB4"
               delay={340}
             />
             <MetricCard
               icon="alert-circle"
               label="Alerts"
-              value="5"
+              value={weeklyAlertCount.toString()}
               color="#FF6B6B"
               delay={360}
             />
             <MetricCard
               icon="shield-check"
               label="Safety Score"
-              value="9.2/10"
+              value={displaySafetyScore}
               color="#4ECDC4"
               delay={380}
             />
@@ -501,13 +600,6 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
                   end={{ x: 1, y: 1 }}
                   style={styles.activityGradient}
                 >
-                  <View style={styles.activityIconBox}>
-                    <MaterialCommunityIcons 
-                      name={activity.icon as any} 
-                      size={20} 
-                      color={activity.color}
-                    />
-                  </View>
                   <View style={styles.activityContent}>
                     <Text style={styles.activityTitle}>{activity.title}</Text>
                     <Text style={styles.activityLocation}>{activity.location}</Text>
@@ -744,14 +836,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  activityIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   activityContent: {
     flex: 1,

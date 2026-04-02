@@ -116,6 +116,45 @@ target 'RadarTinder' do
           build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
         end
       end
+
+      if target.name == 'fmt'
+        target.build_configurations.each do |build_config|
+          # Xcode 26 / newer Apple clang can reject fmt's consteval-based
+          # compile-string path while compiling the pod itself. Keep fmt on the
+          # stable runtime validation path for iOS builds.
+          definitions = build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+          definitions = [definitions] unless definitions.is_a?(Array)
+
+          ['FMT_USE_CONSTEVAL=0', 'FMT_USE_NONTYPE_TEMPLATE_ARGS=0'].each do |definition|
+            definitions << definition unless definitions.include?(definition)
+          end
+
+          build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = definitions
+        end
+      end
+    end
+
+    # fmt 11.0.2 does not honor a pre-defined FMT_USE_CONSTEVAL override in
+    # base.h, so the compiler flag above gets redefined away on newer Apple
+    # clang toolchains. Patch the header after pod generation so our target-
+    # scoped build setting can force the stable non-consteval path.
+    fmt_base_header = File.join(
+      installer.sandbox.root.to_s,
+      'fmt',
+      'include',
+      'fmt',
+      'base.h'
+    )
+    if File.exist?(fmt_base_header)
+      fmt_base_content = File.read(fmt_base_header)
+      fmt_base_patched = fmt_base_content.sub(
+        "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#if !defined(__cpp_lib_is_constant_evaluated)\n",
+        "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#if defined(FMT_USE_CONSTEVAL)\n// Use the provided definition.\n#elif !defined(__cpp_lib_is_constant_evaluated)\n"
+      )
+      if fmt_base_patched != fmt_base_content
+        File.chmod(File.stat(fmt_base_header).mode | 0o200, fmt_base_header)
+        File.write(fmt_base_header, fmt_base_patched)
+      end
     end
 
     # Safety patch: avoid @import failure if a future config disables modules.

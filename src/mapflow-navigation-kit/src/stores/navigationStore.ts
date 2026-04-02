@@ -49,6 +49,7 @@ interface NavigationStore {
   setIsRouting: (v: boolean) => void;
   startNavigation: () => void;
   stopNavigation: () => void;
+  setIsNavigating: (value: boolean) => void;
   setCurrentStepIndex: (i: number) => void;
   setRemainingStepDistance: (d: number) => void;
   setRemainingDistance: (d: number) => void;
@@ -125,6 +126,27 @@ export const useNavigationStore = create<NavigationStore>((set) => ({
       hasArrived: false,
       speedLimit: null,
     }),
+  setIsNavigating: (value) =>
+    set(
+      value
+        ? {
+            isNavigating: true,
+            hasArrived: false,
+          }
+        : {
+            isNavigating: false,
+            currentStepIndex: 0,
+            remainingStepDistance: 0,
+            remainingDistance: 0,
+            remainingDuration: 0,
+            eta: null,
+            distanceToRoute: 0,
+            routeHeading: null,
+            isOffRoute: false,
+            hasArrived: false,
+            speedLimit: null,
+          }
+    ),
 
   setCurrentStepIndex: (i) => set({ currentStepIndex: i }),
   setRemainingStepDistance: (d) => set({ remainingStepDistance: d }),

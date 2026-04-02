@@ -152,7 +152,7 @@ export default memo(function NavigationPanel({ onStartNavigation, onStopNavigati
 
     return (
       <>
-        <View style={[styles.turnBanner, { top: insets.top + 24 }]}>
+        <View style={[styles.turnBanner, { top: 14 }]}>
           <View style={styles.turnIconWrap}>
             <MaterialIcons
               name={(hasArrived ? 'location-on' : getTurnIcon(currentStep?.maneuver.type || 'continue', currentStep?.maneuver.modifier)) as any}

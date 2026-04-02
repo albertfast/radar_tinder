@@ -1,86 +1,39 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  Modal,
-  Pressable,
-  ScrollView,
   StyleSheet,
-  TouchableOpacity,
+  Text,
   View,
 } from 'react-native';
-import { Text } from 'react-native-paper';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { MapFlowNavigationScreen, useNavigationStore } from '../mapflow-navigation-kit/src';
 import { RadarMapMarker } from '../mapflow-navigation-kit/src/types/map';
+import { formatDistance as formatMapDistance } from '../mapflow-navigation-kit/src/utils/units';
 import { useAuthStore } from '../store/authStore';
 import { useRadarStore } from '../store/radarStore';
+import { useSettingsStore } from '../store/settingsStore';
+import { useUiStore } from '../store/uiStore';
 import { RadarAlert, RadarLocation } from '../types';
 import { AdService } from '../services/AdService';
 import { LocationService } from '../services/LocationService';
 import { OfflineService } from '../services/OfflineService';
 import { RadarService } from '../services/RadarService';
 import { SupabaseService } from '../services/SupabaseService';
-import { formatDistance } from '../utils/format';
-import {
-  formatRadarSpeedLimitText,
-  formatRadarTimingText,
-  formatRadarTypeLabel,
-  getRadarShortLocation,
-} from '../utils/radarAlerts';
-import { useRadarMarkerAssetUris } from './drive/useRadarMarkerAssetUris';
+import { hasProAccess } from '../utils/access';
+import { TAB_BAR_HEIGHT } from '../constants/layout';
+import { RadarGraphicView } from './components/RadarGraphicView';
+import { RadarBasicTab } from './radar/components/driving/RadarBasicTab';
+import { RadarDrivingShell } from './radar/components/driving/RadarDrivingShell';
 import { useDrivingSession } from './radar/hooks/useDrivingSession';
-
-type IncidentOption = {
-  id: 'radar' | 'police' | 'crash' | 'roadwork' | 'missed';
-  label: string;
-  icon: string;
-  color: string;
-  reportType: RadarLocation['type'];
-  reportTag?: 'default' | 'missed_camera';
-};
-
-const INCIDENT_OPTIONS: IncidentOption[] = [
-  {
-    id: 'radar',
-    label: 'Radar',
-    icon: 'camera',
-    color: '#22D3EE',
-    reportType: 'speed_camera',
-  },
-  {
-    id: 'police',
-    label: 'Police',
-    icon: 'police-badge',
-    color: '#60A5FA',
-    reportType: 'police',
-  },
-  {
-    id: 'crash',
-    label: 'Crash',
-    icon: 'car-emergency',
-    color: '#FB7185',
-    reportType: 'traffic_enforcement',
-  },
-  {
-    id: 'roadwork',
-    label: 'Road Work',
-    icon: 'traffic-cone',
-    color: '#F59E0B',
-    reportType: 'mobile',
-  },
-  {
-    id: 'missed',
-    label: 'Missed Camera',
-    icon: 'target-variant',
-    color: '#F97316',
-    reportType: 'speed_camera',
-    reportTag: 'missed_camera',
-  },
-];
+import { useRadarSignalLevels } from './radar/hooks/useRadarSignalLevels';
+import { useVoiceMode } from './radar/hooks/useVoiceMode';
+import { TabType } from './radar/types';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 const NOOP_SET_ACTIVE_TAB = () => {};
+const RADAR_DRIVE_NAV_KEEP_AWAKE_TAG = 'radar_drive_navigation';
 
 const toRadarLocation = (
   userLocation: { lat: number; lng: number } | null,
@@ -110,30 +63,104 @@ const toRouteCoordinates = (geometry?: [number, number][]) =>
         )
     : [];
 
-export default function RadarDriveNavigationScreen({ navigation }: any) {
+const resolveInitialTab = (value: unknown): TabType => {
+  if (value === 'Basic' || value === 'Map' || value === 'Graphic') {
+    return value;
+  }
+  return 'Map';
+};
+
+const buildLocationSignature = (
+  location:
+    | {
+        latitude: number;
+        longitude: number;
+        heading?: number | null;
+        speed?: number | null;
+      }
+    | null
+) => {
+  if (!location) return 'none';
+  return [
+    location.latitude.toFixed(6),
+    location.longitude.toFixed(6),
+    typeof location.heading === 'number' ? location.heading.toFixed(1) : 'na',
+    typeof location.speed === 'number' ? location.speed.toFixed(2) : 'na',
+  ].join(':');
+};
+
+const buildRoutePathSignature = (
+  coords: Array<{ latitude: number; longitude: number }>
+) =>
+  coords.length > 0
+    ? coords.map((coord) => `${coord.latitude.toFixed(5)},${coord.longitude.toFixed(5)}`).join('|')
+    : 'empty';
+
+const buildRadarListSignature = (radars: Array<RadarLocation & { distance: number }>) =>
+  radars.length > 0
+    ? radars
+        .map((radar) => {
+          const distance = Number.isFinite(radar.distance) ? radar.distance.toFixed(3) : 'inf';
+          return `${radar.id}:${distance}:${radar.type}:${radar.markerKind || 'na'}`;
+        })
+        .join('|')
+    : 'empty';
+
+function DriveTabFallback({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) {
+  return (
+    <View style={styles.tabFallback}>
+      <Text style={styles.tabFallbackTitle}>{title}</Text>
+      <Text style={styles.tabFallbackBody}>{body}</Text>
+    </View>
+  );
+}
+
+export default function RadarDriveNavigationScreen({ navigation, route }: any) {
   const insets = useSafeAreaInsets();
   const { user, refreshProfile } = useAuthStore();
+  const canUsePro = hasProAccess(user);
   const {
     userLocation,
     userHeading,
     userSpeed,
-    route,
+    route: navigationRoute,
     isNavigating,
     unitSystem,
-    searchResults,
+    destinationName,
+    currentStepIndex,
+    remainingStepDistance,
+    hasArrived,
     stopNavigation,
   } = useNavigationStore();
+  const {
+    hasHydrated,
+    voiceWarningsEnabled,
+    hapticAlertsEnabled,
+    warningVolume,
+    setVoiceWarningsEnabled,
+    setWarningVolume,
+  } = useSettingsStore();
+  const hideTabBar = useUiStore((state) => state.hideTabBar);
+  const showTabBar = useUiStore((state) => state.showTabBar);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
   const acknowledgeAlert = useRadarStore((state) => state.acknowledgeAlert);
   const setRadarLocations = useRadarStore((state) => state.setRadarLocations);
   const setRouteGuidanceActive = useRadarStore((state) => state.setRouteGuidanceActive);
   const setRouteGuidancePath = useRadarStore((state) => state.setRouteGuidancePath);
   const setStoreCurrentLocation = useRadarStore((state) => state.setCurrentLocation);
-  const { assetUris, resolveMarkerAssetKey } = useRadarMarkerAssetUris();
 
   const [nearbyRadars, setNearbyRadars] = useState<Array<RadarLocation & { distance: number }>>([]);
   const [routeRadars, setRouteRadars] = useState<Array<RadarLocation & { distance: number }>>([]);
   const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [mapUnavailableReason, setMapUnavailableReason] = useState<string | null>(null);
+  const requestedInitialTab = resolveInitialTab(route?.params?.initialTab);
+  const [activeTab, setActiveTab] = useState<TabType>(requestedInitialTab);
 
   const currentLocation = useMemo(
     () => toRadarLocation(userLocation, userHeading, userSpeed),
@@ -141,16 +168,49 @@ export default function RadarDriveNavigationScreen({ navigation }: any) {
   );
   const currentLocationRef = useRef(currentLocation);
   const hasStartedDriveSessionRef = useRef(false);
+  const lastCurrentLocationSignatureRef = useRef('none');
+  const lastGuidanceActiveRef = useRef<boolean | null>(null);
+  const lastRoutePathSignatureRef = useRef('empty');
+  const lastRadarListSignatureRef = useRef('empty');
 
   useEffect(() => {
     currentLocationRef.current = currentLocation;
   }, [currentLocation]);
+
+  useEffect(() => {
+    setActiveTab((current) => (current === requestedInitialTab ? current : requestedInitialTab));
+  }, [requestedInitialTab]);
 
   const driving = useDrivingSession({
     user,
     currentLocation,
     currentLocationRef,
   });
+  const {
+    isDriving,
+    totalDistance,
+    drivingStartTime,
+    setTotalDistance,
+    lastPositionRef,
+    saveTripIfNeeded,
+    startDrivingSession,
+    resetDrivingSession,
+  } = driving;
+  const saveTripIfNeededRef = useRef(saveTripIfNeeded);
+  const resetDrivingSessionRef = useRef(resetDrivingSession);
+  const stopNavigationRef = useRef(stopNavigation);
+
+  useEffect(() => {
+    saveTripIfNeededRef.current = saveTripIfNeeded;
+  }, [saveTripIfNeeded]);
+
+  useEffect(() => {
+    resetDrivingSessionRef.current = resetDrivingSession;
+  }, [resetDrivingSession]);
+
+  useEffect(() => {
+    stopNavigationRef.current = stopNavigation;
+  }, [stopNavigation]);
 
   useEffect(() => {
     if (hasStartedDriveSessionRef.current || !currentLocation) {
@@ -158,22 +218,21 @@ export default function RadarDriveNavigationScreen({ navigation }: any) {
     }
 
     hasStartedDriveSessionRef.current = true;
-    driving
-      .startDrivingSession({
+    startDrivingSession({
         setActiveTab: NOOP_SET_ACTIVE_TAB,
         activateMapTab: false,
         source: 'force_tab',
-        hasActiveRoute: Boolean(isNavigating && route?.geometry?.length),
+        hasActiveRoute: Boolean(isNavigating && navigationRoute?.geometry?.length),
       })
       .catch(() => {});
-  }, [currentLocation, driving, isNavigating, route?.geometry?.length]);
+  }, [currentLocation, isNavigating, navigationRoute?.geometry?.length, startDrivingSession]);
 
   useEffect(() => {
-    if (!driving.isDriving || !currentLocation) {
+    if (!isDriving || !currentLocation) {
       return;
     }
 
-    const previous = driving.lastPositionRef.current;
+    const previous = lastPositionRef.current;
     if (previous) {
       const movedKm = LocationService.calculateDistanceSync(
         previous.latitude,
@@ -182,21 +241,42 @@ export default function RadarDriveNavigationScreen({ navigation }: any) {
         currentLocation.longitude
       );
       if (movedKm > 0.005) {
-        driving.setTotalDistance((value) => value + movedKm);
-        driving.lastPositionRef.current = currentLocation;
+        setTotalDistance((value) => value + movedKm);
+        lastPositionRef.current = currentLocation;
       }
       return;
     }
 
-    driving.lastPositionRef.current = currentLocation;
-  }, [currentLocation, driving]);
+    lastPositionRef.current = currentLocation;
+  }, [currentLocation, isDriving, lastPositionRef, setTotalDistance]);
 
   const routeCoords = useMemo(
-    () => toRouteCoordinates(route?.geometry),
-    [route?.geometry]
+    () => toRouteCoordinates(navigationRoute?.geometry),
+    [navigationRoute?.geometry]
   );
   const hasRoute = routeCoords.length > 1;
   const isTurnByTurnActive = isNavigating && hasRoute;
+  const tabBarInset = TAB_BAR_HEIGHT + Math.max(insets.bottom, 10) + 16;
+  const currentSpeedKph = Math.max(0, userSpeed * 3.6);
+  const currentStep = navigationRoute?.steps?.[currentStepIndex] || null;
+  const navDistanceLabel = hasRoute
+    ? formatMapDistance(remainingStepDistance || currentStep?.distance || 0, unitSystem)
+    : '';
+  const radarRendererMode = useMemo(() => {
+    const configured = (process.env.EXPO_PUBLIC_RADAR_RENDERER || 'legacy2d').trim().toLowerCase();
+    if (configured === 'life3d' || configured === 'legacy2d' || configured === 'auto') {
+      return configured;
+    }
+    return 'legacy2d';
+  }, []);
+  const { toggleVoiceWarnings } = useVoiceMode({
+    hasHydrated,
+    voiceWarningsEnabled,
+    hapticAlertsEnabled,
+    warningVolume,
+    setVoiceWarningsEnabled,
+    setWarningVolume,
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -207,22 +287,55 @@ export default function RadarDriveNavigationScreen({ navigation }: any) {
     }, [isTurnByTurnActive])
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      activateKeepAwakeAsync(RADAR_DRIVE_NAV_KEEP_AWAKE_TAG).catch(() => {});
+      return () => {
+        deactivateKeepAwake(RADAR_DRIVE_NAV_KEEP_AWAKE_TAG);
+      };
+    }, [])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      hideTabBar('radar_drive_navigation');
+      return () => {
+        showTabBar('radar_drive_navigation');
+      };
+    }, [hideTabBar, showTabBar])
+  );
+
   useEffect(() => {
     if (!currentLocation) {
       return;
     }
 
+    const nextSignature = buildLocationSignature(currentLocation);
+    if (lastCurrentLocationSignatureRef.current === nextSignature) {
+      return;
+    }
+
+    lastCurrentLocationSignatureRef.current = nextSignature;
     setStoreCurrentLocation(currentLocation);
   }, [currentLocation, setStoreCurrentLocation]);
 
   useEffect(() => {
+    if (lastGuidanceActiveRef.current === isTurnByTurnActive) {
+      return;
+    }
+
+    lastGuidanceActiveRef.current = isTurnByTurnActive;
     setRouteGuidanceActive(isTurnByTurnActive);
-    return () => setRouteGuidanceActive(false);
   }, [isTurnByTurnActive, setRouteGuidanceActive]);
 
   useEffect(() => {
+    const nextSignature = buildRoutePathSignature(routeCoords);
+    if (lastRoutePathSignatureRef.current === nextSignature) {
+      return;
+    }
+
+    lastRoutePathSignatureRef.current = nextSignature;
     setRouteGuidancePath(routeCoords);
-    return () => setRouteGuidancePath([]);
   }, [routeCoords, setRouteGuidancePath]);
 
   const refreshNearbyRadars = useCallback(async () => {
@@ -311,37 +424,26 @@ export default function RadarDriveNavigationScreen({ navigation }: any) {
   }, [currentLocation, hasRoute, nearbyRadars, routeRadars]);
 
   useEffect(() => {
+    const nextSignature = buildRadarListSignature(displayRadars);
+    if (lastRadarListSignatureRef.current === nextSignature) {
+      return;
+    }
+
+    lastRadarListSignatureRef.current = nextSignature;
     setRadarLocations(displayRadars);
   }, [displayRadars, setRadarLocations]);
 
   const activeAlert = useMemo<RadarAlert | null>(() => {
-    const unacknowledged = (activeAlerts as RadarAlert[]).filter((alert) => !alert.acknowledged);
+    const safeAlerts = Array.isArray(activeAlerts) ? (activeAlerts as RadarAlert[]) : [];
+    const unacknowledged = safeAlerts.filter((alert) => !alert.acknowledged);
     return unacknowledged.sort((left, right) => left.distance - right.distance)[0] || null;
   }, [activeAlerts]);
+  const { signalLevel: radarSignalLevel, dangerLevel: radarDangerLevel } = useRadarSignalLevels(
+    displayRadars,
+    displayRadars[0] || null
+  );
 
-  const radarMarkers = useMemo<RadarMapMarker[]>(() => {
-    if (!assetUris) {
-      return [];
-    }
-
-    return displayRadars.map((radar) => {
-      const assetKey = resolveMarkerAssetKey(radar.markerKind, radar.type);
-      return {
-        id: radar.id,
-        lat: radar.latitude,
-        lng: radar.longitude,
-        type: radar.type,
-        markerKind: radar.markerKind,
-        speedLimit: radar.speedLimit,
-        active: activeAlert?.radarId === radar.id,
-        iconUri: assetUris[assetKey],
-      };
-    });
-  }, [activeAlert?.radarId, assetUris, displayRadars, resolveMarkerAssetKey]);
-
-  const alertBannerTop = isNavigating
-    ? insets.top + 92
-    : insets.top + (searchResults.length > 0 ? 154 : 84);
+  const radarMarkers = useMemo<RadarMapMarker[]>(() => [], []);
 
   const handleReportRadar = useCallback(
     async (
@@ -445,146 +547,126 @@ export default function RadarDriveNavigationScreen({ navigation }: any) {
 
   const handleExitDrive = useCallback(async () => {
     stopNavigation();
-    await driving.saveTripIfNeeded().catch(() => {});
-    driving.resetDrivingSession();
-    navigation.navigate('RadarMain');
-  }, [driving, navigation, stopNavigation]);
+    await saveTripIfNeeded().catch(() => {});
+    resetDrivingSession();
+    showTabBar('radar_drive_navigation');
+    showTabBar('driving_mode');
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'RadarMain' }],
+    });
+  }, [navigation, resetDrivingSession, saveTripIfNeeded, showTabBar, stopNavigation]);
+
+  useEffect(() => {
+    if (!mapUnavailableReason) {
+      return;
+    }
+
+    Alert.alert(
+      'Map unavailable',
+      'The new drive map could not be prepared in this build. Please reopen drive mode after the next build.'
+    );
+  }, [mapUnavailableReason]);
 
   useEffect(() => {
     return () => {
-      stopNavigation();
-      driving.saveTripIfNeeded().catch(() => {});
-      driving.resetDrivingSession();
+      stopNavigationRef.current();
+      saveTripIfNeededRef.current().catch(() => {});
+      resetDrivingSessionRef.current();
+      lastGuidanceActiveRef.current = false;
+      lastRoutePathSignatureRef.current = 'empty';
+      lastRadarListSignatureRef.current = 'empty';
       setRouteGuidanceActive(false);
       setRouteGuidancePath([]);
       AdService.markDrivingState(false, false);
     };
-  }, [driving, setRouteGuidanceActive, setRouteGuidancePath, stopNavigation]);
+  }, [setRouteGuidanceActive, setRouteGuidancePath]);
 
   return (
     <View style={styles.screen}>
-      <MapFlowNavigationScreen
-        radarMarkers={radarMarkers}
-        highlightedRadarId={activeAlert?.radarId || null}
-      />
-
-      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-        {activeAlert ? (
-          <View
-            style={[
-              styles.alertBanner,
-              {
-                top: alertBannerTop,
-              },
-            ]}
-            pointerEvents="auto"
+      <RadarDrivingShell
+        insetsTop={insets.top}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        canUsePro={canUsePro}
+        onOpenSubscription={() => navigation.navigate('Subscription')}
+        onExitHome={handleExitDrive}
+        onOpenSettings={() => navigation.navigate('RadarSettings')}
+        isNavigationStarted={isTurnByTurnActive}
+        isMapNavigationActive={isTurnByTurnActive && activeTab === 'Map'}
+        activeAlert={activeAlert}
+        unitSystem={unitSystem}
+        acknowledgeAlert={acknowledgeAlert}
+        routeCoords={routeCoords}
+        routeMetaDestinationLabel={destinationName || 'Navigation active'}
+        navInstruction={currentStep?.instruction || 'Follow the highlighted route'}
+        navDistanceLabel={navDistanceLabel}
+        hasArrived={hasArrived}
+        onEndTrip={handleExitDrive}
+        basicContent={
+          <ErrorBoundary
+            fallback={
+              <DriveTabFallback
+                title="Basic view unavailable"
+                body="The drive dashboard could not render in this build."
+              />
+            }
           >
-            <View style={styles.alertIcon}>
-              <MaterialCommunityIcons name="alert" size={18} color="#FF6B6B" />
-            </View>
-            <View style={styles.alertCopy}>
-              <Text style={styles.alertTitle}>
-                {activeAlert.type ? formatRadarTypeLabel(activeAlert.type) : 'Alert'}
-              </Text>
-              <Text style={styles.alertSubtitle} numberOfLines={2}>
-                {formatDistance(activeAlert.distance, unitSystem)}
-                {getRadarShortLocation(activeAlert.locationLabel)
-                  ? ` • ${getRadarShortLocation(activeAlert.locationLabel)}`
-                  : ''}
-                {formatRadarSpeedLimitText(activeAlert, unitSystem)
-                  ? ` • ${formatRadarSpeedLimitText(activeAlert, unitSystem)}`
-                  : ''}
-                {' • '}
-                {formatRadarTimingText(activeAlert)}
-              </Text>
-            </View>
-            <View style={styles.alertActions}>
-              <TouchableOpacity style={styles.confirmButton} onPress={handleConfirmAlert}>
-                <MaterialCommunityIcons name="check-bold" size={16} color="#08131F" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.dismissButton}
-                onPress={() => acknowledgeAlert(activeAlert.id)}
-              >
-                <MaterialCommunityIcons name="close" size={16} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : null}
-
-        <TouchableOpacity
-          style={[
-            styles.reportFab,
-            {
-              bottom: insets.bottom + (isNavigating ? 152 : 112),
-            },
-          ]}
-          onPress={() => setReportModalVisible(true)}
-        >
-          <MaterialCommunityIcons name="alert-plus" size={20} color="#FEF2F2" />
-          <Text style={styles.reportFabLabel}>Report</Text>
-        </TouchableOpacity>
-
-        <Modal
-          visible={reportModalVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setReportModalVisible(false)}
-        >
-          <View style={styles.modalRoot}>
-            <Pressable style={styles.modalBackdrop} onPress={() => setReportModalVisible(false)} />
-            <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 18 }]}>
-              <View style={styles.modalHandle} />
-              <Text style={styles.modalTitle}>Report incident</Text>
-              <Text style={styles.modalSubtitle}>
-                Share what you see without leaving the map.
-              </Text>
-
-              <ScrollView
-                contentContainerStyle={styles.modalOptions}
-                showsVerticalScrollIndicator={false}
-              >
-                {INCIDENT_OPTIONS.map((option) => (
-                  <TouchableOpacity
-                    key={option.id}
-                    style={styles.modalOption}
-                    onPress={() =>
-                      handleReportRadar(option.reportType, option.reportTag || 'default')
-                    }
-                  >
-                    <View
-                      style={[
-                        styles.modalOptionIcon,
-                        { backgroundColor: `${option.color}22`, borderColor: `${option.color}55` },
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={option.icon as any}
-                        size={20}
-                        color={option.color}
-                      />
-                    </View>
-                    <View style={styles.modalOptionCopy}>
-                      <Text style={styles.modalOptionTitle}>{option.label}</Text>
-                      <Text style={styles.modalOptionHint}>
-                        {option.id === 'missed'
-                          ? 'Flag missing enforcement coverage.'
-                          : 'Send a quick community report.'}
-                      </Text>
-                    </View>
-                    <MaterialCommunityIcons name="chevron-right" size={20} color="#64748B" />
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              <TouchableOpacity style={styles.exitDriveButton} onPress={handleExitDrive}>
-                <MaterialCommunityIcons name="exit-run" size={18} color="#FCA5A5" />
-                <Text style={styles.exitDriveLabel}>Exit drive mode</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      </View>
+            <RadarBasicTab
+              currentSpeed={currentSpeedKph}
+              unitSystem={unitSystem}
+              nearbyRadars={displayRadars}
+              tabBarInset={tabBarInset}
+              currentLocation={currentLocation}
+            />
+          </ErrorBoundary>
+        }
+        mapContent={
+          <ErrorBoundary
+            onError={(error) => {
+              setMapUnavailableReason((current) => current || error.message || 'map_render_error');
+            }}
+            fallback={
+              <DriveTabFallback
+                title="Map view unavailable"
+                body="The new MapFlow renderer failed in this build, but Basic and Graphic tabs are still available."
+              />
+            }
+          >
+            <MapFlowNavigationScreen
+              radarMarkers={radarMarkers}
+              highlightedRadarId={activeAlert?.radarId || null}
+              onMapUnavailable={(reason) => {
+                setMapUnavailableReason((current) => current || reason);
+              }}
+            />
+          </ErrorBoundary>
+        }
+        graphicContent={
+          <ErrorBoundary
+            fallback={
+              <DriveTabFallback
+                title="Graphic view unavailable"
+                body="Drive analytics could not render in this build."
+              />
+            }
+          >
+            <RadarGraphicView
+              totalDistance={totalDistance}
+              drivingStartTime={drivingStartTime}
+              currentSpeed={currentSpeedKph}
+              unitSystem={unitSystem}
+              radarRendererMode={radarRendererMode}
+              radarSignalLevel={radarSignalLevel}
+              radarDangerLevel={radarDangerLevel}
+            />
+          </ErrorBoundary>
+        }
+        floatingFabBottom={insets.bottom + 112}
+        reportModalVisible={reportModalVisible}
+        setReportModalVisible={setReportModalVisible}
+        onReportRadar={handleReportRadar}
+      />
     </View>
   );
 }
@@ -593,6 +675,26 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#050C18',
+  },
+  tabFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    backgroundColor: '#050C18',
+  },
+  tabFallbackTitle: {
+    color: '#F8FAFC',
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  tabFallbackBody: {
+    marginTop: 10,
+    color: '#AFC4DD',
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
   },
   alertBanner: {
     position: 'absolute',

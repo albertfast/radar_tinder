@@ -1,14 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatSpeed } from '../../../../utils/format';
 import { GoogleMapsService } from '../../../../services/GoogleMapsService';
 import { LocationService } from '../../../../services/LocationService';
 import {
   describeRadarApproach,
-  describeRadarLocation,
+  formatRadarFullAddress,
   formatRadarDistanceAdaptive,
   formatRadarLabel,
 } from '../../utils/radarFormatters';
@@ -35,8 +34,10 @@ export function RadarBasicTab({
   const [speedLimitSource, setSpeedLimitSource] = useState<
     'roads_api' | 'osm' | 'unknown' | 'roads_unavailable' | null
   >(null);
+  const [resolvedRadarAddresses, setResolvedRadarAddresses] = useState<Record<string, string>>({});
   const lastSpeedLimitFetchAtRef = useRef(0);
   const lastSpeedLimitLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const addressRequestInFlightRef = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!currentLocation) return;
@@ -93,6 +94,45 @@ export function RadarBasicTab({
   const radarCount = sortedRadars.length;
   const radarCountLabel = radarCount === 1 ? '1 radar' : `${radarCount} radars`;
   const displayRadars = sortedRadars.slice(0, 14);
+
+  useEffect(() => {
+    displayRadars.forEach((radar) => {
+      const radarId = radar?.id ? String(radar.id) : '';
+      if (!radarId || resolvedRadarAddresses[radarId] || addressRequestInFlightRef.current[radarId]) {
+        return;
+      }
+
+      const sourceAddress = formatRadarFullAddress(
+        radar?.locationLabel || radar?.locationHint || ''
+      );
+      if (sourceAddress) {
+        setResolvedRadarAddresses((prev) =>
+          prev[radarId] === sourceAddress ? prev : { ...prev, [radarId]: sourceAddress }
+        );
+        return;
+      }
+
+      const latitude = Number(radar?.latitude);
+      const longitude = Number(radar?.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return;
+      }
+
+      addressRequestInFlightRef.current[radarId] = true;
+      GoogleMapsService.getReverseGeocoding(latitude, longitude)
+        .then((label) => {
+          const normalized = formatRadarFullAddress(label);
+          if (!normalized) return;
+          setResolvedRadarAddresses((prev) =>
+            prev[radarId] === normalized ? prev : { ...prev, [radarId]: normalized }
+          );
+        })
+        .catch(() => {})
+        .finally(() => {
+          delete addressRequestInFlightRef.current[radarId];
+        });
+    });
+  }, [displayRadars, resolvedRadarAddresses]);
 
   const speedParts = formatSpeed(currentSpeed, unitSystem).split(' ');
   const currentSpeedValue = Number(speedParts[0]) || 0;
@@ -151,9 +191,13 @@ export function RadarBasicTab({
   }, [currentSpeedValue, limitDisplay]);
 
   const closestLocationDescriptor = useMemo(() => {
-    const source = closestRadar?.locationHint || closestRadar?.locationLabel || '';
-    return describeRadarLocation(source);
-  }, [closestRadar?.locationHint, closestRadar?.locationLabel]);
+    const radarId = closestRadar?.id ? String(closestRadar.id) : '';
+    return (
+      formatRadarFullAddress(closestRadar?.locationLabel || closestRadar?.locationHint || '') ||
+      (radarId ? resolvedRadarAddresses[radarId] || '' : '') ||
+      ''
+    );
+  }, [closestRadar?.id, closestRadar?.locationHint, closestRadar?.locationLabel, resolvedRadarAddresses]);
 
   const speedLimitSubtitle = useMemo(() => {
     if (!limitDisplay) return 'No speed-limit feed yet';
@@ -185,10 +229,14 @@ export function RadarBasicTab({
     ? `${formatRadarDistanceAdaptive(Number(closestRadar.distance || 0), unitSystem)} to nearest`
     : 'No immediate cameras';
 
+  const getRadarAddress = (radar: any) =>
+    formatRadarFullAddress(radar?.locationLabel || radar?.locationHint || '') ||
+    (radar?.id ? resolvedRadarAddresses[String(radar.id)] || '' : '') ||
+    'Address pending';
+
   const getRadarSubtitle = (radar: any) => {
     const approach = describeRadarApproach(Number(radar?.distance), unitSystem);
-    const locationDescriptor = describeRadarLocation(radar?.locationHint || radar?.locationLabel || '');
-    return locationDescriptor ? `${approach} • ${locationDescriptor}` : approach;
+    return `${formatRadarLabel(radar?.type)} • ${approach}`;
   };
 
   return (
@@ -226,7 +274,6 @@ export function RadarBasicTab({
 
         <View style={localStyles.pillRow}>
           <View style={localStyles.metaPill}>
-            <MaterialCommunityIcons name="radar" size={16} color="#4ECDC4" />
             <Text style={localStyles.metaPillText}>{radarCountLabel}</Text>
           </View>
           <View style={localStyles.metaPill}>
@@ -234,7 +281,6 @@ export function RadarBasicTab({
             <Text style={localStyles.metaPillText}>{riskLabel}</Text>
           </View>
           <View style={localStyles.metaPill}>
-            <MaterialCommunityIcons name="map-marker-distance" size={16} color="#38BDF8" />
             <Text style={localStyles.metaPillText}>{statusLabel}</Text>
           </View>
         </View>
@@ -315,15 +361,10 @@ export function RadarBasicTab({
                 colors={['rgba(12,18,30,0.94)', 'rgba(9,14,26,0.94)']}
                 style={[localStyles.radarCard, { borderColor: `${accent}44` }]}
               >
-                <View style={localStyles.radarIconWrap}>
-                  <MaterialCommunityIcons
-                    name={radar?.type === 'police' ? 'alarm-light' : 'camera-outline'}
-                    size={20}
-                    color={accent}
-                  />
-                </View>
                 <View style={localStyles.radarCopy}>
-                  <Text style={localStyles.radarTitle}>{formatRadarLabel(radar?.type)}</Text>
+                  <Text style={localStyles.radarTitle} numberOfLines={2}>
+                    {getRadarAddress(radar)}
+                  </Text>
                   <Text style={localStyles.radarSubtitle} numberOfLines={2}>
                     {getRadarSubtitle(radar)}
                   </Text>
@@ -338,7 +379,6 @@ export function RadarBasicTab({
           })
         ) : (
           <View style={localStyles.emptyState}>
-            <MaterialCommunityIcons name="radar" size={24} color="#4ECDC4" />
             <Text style={localStyles.emptyStateText}>Scanning nearby roads for cameras...</Text>
           </View>
         )}
@@ -606,14 +646,6 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
-  },
-  radarIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   radarCopy: {
     flex: 1,

@@ -3,7 +3,7 @@ import { View, useWindowDimensions, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import MapView from 'react-native-maps';
-import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useRadarStore } from '../store/radarStore';
 import { useAuthStore } from '../store/authStore';
 import { useSettingsStore } from '../store/settingsStore';
@@ -41,6 +41,7 @@ import { useDrivingSession } from './radar/hooks/useDrivingSession';
 import { useRadarDataSync } from './radar/hooks/useRadarDataSync';
 import { useRadarNavigation } from './radar/hooks/useRadarNavigation';
 const MAP_INPUT_TAP_GUARD_MS = 2200;
+const RADAR_SCREEN_KEEP_AWAKE_TAG = 'radar_screen_drive_mode';
 
 const projectForwardCoordinate = (
   latitude: number,
@@ -140,7 +141,6 @@ const RadarScreen = ({ navigation, route }: any) => {
     unitSystem,
     voiceWarningsEnabled,
     hapticAlertsEnabled,
-    keepAwakeWhileDriving,
     warningVolume,
     setVoiceWarningsEnabled,
     setWarningVolume,
@@ -302,22 +302,40 @@ const RadarScreen = ({ navigation, route }: any) => {
     ? (dataSync.closestRadarHint ? `${formatDistance(dataSync.closestRadar.distance, unitSystem)} at ${dataSync.closestRadarHint}` : formatDistance(dataSync.closestRadar.distance, unitSystem))
     : 'Scanning...';
 
-  useEffect(() => {
-    if (driving.isDriving && keepAwakeWhileDriving) activateKeepAwakeAsync().catch(() => {});
-    else deactivateKeepAwake();
-    return () => {
-      deactivateKeepAwake();
-    };
-  }, [driving.isDriving, keepAwakeWhileDriving]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!driving.isDriving) {
+        deactivateKeepAwake(RADAR_SCREEN_KEEP_AWAKE_TAG);
+        return () => {
+          deactivateKeepAwake(RADAR_SCREEN_KEEP_AWAKE_TAG);
+        };
+      }
+
+      activateKeepAwakeAsync(RADAR_SCREEN_KEEP_AWAKE_TAG).catch(() => {});
+      return () => {
+        deactivateKeepAwake(RADAR_SCREEN_KEEP_AWAKE_TAG);
+      };
+    }, [driving.isDriving])
+  );
 
   useEffect(() => {
-    if (driving.isDriving || activeTab === 'Map') {
+    if (isScreenFocused && driving.isDriving) {
       hideTabBar('driving_mode');
       return () => showTabBar('driving_mode');
     }
     showTabBar('driving_mode');
     return () => showTabBar('driving_mode');
-  }, [activeTab, driving.isDriving, hideTabBar, showTabBar]);
+  }, [driving.isDriving, hideTabBar, isScreenFocused, showTabBar]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!driving.isDriving) {
+        showTabBar('driving_mode');
+        showTabBar('radar_drive_navigation');
+      }
+      return undefined;
+    }, [driving.isDriving, showTabBar])
+  );
 
   useEffect(() => {
     if (!isScreenFocused) return;
@@ -464,7 +482,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   }, [route?.params?.forceTab, canUsePro, driving.resetDrivingSession, driving.startDrivingSession, navigation]);
 
   const toggleDrivingMode = useCallback(() => {
-    navigation.navigate('RadarDriveNavigation');
+    navigation.navigate('RadarDriveNavigation', { initialTab: 'Map' });
   }, [navigation]);
 
   const centerMap = useCallback(async () => {
@@ -610,8 +628,10 @@ const RadarScreen = ({ navigation, route }: any) => {
 
   const exitDrivingToHome = useCallback(async () => {
     await navigationState.resetRoute();
+    showTabBar('driving_mode');
+    showTabBar('radar_drive_navigation');
     navigation.getParent?.()?.navigate('Home');
-  }, [navigation, navigationState]);
+  }, [navigation, navigationState, showTabBar]);
 
   const onReportRadar = useCallback(async (type: RadarLocation['type'], reportTag: 'default' | 'missed_camera' = 'default') => {
     setReportModalVisible(false);
@@ -673,6 +693,7 @@ const RadarScreen = ({ navigation, route }: any) => {
         onOpenSubscription={() => navigation.navigate('Subscription')}
         onExitHome={exitDrivingToHome}
         onOpenSettings={() => navigation.navigate('RadarSettings')}
+        isNavigationStarted={isTurnByTurnActive}
         isMapNavigationActive={isMapNavigationActive}
         activeAlert={dataSync.activeAlert}
         unitSystem={unitSystem}
@@ -807,7 +828,7 @@ const RadarScreen = ({ navigation, route }: any) => {
       onOpenProfile={() => navigation.navigate('Profile')}
       onNavigateSubscription={() => navigation.navigate('Subscription')}
       onToggleDrivingMode={toggleDrivingMode}
-      onOpenDriveBasic={() => navigation.navigate('RadarDriveNavigation')}
+      onOpenDriveBasic={() => navigation.navigate('RadarDriveNavigation', { initialTab: 'Basic' })}
       onOpenAlerts={() => navigation.navigate('Alerts')}
       onToggleVoiceWarnings={toggleVoiceWarnings}
       pauseRadarAnimation={false}

@@ -12,7 +12,6 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from 'react-native';
-import type { PurchasesPackage } from 'react-native-purchases';
 import { useAuthStore } from '../store/authStore';
 import { FirebaseAuthService } from '../services/FirebaseAuthService';
 import { LocationService } from '../services/LocationService';
@@ -130,52 +129,6 @@ const RadarScan = () => {
     );
 };
 
-const getYearlyHints = (): string[] => {
-  const envProduct = process.env.EXPO_PUBLIC_RC_PRODUCT_YEARLY;
-  const envPackage = process.env.EXPO_PUBLIC_RC_PACKAGE_YEARLY;
-  const aliases = [
-    '$rc_annual',
-    'rc_annual',
-    '$rc_yearly',
-    'rc_yearly',
-    'pro_subscription:yearly',
-    'pro_subscription_yearly',
-    'rc_yearly_1999',
-    'yearly',
-    'annual',
-  ];
-
-  return [envProduct, envPackage, ...aliases]
-    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
-    .map((v) => v.toLowerCase());
-};
-
-const packageLooksYearly = (pkg: PurchasesPackage): boolean => {
-  const id = String(pkg?.identifier || '').toLowerCase();
-  const productId = String(pkg?.product?.identifier || '').toLowerCase();
-  const packageType = String((pkg as any)?.packageType || '').toUpperCase();
-  const hints = getYearlyHints();
-
-  if (hints.some((hint) => id === hint || productId === hint || id.includes(hint) || productId.includes(hint))) {
-    return true;
-  }
-
-  if (packageType === 'ANNUAL' || packageType === 'YEARLY') return true;
-
-  return /annual|year|yearly/.test(id) || /annual|year|yearly/.test(productId);
-};
-
-const findYearlyPackage = (offering: any): PurchasesPackage | null => {
-  const slotCandidate = offering?.annual || offering?.yearly;
-  if (slotCandidate) return slotCandidate as PurchasesPackage;
-
-  const availablePackages: PurchasesPackage[] = offering?.availablePackages || [];
-  const byHints = availablePackages.find((pkg) => packageLooksYearly(pkg));
-  if (byHints) return byHints;
-
-  return null;
-};
-
 const TrialOfferScreen = ({ navigation }: any) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
@@ -214,7 +167,7 @@ const TrialOfferScreen = ({ navigation }: any) => {
     <View style={styles.slide}>
       <Animated.View
         style={[styles.iconContainer, { shadowColor: item.color }]}
-        entering={allowLayoutAnimations ? FadeInDown.springify() : undefined}
+        entering={allowLayoutAnimations ? FadeInDown.duration(400) : undefined}
       >
         <MaterialCommunityIcons name={item.icon} size={80} color={item.color} />
       </Animated.View>
@@ -286,7 +239,7 @@ const TrialOfferScreen = ({ navigation }: any) => {
 
         {/* Action Card */}
         <Animated.View
-          entering={allowLayoutAnimations ? FadeInDown.delay(400).springify() : undefined}
+          entering={allowLayoutAnimations ? FadeInDown.delay(400).duration(400) : undefined}
           style={styles.footer}
         >
             <LinearGradient
@@ -348,24 +301,33 @@ const TrialOfferScreen = ({ navigation }: any) => {
                                     // RevenueCat will handle the trial period
                                     try {
                                         const { SubscriptionService } = await import('../services/SubscriptionService');
-                                        const offering = await SubscriptionService.getOfferings();
-                                        const availablePackages: PurchasesPackage[] = offering?.availablePackages || [];
+                                        const resolution = await SubscriptionService.getPackageResolution('yearly');
+                                        console.log('[TrialOffer] available packages:', resolution.debugPackages || 'None');
 
-                                        const packageDebug = availablePackages
-                                          .map((p) => `${p.identifier} (${p.product?.identifier || 'no-product-id'}) [${(p as any)?.packageType || 'unknown'}]`)
-                                          .join(' | ');
-                                        console.log('[TrialOffer] available packages:', packageDebug);
-
-                                        const yearlyPackage = findYearlyPackage(offering);
-
-                                        if (yearlyPackage) {
+                                        if (resolution.targetPackage) {
                                             console.log(
                                               '[TrialOffer] selected yearly package:',
-                                              `${yearlyPackage.identifier} (${yearlyPackage.product?.identifier || 'no-product-id'}) [${(yearlyPackage as any)?.packageType || 'unknown'}]`
+                                              `${resolution.targetPackage.identifier} (${resolution.targetPackage.product?.identifier || 'no-product-id'}) [${(resolution.targetPackage as any)?.packageType || 'unknown'}]`
                                             );
-                                            await SubscriptionService.purchasePackage(yearlyPackage);
+                                            await SubscriptionService.purchasePackage(resolution.targetPackage);
                                         } else {
-                                            console.warn('[TrialOffer] yearly package not found');
+                                            const directResolution = await SubscriptionService.getDirectProductResolution('yearly');
+                                            console.log('[TrialOffer] available direct products:', directResolution.debugProducts || 'None');
+
+                                            if (directResolution.targetProduct) {
+                                                console.log(
+                                                  '[TrialOffer] selected direct yearly product:',
+                                                  directResolution.targetProduct.identifier
+                                                );
+                                                await SubscriptionService.purchaseStoreProduct(directResolution.targetProduct);
+                                            } else {
+                                                console.warn(
+                                                  '[TrialOffer] yearly package not found',
+                                                  resolution.offering?.identifier || 'no-offering',
+                                                  resolution.expectedPackageIds,
+                                                  directResolution.expectedProductIds
+                                                );
+                                            }
                                         }
                                     } catch (subError) {
                                         // Subscription failed or cancelled - user continues with free tier
@@ -532,11 +494,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 30,
+    backgroundColor: 'transparent',
     // Note: Shadow requires bg color on iOS
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 20,
-    elevation: 10, // Android
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 5, // Android
   },
   slideTitle: {
     color: '#fff',

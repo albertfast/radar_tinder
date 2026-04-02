@@ -4,32 +4,94 @@ import { Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
+import type { User } from '../types';
 
 const ADMIN_USERNAME = 'albertfast';
 const ADMIN_PASSWORD = 'abc123';
-const ADMIN_DEBUG_PERSIST =
-  __DEV__ && /^(1|true|yes)$/i.test(process.env.EXPO_PUBLIC_ADMIN_DEBUG_PERSIST || '');
+
+const buildLocalAdminUser = (): User => {
+  const now = new Date();
+  return {
+    id: 'local-admin',
+    email: 'admin@radartinder.local',
+    username: 'admin',
+    displayName: 'Admin',
+    name: 'Admin',
+    subscriptionType: 'pro',
+    adsRemoved: true,
+    points: 0,
+    rank: 'Legend',
+    xp: 0,
+    level: 99,
+    stats: { reports: 0, confirmations: 0, distanceDriven: 0 },
+    createdAt: now,
+    updatedAt: now,
+    isAdminSession: true,
+  };
+};
+
+const applyAdminSessionOverride = () => {
+  const now = new Date();
+  useAuthStore.setState((state) => {
+    const baseUser = state.user
+      ? {
+          ...state.user,
+          updatedAt: now,
+        }
+      : buildLocalAdminUser();
+
+    const adminUser: User = {
+      ...baseUser,
+      subscriptionType: 'pro',
+      adsRemoved: true,
+      isAdminSession: true,
+      updatedAt: now,
+    };
+
+    return {
+      user: adminUser,
+      isAuthenticated: true,
+      lastKnownEntitlement: {
+        userId: adminUser.id,
+        subscriptionType: 'pro',
+        adsRemoved: true,
+        subscriptionExpiresAt: adminUser.subscriptionExpiresAt,
+        accountLinkRequiredUntil: adminUser.accountLinkRequiredUntil,
+        rcCustomerId: adminUser.rcCustomerId,
+        syncedAt: now,
+      },
+      lastEntitlementSyncAt: now,
+    };
+  });
+};
 
 const AdminLoginScreen = ({ navigation }: any) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { updateUser } = useAuthStore();
+  const { user, updateUser, signInAnonymously } = useAuthStore();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     // Removed __DEV__ check to allow production admin access
 
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      updateUser({ 
-        isAdminSession: true,
-        subscriptionType: 'pro'
-      });
+      let usedLocalFallback = false;
+
+      if (!useAuthStore.getState().user) {
+        const { error } = await signInAnonymously();
+        if (error) {
+          console.warn('[AdminLogin] anonymous sign-in unavailable, enabling local admin fallback', error);
+          usedLocalFallback = true;
+        }
+      }
+
+      applyAdminSessionOverride();
       
       Alert.alert(
         'Sign in successful',
-        ADMIN_DEBUG_PERSIST
-          ? 'Admin session enabled and persisted for debug testing.'
-          : 'Admin session enabled for this runtime session.',
+        usedLocalFallback
+          ? 'Admin mode is enabled locally and will stay active until you turn it off or sign out.'
+          : 'Admin mode is enabled and will stay active until you turn it off or sign out.',
         [
         { text: 'OK', onPress: () => navigation.goBack() }
         ]

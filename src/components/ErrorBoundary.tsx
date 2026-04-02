@@ -4,6 +4,8 @@ import { CrashReportingService } from '../services/CrashReportingService';
 
 interface Props {
   children: ReactNode;
+  fallback?: ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
@@ -35,6 +37,8 @@ export class ErrorBoundary extends Component<Props, State> {
       componentStack: errorInfo.componentStack,
       type: 'react_error_boundary',
     }).catch(console.error);
+
+    this.props.onError?.(error, errorInfo);
   }
 
   handleReset = (): void => {
@@ -46,6 +50,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+
       return (
         <View style={styles.container}>
           <View style={styles.content}>

@@ -55,41 +55,36 @@ const getRadarMarkerConfig = (type: string | undefined, markerKind?: string) => 
 
   if (kind === 'red_light') {
     return {
-      icon: 'traffic-light-outline' as const,
       backgroundColor: '#3A0910',
       borderColor: '#FF5B5B',
-      iconColor: '#FFE8E8',
+      coreColor: '#FFE8E8',
     };
   }
   if (kind === 'police') {
     return {
-      icon: 'police-badge' as const,
       backgroundColor: '#0E2748',
       borderColor: '#60A5FA',
-      iconColor: '#E0F2FE',
+      coreColor: '#E0F2FE',
     };
   }
   if (kind === 'mobile') {
     return {
-      icon: 'car-outline' as const,
       backgroundColor: '#3B1D07',
       borderColor: '#F59E0B',
-      iconColor: '#FEF3C7',
+      coreColor: '#FEF3C7',
     };
   }
   if (kind === 'traffic_enforcement') {
     return {
-      icon: 'shield-alert' as const,
       backgroundColor: '#3A0D17',
       borderColor: '#FB7185',
-      iconColor: '#FFE4E6',
+      coreColor: '#FFE4E6',
     };
   }
   return {
-    icon: 'cctv' as const,
     backgroundColor: '#3A0F0A',
     borderColor: '#FF7849',
-    iconColor: '#FFF4EE',
+    coreColor: '#FFF4EE',
   };
 };
 
@@ -129,10 +124,11 @@ const RadarMarker = React.memo(({ coordinate, radar, onPress }: any) => {
           },
         ]}
       >
-        <MaterialCommunityIcons
-          name={markerConfig.icon}
-          size={14}
-          color={markerConfig.iconColor}
+        <View
+          style={[
+            styles.radarMarkerCore,
+            { backgroundColor: markerConfig.coreColor },
+          ]}
         />
       </View>
     </Marker>
@@ -160,6 +156,7 @@ const RadarMap = React.memo(({
   onMapTouchStart,
   mapInteractionEnabled = true,
   onMapTap,
+  showRadarMarkers = false,
 }: any) => {
   const toValidCoordinate = useCallback((value: any): LatLng | null => {
     const latitude = Number(value?.latitude);
@@ -445,19 +442,21 @@ const RadarMap = React.memo(({
       );
     }
 
-    selectedRadarEntries.rendered.forEach(({ key, radar, coordinate }) => {
-      children.push(
-        <RadarMarker
-          key={key}
-          coordinate={coordinate}
-          radar={radar}
-          onPress={() => onRadarPressRef.current?.(radar)}
-        />
-      );
-    });
+    if (showRadarMarkers) {
+      selectedRadarEntries.rendered.forEach(({ key, radar, coordinate }) => {
+        children.push(
+          <RadarMarker
+            key={key}
+            coordinate={coordinate}
+            radar={radar}
+            onPress={() => onRadarPressRef.current?.(radar)}
+          />
+        );
+      });
+    }
 
     return children;
-  }, [finalDestination, locationAccuracyMeters, safeLocation, selectedRadarEntries.rendered, sanitizedRouteCoords]);
+  }, [finalDestination, locationAccuracyMeters, safeLocation, selectedRadarEntries.rendered, sanitizedRouteCoords, showRadarMarkers]);
 
   const invalidSummaryRef = useRef('');
   const invalidRadarCount = sanitizedRadars.invalidCount;
@@ -575,6 +574,7 @@ const RadarMap = React.memo(({
     prev.destinationPoint?.longitude === next.destinationPoint?.longitude &&
     prev.mapPadding === next.mapPadding &&
     prev.mapInteractionEnabled === next.mapInteractionEnabled &&
+    prev.showRadarMarkers === next.showRadarMarkers &&
     prev.location?.latitude === next.location?.latitude &&
     prev.location?.longitude === next.location?.longitude &&
     prev.location?.accuracy === next.location?.accuracy
@@ -594,6 +594,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
+  },
+  radarMarkerCore: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
   },
   destinationMarker: {
     width: 28,

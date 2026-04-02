@@ -1,7 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
-  <circle cx="22" cy="22" r="18" fill="#0F2A53" />
-  <circle cx="22" cy="22" r="18" fill="none" stroke="#60A5FA" stroke-width="2.5" />
-  <circle cx="22" cy="22" r="13" fill="rgba(255,255,255,0.05)" />
-  <path d="M22 12l5 2.4 1.1 5.6v3.9c0 3.4-2.2 6.2-6.1 8.3-3.9-2.1-6.1-4.9-6.1-8.3V20l1.1-5.6L22 12z" fill="#F8D94E" stroke="#0F172A" stroke-width="1.5" />
-  <path d="M22 17.1l1.2 2.5 2.7.4-1.9 1.8.4 2.7-2.4-1.3-2.4 1.3.4-2.7-1.9-1.8 2.7-.4 1.2-2.5z" fill="#0F172A" />
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="116" viewBox="0 0 96 116" fill="none">
+  <defs>
+    <linearGradient id="policeOuter" x1="18" y1="18" x2="78" y2="92" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#72BEFF"/>
+      <stop offset="1" stop-color="#347EFF"/>
+    </linearGradient>
+  </defs>
+  <path
+    d="M48 108C40.7 98.3 24 83.1 24 56.5C24 31.9 34.9 16 48 16C61.1 16 72 31.9 72 56.5C72 83.1 55.3 98.3 48 108Z"
+    fill="#09111D"
+    stroke="url(#policeOuter)"
+    stroke-width="6"
+    stroke-linejoin="round"
+  />
+  <circle cx="48" cy="46" r="26" fill="url(#policeOuter)"/>
+  <circle cx="48" cy="46" r="20" fill="#07111F"/>
+  <circle cx="36.5" cy="31.5" r="5.5" fill="#D8EBFF" fill-opacity=".2"/>
+  <path d="M48 28L59 33V43.2C59 50.8 54.6 57 48 59.6C41.4 57 37 50.8 37 43.2V33L48 28Z" fill="#F8FBFF"/>
+  <path d="M48 36L49.7 40.3L54.4 40.6L50.7 43.5L52 48L48 45.4L44 48L45.3 43.5L41.6 40.6L46.3 40.3L48 36Z" fill="#09111D"/>
 </svg>

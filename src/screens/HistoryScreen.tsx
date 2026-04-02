@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
 import { Text, Surface } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,6 +23,34 @@ const HistoryScreen = ({ navigation }: any) => {
   const [trips, setTrips] = useState<any[]>([]);
   const [pendingTripCount, setPendingTripCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  const summary = useMemo(() => {
+    const totalTrips = trips.length;
+    const totalDistanceKm = trips.reduce(
+      (acc, trip) => acc + (Number.isFinite(Number(trip?.distance)) ? Number(trip.distance) / 1000 : 0),
+      0
+    );
+    const avgDurationMinutes = totalTrips
+      ? Math.round(
+          trips.reduce((acc, trip) => acc + (Number.isFinite(Number(trip?.duration)) ? Number(trip.duration) : 0), 0) /
+            totalTrips /
+            60
+        )
+      : 0;
+    const avgScore = totalTrips
+      ? Math.round(
+          trips.reduce((acc, trip) => acc + (Number.isFinite(Number(trip?.score)) ? Number(trip.score) : 0), 0) /
+            totalTrips
+        )
+      : 0;
+
+    return {
+      totalTrips,
+      totalDistanceKm,
+      avgDurationMinutes,
+      avgScore,
+    };
+  }, [trips]);
 
   const loadTrips = useCallback(async () => {
     try {
@@ -103,6 +131,28 @@ const HistoryScreen = ({ navigation }: any) => {
         data={trips}
         keyExtractor={item => item.id}
         contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_HEIGHT + 24 }}
+        ListHeaderComponent={
+          <View style={styles.summaryGrid}>
+            <Surface style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>Trips</Text>
+              <Text style={styles.summaryValue}>{summary.totalTrips}</Text>
+            </Surface>
+            <Surface style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>Distance</Text>
+              <Text style={styles.summaryValue}>
+                {formatDistance(summary.totalDistanceKm, unitSystem)}
+              </Text>
+            </Surface>
+            <Surface style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>Avg Duration</Text>
+              <Text style={styles.summaryValue}>{summary.avgDurationMinutes}m</Text>
+            </Surface>
+            <Surface style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>Avg Score</Text>
+              <Text style={styles.summaryValue}>{summary.avgScore}</Text>
+            </Surface>
+          </View>
+        }
         ListFooterComponent={null}
         onScroll={onScroll}
         onScrollBeginDrag={onScrollBeginDrag}
@@ -193,6 +243,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     flex: 1,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 18,
+  },
+  summaryCard: {
+    width: '48%',
+    backgroundColor: '#1E293B',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  summaryLabel: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  summaryValue: {
+    marginTop: 8,
+    color: '#F8FAFC',
+    fontSize: 22,
+    fontWeight: '800',
   },
   
   tripCard: { backgroundColor: '#1E293B', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },

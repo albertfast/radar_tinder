@@ -78,6 +78,7 @@ type RadarDrivingShellProps = {
   onOpenSubscription: () => void;
   onExitHome: () => void;
   onOpenSettings: () => void;
+  isNavigationStarted: boolean;
   isMapNavigationActive: boolean;
   activeAlert: RadarAlert | null;
   unitSystem: 'metric' | 'imperial';
@@ -105,6 +106,7 @@ export function RadarDrivingShell({
   onOpenSubscription,
   onExitHome,
   onOpenSettings,
+  isNavigationStarted,
   isMapNavigationActive,
   activeAlert,
   unitSystem,
@@ -184,22 +186,6 @@ export function RadarDrivingShell({
           >
             <MaterialCommunityIcons name="close" size={16} color="#94A3B8" />
           </TouchableOpacity>
-        </Animated.View>
-      ) : routeCoords.length > 0 && !isMapNavigationActive ? (
-        <Animated.View
-          style={styles.navigationProgress}
-          entering={FadeInUp.duration(300)}
-        >
-          <View style={styles.progressIcon}>
-            <MaterialCommunityIcons name="navigation" size={18} color="#4ECDC4" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.progressTitle}>{routeMetaDestinationLabel || 'Navigation Active'}</Text>
-            <Text style={styles.progressSubtitle}>{navInstruction || 'Following route...'}</Text>
-          </View>
-          <View style={styles.progressDistance}>
-            <Text style={styles.progressDistanceText}>{navDistanceLabel || ''}</Text>
-          </View>
         </Animated.View>
       ) : null}
 

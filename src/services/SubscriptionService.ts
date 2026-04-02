@@ -1,5 +1,5 @@
 import { NativeModules, Platform } from 'react-native';
-import type { PurchasesPackage, CustomerInfo } from 'react-native-purchases';
+import type { PurchasesPackage, CustomerInfo, PurchasesStoreProduct } from 'react-native-purchases';
 import { useAuthStore } from '../store/authStore';
 import { AnalyticsService } from './AnalyticsService';
 import { SupabaseService } from './SupabaseService';
@@ -26,6 +26,7 @@ const EXPECTED_RC_KEY_PREFIX =
 type PurchasesBindings = {
   Purchases: any;
   LOG_LEVEL: any;
+  STOREKIT_VERSION?: any;
 };
 
 type PurchasesUIBindings = {
@@ -40,6 +41,31 @@ export type PaywallPresentationStatus =
   | 'error'
   | 'not_presented'
   | 'unavailable';
+
+export type RevenueCatPlanPreference = 'weekly' | 'yearly' | 'adfree';
+export type RevenueCatPackageMatchSource =
+  | 'slot'
+  | 'canonical_package'
+  | 'canonical_product'
+  | 'compat_product'
+  | 'package_type';
+export type RevenueCatPackageResolution = {
+  offering: any | null;
+  availablePackages: PurchasesPackage[];
+  targetPackage: PurchasesPackage | null;
+  matchSource: RevenueCatPackageMatchSource | null;
+  exactMatch: boolean;
+  expectedPackageIds: string[];
+  expectedProductIds: string[];
+  debugPackages: string;
+};
+export type RevenueCatStoreProductResolution = {
+  availableProducts: PurchasesStoreProduct[];
+  targetProduct: PurchasesStoreProduct | null;
+  matchSource: Exclude<RevenueCatPackageMatchSource, 'slot' | 'canonical_package' | 'package_type'> | null;
+  expectedProductIds: string[];
+  debugProducts: string;
+};
 
 let cachedPurchasesBindings: PurchasesBindings | null | undefined;
 let cachedPurchasesUIBindings: PurchasesUIBindings | null | undefined;
@@ -58,6 +84,7 @@ const getPurchasesBindings = (): PurchasesBindings | null => {
     cachedPurchasesBindings = {
       Purchases: purchasesModule?.default ?? purchasesModule,
       LOG_LEVEL: purchasesModule?.LOG_LEVEL,
+      STOREKIT_VERSION: purchasesModule?.STOREKIT_VERSION,
     };
   } catch {
     cachedPurchasesBindings = null;
@@ -97,6 +124,398 @@ const parseOptionalDate = (value: unknown): Date | undefined => {
 const toIsoOrNull = (value?: Date): string | null => {
   if (!value) return null;
   return Number.isNaN(value.getTime()) ? null : value.toISOString();
+};
+
+const getPackageTypeName = (pkg: any): string => String(pkg?.packageType || '').toUpperCase();
+
+const normalizeRevenueCatToken = (value: unknown): string =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
+
+const uniqTokens = (values: unknown[]): string[] => {
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+
+  values.forEach((value) => {
+    const token = normalizeRevenueCatToken(value);
+    if (!token || seen.has(token)) {
+      return;
+    }
+    seen.add(token);
+    tokens.push(token);
+  });
+
+  return tokens;
+};
+
+const RC_CANONICAL_PACKAGE_IDS: Record<RevenueCatPlanPreference, string> = {
+  weekly: '$rc_weekly',
+  yearly: '$rc_annual',
+  adfree: '$rc_lifetime',
+};
+
+const RC_CANONICAL_PRODUCT_IDS: Record<RevenueCatPlanPreference, string> = {
+  weekly: 'pro_subscription_weekly',
+  yearly: 'pro_subscription_yearly',
+  adfree: 'remove_ads',
+};
+
+const RC_ENV_PRODUCT_IDS: Record<RevenueCatPlanPreference, string> = {
+  weekly: String(process.env.EXPO_PUBLIC_RC_PRODUCT_WEEKLY || '').trim(),
+  yearly: String(process.env.EXPO_PUBLIC_RC_PRODUCT_YEARLY || '').trim(),
+  adfree: String(process.env.EXPO_PUBLIC_RC_PRODUCT_ADFREE || '').trim(),
+};
+
+const RC_ENV_PACKAGE_IDS: Record<RevenueCatPlanPreference, string> = {
+  weekly: String(process.env.EXPO_PUBLIC_RC_PACKAGE_WEEKLY || '').trim(),
+  yearly: String(process.env.EXPO_PUBLIC_RC_PACKAGE_YEARLY || '').trim(),
+  adfree: String(process.env.EXPO_PUBLIC_RC_PACKAGE_LIFETIME || '').trim(),
+};
+
+const RC_COMPAT_PRODUCT_IDS: Record<RevenueCatPlanPreference, string[]> = {
+  weekly: [
+    'pro_subscription:weekly',
+    'weekly',
+    'rc_weekly',
+    'rc_weekly_399',
+    'pro_subscription_weekly_399',
+    'premium_subscription:weekly',
+    'premium_subscription_weekly',
+  ],
+  yearly: [
+    'pro_subscription:yearly',
+    'yearly',
+    'annual',
+    'rc_yearly',
+    'rc_yearly_1999',
+    '$rc_yearly',
+    'premium_subscription:yearly',
+    'premium_subscription_yearly',
+  ],
+  adfree: [
+    'remove_advertisement',
+    'adfree',
+    'ad_free',
+    'lifetime',
+    'one_time',
+  ],
+};
+
+const getExpectedPackageIds = (preferredPlan: RevenueCatPlanPreference): string[] =>
+  uniqTokens([RC_ENV_PACKAGE_IDS[preferredPlan], RC_CANONICAL_PACKAGE_IDS[preferredPlan]]);
+
+const getExpectedProductIds = (preferredPlan: RevenueCatPlanPreference): string[] =>
+  uniqTokens([RC_CANONICAL_PRODUCT_IDS[preferredPlan], RC_ENV_PRODUCT_IDS[preferredPlan]]);
+
+const getCompatibleProductIds = (preferredPlan: RevenueCatPlanPreference): string[] => {
+  const compatIds = RC_COMPAT_PRODUCT_IDS[preferredPlan];
+  if (Platform.OS === 'ios') {
+    return uniqTokens(compatIds.filter((token) => !/^rc_/.test(token)));
+  }
+  return uniqTokens(compatIds);
+};
+
+const getOfferingSlotCandidate = (offering: any, preferredPlan?: RevenueCatPlanPreference) => {
+  if (!preferredPlan || !offering) return null;
+  if (preferredPlan === 'weekly') return offering?.weekly ?? null;
+  if (preferredPlan === 'yearly') return offering?.annual || offering?.yearly || null;
+  return offering?.lifetime ?? null;
+};
+
+const describeRevenueCatPackage = (pkg: any): string =>
+  `${String(pkg?.identifier || 'missing-id')} (${String(pkg?.product?.identifier || 'no-product-id')}) [${getPackageTypeName(pkg) || 'unknown'}]`;
+
+const describeRevenueCatStoreProduct = (product: any): string => {
+  const category = String(product?.productCategory || product?.productType || 'unknown');
+  return `${String(product?.identifier || 'missing-id')} [${category}]`;
+};
+
+const findPackageMatchSource = (
+  pkg: any,
+  preferredPlan?: RevenueCatPlanPreference
+): Exclude<RevenueCatPackageMatchSource, 'slot'> | null => {
+  if (!preferredPlan || !pkg) return null;
+
+  const identifier = normalizeRevenueCatToken(pkg?.identifier);
+  const productIdentifier = normalizeRevenueCatToken(pkg?.product?.identifier);
+  const expectedPackageIds = getExpectedPackageIds(preferredPlan);
+  const expectedProductIds = getExpectedProductIds(preferredPlan);
+  const compatibleProductIds = getCompatibleProductIds(preferredPlan);
+
+  if (expectedPackageIds.includes(identifier)) {
+    return 'canonical_package';
+  }
+
+  if (expectedProductIds.includes(productIdentifier)) {
+    return 'canonical_product';
+  }
+
+  if (compatibleProductIds.includes(identifier) || compatibleProductIds.includes(productIdentifier)) {
+    return 'compat_product';
+  }
+
+  if (packageTypeMatchesPreferredPlan(pkg, preferredPlan)) {
+    return 'package_type';
+  }
+
+  return null;
+};
+
+const resolvePackageFromOffering = (
+  offering: any,
+  preferredPlan: RevenueCatPlanPreference
+): RevenueCatPackageResolution => {
+  const availablePackages: PurchasesPackage[] = Array.isArray(offering?.availablePackages)
+    ? offering.availablePackages
+    : [];
+  const expectedPackageIds = getExpectedPackageIds(preferredPlan);
+  const expectedProductIds = getExpectedProductIds(preferredPlan);
+  const compatibleProductIds = getCompatibleProductIds(preferredPlan);
+  const slotCandidate = getOfferingSlotCandidate(offering, preferredPlan);
+
+  if (slotCandidate) {
+    return {
+      offering: offering || null,
+      availablePackages,
+      targetPackage: slotCandidate as PurchasesPackage,
+      matchSource: 'slot',
+      exactMatch: true,
+      expectedPackageIds,
+      expectedProductIds,
+      debugPackages: availablePackages.map(describeRevenueCatPackage).join('\n'),
+    };
+  }
+
+  const canonicalPackageMatch = availablePackages.find(
+    (pkg) => findPackageMatchSource(pkg, preferredPlan) === 'canonical_package'
+  );
+  if (canonicalPackageMatch) {
+    return {
+      offering: offering || null,
+      availablePackages,
+      targetPackage: canonicalPackageMatch,
+      matchSource: 'canonical_package',
+      exactMatch: true,
+      expectedPackageIds,
+      expectedProductIds,
+      debugPackages: availablePackages.map(describeRevenueCatPackage).join('\n'),
+    };
+  }
+
+  const canonicalProductMatch = availablePackages.find(
+    (pkg) => findPackageMatchSource(pkg, preferredPlan) === 'canonical_product'
+  );
+  if (canonicalProductMatch) {
+    return {
+      offering: offering || null,
+      availablePackages,
+      targetPackage: canonicalProductMatch,
+      matchSource: 'canonical_product',
+      exactMatch: true,
+      expectedPackageIds,
+      expectedProductIds,
+      debugPackages: availablePackages.map(describeRevenueCatPackage).join('\n'),
+    };
+  }
+
+  const compatProductMatch = availablePackages.find(
+    (pkg) => findPackageMatchSource(pkg, preferredPlan) === 'compat_product'
+  );
+  if (compatProductMatch) {
+    return {
+      offering: offering || null,
+      availablePackages,
+      targetPackage: compatProductMatch,
+      matchSource: 'compat_product',
+      exactMatch: false,
+      expectedPackageIds,
+      expectedProductIds,
+      debugPackages: availablePackages.map(describeRevenueCatPackage).join('\n'),
+    };
+  }
+
+  const packageTypeMatch = availablePackages.find(
+    (pkg) => findPackageMatchSource(pkg, preferredPlan) === 'package_type'
+  );
+
+  return {
+    offering: offering || null,
+    availablePackages,
+    targetPackage: packageTypeMatch || null,
+    matchSource: packageTypeMatch ? 'package_type' : null,
+    exactMatch: Boolean(packageTypeMatch),
+    expectedPackageIds,
+    expectedProductIds: uniqTokens([...expectedProductIds, ...compatibleProductIds]),
+    debugPackages: availablePackages.map(describeRevenueCatPackage).join('\n'),
+  };
+};
+
+const resolveStoreProductFromCatalog = (
+  products: PurchasesStoreProduct[],
+  preferredPlan: RevenueCatPlanPreference
+): RevenueCatStoreProductResolution => {
+  const expectedProductIds = uniqTokens([
+    ...getExpectedProductIds(preferredPlan),
+    ...getCompatibleProductIds(preferredPlan),
+  ]);
+  const canonicalProductIds = getExpectedProductIds(preferredPlan);
+  const compatibleProductIds = getCompatibleProductIds(preferredPlan);
+
+  const canonicalProduct = products.find((product) =>
+    canonicalProductIds.includes(normalizeRevenueCatToken(product?.identifier))
+  );
+  if (canonicalProduct) {
+    return {
+      availableProducts: products,
+      targetProduct: canonicalProduct,
+      matchSource: 'canonical_product',
+      expectedProductIds,
+      debugProducts: products.map(describeRevenueCatStoreProduct).join('\n'),
+    };
+  }
+
+  const compatibleProduct = products.find((product) =>
+    compatibleProductIds.includes(normalizeRevenueCatToken(product?.identifier))
+  );
+
+  return {
+    availableProducts: products,
+    targetProduct: compatibleProduct || null,
+    matchSource: compatibleProduct ? 'compat_product' : null,
+    expectedProductIds,
+    debugProducts: products.map(describeRevenueCatStoreProduct).join('\n'),
+  };
+};
+
+const packageTypeMatchesPreferredPlan = (
+  pkg: any,
+  preferredPlan?: RevenueCatPlanPreference
+): boolean => {
+  if (!preferredPlan) return false;
+  const packageType = getPackageTypeName(pkg);
+  if (preferredPlan === 'weekly') return packageType === 'WEEKLY';
+  if (preferredPlan === 'yearly') return packageType === 'ANNUAL' || packageType === 'YEARLY';
+  return packageType === 'LIFETIME';
+};
+
+const packageMatchesPreferredPlan = (
+  pkg: any,
+  preferredPlan?: RevenueCatPlanPreference
+): boolean => {
+  if (!preferredPlan) return false;
+  return Boolean(findPackageMatchSource(pkg, preferredPlan));
+};
+
+const offeringMatchesPreferredPlan = (
+  offering: any,
+  preferredPlan?: RevenueCatPlanPreference
+): boolean => {
+  if (!preferredPlan || !offering) return false;
+
+  const slotCandidate = getOfferingSlotCandidate(offering, preferredPlan);
+
+  if (slotCandidate) {
+    return true;
+  }
+
+  const availablePackages = Array.isArray(offering?.availablePackages)
+    ? offering.availablePackages
+    : [];
+
+  return availablePackages.some((pkg: any) => packageMatchesPreferredPlan(pkg, preferredPlan));
+};
+
+const mergeOfferingPackages = (offerings: any[]): any[] => {
+  const seen = new Set<string>();
+  const merged: any[] = [];
+
+  offerings.forEach((offering) => {
+    const availablePackages = Array.isArray(offering?.availablePackages)
+      ? offering.availablePackages
+      : [];
+
+    availablePackages.forEach((pkg: any) => {
+      const key = `${normalizeRevenueCatToken(pkg?.identifier)}::${normalizeRevenueCatToken(
+        pkg?.product?.identifier
+      )}`;
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      merged.push(pkg);
+    });
+  });
+
+  return merged;
+};
+
+const scoreRevenueCatOffering = (
+  offering: any,
+  preferredPlan?: RevenueCatPlanPreference
+): number => {
+  const availablePackages = Array.isArray(offering?.availablePackages)
+    ? offering.availablePackages
+    : [];
+
+  if (!availablePackages.length) {
+    return -1;
+  }
+
+  const baseScore = availablePackages.reduce((score: number, pkg: any) => {
+    const packageType = getPackageTypeName(pkg);
+    if (packageType === 'ANNUAL' || packageType === 'YEARLY') return score + 12;
+    if (packageType === 'MONTHLY') return score + 10;
+    if (packageType === 'WEEKLY') return score + 9;
+    if (packageType === 'LIFETIME') return score + 4;
+    return score + 2;
+  }, availablePackages.length);
+
+  if (offeringMatchesPreferredPlan(offering, preferredPlan)) {
+    return baseScore + 100;
+  }
+
+  return baseScore;
+};
+
+const pickBestRevenueCatOffering = (
+  offerings: any,
+  preferredPlan?: RevenueCatPlanPreference
+) => {
+  const candidates: any[] = [];
+  if (offerings?.current) {
+    candidates.push(offerings.current);
+  }
+
+  const allOfferings = offerings?.all && typeof offerings.all === 'object'
+    ? Object.values(offerings.all)
+    : [];
+
+  allOfferings.forEach((offering: any) => {
+    if (offering && !candidates.includes(offering)) {
+      candidates.push(offering);
+    }
+  });
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  const selectedOffering =
+    [...candidates].sort(
+      (left, right) =>
+        scoreRevenueCatOffering(right, preferredPlan) -
+        scoreRevenueCatOffering(left, preferredPlan)
+    )[0] || null;
+
+  if (!selectedOffering) {
+    return null;
+  }
+
+  return {
+    ...selectedOffering,
+    availablePackages: mergeOfferingPackages(candidates),
+  };
 };
 
 export class SubscriptionService {
@@ -270,6 +689,9 @@ export class SubscriptionService {
         bindings.Purchases.configure({
           apiKey: REVENUECAT_API_KEY,
           ...(user?.id ? { appUserID: user.id } : {}),
+          ...(Platform.OS === 'ios' && bindings.STOREKIT_VERSION?.STOREKIT_1
+            ? { storeKitVersion: bindings.STOREKIT_VERSION.STOREKIT_1 }
+            : {}),
         });
         this.currentRevenueCatUserId = null;
 
@@ -359,7 +781,7 @@ export class SubscriptionService {
     }
   }
 
-  static async getOfferings() {
+  static async getOfferings(preferredPlan?: RevenueCatPlanPreference) {
     if (this.invalidCredentialsDisabled) return null;
     if (!this.isInitialized) {
       await this.init();
@@ -371,10 +793,86 @@ export class SubscriptionService {
 
       await this.ensureRevenueCatUserIdentity();
       const offerings = await bindings.Purchases.getOfferings();
-      return offerings.current;
+      return pickBestRevenueCatOffering(offerings, preferredPlan);
     } catch (error) {
       console.error('Error getting offerings:', error);
       return null;
+    }
+  }
+
+  static async getPackageResolution(
+    preferredPlan: RevenueCatPlanPreference
+  ): Promise<RevenueCatPackageResolution> {
+    const offering = await this.getOfferings(preferredPlan);
+    return resolvePackageFromOffering(offering, preferredPlan);
+  }
+
+  static async getDirectProductResolution(
+    preferredPlan: RevenueCatPlanPreference
+  ): Promise<RevenueCatStoreProductResolution> {
+    if (this.invalidCredentialsDisabled) {
+      return {
+        availableProducts: [],
+        targetProduct: null,
+        matchSource: null,
+        expectedProductIds: uniqTokens([
+          ...getExpectedProductIds(preferredPlan),
+          ...getCompatibleProductIds(preferredPlan),
+        ]),
+        debugProducts: '',
+      };
+    }
+    if (!this.isInitialized) {
+      await this.init();
+    }
+    if (!this.hasValidConfig() || !this.isInitialized) {
+      return {
+        availableProducts: [],
+        targetProduct: null,
+        matchSource: null,
+        expectedProductIds: uniqTokens([
+          ...getExpectedProductIds(preferredPlan),
+          ...getCompatibleProductIds(preferredPlan),
+        ]),
+        debugProducts: '',
+      };
+    }
+
+    try {
+      const bindings = getPurchasesBindings();
+      if (!bindings?.Purchases || typeof bindings.Purchases.getProducts !== 'function') {
+        return {
+          availableProducts: [],
+          targetProduct: null,
+          matchSource: null,
+          expectedProductIds: uniqTokens([
+            ...getExpectedProductIds(preferredPlan),
+            ...getCompatibleProductIds(preferredPlan),
+          ]),
+          debugProducts: '',
+        };
+      }
+
+      await this.ensureRevenueCatUserIdentity();
+      const productIdentifiers = uniqTokens([
+        ...getExpectedProductIds(preferredPlan),
+        ...getCompatibleProductIds(preferredPlan),
+      ]);
+      const productType = preferredPlan === 'adfree' ? 'inapp' : 'subs';
+      const products = await bindings.Purchases.getProducts(productIdentifiers, productType);
+      return resolveStoreProductFromCatalog(products || [], preferredPlan);
+    } catch (error) {
+      console.error('Error getting direct RevenueCat products:', error);
+      return {
+        availableProducts: [],
+        targetProduct: null,
+        matchSource: null,
+        expectedProductIds: uniqTokens([
+          ...getExpectedProductIds(preferredPlan),
+          ...getCompatibleProductIds(preferredPlan),
+        ]),
+        debugProducts: '',
+      };
     }
   }
 
@@ -410,6 +908,46 @@ export class SubscriptionService {
       if (!error.userCancelled) {
         console.error('Error purchasing package:', error);
         await AnalyticsService.trackError(error, { context: 'purchase' });
+      }
+      return false;
+    }
+  }
+
+  static async purchaseStoreProduct(product: PurchasesStoreProduct): Promise<boolean> {
+    try {
+      if (this.invalidCredentialsDisabled) return false;
+      if (!this.isInitialized) {
+        await this.init();
+      }
+      if (this.invalidCredentialsDisabled) return false;
+      if (!this.hasValidConfig()) {
+        console.warn('RevenueCat store product purchase skipped: missing SDK key configuration.');
+        return false;
+      }
+      const bindings = getPurchasesBindings();
+      if (!bindings?.Purchases || typeof bindings.Purchases.purchaseStoreProduct !== 'function') {
+        return false;
+      }
+
+      await this.ensureRevenueCatUserIdentity();
+      const { customerInfo } = await bindings.Purchases.purchaseStoreProduct(product);
+      await this.updateUserSubscriptionStatus(customerInfo, 'purchase_store_product');
+
+      await AnalyticsService.trackEvent('purchase_success', {
+        product_id: product.identifier,
+        price: product.price,
+        source: 'store_product',
+      });
+
+      return true;
+    } catch (error: any) {
+      if (this.isInvalidCredentialsError(error)) {
+        this.markInvalidCredentials(error, 'purchase_store_product');
+        return false;
+      }
+      if (!error.userCancelled) {
+        console.error('Error purchasing store product:', error);
+        await AnalyticsService.trackError(error, { context: 'purchase_store_product' });
       }
       return false;
     }

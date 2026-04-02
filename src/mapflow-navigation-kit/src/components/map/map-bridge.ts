@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import { WebView, WebViewMessageEvent } from 'react-native-webview';
+import type { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { MapMessage } from '../../types/map';
 
 /**
