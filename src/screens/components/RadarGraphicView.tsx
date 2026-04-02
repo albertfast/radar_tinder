@@ -367,7 +367,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         entering={FadeInDown.delay(100).duration(ANIMATION_TIMING.SLOW)}
       >
         <LinearGradient
-          colors={['rgba(28, 28, 30, 0.6)', 'rgba(37, 37, 37, 0.6)']}
+          colors={['rgba(7, 14, 29, 0.96)', 'rgba(15, 20, 37, 0.92)']}
           style={styles.sectionCard}
         >
           <View style={styles.sectionHeader}>
@@ -391,7 +391,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         entering={FadeInDown.delay(200).duration(ANIMATION_TIMING.SLOW)}
       >
         <LinearGradient
-          colors={['rgba(28, 28, 30, 0.6)', 'rgba(37, 37, 37, 0.6)']}
+          colors={['rgba(7, 14, 29, 0.96)', 'rgba(15, 20, 37, 0.92)']}
           style={styles.sectionCard}
         >
           <View style={styles.sectionHeader}>
@@ -439,7 +439,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         entering={FadeInDown.delay(300).duration(ANIMATION_TIMING.SLOW)}
       >
         <LinearGradient
-          colors={['rgba(28, 28, 30, 0.6)', 'rgba(37, 37, 37, 0.6)']}
+          colors={['rgba(7, 14, 29, 0.96)', 'rgba(15, 20, 37, 0.92)']}
           style={styles.sectionCard}
         >
           <View style={styles.sectionHeader}>
@@ -484,7 +484,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         entering={FadeInDown.delay(400).duration(ANIMATION_TIMING.SLOW)}
       >
         <LinearGradient
-          colors={['rgba(28, 28, 30, 0.6)', 'rgba(37, 37, 37, 0.6)']}
+          colors={['rgba(7, 14, 29, 0.96)', 'rgba(15, 20, 37, 0.92)']}
           style={styles.sectionCard}
         >
           <View style={styles.sectionHeader}>
@@ -532,7 +532,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         entering={FadeInDown.delay(500).duration(ANIMATION_TIMING.SLOW)}
       >
         <LinearGradient
-          colors={['rgba(28, 28, 30, 0.6)', 'rgba(37, 37, 37, 0.6)']}
+          colors={['rgba(7, 14, 29, 0.96)', 'rgba(15, 20, 37, 0.92)']}
           style={styles.sectionCard}
         >
           <View style={styles.sectionHeader}>
@@ -624,7 +624,7 @@ const nearbyAlertIntensity = (count: number) => Math.min(1, count / 6);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#050816',
   },
   containerContent: {
     paddingHorizontal: 16,
@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(103, 232, 249, 0.16)',
-    backgroundColor: 'rgba(6, 17, 29, 0.92)',
+    backgroundColor: 'rgba(7, 18, 31, 0.96)',
     minHeight: 100,
   },
   statLabel: {
@@ -746,10 +746,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionCard: {
-    borderRadius: 16,
+    borderRadius: 22,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(103, 232, 249, 0.08)',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 110,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(103, 232, 249, 0.08)',
   },
   metricLabel: {
     fontSize: 10,
@@ -808,7 +808,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(103, 232, 249, 0.07)',
   },
   activityIconBox: {
     width: 44,
@@ -855,7 +855,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 100,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(103, 232, 249, 0.07)',
   },
   activityStatLabel: {
     fontSize: 10,
