@@ -18,6 +18,7 @@ import Animated, {
 import { formatDistance, formatSpeed } from '../../../utils/format';
 import { getResponsiveHeight } from '../../../constants/layout';
 import { RadarAnimation, type RadarRendererMode } from '../../../components/RadarAnimation';
+import { APP_DISPLAY_NAME } from '../../../config/appIdentity';
 
 type ProFeature = {
   title: string;
@@ -199,7 +200,7 @@ export function RadarHomeDashboard({
         </TouchableOpacity>
 
         <Text style={styles.appName}>
-          RADAR <Text style={{ color: '#FF5252' }}>TINDER</Text>
+          {APP_DISPLAY_NAME.toUpperCase()}
         </Text>
 
         <View style={styles.headerRight}>
@@ -280,12 +281,12 @@ export function RadarHomeDashboard({
           <View style={styles.heroTopRow}>
             <View>
               <Text style={styles.heroEyebrow}>Immersive radar</Text>
-              <Text style={styles.heroTitle}>Live 3D Radar</Text>
+              <Text style={styles.heroTitle}>Live Radar</Text>
             </View>
             <View style={styles.heroActions}>
               <View style={styles.heroBadge}>
                 <MaterialCommunityIcons name="cube-scan" size={18} color="#0B1424" />
-                <Text style={styles.heroBadgeText}>3D</Text>
+                <Text style={styles.heroBadgeText}>Live</Text>
               </View>
               <TouchableOpacity
                 style={[
@@ -415,7 +416,7 @@ export function RadarHomeDashboard({
             >
               <View>
                 <Text style={styles.startText}>START DRIVING</Text>
-                <Text style={styles.startSubtext}>3D radar, live alerts and routing</Text>
+                <Text style={styles.startSubtext}>Live radar, alerts and routing</Text>
               </View>
               <View style={styles.startBadge}>
                 <MaterialCommunityIcons name="steering" size={20} color="#0B1424" />

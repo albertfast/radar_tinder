@@ -33,14 +33,35 @@ export const formatRadarTypeLabel = (
   }
 };
 
-export const getRadarShortLocation = (label?: string | null): string => {
-  if (!label) return '';
-  return label
+const normalizeRadarLocationParts = (label?: string | null): string[] => {
+  if (!label) return [];
+
+  return String(label)
     .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .slice(0, 2)
-    .join(', ');
+    .map((part) =>
+      part
+        .replace(/\b\d{5}(?:-\d{4})?\b/g, '')
+        .replace(/\b(usa|united states)\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+    )
+    .filter(Boolean);
+};
+
+export const getRadarDisplayLocation = (
+  label?: string | null,
+  mode: 'full' | 'short' = 'full'
+): string => {
+  const parts = normalizeRadarLocationParts(label);
+  if (!parts.length) return '';
+  if (mode === 'short') {
+    return parts.slice(0, 2).join(', ');
+  }
+  return parts.join(', ');
+};
+
+export const getRadarShortLocation = (label?: string | null): string => {
+  return getRadarDisplayLocation(label, 'short');
 };
 
 export const describeRadarApproachByDistance = (distanceKm?: number | null): string => {
@@ -136,9 +157,9 @@ export const formatRadarAlertSubtitle = (
   unitSystem: 'metric' | 'imperial'
 ): string => {
   const parts = [formatDistance(alert.distance, unitSystem)];
-  const shortLocation = getRadarShortLocation(alert.locationLabel);
-  if (shortLocation) {
-    parts.push(shortLocation);
+  const displayLocation = getRadarDisplayLocation(alert.locationLabel, 'full');
+  if (displayLocation) {
+    parts.push(displayLocation);
   }
   const speedLimitText = formatRadarSpeedLimitText(alert, unitSystem);
   if (speedLimitText) {

@@ -48,7 +48,7 @@ export function useGeocoding() {
   const debouncedSearch = useCallback(
     (query: string) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => search(query), 300);
+      debounceRef.current = setTimeout(() => search(query), 180);
     },
     [search],
   );

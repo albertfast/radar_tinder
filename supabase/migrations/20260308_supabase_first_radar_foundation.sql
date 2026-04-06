@@ -235,6 +235,8 @@ begin
 end;
 $$;
 
+drop function if exists public.get_nearby_radars_v2(float, float, float, float, boolean);
+
 create or replace function public.get_nearby_radars_v2(
   lat float,
   long float,

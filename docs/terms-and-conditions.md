@@ -1,53 +1,46 @@
 # Terms and Conditions
 
-Effective Date: January 2026
+Effective Date: April 2026
 
-These Terms and Conditions govern the use of mobile applications published by **Aether Labs**.
+These Terms and Conditions govern your use of **Radar Scout** and related services provided by **Aether Labs**. By downloading, accessing, or using the app, you agree to these Terms.
 
-By downloading or using any application published by Aether Labs, you agree to these Terms.
+## 1. Permitted Use
 
----
-
-## 1. Use of Applications
-Applications may only be used for lawful purposes and in compliance with applicable laws and regulations.
-
----
+You may use Radar Scout only for lawful purposes and in compliance with applicable traffic, privacy, and safety laws. You remain responsible for your own driving decisions and conduct at all times.
 
 ## 2. Accounts
-Some features may require an account. You are responsible for maintaining the confidentiality of your account.
 
----
+Some features may require an account or linked sign-in. You are responsible for keeping your account credentials secure and for activity that occurs under your account.
 
-## 3. Subscriptions and Payments
-Certain features may be offered via paid subscriptions. Billing is handled by the respective app store and can be canceled through account settings.
+## 3. Subscriptions and Purchases
 
----
+Certain features may require a paid subscription or in-app purchase. Pricing, billing, renewal, cancellation, and refunds are handled by the App Store or Google Play according to the platform's terms.
 
-## 4. Intellectual Property
-All content and functionality are owned by Aether Labs and protected by intellectual property laws.
+## 4. Safety and Accuracy
 
----
+Radar Scout provides informational tools only. Radar alerts, map data, route guidance, and AI-generated outputs may be incomplete, delayed, or inaccurate. The app is not a substitute for attentive, lawful, and safe driving.
 
-## 5. Disclaimer
-Applications are provided "as is" without warranties. We do not guarantee the accuracy of navigation data, detection results, or AI-generated outputs.
+## 5. Intellectual Property
 
----
+The app, its content, branding, software, and related materials are owned by Aether Labs or its licensors and are protected by applicable intellectual property laws.
 
-## 6. Limitation of Liability
-Aether Labs is not liable for indirect or consequential damages arising from the use of our applications.
+## 6. Acceptable Conduct
 
----
+You may not misuse the app, interfere with the service, attempt unauthorized access, submit fraudulent reports, or use the app in a way that could harm other users or third parties.
 
-## 7. Termination
-We may suspend or terminate access if these Terms are violated.
+## 7. Disclaimer of Warranties
 
----
+Radar Scout is provided "as is" and "as available" without warranties of any kind, to the fullest extent permitted by law.
 
-## 8. Changes
-Terms may be updated at any time. Continued use constitutes acceptance.
+## 8. Limitation of Liability
 
----
+To the fullest extent permitted by law, Aether Labs will not be liable for indirect, incidental, special, consequential, or punitive damages arising from or related to your use of the app.
 
-## 9. Contact
+## 9. Changes and Termination
+
+We may update these Terms or suspend access to the app if necessary for legal, security, operational, or abuse-prevention reasons. Continued use after an update means you accept the revised Terms.
+
+## 10. Contact
+
 **Aether Labs**  
-Email: pictolabap@gmail.com
+Email: aetherlabsapps@gmail.com

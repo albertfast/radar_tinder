@@ -71,6 +71,8 @@ interface SpeedLimitCandidate {
 
 const SEARCH_CONTEXT_TTL_MS = 10 * 60 * 1000;
 const SEARCH_CONTEXT_REUSE_RADIUS_METERS = 2500;
+const SEARCH_PROVIDER_TIMEOUT_MS = 2200;
+const PRIMARY_SEARCH_RESULT_TARGET = 4;
 let searchContextCache:
   | {
       lat: number;
@@ -86,6 +88,24 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     throw new Error(`Request failed with ${response.status} for ${url}`);
   }
   return response.json() as Promise<T>;
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error(`${label}_timeout`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
 }
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -240,6 +260,15 @@ function buildSearchQueries(query: string, context: SearchContext | null): strin
   }
 
   return Array.from(variants).slice(0, 5);
+}
+
+function shouldUseSearchContext(query: string): boolean {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  return parseAddressIntent(trimmed) !== null || trimmed.split(/\s+/).length >= 3;
 }
 
 async function fetchNearbyStreetHints(lat: number, lng: number): Promise<NearbyStreetHint[]> {
@@ -1079,56 +1108,91 @@ function parseMaxspeed(maxspeed: string): { value: number; unit: string } | null
 }
 
 export async function searchPlaces(query: string, lat?: number, lng?: number) {
-  const context = await getSearchContext(lat, lng);
-  const queryVariants = buildSearchQueries(query, context);
+  const trimmedQuery = query.trim();
   const options = {
-    query,
+    query: trimmedQuery,
     lat,
     lng,
     limit: 8,
-    countryCode: context?.countryCode ?? null,
+    countryCode: null as string | null,
   };
   const collected: SearchResult[] = [];
   const providers: string[] = [];
+  const shouldEnrichWithContext = shouldUseSearchContext(trimmedQuery);
+  const contextPromise = shouldEnrichWithContext
+    ? getSearchContext(lat, lng).catch(() => null)
+    : Promise.resolve(null);
 
-  for (const variant of queryVariants) {
-    const variantOptions = {
-      ...options,
-      query: variant,
-    };
+  const runProviders = async (
+    searchOptions: SearchOptions,
+    providerNames: Array<'google' | 'geoapify' | 'photon' | 'nominatim'>
+  ) => {
+    const providerRuns = providerNames.map((providerName) => {
+      const providerSearch =
+        providerName === 'google'
+          ? searchGoogle
+          : providerName === 'geoapify'
+            ? searchGeoapify
+            : providerName === 'photon'
+              ? searchPhoton
+              : searchNominatim;
 
-    const variantRuns = [
-      { name: 'geoapify', run: () => searchGeoapify(variantOptions) },
-      { name: 'google', run: () => searchGoogle(variantOptions) },
-      { name: 'photon', run: () => searchPhoton(variantOptions) },
-      { name: 'nominatim', run: () => searchNominatim(variantOptions) },
-    ];
-
-    const variantResults = await Promise.allSettled(
-      variantRuns.map(async (provider) => ({
-        provider: provider.name,
-        results: await provider.run(),
-      })),
-    );
-
-    variantResults.forEach((providerResult) => {
-      if (providerResult.status === 'fulfilled') {
-        if (providerResult.value.results.length) {
-          collected.push(...providerResult.value.results);
-          if (!providers.includes(providerResult.value.provider)) {
-            providers.push(providerResult.value.provider);
-          }
-        }
-      }
+      return withTimeout(
+        providerSearch(searchOptions),
+        SEARCH_PROVIDER_TIMEOUT_MS,
+        providerName
+      )
+        .then((results) => ({
+          provider: providerName,
+          results,
+        }))
+        .catch(() => null);
     });
 
-    if (collected.length >= options.limit * 4) {
-      break;
+    const settled = await Promise.all(providerRuns);
+    settled.forEach((providerResult) => {
+      if (!providerResult?.results?.length) {
+        return;
+      }
+
+      collected.push(...providerResult.results);
+      if (!providers.includes(providerResult.provider)) {
+        providers.push(providerResult.provider);
+      }
+    });
+  };
+
+  await runProviders(options, ['google', 'photon', 'nominatim']);
+
+  const rankedPrimary = dedupeAndRank(collected, trimmedQuery, lat, lng, options.limit);
+  const needsSecondaryPass =
+    shouldEnrichWithContext &&
+    rankedPrimary.length < Math.min(PRIMARY_SEARCH_RESULT_TARGET, options.limit);
+
+  if (needsSecondaryPass) {
+    const context = await contextPromise;
+    const queryVariants = buildSearchQueries(trimmedQuery, context)
+      .filter((variant) => variant !== trimmedQuery)
+      .slice(0, 2);
+
+    for (const variant of queryVariants) {
+      await runProviders(
+        {
+          ...options,
+          query: variant,
+          countryCode: context?.countryCode ?? null,
+        },
+        ['google', 'geoapify', 'photon', 'nominatim']
+      );
+
+      if (dedupeAndRank(collected, trimmedQuery, lat, lng, options.limit).length >= options.limit) {
+        break;
+      }
     }
   }
 
   return {
-    results: dedupeAndRank(collected, query, lat, lng, options.limit),
+    results: dedupeAndRank(collected, trimmedQuery, lat, lng, options.limit),
     providers,
   };
 }

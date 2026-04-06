@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Platform, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Platform, Alert, Linking } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,12 @@ import { SubscriptionService } from '../services/SubscriptionService';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
+import {
+  APP_DISPLAY_NAME,
+  APP_PRIVACY_POLICY_URL,
+  APP_STANDARD_EULA_URL,
+  APP_TERMS_URL,
+} from '../config/appIdentity';
 
 const TITLE_FONT = Platform.select({ ios: 'Georgia', android: 'serif' });
 const DISPLAY_FONT = Platform.select({ ios: 'AvenirNext-Heavy', android: 'sans-serif-condensed' });
@@ -16,12 +22,9 @@ type PlanKey = 'weekly' | 'yearly' | 'adfree';
 
 const SubscriptionScreen = ({ navigation }: any) => {
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>('yearly');
-  const [isTrialEnabled, setIsTrialEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const { user } = useAuthStore();
-  const trialAvailable = selectedPlan === 'yearly';
-  const trialActive = trialAvailable && isTrialEnabled;
   const successMessage = user?.accountLinkRequiredUntil
     ? 'Your subscription is active. Link your account within 24h to keep access across devices.'
     : 'Your subscription is active.';
@@ -44,7 +47,7 @@ const SubscriptionScreen = ({ navigation }: any) => {
       period: 'week',
       trial: null,
       tag: 'FLEXIBLE',
-      description: 'Billed weekly. Starts immediately.',
+      description: '$3.99/week billed immediately. Auto-renews until cancelled.',
       accent: '#FF8A3D',
     },
     yearly: {
@@ -54,9 +57,31 @@ const SubscriptionScreen = ({ navigation }: any) => {
       period: 'year',
       trial: '3-Day Free Trial',
       tag: 'BEST VALUE',
-      description: 'Then $19.99/year. About $0.38/week.',
+      description: '3-day free trial included, then $19.99/year. Auto-renews until cancelled.',
       accent: '#2DD4BF',
     },
+  };
+  const visiblePlanKeys: PlanKey[] =
+    Platform.OS === 'ios' ? ['yearly', 'weekly'] : ['yearly', 'adfree', 'weekly'];
+  const selectedPlanConfig = plans[selectedPlan];
+  const selectedPlanDisclosure =
+    selectedPlan === 'yearly'
+      ? '3-day free trial included, then $19.99/year. Auto-renews until cancelled.'
+      : selectedPlan === 'weekly'
+        ? '$3.99/week billed immediately. Auto-renews until cancelled.'
+        : '$0.99 one-time purchase. Limited access to core features.';
+
+  const openExternalLink = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert('Link Unavailable', 'Please try again in your browser.');
+        return;
+      }
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Link Unavailable', 'Please try again in your browser.');
+    }
   };
 
   const handleSubscribe = async () => {
@@ -70,11 +95,11 @@ const SubscriptionScreen = ({ navigation }: any) => {
         return;
       }
 
-      const planToPurchase = trialActive ? 'yearly' : selectedPlan;
+      const planToPurchase = selectedPlan;
 
       await AnalyticsService.trackEvent('subscription_attempt', {
         plan: planToPurchase,
-        trial: trialActive,
+        trial: planToPurchase === 'yearly',
       });
 
       const resolution = await SubscriptionService.getPackageResolution(planToPurchase);
@@ -168,62 +193,24 @@ const SubscriptionScreen = ({ navigation }: any) => {
         scrollEventThrottle={16}
       >
         <View style={styles.hero}>
-          <Text style={styles.heroEyebrow}>PRO PASS</Text>
-          <Text style={styles.heroTitle}>Drive with confidence</Text>
+          <Text style={styles.heroEyebrow}>{APP_DISPLAY_NAME.toUpperCase()} PRO</Text>
+          <Text style={styles.heroTitle}>Choose a clear subscription offer</Text>
           <Text style={styles.heroSubtitle}>
-            Unlock live radar alerts, navigation insights, and AI diagnostics with a plan that fits your ride.
+            Unlock live radar alerts, safer route context, and AI diagnostics with a simple auto-renewing plan.
           </Text>
         </View>
 
         <View style={styles.planStack}>
-          <PlanOption
-            plan={plans.yearly}
-            isSelected={selectedPlan === 'yearly'}
-            onSelect={() => {
-              setSelectedPlan('yearly');
-              setIsTrialEnabled(true);
-            }}
-          />
-          <PlanOption
-            plan={plans.adfree}
-            isSelected={selectedPlan === 'adfree'}
-            onSelect={() => {
-              setSelectedPlan('adfree');
-              setIsTrialEnabled(false);
-            }}
-          />
-          <PlanOption
-            plan={plans.weekly}
-            isSelected={selectedPlan === 'weekly'}
-            onSelect={() => {
-              setSelectedPlan('weekly');
-              setIsTrialEnabled(false);
-            }}
-          />
-        </View>
-
-        <View style={styles.trialRow}>
-          <TouchableOpacity
-            style={styles.trialToggle}
-            onPress={() => {
-              if (trialAvailable) setIsTrialEnabled(!isTrialEnabled);
-            }}
-            disabled={!trialAvailable}
-          >
-            <MaterialCommunityIcons
-              name={trialActive ? 'checkbox-marked' : 'checkbox-blank-outline'}
-              size={24}
-              color={trialAvailable ? '#2DD4BF' : '#3A3F4B'}
+          {visiblePlanKeys.map((planKey) => (
+            <PlanOption
+              key={planKey}
+              plan={plans[planKey]}
+              isSelected={selectedPlan === planKey}
+              onSelect={() => {
+                setSelectedPlan(planKey);
+              }}
             />
-          </TouchableOpacity>
-          <View style={styles.trialCopy}>
-            <Text style={[styles.trialTitle, !trialAvailable && styles.mutedText]}>
-              Enable 3-Day Free Trial
-            </Text>
-            <Text style={[styles.trialSubtitle, !trialAvailable && styles.mutedText]}>
-              Yearly plan only. Weekly plan bills immediately.
-            </Text>
-          </View>
+          ))}
         </View>
 
         <View style={styles.featureGrid}>
@@ -249,28 +236,37 @@ const SubscriptionScreen = ({ navigation }: any) => {
             style={styles.subscribeGradient}
           >
             <Text style={styles.subscribeButtonText}>
-              {loading ? 'PROCESSING...' : trialActive ? 'START 3-DAY FREE TRIAL' : 'SUBSCRIBE NOW'}
+              {loading
+                ? 'PROCESSING...'
+                : selectedPlan === 'yearly'
+                  ? 'START 3-DAY FREE TRIAL'
+                  : selectedPlan === 'weekly'
+                    ? 'START WEEKLY PLAN'
+                    : 'BUY AD-FREE BASIC'}
             </Text>
-            <Text style={styles.subscribeSubtext}>
-              {!loading &&
-                (trialActive
-                  ? `Then ${plans.yearly.price}/year after trial`
-                  : selectedPlan === 'adfree'
-                    ? 'One-time purchase'
-                    : `${plans[selectedPlan].price}/${plans[selectedPlan].period} billed immediately`)}
-            </Text>
+            {!loading ? <Text style={styles.subscribeSubtext}>{selectedPlanDisclosure}</Text> : null}
           </LinearGradient>
         </TouchableOpacity>
 
         <Text style={styles.termsText}>
-          Recurring billing. Free trial applies to the yearly plan only. Cancel anytime.{"\n"}
-          By continuing you agree to our{' '}
-          <Text style={styles.termsLink} onPress={() => navigation.navigate('Terms')}>
-            Terms of Service
+          {selectedPlanConfig.name} subscription: {selectedPlanConfig.price}/{selectedPlanConfig.period}.
+          {selectedPlan === 'yearly'
+            ? ' Includes a 3-day free trial, then renews automatically until cancelled.'
+            : selectedPlan === 'weekly'
+              ? ' Charges immediately and renews automatically until cancelled.'
+              : ' One-time purchase.'}
+          {"\n"}
+          By continuing you agree to the{' '}
+          <Text style={styles.termsLink} onPress={() => { void openExternalLink(APP_STANDARD_EULA_URL); }}>
+            Apple Standard EULA
           </Text>
-          {' '}and{' '}
-          <Text style={styles.termsLink} onPress={() => navigation.navigate('Privacy')}>
+          ,{' '}
+          <Text style={styles.termsLink} onPress={() => { void openExternalLink(APP_PRIVACY_POLICY_URL); }}>
             Privacy Policy
+          </Text>
+          , and{' '}
+          <Text style={styles.termsLink} onPress={() => { void openExternalLink(APP_TERMS_URL); }}>
+            Terms & Conditions
           </Text>
           .
         </Text>
@@ -351,13 +347,6 @@ const styles = StyleSheet.create({
   planTrial: { color: '#FBBF24', fontSize: 12, marginTop: 6, fontWeight: '700' },
   planDetail: { color: '#94A3B8', fontSize: 12, marginTop: 6 },
   planCheck: { position: 'absolute', right: 16, bottom: 16, width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-
-  trialRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  trialToggle: { marginRight: 10 },
-  trialCopy: { flex: 1 },
-  trialTitle: { color: '#F8FAFC', fontWeight: '700', fontSize: 13 },
-  trialSubtitle: { color: '#94A3B8', fontSize: 12, marginTop: 4 },
-  mutedText: { color: '#475569' },
 
   featureGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
   featureTile: { width: '48%', borderRadius: 14, borderWidth: 1, padding: 12, backgroundColor: 'rgba(255,255,255,0.03)' },

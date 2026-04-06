@@ -51,6 +51,13 @@ export const isEmbeddedMapViewAvailable = () => getEmbeddedMapAvailability().ava
 interface MapViewProps {
   onMapReady?: () => void;
   onMapClick?: (lat: number, lng: number) => void;
+  onBrowseViewportChange?: (viewport: {
+    lat: number;
+    lng: number;
+    zoom: number;
+    pitch: number;
+    bearing: number;
+  }) => void;
   webViewRef?: React.RefObject<WebView | null>;
   onUnavailable?: (reason: string) => void;
 }
@@ -58,6 +65,7 @@ interface MapViewProps {
 export default function MapView({
   onMapReady,
   onMapClick,
+  onBrowseViewportChange,
   webViewRef,
   onUnavailable,
 }: MapViewProps) {
@@ -81,12 +89,14 @@ export default function MapView({
           onMapReady?.();
         } else if (data.type === 'mapClick') {
           onMapClick?.(data.payload.lat, data.payload.lng);
+        } else if (data.type === 'cameraChanged' && data.payload) {
+          onBrowseViewportChange?.(data.payload);
         }
       } catch {
         // Ignore malformed map messages from the embedded page.
       }
     },
-    [onMapClick, onMapReady],
+    [onBrowseViewportChange, onMapClick, onMapReady],
   );
 
   const WebViewComponent = availability.available

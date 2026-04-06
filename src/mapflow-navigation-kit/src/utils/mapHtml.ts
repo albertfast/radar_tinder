@@ -51,6 +51,7 @@ const MAP_HTML = `<!DOCTYPE html>
   <div id="map"></div>
   <script>
     var cameraState = { bearing: 0, navigation: false };
+    var defaultBrowseCamera = { lat: 20, lng: 0, zoom: 1.6, pitch: 0, bearing: 0 };
     var userMarker = null;
     var userMarkerElement = null;
     var destMarker = null;
@@ -60,8 +61,8 @@ const MAP_HTML = `<!DOCTYPE html>
     var map = new maplibregl.Map({
       container: 'map',
       style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-      center: [-74.006, 40.7128],
-      zoom: 14,
+      center: [defaultBrowseCamera.lng, defaultBrowseCamera.lat],
+      zoom: defaultBrowseCamera.zoom,
       pitch: 0,
       bearing: 0,
       maxPitch: 68,
@@ -151,7 +152,7 @@ const MAP_HTML = `<!DOCTYPE html>
 
       userMarkerElement = wrapper.firstChild;
       userMarker = new maplibregl.Marker({ element: userMarkerElement, anchor: 'center' })
-        .setLngLat([-74.006, 40.7128])
+        .setLngLat([defaultBrowseCamera.lng, defaultBrowseCamera.lat])
         .addTo(map);
 
       return userMarkerElement;
@@ -451,21 +452,21 @@ const MAP_HTML = `<!DOCTYPE html>
         type: 'line',
         source: 'route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#60a5fa', 'line-width': 16, 'line-opacity': 0.18 },
+        paint: { 'line-color': '#aefef4', 'line-width': 16, 'line-opacity': 0.22 },
       });
       map.addLayer({
         id: 'route-shadow',
         type: 'line',
         source: 'route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#283a99', 'line-width': 10, 'line-opacity': 0.56 },
+        paint: { 'line-color': '#0e605a', 'line-width': 10, 'line-opacity': 0.62 },
       });
       map.addLayer({
         id: 'route-line',
         type: 'line',
         source: 'route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#6f7cff', 'line-width': 6, 'line-opacity': 0.98 },
+        paint: { 'line-color': '#79f2da', 'line-width': 6, 'line-opacity': 0.98 },
       });
     }
 
@@ -538,6 +539,21 @@ const MAP_HTML = `<!DOCTYPE html>
           }
           return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
         },
+      });
+    }
+
+    function publishCameraState() {
+      if (cameraState.navigation) {
+        return;
+      }
+
+      var center = map.getCenter();
+      send('cameraChanged', {
+        lat: center.lat,
+        lng: center.lng,
+        zoom: map.getZoom(),
+        pitch: map.getPitch(),
+        bearing: map.getBearing(),
       });
     }
 
@@ -862,6 +878,10 @@ const MAP_HTML = `<!DOCTYPE html>
         lat: event.lngLat.lat,
         lng: event.lngLat.lng,
       });
+    });
+
+    map.on('moveend', function () {
+      publishCameraState();
     });
 
     window.addEventListener('message', function (event) {

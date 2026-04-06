@@ -10,6 +10,7 @@ import MainTabNavigator from './MainTabNavigator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AdService } from '../services/AdService';
 import { appVersion, nativeBuildVersion } from '../utils/buildInfo';
+import { APP_DISPLAY_NAME } from '../config/appIdentity';
 
 const Drawer = createDrawerNavigator();
 const allowLayoutAnimations = Platform.OS !== 'android';
@@ -40,9 +41,13 @@ const CustomDrawerContent = (props: any) => {
     { icon: 'cog-outline', label: 'Settings', screen: 'Settings' },
   ];
 
-  const handleNavigate = (screen: string, params?: any) => {
-    if (screen === 'Settings' || screen === 'Leaderboard') {
-      AdService.trackNavigationEntry(screen).catch(() => {});
+  const handleNavigate = async (screen: string, params?: any) => {
+    if (
+      screen === 'Settings' ||
+      screen === 'Leaderboard' ||
+      screen === 'RadarDriveNavigation'
+    ) {
+      await AdService.trackNavigationEntry(screen).catch(() => {});
     }
 
     const tabScreens = new Set(['Home', 'Permit', 'Drive', 'Diagnose', 'Leaderboard', 'Profile']);
@@ -162,7 +167,7 @@ const CustomDrawerContent = (props: any) => {
                  <MaterialCommunityIcons name="logout" size={20} color="#FF5252" />
                  <Text style={styles.logoutText}>Log Out</Text>
              </TouchableOpacity>
-             <Text style={styles.versionText}>RADAR TINDER v{appVersion} • {nativeBuildVersion}</Text>
+             <Text style={styles.versionText}>{APP_DISPLAY_NAME.toUpperCase()} v{appVersion} • {nativeBuildVersion}</Text>
         </View>
     </View>
   );

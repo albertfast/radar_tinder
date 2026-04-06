@@ -6,11 +6,12 @@ import { useSettingsStore } from '../store/settingsStore';
 import { VoiceGuidanceService } from './VoiceGuidanceService';
 import { formatDistance } from '../utils/format';
 import {
+  getRadarDisplayLocation,
   formatRadarSpeedLimitText,
   formatRadarTimingText,
   formatRadarTypeLabel,
-  getRadarShortLocation,
 } from '../utils/radarAlerts';
+import { APP_DISPLAY_NAME } from '../config/appIdentity';
 
 type RadarAlertOptions = {
   playSound?: boolean;
@@ -140,12 +141,14 @@ export class NotificationService {
       const title = `${radarLabel} Ahead`;
       const hasDistance = Number.isFinite(alert.distance);
       const locationSource = locationName || alert.locationLabel;
-      const shortLocation = getRadarShortLocation(locationSource);
+      const displayLocation = getRadarDisplayLocation(locationSource, 'full');
 
-      let body = shortLocation ? `${radarLabel} near ${shortLocation}.` : `${radarLabel} detected.`;
+      let body = displayLocation
+        ? `${radarLabel} near ${displayLocation}.`
+        : `${radarLabel} detected.`;
 
       if (hasDistance) {
-        const locationPart = shortLocation ? ` near ${shortLocation}` : '';
+        const locationPart = displayLocation ? ` near ${displayLocation}` : '';
         const speedLimitText = formatRadarSpeedLimitText(alert, settings.unitSystem);
         body = `${radarLabel} ${formatDistance(alert.distance, settings.unitSystem)} ahead${locationPart}.`;
         if (speedLimitText) {
@@ -228,7 +231,7 @@ export class NotificationService {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Test Notification',
-          body: 'This is a test notification from Radar Tinder',
+          body: `This is a test notification from ${APP_DISPLAY_NAME}`,
           data: { type: 'test' },
         },
         trigger: null,

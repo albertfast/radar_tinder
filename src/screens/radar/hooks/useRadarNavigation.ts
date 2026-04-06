@@ -16,6 +16,7 @@ import { describeRadarApproachByDistance } from '../../../utils/radarAlerts';
 
 type UseRadarNavigationParams = {
   canUsePro: boolean;
+  locationPermissionGranted: boolean;
   mapRef: React.RefObject<MapView | null>;
   hasCenteredMapRef: React.MutableRefObject<boolean>;
   currentLocation: any;
@@ -45,6 +46,7 @@ type UseRadarNavigationParams = {
 
 export function useRadarNavigation({
   canUsePro,
+  locationPermissionGranted,
   mapRef,
   hasCenteredMapRef,
   currentLocation,
@@ -229,6 +231,10 @@ export function useRadarNavigation({
   }, [toRecentSuggestion]);
 
   useEffect(() => {
+    if (!locationPermissionGranted) {
+      bootstrapLocationAttemptedRef.current = false;
+      return;
+    }
     if (bootstrapLocationAttemptedRef.current) return;
     if (currentLocationRef.current || currentLocation) return;
     bootstrapLocationAttemptedRef.current = true;
@@ -245,7 +251,7 @@ export function useRadarNavigation({
     return () => {
       cancelled = true;
     };
-  }, [currentLocation, currentLocationRef, setCurrentLocation]);
+  }, [currentLocation, currentLocationRef, locationPermissionGranted, setCurrentLocation]);
 
   useEffect(() => {
     return () => {

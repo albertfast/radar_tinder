@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
+import { LocationService } from '../../../services/LocationService';
 import { useNavigationStore } from '../stores/navigationStore';
 import { getUnitSystem } from '../utils/units';
 import { reverseGeocode } from '../services/api';
@@ -11,20 +12,19 @@ export function useLocation() {
 
   useEffect(() => {
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      const hasForegroundPermission = await LocationService.hasForegroundPermission();
+      if (!hasForegroundPermission) {
         console.warn('Location permission denied');
         return;
       }
 
-      // Get initial position
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.BestForNavigation });
+      const loc = await LocationService.getCurrentLocation({ requestPermission: false });
       setUserLocation({
-        lat: loc.coords.latitude,
-        lng: loc.coords.longitude,
-        accuracy: loc.coords.accuracy ?? 0,
-        speed: Math.max(0, loc.coords.speed ?? 0),
-        heading: Math.max(0, loc.coords.heading ?? 0),
+        lat: loc.latitude,
+        lng: loc.longitude,
+        accuracy: loc.accuracy ?? 0,
+        speed: Math.max(0, loc.speed ?? 0),
+        heading: Math.max(0, loc.heading ?? 0),
       });
 
       // Detect country once
@@ -32,21 +32,21 @@ export function useLocation() {
         countryDetected.current = true;
         try {
           const nativeGeocode = await Location.reverseGeocodeAsync({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
+            latitude: loc.latitude,
+            longitude: loc.longitude,
           });
           const nativeCountryCode = nativeGeocode[0]?.isoCountryCode ?? null;
 
           if (nativeCountryCode) {
             setUnitSystem(getUnitSystem(nativeCountryCode), nativeCountryCode);
           } else {
-            const geo = await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
+            const geo = await reverseGeocode(loc.latitude, loc.longitude);
             const system = getUnitSystem(geo.countryCode ?? undefined);
             setUnitSystem(system, geo.countryCode);
           }
         } catch {
           try {
-            const geo = await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
+            const geo = await reverseGeocode(loc.latitude, loc.longitude);
             setUnitSystem(getUnitSystem(geo.countryCode ?? undefined), geo.countryCode);
           } catch {
             setUnitSystem(getUnitSystem(), null);
@@ -54,24 +54,24 @@ export function useLocation() {
         }
       }
 
-      // Watch for real-time updates
-      watchRef.current = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 1000,
-          distanceInterval: 3,
-        },
-        (newLoc: Location.LocationObject) => {
+      watchRef.current = await LocationService.watchLocation(
+        (newLoc) => {
           setUserLocation({
-            lat: newLoc.coords.latitude,
-            lng: newLoc.coords.longitude,
-            accuracy: newLoc.coords.accuracy ?? 0,
-            speed: Math.max(0, newLoc.coords.speed ?? 0),
-            heading: Math.max(0, newLoc.coords.heading ?? 0),
+            lat: newLoc.latitude,
+            lng: newLoc.longitude,
+            accuracy: newLoc.accuracy ?? 0,
+            speed: Math.max(0, newLoc.speed ?? 0),
+            heading: Math.max(0, newLoc.heading ?? 0),
           });
         },
+        {
+          forDriving: true,
+          requestPermission: false,
+        },
       );
-    })();
+    })().catch((error) => {
+      console.warn('MapFlow location bootstrap skipped:', error);
+    });
 
     return () => {
       if (watchRef.current) watchRef.current.remove();

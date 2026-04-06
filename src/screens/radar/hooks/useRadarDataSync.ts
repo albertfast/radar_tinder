@@ -16,11 +16,12 @@ import { TabType } from '../types';
 import { extractShortStreetLabel, formatRadarLabel } from '../utils/radarFormatters';
 import {
   formatRadarAnnouncementTiming,
+  getRadarDisplayLocation,
   formatRadarSpeedLimitAnnouncement,
-  getRadarShortLocation,
 } from '../../../utils/radarAlerts';
 
 type UseRadarDataSyncParams = {
+  locationPermissionGranted: boolean;
   currentLocation: any;
   setCurrentLocation: (location: any) => void;
   currentLocationRef: React.MutableRefObject<any>;
@@ -137,6 +138,7 @@ const REVERSE_GEOCODE_MAX_CONCURRENCY = 2;
 const RADAR_HINT_NEAREST_LIMIT = 6;
 
 export function useRadarDataSync({
+  locationPermissionGranted,
   currentLocation,
   setCurrentLocation,
   currentLocationRef,
@@ -264,6 +266,31 @@ export function useRadarDataSync({
   );
 
   useEffect(() => {
+    if (locationPermissionGranted) {
+      return;
+    }
+
+    currentLocationRef.current = null;
+    lastUiLocationRef.current = null;
+    previousHeadingLocationRef.current = null;
+    lastValidHeadingRef.current = null;
+    lastCameraCenterRef.current = null;
+    lastCameraHeadingRef.current = null;
+    updateNearbyRadarsState([]);
+    setRadarLocationHints({});
+    setClosestRadarHint('');
+    if (currentLocation) {
+      setCurrentLocation(null);
+    }
+  }, [
+    currentLocation,
+    currentLocationRef,
+    locationPermissionGranted,
+    setCurrentLocation,
+    updateNearbyRadarsState,
+  ]);
+
+  useEffect(() => {
     nearbyRadarsRef.current = nearbyRadars;
   }, [nearbyRadars]);
 
@@ -368,8 +395,8 @@ export function useRadarDataSync({
         return;
       }
       const distanceText = formatDistance(activeAlert.distance, unitSystem);
-      const shortLocation = getRadarShortLocation(activeAlert.locationLabel);
-      const locationSuffix = shortLocation ? ` near ${shortLocation}` : '';
+      const displayLocation = getRadarDisplayLocation(activeAlert.locationLabel, 'full');
+      const locationSuffix = displayLocation ? ` near ${displayLocation}` : '';
       const timingText = formatRadarAnnouncementTiming(activeAlert);
       const speedLimitText = formatRadarSpeedLimitAnnouncement(activeAlert, unitSystem);
       const speedLimitSuffix = speedLimitText ? ` ${speedLimitText}.` : '';
@@ -480,6 +507,10 @@ export function useRadarDataSync({
   );
 
   useEffect(() => {
+    if (!locationPermissionGranted) {
+      return () => {};
+    }
+
     const unsubscribe = useRadarStore.subscribe((state) => {
       const location = state.currentLocation;
       if (
@@ -666,6 +697,7 @@ export function useRadarDataSync({
     allowUiLocationUpdates,
     followHeading,
     isDriving,
+    locationPermissionGranted,
     manualPanModeRef,
     isTypingRef,
     mapRef,
@@ -717,6 +749,11 @@ export function useRadarDataSync({
   }, [currentLocation, followHeading, hasCenteredMapRef, mapRef, routeCoords]);
 
   useEffect(() => {
+    if (!locationPermissionGranted) {
+      updateNearbyRadarsState([]);
+      return () => {};
+    }
+
     const fetchNearby = async () => {
       const loc = currentLocationRef.current || (await LocationService.getCurrentLocation());
       if (!loc) return;
@@ -733,7 +770,7 @@ export function useRadarDataSync({
     fetchNearby();
     const interval = setInterval(fetchNearby, 15000);
     return () => clearInterval(interval);
-  }, [applyRouteRelevanceFilter, updateNearbyRadarsState]);
+  }, [applyRouteRelevanceFilter, currentLocationRef, locationPermissionGranted, updateNearbyRadarsState]);
 
   return {
     currentLocation,

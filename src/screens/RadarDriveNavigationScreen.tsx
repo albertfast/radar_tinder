@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Linking,
   StyleSheet,
   Text,
   View,
@@ -11,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { MapFlowNavigationScreen, useNavigationStore } from '../mapflow-navigation-kit/src';
 import { RadarMapMarker } from '../mapflow-navigation-kit/src/types/map';
 import { formatDistance as formatMapDistance } from '../mapflow-navigation-kit/src/utils/units';
+import { LocationPermissionGate } from '../components/LocationPermissionGate';
 import { useAuthStore } from '../store/authStore';
 import { useRadarStore } from '../store/radarStore';
 import { useSettingsStore } from '../store/settingsStore';
@@ -27,6 +29,7 @@ import { RadarGraphicView } from './components/RadarGraphicView';
 import { RadarBasicTab } from './radar/components/driving/RadarBasicTab';
 import { RadarDrivingShell } from './radar/components/driving/RadarDrivingShell';
 import { useDrivingSession } from './radar/hooks/useDrivingSession';
+import { useLocationPermission } from './radar/hooks/useLocationPermission';
 import { useRadarSignalLevels } from './radar/hooks/useRadarSignalLevels';
 import { useVoiceMode } from './radar/hooks/useVoiceMode';
 import { TabType } from './radar/types';
@@ -161,6 +164,12 @@ export default function RadarDriveNavigationScreen({ navigation, route }: any) {
   const [mapUnavailableReason, setMapUnavailableReason] = useState<string | null>(null);
   const requestedInitialTab = resolveInitialTab(route?.params?.initialTab);
   const [activeTab, setActiveTab] = useState<TabType>(requestedInitialTab);
+  const {
+    permissionStatus,
+    locationPermissionGranted,
+    isRequestingPermission,
+    requestLocationAccess,
+  } = useLocationPermission();
 
   const currentLocation = useMemo(
     () => toRadarLocation(userLocation, userHeading, userSpeed),
@@ -581,6 +590,31 @@ export default function RadarDriveNavigationScreen({ navigation, route }: any) {
       AdService.markDrivingState(false, false);
     };
   }, [setRouteGuidanceActive, setRouteGuidancePath]);
+
+  if (!locationPermissionGranted) {
+    return (
+      <LocationPermissionGate
+        title="Location unlocks Drive mode"
+        body="Turn on location when you want route-aware radar alerts, live speed context, and turn-by-turn drive tools. You can go back without leaving the app."
+        permissionStatus={permissionStatus}
+        isRequestingPermission={isRequestingPermission}
+        onContinue={() => {
+          void requestLocationAccess();
+        }}
+        onOpenSettings={() => {
+          void Linking.openSettings();
+        }}
+        onDismiss={() => {
+          showTabBar('radar_drive_navigation');
+          showTabBar('driving_mode');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'RadarMain' }],
+          });
+        }}
+      />
+    );
+  }
 
   return (
     <View style={styles.screen}>

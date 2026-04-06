@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Linking,
 } from 'react-native';
 import { Text, Surface, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,6 +25,11 @@ import { ProfileMediaService } from '../services/ProfileMediaService';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appVersion, nativeBuildVersion } from '../utils/buildInfo';
+import {
+  APP_PRIVACY_POLICY_URL,
+  APP_STANDARD_EULA_URL,
+  APP_TERMS_URL,
+} from '../config/appIdentity';
 
 const StatBadge = ({ icon, value, label, color = '#4ECDC4', delay = 0 }: any) => (
   <Animated.View
@@ -71,7 +77,7 @@ const MenuButton = ({ icon, label, subLabel, onPress, color = 'white', delay = 0
 );
 
 const ProfileScreen = ({ navigation }: any) => {
-  const { user, logout, updateUser, normalizeAccessState } = useAuthStore();
+  const { user, logout, updateUser, normalizeAccessState, refreshProfile } = useAuthStore();
   const { unitSystem } = useSettingsStore();
   const insets = useSafeAreaInsets();
   const tabBarInset = TAB_BAR_HEIGHT + Math.max(insets.bottom, 10) + 16;
@@ -100,6 +106,12 @@ const ProfileScreen = ({ navigation }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [username, setUsername] = useState(user?.username || user?.name || '');
   const [uploadingMediaType, setUploadingMediaType] = useState<'profile' | 'car' | null>(null);
+  const [resolvedProfileImage, setResolvedProfileImage] = useState<string | null>(null);
+  const [resolvedCarImage, setResolvedCarImage] = useState<string | null>(null);
+  const mediaRefreshAttemptedRef = useRef<{ profile: boolean; car: boolean }>({
+    profile: false,
+    car: false,
+  });
   
   // Local state for editing
   const [carBrand, setCarBrand] = useState(user?.carDetails?.brand || '');
@@ -113,6 +125,62 @@ const ProfileScreen = ({ navigation }: any) => {
     });
     setIsEditing(false);
   };
+
+  const resolveProfileMedia = useCallback(async () => {
+    const nextProfileImage = await ProfileMediaService.resolveDisplayUri({
+      userId: user?.id,
+      type: 'profile',
+      primaryUri: user?.profileImage || user?.avatarUrl || null,
+    });
+    const nextCarImage = await ProfileMediaService.resolveDisplayUri({
+      userId: user?.id,
+      type: 'car',
+      primaryUri: user?.carImage || null,
+    });
+
+    setResolvedProfileImage((current) => (current === nextProfileImage ? current : nextProfileImage));
+    setResolvedCarImage((current) => (current === nextCarImage ? current : nextCarImage));
+  }, [user?.avatarUrl, user?.carImage, user?.id, user?.profileImage]);
+
+  useEffect(() => {
+    mediaRefreshAttemptedRef.current = {
+      profile: false,
+      car: false,
+    };
+    void resolveProfileMedia();
+  }, [resolveProfileMedia]);
+
+  const handleMediaRenderError = useCallback(
+    (type: 'profile' | 'car') => {
+      const primaryUri =
+        type === 'profile' ? user?.profileImage || user?.avatarUrl || null : user?.carImage || null;
+
+      void (async () => {
+        const fallbackUri = await ProfileMediaService.resolveDisplayUri({
+          userId: user?.id,
+          type,
+          primaryUri,
+          preferLocal: true,
+        });
+        const safeFallback =
+          fallbackUri && fallbackUri === primaryUri && /^https?:\/\//i.test(fallbackUri)
+            ? null
+            : fallbackUri;
+
+        if (type === 'profile') {
+          setResolvedProfileImage(safeFallback);
+        } else {
+          setResolvedCarImage(safeFallback);
+        }
+
+        if (user?.id && !mediaRefreshAttemptedRef.current[type]) {
+          mediaRefreshAttemptedRef.current[type] = true;
+          await refreshProfile().catch(() => {});
+        }
+      })();
+    },
+    [refreshProfile, user?.avatarUrl, user?.carImage, user?.id, user?.profileImage]
+  );
 
   const pickImage = async (type: 'profile' | 'car') => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -210,6 +278,19 @@ const ProfileScreen = ({ navigation }: any) => {
     setUsername(currentUsername);
   };
 
+  const openExternalLink = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert('Link unavailable', 'Please try again in Safari.');
+        return;
+      }
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Link unavailable', 'Please try again in Safari.');
+    }
+  };
+
   return (
     <Animated.View
       style={styles.container}
@@ -266,8 +347,14 @@ const ProfileScreen = ({ navigation }: any) => {
         >
             <TouchableOpacity onPress={() => pickImage('profile')} style={styles.avatarContainer}>
               <LinearGradient colors={['#4ECDC4', '#2196F3']} style={styles.avatarRing}>
-                 {user?.profileImage ? (
-                   <Image source={{ uri: user.profileImage }} style={styles.avatarImage} />
+                 {resolvedProfileImage ? (
+                   <Image
+                     source={{ uri: resolvedProfileImage }}
+                     style={styles.avatarImage}
+                     onError={() => {
+                       handleMediaRenderError('profile');
+                     }}
+                   />
                  ) : (
                     <View style={[styles.avatarImage, { backgroundColor: '#1E293B', justifyContent: 'center', alignItems: 'center' }]}>
                         <Text style={{color: 'white', fontSize: 30, fontWeight: 'bold'}}>{user?.name?.substring(0, 2).toUpperCase() || 'US'}</Text>
@@ -388,8 +475,15 @@ const ProfileScreen = ({ navigation }: any) => {
                   accessibilityHint="Tap to change your car photo"
                   accessibilityRole="button"
                 >
-                    {user?.carImage ? (
-                        <Image source={{ uri: user.carImage }} style={styles.carImage} resizeMode="cover" />
+                    {resolvedCarImage ? (
+                        <Image
+                          source={{ uri: resolvedCarImage }}
+                          style={styles.carImage}
+                          resizeMode="cover"
+                          onError={() => {
+                            handleMediaRenderError('car');
+                          }}
+                        />
                     ) : (
                         <LinearGradient colors={['#334155', '#1E293B']} style={styles.carPlaceholder}>
                             <MaterialCommunityIcons name="car-sports" size={60} color="rgba(255,255,255,0.1)" />
@@ -477,19 +571,33 @@ const ProfileScreen = ({ navigation }: any) => {
         
         <TouchableOpacity
           style={styles.legalLink}
-          onPress={() => navigation.navigate('Terms')}
-          accessibilityLabel="Terms of Service"
+          onPress={() => {
+            void openExternalLink(APP_TERMS_URL);
+          }}
+          accessibilityLabel="Terms and Conditions"
           accessibilityRole="link"
         >
-            <Text style={styles.legalText}>Terms of Service</Text>
+            <Text style={styles.legalText}>Terms & Conditions</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.legalLink}
-          onPress={() => navigation.navigate('Privacy')}
+          onPress={() => {
+            void openExternalLink(APP_PRIVACY_POLICY_URL);
+          }}
           accessibilityLabel="Privacy Policy"
           accessibilityRole="link"
         >
           <Text style={styles.legalText}>Privacy Policy</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.legalLink}
+          onPress={() => {
+            void openExternalLink(APP_STANDARD_EULA_URL);
+          }}
+          accessibilityLabel="Apple Standard EULA"
+          accessibilityRole="link"
+        >
+          <Text style={styles.legalText}>Apple Standard EULA</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -552,6 +660,79 @@ const styles = StyleSheet.create({
   usernameInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: 'white', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   usernameSave: { backgroundColor: '#4ECDC4', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
   usernameSaveText: { color: '#0B1424', fontWeight: '800' },
+  accountLinkCard: {
+    marginBottom: 18,
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(94, 234, 212, 0.18)',
+  },
+  accountLinkGradient: {
+    padding: 18,
+  },
+  accountLinkHeader: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  accountLinkIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(94, 234, 212, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  accountLinkCopy: {
+    flex: 1,
+  },
+  accountLinkTitle: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  accountLinkBody: {
+    color: '#C8D6E8',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  accountLinkDeadline: {
+    color: '#5EEAD4',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  accountLinkButtons: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 10,
+  },
+  accountLinkButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(94, 234, 212, 0.18)',
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  accountLinkButtonPrimary: {
+    backgroundColor: '#5EEAD4',
+    borderColor: '#5EEAD4',
+  },
+  accountLinkButtonText: {
+    color: '#E2F8F6',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  accountLinkButtonPrimaryText: {
+    color: '#08111D',
+    fontSize: 13,
+    fontWeight: '900',
+  },
 
   // Stats
   statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },

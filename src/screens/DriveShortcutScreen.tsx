@@ -1,15 +1,20 @@
 import React, { useCallback } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { AdService } from '../services/AdService';
 
 const DriveShortcutScreen = ({ navigation }: any) => {
   useFocusEffect(
     useCallback(() => {
       const timeout = setTimeout(() => {
-        navigation.navigate('Home', {
-          screen: 'RadarDriveNavigation',
-          params: { initialTab: 'Map' },
-        });
+        AdService.trackNavigationEntry('RadarDriveNavigation')
+          .catch(() => {})
+          .finally(() => {
+            navigation.navigate('Home', {
+              screen: 'RadarDriveNavigation',
+              params: { initialTab: 'Map' },
+            });
+          });
       }, 0);
 
       return () => clearTimeout(timeout);

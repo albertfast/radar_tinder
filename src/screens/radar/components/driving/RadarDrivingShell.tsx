@@ -13,7 +13,7 @@ import {
   formatRadarSpeedLimitText,
   formatRadarTimingText,
   formatRadarTypeLabel,
-  getRadarShortLocation,
+  getRadarDisplayLocation,
 } from '../../../../utils/radarAlerts';
 
 type IncidentOption = {
@@ -170,8 +170,8 @@ export function RadarDrivingShell({
             </Text>
             <Text style={styles.liveAlertSubtitle}>
               {formatDistance(activeAlert.distance, unitSystem)}
-              {getRadarShortLocation(activeAlert.locationLabel)
-                ? ` • ${getRadarShortLocation(activeAlert.locationLabel)}`
+              {getRadarDisplayLocation(activeAlert.locationLabel, 'full')
+                ? ` • ${getRadarDisplayLocation(activeAlert.locationLabel, 'full')}`
                 : ''}
               {formatRadarSpeedLimitText(activeAlert, unitSystem)
                 ? ` • ${formatRadarSpeedLimitText(activeAlert, unitSystem)}`

@@ -37,10 +37,9 @@ export default function MapFlowNavigationScreen({
   const searchBarTop = 0;
   const searchResultsTop = searchBarTop + 54;
   const [mapReady, setMapReady] = useState(false);
-  const hasCenteredInitialLocation = useRef(false);
+  const hasInitializedCamera = useRef(false);
   const lastDestinationKey = useRef<string | null>(null);
   const rerouteAtRef = useRef(0);
-  const hasExplicitNavigationStartRef = useRef(false);
   const suppressNextSearchRef = useRef(false);
   const selectedSearchValueRef = useRef<string | null>(null);
   const { webViewRef, sendToMap } = useMapBridge();
@@ -56,14 +55,17 @@ export default function MapFlowNavigationScreen({
     searchResults,
     destination,
     destinationName,
+    browseViewport,
     unitSystem,
     isSearching,
     isOffRoute,
     setSearchQuery,
     setSearchResults,
     setIsOffRoute,
+    setBrowseViewport,
     setIsNavigating,
   } = useNavigationStore();
+  const hasMeaningfulBrowseViewport = Boolean(browseViewport && browseViewport.zoom > 3);
 
   useLocation();
   useSpeedLimits();
@@ -98,17 +100,6 @@ export default function MapFlowNavigationScreen({
 
     debouncedSearch(query);
   }, [destinationName, searchQuery, debouncedSearch, searchResults.length, setSearchResults]);
-
-  useEffect(() => {
-    if (!isNavigating) {
-      hasExplicitNavigationStartRef.current = false;
-      return;
-    }
-
-    if (!hasExplicitNavigationStartRef.current) {
-      setIsNavigating(false);
-    }
-  }, [isNavigating, setIsNavigating]);
 
   const handleMapReady = useCallback(() => {
     setMapReady(true);
@@ -153,14 +144,27 @@ export default function MapFlowNavigationScreen({
   }, [isNavigating, mapReady, routeHeading, sendToMap, userHeading, userLocation, userSpeed]);
 
   useEffect(() => {
-    if (!mapReady || isNavigating) {
+    if (!mapReady || hasInitializedCamera.current) {
       return;
     }
 
     if (route?.geometry?.length) {
+      hasInitializedCamera.current = true;
+      return;
+    }
+
+    if (hasMeaningfulBrowseViewport && browseViewport) {
+      hasInitializedCamera.current = true;
       sendToMap({
-        type: 'updateRoute',
-        payload: { geometry: route.geometry },
+        type: 'flyTo',
+        payload: {
+          lat: browseViewport.lat,
+          lng: browseViewport.lng,
+          heading: browseViewport.bearing,
+          pitch: browseViewport.pitch,
+          zoom: browseViewport.zoom,
+          navigation: false,
+        },
       });
       return;
     }
@@ -169,25 +173,7 @@ export default function MapFlowNavigationScreen({
       return;
     }
 
-    sendToMap({
-      type: 'flyTo',
-      payload: {
-        lat: userLocation.lat,
-        lng: userLocation.lng,
-        heading: 0,
-        pitch: 0,
-        zoom: 14.8,
-        navigation: false,
-      },
-    });
-  }, [isNavigating, mapReady, route?.geometry, sendToMap, userLocation]);
-
-  useEffect(() => {
-    if (!mapReady || !userLocation || hasCenteredInitialLocation.current) {
-      return;
-    }
-
-    hasCenteredInitialLocation.current = true;
+    hasInitializedCamera.current = true;
     sendToMap({
       type: 'flyTo',
       payload: {
@@ -199,7 +185,7 @@ export default function MapFlowNavigationScreen({
         navigation: false,
       },
     });
-  }, [mapReady, sendToMap, userLocation]);
+  }, [browseViewport, hasMeaningfulBrowseViewport, mapReady, route?.geometry, sendToMap, userLocation]);
 
   useEffect(() => {
     if (mapReady && destination) {
@@ -284,7 +270,7 @@ export default function MapFlowNavigationScreen({
 
   const handleSelectPlace = useCallback(
     (result: SearchResult) => {
-      const selectedLabel = (result.name || result.address || '').trim();
+      const selectedLabel = (result.address || result.name || '').trim();
       suppressNextSearchRef.current = true;
       selectedSearchValueRef.current = selectedLabel || null;
       cancelPendingSearch();
@@ -292,7 +278,7 @@ export default function MapFlowNavigationScreen({
       setSearchQuery(selectedLabel);
       setSearchResults([]);
       Keyboard.dismiss();
-      navigateTo(result.lat, result.lng, result.name);
+      navigateTo(result.lat, result.lng, selectedLabel || result.name);
     },
     [cancelPendingSearch, navigateTo, setIsNavigating, setSearchQuery, setSearchResults],
   );
@@ -309,7 +295,6 @@ export default function MapFlowNavigationScreen({
   );
 
   const handleStartNavigation = useCallback(() => {
-    hasExplicitNavigationStartRef.current = true;
     start();
 
     if (!userLocation) {
@@ -331,7 +316,6 @@ export default function MapFlowNavigationScreen({
   }, [routeHeading, sendToMap, start, userHeading, userLocation, userSpeed]);
 
   const handleStopNavigation = useCallback(() => {
-    hasExplicitNavigationStartRef.current = false;
     stop();
 
     if (!userLocation) {
@@ -386,6 +370,7 @@ export default function MapFlowNavigationScreen({
         webViewRef={webViewRef}
         onMapReady={handleMapReady}
         onMapClick={handleMapClick}
+        onBrowseViewportChange={setBrowseViewport}
         onUnavailable={onMapUnavailable}
       />
 

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { View, useWindowDimensions, FlatList } from 'react-native';
+import { View, useWindowDimensions, FlatList, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import MapView from 'react-native-maps';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { LocationPermissionGate } from '../components/LocationPermissionGate';
 import { useRadarStore } from '../store/radarStore';
 import { useAuthStore } from '../store/authStore';
 import { useSettingsStore } from '../store/settingsStore';
@@ -39,6 +40,7 @@ import { RadarMapTab } from './radar/components/driving/RadarMapTab';
 import { useMapInputState } from './radar/hooks/useMapInputState';
 import { useDrivingSession } from './radar/hooks/useDrivingSession';
 import { useRadarDataSync } from './radar/hooks/useRadarDataSync';
+import { useLocationPermission } from './radar/hooks/useLocationPermission';
 import { useRadarNavigation } from './radar/hooks/useRadarNavigation';
 const MAP_INPUT_TAP_GUARD_MS = 2200;
 const RADAR_SCREEN_KEEP_AWAKE_TAG = 'radar_screen_drive_mode';
@@ -172,6 +174,12 @@ const RadarScreen = ({ navigation, route }: any) => {
   const [currentLocation, setCurrentLocation] = useState<any>(null);
   const currentLocationRef = useRef<any>(currentLocation);
   const manualPanModeRef = useRef(manualPanMode);
+  const {
+    permissionStatus,
+    locationPermissionGranted,
+    isRequestingPermission,
+    requestLocationAccess,
+  } = useLocationPermission();
 
   const mapInput = useMapInputState({ keyboardTraceEnabled: KEYBOARD_TRACE_ENABLED });
 
@@ -199,6 +207,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   });
 
   const dataSync = useRadarDataSync({
+    locationPermissionGranted,
     currentLocation,
     setCurrentLocation,
     currentLocationRef,
@@ -223,6 +232,7 @@ const RadarScreen = ({ navigation, route }: any) => {
   const getCurrentSpeedKph = useCallback(() => dataSync.currentSpeed, [dataSync.currentSpeed]);
   const navigationState = useRadarNavigation({
     canUsePro,
+    locationPermissionGranted,
     mapRef,
     hasCenteredMapRef,
     currentLocation,
@@ -481,9 +491,17 @@ const RadarScreen = ({ navigation, route }: any) => {
     };
   }, [route?.params?.forceTab, canUsePro, driving.resetDrivingSession, driving.startDrivingSession, navigation]);
 
+  const openDriveNavigation = useCallback(
+    async (initialTab: TabType) => {
+      await AdService.trackNavigationEntry('RadarDriveNavigation').catch(() => {});
+      navigation.navigate('RadarDriveNavigation', { initialTab });
+    },
+    [navigation]
+  );
+
   const toggleDrivingMode = useCallback(() => {
-    navigation.navigate('RadarDriveNavigation', { initialTab: 'Map' });
-  }, [navigation]);
+    void openDriveNavigation('Map');
+  }, [openDriveNavigation]);
 
   const centerMap = useCallback(async () => {
     let location = dataSync.currentLocationRef.current || dataSync.currentLocation;
@@ -683,6 +701,23 @@ const RadarScreen = ({ navigation, route }: any) => {
     }
   }, [dataSync.currentLocation, dataSync.currentLocationRef, refreshProfile, user]);
 
+  if (!locationPermissionGranted) {
+    return (
+      <LocationPermissionGate
+        title="Location powers live radar alerts"
+        body="When you continue, Radar Scout can request location so we can show nearby radars, route-aware warnings, and drive tools. If you skip it now, you can still stay in the app and enable it later."
+        permissionStatus={permissionStatus}
+        isRequestingPermission={isRequestingPermission}
+        onContinue={() => {
+          void requestLocationAccess();
+        }}
+        onOpenSettings={() => {
+          void Linking.openSettings();
+        }}
+      />
+    );
+  }
+
   if (driving.isDriving) {
     return (
       <RadarDrivingShell
@@ -828,7 +863,9 @@ const RadarScreen = ({ navigation, route }: any) => {
       onOpenProfile={() => navigation.navigate('Profile')}
       onNavigateSubscription={() => navigation.navigate('Subscription')}
       onToggleDrivingMode={toggleDrivingMode}
-      onOpenDriveBasic={() => navigation.navigate('RadarDriveNavigation', { initialTab: 'Basic' })}
+      onOpenDriveBasic={() => {
+        void openDriveNavigation('Basic');
+      }}
       onOpenAlerts={() => navigation.navigate('Alerts')}
       onToggleVoiceWarnings={toggleVoiceWarnings}
       pauseRadarAnimation={false}

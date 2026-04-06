@@ -15,7 +15,8 @@ import { useSettingsStore } from '../store/settingsStore';
 import { RadarLocation } from '../types';
 import { hasProAccess } from '../utils/access';
 import { readBooleanFlag } from '../utils/flags';
-import { describeRadarApproachByDistance } from '../utils/radarAlerts';
+import { describeRadarApproachByDistance, getRadarDisplayLocation } from '../utils/radarAlerts';
+import { APP_DISPLAY_NAME } from '../config/appIdentity';
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
 const MAX_STARTUP_LOCATION_ACCURACY_METERS = 180;
@@ -155,12 +156,18 @@ export class BackgroundService {
         if (isStarted) return;
       }
 
+      const hasForegroundPermission = await LocationService.hasForegroundPermission();
+      if (!hasForegroundPermission) {
+        console.warn('Background location updates skipped until location permission is granted.');
+        return;
+      }
+
       await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
         accuracy: Location.Accuracy.High,
         distanceInterval: 10,
         deferredUpdatesInterval: 5000,
         foregroundService: {
-          notificationTitle: "Radar Tinder",
+          notificationTitle: APP_DISPLAY_NAME,
           notificationBody: "Radar detection is active",
           notificationColor: "#FF5252",
         },
@@ -206,6 +213,12 @@ export class BackgroundService {
         this.locationPollInterval = null;
       }
 
+      const hasForegroundPermissionForPolling = await LocationService.hasForegroundPermission();
+      if (!hasForegroundPermissionForPolling) {
+        console.warn('Location permission not granted');
+        return;
+      }
+
       try {
         this.locationSubscription = await LocationService.watchLocation(
           async (location) => {
@@ -221,8 +234,8 @@ export class BackgroundService {
       }
 
       // Dev-only fallback for environments where location watch subscriptions are unavailable.
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      const hasForegroundPermission = await LocationService.hasForegroundPermission();
+      if (!hasForegroundPermission) {
         console.warn('Location permission not granted');
         return;
       }
@@ -283,23 +296,8 @@ export class BackgroundService {
   private static lastRouteGuidanceState = false;
   private static protectionSessionAnnouncedFor: string | null = null;
 
-  private static toShortLocationLabel(label?: string | null): string {
-    if (!label) return '';
-    const parts = label
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (parts.length === 0) return '';
-
-    const stripHouseNumber = (value: string) => value.replace(/^\d+[A-Za-z-]*\s+/, '').trim();
-    const first = stripHouseNumber(parts[0]);
-    const second = parts[1] ? stripHouseNumber(parts[1]) : '';
-    const streetToken = /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|way)\b/i;
-    if (first && second && streetToken.test(first) && streetToken.test(second)) {
-      return `${first} & ${second}`;
-    }
-
-    return [first || parts[0], second].filter(Boolean).slice(0, 2).join(', ');
+  private static normalizeLocationLabel(label?: string | null): string {
+    return getRadarDisplayLocation(label, 'full');
   }
 
   private static normalizeHeading(heading: number | null | undefined): number | null {
@@ -788,7 +786,7 @@ export class BackgroundService {
 
       const enrichedAlerts = alerts.map((alert) => ({
         ...alert,
-        locationLabel: this.toShortLocationLabel(this.radarLocationNameCache[alert.radarId]),
+        locationLabel: this.normalizeLocationLabel(this.radarLocationNameCache[alert.radarId]),
       }));
 
       const nowMs = Date.now();
@@ -803,9 +801,9 @@ export class BackgroundService {
                 radar.longitude
               );
               if (resolved) {
-                const shortResolved = this.toShortLocationLabel(resolved);
-                this.radarLocationNameCache[alert.radarId] = shortResolved;
-                alert.locationLabel = shortResolved;
+                const normalizedLabel = this.normalizeLocationLabel(resolved);
+                this.radarLocationNameCache[alert.radarId] = normalizedLabel;
+                alert.locationLabel = normalizedLabel;
               }
             } catch {}
           }

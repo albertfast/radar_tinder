@@ -10,6 +10,7 @@ type SaveProfileMediaResult = {
 };
 
 const PROFILE_MEDIA_BUCKET = 'profile-media';
+const LOCAL_PROFILE_MEDIA_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'heic'];
 const MIME_BY_EXTENSION: Record<string, string> = {
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
@@ -23,6 +24,9 @@ const getFileExtension = (sourceUri: string) => {
   const extension = match?.[1]?.toLowerCase();
   return extension && extension.length <= 5 ? extension : 'jpg';
 };
+
+const isRemoteUri = (value: string) => /^https?:\/\//i.test(value);
+const isFileUri = (value: string) => /^file:\/\//i.test(value);
 
 export class ProfileMediaService {
   private static async ensureLocalDirectory(): Promise<string> {
@@ -49,6 +53,25 @@ export class ProfileMediaService {
     await FileSystem.deleteAsync(destination, { idempotent: true }).catch(() => {});
     await FileSystem.copyAsync({ from: sourceUri, to: destination });
     return destination;
+  }
+
+  private static async findPersistedLocalCopy(
+    userId: string,
+    type: ProfileMediaType
+  ): Promise<string | null> {
+    const directory = await this.ensureLocalDirectory();
+
+    for (const extension of LOCAL_PROFILE_MEDIA_EXTENSIONS) {
+      const candidate = `${directory}${userId}-${type}.${extension}`;
+      try {
+        const info = await FileSystem.getInfoAsync(candidate);
+        if (info.exists) {
+          return candidate;
+        }
+      } catch {}
+    }
+
+    return null;
   }
 
   private static async uploadToSupabase(
@@ -105,5 +128,42 @@ export class ProfileMediaService {
       console.warn('Profile media upload fallback to local copy:', error);
       return { localUri };
     }
+  }
+
+  static async resolveDisplayUri(params: {
+    userId?: string | null;
+    type: ProfileMediaType;
+    primaryUri?: string | null;
+    preferLocal?: boolean;
+  }): Promise<string | null> {
+    const normalizedPrimary = params.primaryUri?.trim() || null;
+    const localFallback = params.userId
+      ? await this.findPersistedLocalCopy(params.userId, params.type).catch(() => null)
+      : null;
+    const candidates = params.preferLocal
+      ? [localFallback, normalizedPrimary]
+      : [normalizedPrimary, localFallback];
+
+    for (const candidate of candidates) {
+      if (!candidate) continue;
+
+      if (isRemoteUri(candidate)) {
+        return candidate;
+      }
+
+      if (isFileUri(candidate)) {
+        try {
+          const info = await FileSystem.getInfoAsync(candidate);
+          if (info.exists) {
+            return candidate;
+          }
+        } catch {}
+        continue;
+      }
+
+      return candidate;
+    }
+
+    return null;
   }
 }

@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import { LatLng, RouteData, SearchResult, UnitSystem, RouteStep } from '../types/map';
 
 interface NavigationStore {
+  browseViewport: {
+    lat: number;
+    lng: number;
+    zoom: number;
+    pitch: number;
+    bearing: number;
+  } | null;
+
   // Location
   userLocation: LatLng | null;
   userSpeed: number; // m/s
@@ -60,9 +68,19 @@ interface NavigationStore {
   setIsOffRoute: (value: boolean) => void;
   setHasArrived: (value: boolean) => void;
   setSpeedLimit: (v: number | null) => void;
+  setBrowseViewport: (
+    viewport: {
+      lat: number;
+      lng: number;
+      zoom: number;
+      pitch: number;
+      bearing: number;
+    } | null
+  ) => void;
 }
 
 export const useNavigationStore = create<NavigationStore>((set) => ({
+  browseViewport: null,
   userLocation: null,
   userSpeed: 0,
   userHeading: 0,
@@ -158,4 +176,5 @@ export const useNavigationStore = create<NavigationStore>((set) => ({
   setIsOffRoute: (value) => set({ isOffRoute: value }),
   setHasArrived: (value) => set({ hasArrived: value }),
   setSpeedLimit: (v) => set({ speedLimit: v }),
+  setBrowseViewport: (viewport) => set({ browseViewport: viewport }),
 }));

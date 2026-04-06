@@ -54,7 +54,7 @@ const RUNTIME_VERSION = process.env.EXPO_RUNTIME_VERSION || APP_VERSION;
 
 module.exports = {
   expo: {
-    name: "Radar Tinder",
+    name: "Radar Scout",
     scheme: "radartinder",
     slug: "radar-tinder",
     version: APP_VERSION,
@@ -140,8 +140,8 @@ module.exports = {
       }
     },
     web: {
-      name: "Radar Tinder",
-      shortName: "Radar Tinder",
+      name: "Radar Scout",
+      shortName: "Radar Scout",
       lang: "en",
       scope: "./",
       themeColor: "#FF6B35",

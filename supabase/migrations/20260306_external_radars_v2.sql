@@ -41,6 +41,8 @@ create table if not exists public.external_ingest_runs (
 create index if not exists external_ingest_runs_source_idx
   on public.external_ingest_runs (source, started_at desc);
 
+drop function if exists public.get_nearby_radars_v2(float, float, float, float, boolean);
+
 create or replace function public.get_nearby_radars_v2(
   lat float,
   long float,

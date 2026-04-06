@@ -1,70 +1,66 @@
 # Privacy Policy
 
-Effective Date: January 2026
+Effective Date: April 2026
 
-This Privacy Policy explains how **Aether Labs** ("we", "our", or "us") collects, uses, and protects information across all mobile applications published by Aether Labs.
-
----
+This Privacy Policy explains how **Aether Labs** ("we", "our", or "us") collects, uses, and protects information when you use **Radar Scout** and related services.
 
 ## 1. Information We Collect
 
-### a. Location Data
-Location data may be collected to enable navigation, radar alerts, map-based features, or other location-aware functionality. Location access is used only when required by app features and permissions granted by the user.
+### Location Data
+Radar Scout may use your location to show nearby radar alerts, support navigation, and improve route-aware safety features. Location is accessed only after you grant permission and only when a feature requires it.
 
-### b. Camera Access
-Camera access may be used for optional features such as visual scanning, image capture, or content creation. Camera data is processed locally unless explicitly stated and is not stored or shared without user consent.
+### Account Information
+If you sign in or link an account, we may process basic account information such as your email address, display name, and account identifiers to authenticate you, restore purchases, and keep your subscription status in sync across devices.
 
-### c. Microphone Access
-Microphone access may be used for features such as voice input or audio-based functionality. Audio data is not recorded or transmitted without explicit user action.
+### Purchases and Subscription Data
+We receive purchase and entitlement status from the App Store, Google Play, and our subscription providers so we can unlock paid features, restore purchases, and support customer service.
 
-### d. Photos and Media
-Access to photos or media files may be required for user-initiated uploads, editing, or content creation. Only files explicitly selected by the user are accessed.
+### Camera, Microphone, and Photos
+Optional features such as AI diagnostics, image uploads, or voice input may require access to your camera, microphone, or photo library. These permissions are requested only when you choose to use those features.
 
-### e. Bluetooth
-Bluetooth access may be used to connect with nearby devices or sensors relevant to application functionality. No personal data is collected through Bluetooth scanning.
+### Usage and Diagnostics
+We may collect diagnostic information, crash reports, and product analytics to understand app performance, fix bugs, and improve reliability.
 
-### f. Account Information
-If an account is created, we may collect basic information such as email address for authentication and account management.
-
-### g. Usage and Diagnostics Data
-Anonymous usage data and diagnostics may be collected to improve performance, stability, and user experience.
-
----
+### User Reports and Community Signals
+If you submit a radar report, confirmation, or feedback, we may process the location, timestamp, and report details needed to make that community feature work.
 
 ## 2. How We Use Information
+
 We use information to:
-- Provide and improve application functionality
-- Enable AI-based, navigation, and detection features
-- Manage subscriptions and premium features
-- Improve safety, reliability, and performance
 
----
+- operate core app features
+- provide radar alerts, navigation context, and AI diagnostics
+- manage accounts, subscriptions, and purchase restoration
+- maintain security, investigate abuse, and prevent fraud
+- measure performance and improve the app over time
 
-## 3. Data Sharing
-We do not sell personal data. Information may be shared only with trusted service providers strictly necessary to operate our services (e.g. analytics, payments, cloud infrastructure).
+## 3. Sharing
 
----
+We do not sell your personal information. We may share limited information with service providers that help us operate the app, such as authentication, cloud hosting, analytics, crash reporting, mapping, and subscription processing vendors.
 
-## 4. Data Security
-We implement reasonable technical and organizational safeguards. However, no system is completely secure.
+We may also disclose information if required by law, legal process, or to protect users, the public, or our rights.
 
----
+## 4. Data Retention
 
-## 5. User Control
-Permissions (location, camera, microphone, etc.) can be managed at any time through device settings.
+We keep information only as long as reasonably necessary for the purposes described in this policy, including providing the service, maintaining security, resolving disputes, and meeting legal obligations.
 
----
+## 5. Your Choices
+
+You can:
+
+- manage device permissions in iOS or Android Settings
+- decline optional permissions and continue using non-dependent parts of the app
+- cancel subscriptions through your App Store or Google Play account settings
 
 ## 6. Children’s Privacy
-Our applications are not directed to children under 13, and we do not knowingly collect personal data from children.
 
----
+Radar Scout is not directed to children under 13, and we do not knowingly collect personal information from children under 13.
 
 ## 7. Changes to This Policy
-This policy may be updated periodically. Changes will be reflected on this page.
 
----
+We may update this Privacy Policy from time to time. The latest version will always be posted on this page with the updated effective date.
 
 ## 8. Contact
+
 **Aether Labs**  
-Email: pictolabap@gmail.com
+Email: aetherlabsapps@gmail.com

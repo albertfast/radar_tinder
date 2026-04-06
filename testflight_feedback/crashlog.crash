@@ -1,0 +1,239 @@
+Incident Identifier: AADD95A5-3315-4C7E-BE80-67BF89D6128F
+Distributor ID:      com.apple.TestFlight
+Hardware Model:      iPhone18,1
+Process:             RadarTinder [13552]
+Path:                /private/var/containers/Bundle/Application/14F2B8D5-F4F6-4806-99A2-4A9AF5F9DE33/RadarTinder.app/RadarTinder
+Identifier:          com.radartinder.app
+Version:             1.0.5 (1773558651524)
+AppStoreTools:       17E187
+AppVariant:          1:iPhone18,1:26
+Beta:                YES
+Code Type:           ARM-64 (Native)
+Role:                Foreground
+Parent Process:      launchd [1]
+Coalition:           com.radartinder.app [3219]
+
+Date/Time:           2026-04-02 04:29:03.5653 -0700
+Launch Time:         2026-04-02 04:29:02.7438 -0700
+OS Version:          iPhone OS 26.4 (23E246)
+Release Type:        User
+Baseband Version:    1.55.04
+Report Version:      104
+
+Exception Type:  EXC_CRASH (SIGABRT)
+Exception Codes: 0x0000000000000000, 0x0000000000000000
+Termination Reason: SIGNAL 6 Abort trap: 6
+Terminating Process: RadarTinder [13552]
+
+Triggered by Thread:  0
+
+
+Thread 0 name:
+Thread 0 Crashed:
+0   libsystem_kernel.dylib        	0x000000024d59b1d0 __pthread_kill + 8
+1   libsystem_pthread.dylib       	0x00000001fd5427dc pthread_kill + 268 (pthread.c:1721)
+2   libsystem_c.dylib             	0x00000001aa274e88 __abort + 152 (abort.c:163)
+3   libsystem_c.dylib             	0x00000001aa274df0 abort + 160 (abort.c:130)
+4   libc++abi.dylib               	0x000000019b3e5fd4 __abort_message + 132 (abort_message.cpp:66)
+5   libc++abi.dylib               	0x000000019b3e7b78 demangling_terminate_handler() + 272 (cxa_default_handlers.cpp:72)
+6   libobjc.A.dylib               	0x000000019b2e7878 _objc_terminate() + 172 (objc-exception.mm:499)
+7   RadarTinder                   	0x000000010273833c FIRCLSTerminateHandler() + 332 (FIRCLSException.mm:466)
+8   libc++abi.dylib               	0x000000019b3f21f8 std::__terminate(void (*)()) + 16 (cxa_handlers.cpp:59)
+9   libc++abi.dylib               	0x000000019b3f3e18 __cxxabiv1::failed_throw(__cxxabiv1::__cxa_exception*) + 88 (cxa_exception.cpp:152)
+10  libc++abi.dylib               	0x000000019b3e0360 __cxa_throw + 92 (cxa_exception.cpp:299)
+11  hermes                        	0x000000010639cea4 facebook::hermes::(anonymous namespace)::HermesRuntimeImpl::throwPendingError() + 560 (hermes.cpp:2717)
+12  hermes                        	0x0000000106397880 facebook::hermes::(anonymous namespace)::HermesRuntimeImpl::checkStatus(hermes::vm::ExecutionStatus) + 8 (hermes.cpp:2628)
+13  hermes                        	0x0000000106397880 facebook::hermes::(anonymous namespace)::HermesRuntimeImpl::call(facebook::jsi::Function const&, facebook::jsi::Value const&, facebook::jsi::Value const*, unsigned long) + 424 (hermes.cpp:2514)
+14  RadarTinder                   	0x0000000103290f90 facebook::jsi::WithRuntimeDecorator<worklets::AroundLock, facebook::jsi::Runtime, facebook::jsi::Runtime>::call(facebook::jsi::Function const&, facebook::jsi::Value const&, facebook::jsi::Value con... + 96 (decorator.h:933)
+15  RadarTinder                   	0x000000010327f680 facebook::jsi::Value worklets::runOnRuntimeGuarded<>(facebook::jsi::Runtime&, facebook::jsi::Value const&) + 96 (Serializable.h:35)
+16  RadarTinder                   	0x000000010327f56c worklets::scheduleOnUI(std::__1::shared_ptr<worklets::UIScheduler> const&, std::__1::weak_ptr<worklets::WorkletRuntime> const&, facebook::jsi::Runtime&, facebook::jsi::Value const&)::'lambda'()::op... + 132 (JSIWorkletsModuleProxy.cpp:50)
+17  RadarTinder                   	0x000000010328bda8 worklets::UIScheduler::triggerUI() + 92 (UIScheduler.cpp:15)
+18  RadarTinder                   	0x0000000103276b7c invocation function for block in worklets::IOSUIScheduler::scheduleOnUI(std::__1::function<void ()>) + 68 (IOSUIScheduler.mm:18)
+19  libdispatch.dylib             	0x00000001d893a9a8 _dispatch_call_block_and_release + 32 (init.c:1597)
+20  libdispatch.dylib             	0x00000001d89541e4 _dispatch_client_callout + 16 (client_callout.mm:85)
+21  libdispatch.dylib             	0x00000001d8971e10 _dispatch_main_queue_drain.cold.6 + 832 (queue.c:8252)
+22  libdispatch.dylib             	0x00000001d8949964 _dispatch_main_queue_drain + 176 (queue.c:8233)
+23  libdispatch.dylib             	0x00000001d89498a4 _dispatch_main_queue_callback_4CF + 44 (queue.c:8412)
+24  CoreFoundation                	0x000000019e79ca64 __CFRUNLOOP_IS_SERVICING_THE_MAIN_DISPATCH_QUEUE__ + 16 (CFRunLoop.c:1820)
+25  CoreFoundation                	0x000000019e72a288 __CFRunLoopRun + 1944 (CFRunLoop.c:3177)
+26  CoreFoundation                	0x000000019e7291d0 _CFRunLoopRunSpecificWithOptions + 532 (CFRunLoop.c:3462)
+27  GraphicsServices              	0x0000000243c5f498 GSEventRunModal + 120 (GSEvent.c:2049)
+28  UIKitCore                     	0x00000001a43ed2cc -[UIApplication _run] + 796 (UIApplication.m:3904)
+29  UIKitCore                     	0x00000001a4358158 UIApplicationMain + 332 (UIApplication.m:5586)
+30  RadarTinder                   	0x0000000102321654 main + 64 (AppDelegate.swift:12)
+31  dyld                          	0x000000019b33dc1c start + 6928
+
+Thread 1:
+
+Thread 2:
+
+Thread 3:
+
+Thread 4:
+
+Thread 5:
+
+Thread 6 name:
+Thread 6:
+0   libsystem_kernel.dylib        	0x000000024d590cd4 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	0x000000024d59430c mach_msg2_internal + 76 (mach_msg.c:201)
+2   libsystem_kernel.dylib        	0x000000024d59422c mach_msg_overwrite + 424 (mach_msg.c:0)
+3   libsystem_kernel.dylib        	0x000000024d594078 mach_msg + 24 (mach_msg.c:323)
+4   CoreFoundation                	0x000000019e75fea4 __CFRunLoopServiceMachPort + 160 (CFRunLoop.c:2650)
+5   CoreFoundation                	0x000000019e729f94 __CFRunLoopRun + 1188 (CFRunLoop.c:3035)
+6   CoreFoundation                	0x000000019e7291d0 _CFRunLoopRunSpecificWithOptions + 532 (CFRunLoop.c:3462)
+7   Foundation                    	0x000000019b99ccf0 -[NSRunLoop(NSRunLoop) runMode:beforeDate:] + 212 (NSRunLoop.m:375)
+8   Foundation                    	0x000000019b99cbd8 -[NSRunLoop(NSRunLoop) runUntilDate:] + 64 (NSRunLoop.m:422)
+9   UIKitCore                     	0x00000001a43b2b04 -[UIEventFetcher threadMain] + 420 (UIEventFetcher.m:1333)
+10  Foundation                    	0x000000019ba20804 __NSThread__start__ + 732 (NSThread.m:1004)
+11  libsystem_pthread.dylib       	0x00000001fd53f438 _pthread_start + 136 (pthread.c:931)
+12  libsystem_pthread.dylib       	0x00000001fd53b8cc thread_start + 8
+
+Thread 7:
+
+Thread 8:
+
+Thread 9:
+
+Thread 10:
+
+Thread 11:
+
+Thread 12:
+
+Thread 13:
+
+Thread 14:
+
+Thread 15 name:
+Thread 15:
+0   libsystem_kernel.dylib        	0x000000024d590cd4 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	0x000000024d59430c mach_msg2_internal + 76 (mach_msg.c:201)
+2   libsystem_kernel.dylib        	0x000000024d59422c mach_msg_overwrite + 424 (mach_msg.c:0)
+3   libsystem_kernel.dylib        	0x000000024d594078 mach_msg + 24 (mach_msg.c:323)
+4   RadarTinder                   	0x0000000102741238 FIRCLSMachExceptionServer + 104 (FIRCLSMachException.c:172)
+5   libsystem_pthread.dylib       	0x00000001fd53f438 _pthread_start + 136 (pthread.c:931)
+6   libsystem_pthread.dylib       	0x00000001fd53b8cc thread_start + 8
+
+Thread 16 name:
+Thread 16:
+0   libsystem_kernel.dylib        	0x000000024d590c68 semaphore_timedwait_trap + 8
+1   libdispatch.dylib             	0x00000001d896f7d8 _dispatch_sema4_timedwait + 64 (lock.c:154)
+2   libdispatch.dylib             	0x00000001d893ca68 _dispatch_semaphore_wait_slow + 76 (semaphore.c:116)
+3   libdispatch.dylib             	0x00000001d894c6fc _dispatch_worker_thread + 324 (queue.c:7663)
+4   libsystem_pthread.dylib       	0x00000001fd53f438 _pthread_start + 136 (pthread.c:931)
+5   libsystem_pthread.dylib       	0x00000001fd53b8cc thread_start + 8
+
+Thread 17 name:
+Thread 17:
+0   libsystem_kernel.dylib        	0x000000024d590cd4 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	0x000000024d59430c mach_msg2_internal + 76 (mach_msg.c:201)
+2   libsystem_kernel.dylib        	0x000000024d59422c mach_msg_overwrite + 424 (mach_msg.c:0)
+3   libsystem_kernel.dylib        	0x000000024d594078 mach_msg + 24 (mach_msg.c:323)
+4   CoreFoundation                	0x000000019e75fea4 __CFRunLoopServiceMachPort + 160 (CFRunLoop.c:2650)
+5   CoreFoundation                	0x000000019e729f94 __CFRunLoopRun + 1188 (CFRunLoop.c:3035)
+6   CoreFoundation                	0x000000019e7291d0 _CFRunLoopRunSpecificWithOptions + 532 (CFRunLoop.c:3462)
+7   RadarTinder                   	0x000000010341dacc +[RCTJSThreadManager runRunLoop] + 212 (RCTJSThreadManager.mm:102)
+8   Foundation                    	0x000000019ba20804 __NSThread__start__ + 732 (NSThread.m:1004)
+9   libsystem_pthread.dylib       	0x00000001fd53f438 _pthread_start + 136 (pthread.c:931)
+10  libsystem_pthread.dylib       	0x00000001fd53b8cc thread_start + 8
+
+Thread 18 name:
+Thread 18:
+0   libsystem_kernel.dylib        	0x000000024d5965e8 __psynch_cvwait + 8
+1   libsystem_pthread.dylib       	0x00000001fd53db48 _pthread_cond_wait + 980 (pthread_cond.c:862)
+2   libc++.1.dylib                	0x00000001addeebcc std::__1::condition_variable::wait(std::__1::unique_lock<std::__1::mutex>&) + 32 (condition_variable.cpp:36)
+3   hermes                        	0x000000010645b9c4 void std::__1::condition_variable::wait<hermes::vm::HadesGC::Executor::worker()::'lambda'()>(std::__1::unique_lock<std::__1::mutex>&, hermes::vm::HadesGC::Executor::worker()::'lambda'()) + 28 (condition_variable.h:146)
+4   hermes                        	0x000000010645b9c4 hermes::vm::HadesGC::Executor::worker() + 116 (HadesGC.cpp:1062)
+5   hermes                        	0x000000010645b92c hermes::vm::HadesGC::Executor::Executor()::'lambda'()::operator()() const + 4 (HadesGC.cpp:1033)
+6   hermes                        	0x000000010645b92c decltype(std::declval<hermes::vm::HadesGC::Executor::Executor()::'lambda'()>()()) std::__1::__invoke[abi:nn180100]<hermes::vm::HadesGC::Executor::Executor()::'lambda'()>(hermes::vm::HadesGC::Execut... + 4 (invoke.h:344)
+7   hermes                        	0x000000010645b92c void std::__1::__thread_execute[abi:nn180100]<std::__1::unique_ptr<std::__1::__thread_struct, std::__1::default_delete<std::__1::__thread_struct>>, hermes::vm::HadesGC::Executor::Executor()::'lambd... + 4 (thread.h:199)
+8   hermes                        	0x000000010645b92c void* std::__1::__thread_proxy[abi:nn180100]<std::__1::tuple<std::__1::unique_ptr<std::__1::__thread_struct, std::__1::default_delete<std::__1::__thread_struct>>, hermes::vm::HadesGC::Executor::Exe... + 44 (thread.h:208)
+9   libsystem_pthread.dylib       	0x00000001fd53f438 _pthread_start + 136 (pthread.c:931)
+10  libsystem_pthread.dylib       	0x00000001fd53b8cc thread_start + 8
+
+Thread 19:
+
+Thread 20 name:
+Thread 20:
+0   libsystem_kernel.dylib        	0x000000024d5965e8 __psynch_cvwait + 8
+1   libsystem_pthread.dylib       	0x00000001fd53db48 _pthread_cond_wait + 980 (pthread_cond.c:862)
+2   libc++.1.dylib                	0x00000001addeebcc std::__1::condition_variable::wait(std::__1::unique_lock<std::__1::mutex>&) + 32 (condition_variable.cpp:36)
+3   hermes                        	0x000000010645b9c4 void std::__1::condition_variable::wait<hermes::vm::HadesGC::Executor::worker()::'lambda'()>(std::__1::unique_lock<std::__1::mutex>&, hermes::vm::HadesGC::Executor::worker()::'lambda'()) + 28 (condition_variable.h:146)
+4   hermes                        	0x000000010645b9c4 hermes::vm::HadesGC::Executor::worker() + 116 (HadesGC.cpp:1062)
+5   hermes                        	0x000000010645b92c hermes::vm::HadesGC::Executor::Executor()::'lambda'()::operator()() const + 4 (HadesGC.cpp:1033)
+6   hermes                        	0x000000010645b92c decltype(std::declval<hermes::vm::HadesGC::Executor::Executor()::'lambda'()>()()) std::__1::__invoke[abi:nn180100]<hermes::vm::HadesGC::Executor::Executor()::'lambda'()>(hermes::vm::HadesGC::Execut... + 4 (invoke.h:344)
+7   hermes                        	0x000000010645b92c void std::__1::__thread_execute[abi:nn180100]<std::__1::unique_ptr<std::__1::__thread_struct, std::__1::default_delete<std::__1::__thread_struct>>, hermes::vm::HadesGC::Executor::Executor()::'lambd... + 4 (thread.h:199)
+8   hermes                        	0x000000010645b92c void* std::__1::__thread_proxy[abi:nn180100]<std::__1::tuple<std::__1::unique_ptr<std::__1::__thread_struct, std::__1::default_delete<std::__1::__thread_struct>>, hermes::vm::HadesGC::Executor::Exe... + 44 (thread.h:208)
+9   libsystem_pthread.dylib       	0x00000001fd53f438 _pthread_start + 136 (pthread.c:931)
+10  libsystem_pthread.dylib       	0x00000001fd53b8cc thread_start + 8
+
+Thread 21 name:
+Thread 21:
+0   libsystem_kernel.dylib        	0x000000024d5965e8 __psynch_cvwait + 8
+1   libsystem_pthread.dylib       	0x00000001fd53db48 _pthread_cond_wait + 980 (pthread_cond.c:862)
+2   JavaScriptCore                	0x00000001b574a8f0 scavenger_thread_main + 1632 (pas_scavenger.c:385)
+3   libsystem_pthread.dylib       	0x00000001fd53f438 _pthread_start + 136 (pthread.c:931)
+4   libsystem_pthread.dylib       	0x00000001fd53b8cc thread_start + 8
+
+Thread 22:
+
+Thread 23 name:
+Thread 23:
+0   libsystem_kernel.dylib        	0x000000024d590cd4 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	0x000000024d59430c mach_msg2_internal + 76 (mach_msg.c:201)
+2   libsystem_kernel.dylib        	0x000000024d59422c mach_msg_overwrite + 424 (mach_msg.c:0)
+3   libsystem_kernel.dylib        	0x000000024d594078 mach_msg + 24 (mach_msg.c:323)
+4   CoreFoundation                	0x000000019e75fea4 __CFRunLoopServiceMachPort + 160 (CFRunLoop.c:2650)
+5   CoreFoundation                	0x000000019e729f94 __CFRunLoopRun + 1188 (CFRunLoop.c:3035)
+6   CoreFoundation                	0x000000019e7291d0 _CFRunLoopRunSpecificWithOptions + 532 (CFRunLoop.c:3462)
+7   CFNetwork                     	0x00000001b3b759e8 +[__CFN_CoreSchedulingSetRunnable _run:] + 416 (CoreSchedulingSet.mm:1473)
+8   Foundation                    	0x000000019ba20804 __NSThread__start__ + 732 (NSThread.m:1004)
+9   libsystem_pthread.dylib       	0x00000001fd53f438 _pthread_start + 136 (pthread.c:931)
+10  libsystem_pthread.dylib       	0x00000001fd53b8cc thread_start + 8
+
+Thread 24 name:
+Thread 24:
+0   libsystem_kernel.dylib        	0x000000024d590c50 semaphore_wait_trap + 8
+1   WebKit                        	0x00000001ba798a64 IPC::StreamConnectionWorkQueue::startProcessingThread()::$_0::operator()() + 48 (StreamConnectionWorkQueue.cpp:133)
+2   JavaScriptCore                	0x00000001b3f834cc WTF::Thread::entryPoint(WTF::Thread::NewThreadContext*) + 352 (Threading.cpp:260)
+3   JavaScriptCore                	0x00000001b3f86c50 WTF::wtfThreadEntryPoint(void*) + 16 (ThreadingPOSIX.cpp:245)
+4   libsystem_pthread.dylib       	0x00000001fd53f438 _pthread_start + 136 (pthread.c:931)
+5   libsystem_pthread.dylib       	0x00000001fd53b8cc thread_start + 8
+
+
+Thread 0 crashed with ARM Thread State (64-bit):
+    x0: 0x0000000000000000   x1: 0x0000000000000000   x2: 0x0000000000000000   x3: 0x0000000000000000
+    x4: 0x0000000000000000   x5: 0x0000000000989680   x6: 0xffffffffbfc007ff   x7: 0xfffff0003ffff800
+    x8: 0x51a41714c9877858   x9: 0x51a41716c10e1998  x10: 0x00000000000003e8  x11: 0x00000000fffffffd
+   x12: 0x0000000000000000  x13: 0x0000000000000000  x14: 0x0000000000000000  x15: 0x0000000000000000
+   x16: 0x0000000000000148  x17: 0x00000002088961c0  x18: 0x0000000000000000  x19: 0x0000000000000006
+   x20: 0x0000000000000103  x21: 0x00000002088962a0  x22: 0x0000000000000004  x23: 0x00000001051a738d
+   x24: 0x0000000000000000  x25: 0x000000010e979000  x26: 0xffff0001111377f0  x27: 0x000000016dae20d0
+   x28: 0xffffffff76ffffff   fp: 0x000000016dae1cc0   lr: 0x00000001fd5427dc
+    sp: 0x000000016dae1ca0   pc: 0x000000024d59b1d0 cpsr: 0x40000000
+   esr: 0x56000080 (Syscall)
+
+
+Binary Images:
+        0x10231c000 -         0x1055e3fff RadarTinder arm64  <26a68535947b3ac08b27d5bc945e0393> /private/var/containers/Bundle/Application/14F2B8D5-F4F6-4806-99A2-4A9AF5F9DE33/RadarTinder.app/RadarTinder
+        0x1060c8000 -         0x1060d3fff libobjc-trampolines.dylib arm64e  <e51a481b92f532ba9e8bfcecda3b8431> /private/preboot/Cryptexes/OS/usr/lib/libobjc-trampolines.dylib
+        0x10638c000 -         0x10658ffff hermes arm64  <80d5528f2c783b90b90f747e89a9f880> /private/var/containers/Bundle/Application/14F2B8D5-F4F6-4806-99A2-4A9AF5F9DE33/RadarTinder.app/Frameworks/hermes.framework/hermes
+        0x19b2b4000 -         0x19b30547f libobjc.A.dylib arm64e  <dbe3f13eefc431c5b7623455cee83e7f> /usr/lib/libobjc.A.dylib
+        0x19b339000 -         0x19b3ddebf dyld arm64e  <80dd1800f68d354f81068cb5ea621aca> /usr/lib/dyld
+        0x19b3de000 -         0x19b3f859f libc++abi.dylib arm64e  <e7bd32f9ab56392d8e79857cde598da1> /usr/lib/libc++abi.dylib
+        0x19b992000 -         0x19c81a45f Foundation arm64e  <66bf417c1d003457a302196bbaec23d0> /System/Library/Frameworks/Foundation.framework/Foundation
+        0x19e6fb000 -         0x19ec970ff CoreFoundation arm64e  <11f13078e01b343ba0208d60bae7bbb6> /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation
+        0x1a42cc000 -         0x1a680b37f UIKitCore arm64e  <d80f437f029333b6b76b5f2a74b11cda> /System/Library/PrivateFrameworks/UIKitCore.framework/UIKitCore
+        0x1aa1fe000 -         0x1aa27d30f libsystem_c.dylib arm64e  <08196a2fb3fa3d0bb151ad50a6d0a0b4> /usr/lib/system/libsystem_c.dylib
+        0x1adde2000 -         0x1ade72a7b libc++.1.dylib arm64e  <c3f6d9de52273c4cbec3bd43bfb08435> /usr/lib/libc++.1.dylib
+        0x1b3ae4000 -         0x1b3e9463f CFNetwork arm64e  <81defe1108d1377b92d1434c9f74fb3d> /System/Library/Frameworks/CFNetwork.framework/CFNetwork
+        0x1b3e95000 -         0x1b5943c7f JavaScriptCore arm64e  <863f18c653c9354ebe6fc1694a2e8cbc> /System/Library/Frameworks/JavaScriptCore.framework/JavaScriptCore
+        0x1b952d000 -         0x1bab9e11f WebKit arm64e  <fe50362ed8f8380fa6ef8eed7a531778> /System/Library/Frameworks/WebKit.framework/WebKit
+        0x1ce496000 -         0x1ce7466bf MediaExperience arm64e  <023c73aa4a3a365293d76c150e518b24> /System/Library/PrivateFrameworks/MediaExperience.framework/MediaExperience
+        0x1d8939000 -         0x1d897f5ff libdispatch.dylib arm64e  <5fcac52f01e93bf08aac42c442c53560> /usr/lib/system/libdispatch.dylib
+        0x1fd53b000 -         0x1fd5474ef libsystem_pthread.dylib arm64e  <6c9bcde9819d345d9d71b60ad47e5159> /usr/lib/system/libsystem_pthread.dylib
+        0x243c5e000 -         0x243c667bf GraphicsServices arm64e  <4e01d837d3923b40abd3ff5755b93327> /System/Library/PrivateFrameworks/GraphicsServices.framework/GraphicsServices
+        0x24d590000 -         0x24d5cbac7 libsystem_kernel.dylib arm64e  <5f4e68e1021c3a8fa6f62c4c077d0676> /usr/lib/system/libsystem_kernel.dylib
+
+EOF

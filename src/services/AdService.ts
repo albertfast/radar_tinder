@@ -1,11 +1,14 @@
 import { Platform } from 'react-native';
+import { BLOCKING_ADS_ENABLED } from '../config/appIdentity';
 import { useAuthStore } from '../store/authStore';
 import { isAdminUser, shouldShowHomeAds } from '../utils/access';
 import { AnalyticsService } from './AnalyticsService';
 
 export type AdPlacement =
+  | 'onboarding_entry'
   | 'onboarding_location_granted'
   | 'app_foreground'
+  | 'open_navigation'
   | 'navigate_route'
   | 'start_driving_basic'
   | 'end_ride'
@@ -406,6 +409,11 @@ export class AdService {
   }
 
   static async init(): Promise<void> {
+    if (!BLOCKING_ADS_ENABLED) {
+      this.isInitialized = false;
+      cachedLastInitError = 'blocking_ads_disabled';
+      return;
+    }
     if (this.isInitialized) return;
     if (this.initPromise) return this.initPromise;
     if (this.hasAttemptedInit && !cachedLastInitError) return;
@@ -453,6 +461,7 @@ export class AdService {
   }
 
   static shouldShowAds(): boolean {
+    if (!BLOCKING_ADS_ENABLED) return false;
     if (this.navigationAdsSuppressed) return false;
     if (this.drivingState.isDriving || this.drivingState.hasActiveRoute) return false;
 
@@ -492,7 +501,8 @@ export class AdService {
     const shouldShow = this.shouldShowAds();
     let shouldShowReason = 'free_user_ads_enabled';
 
-    if (this.navigationAdsSuppressed) shouldShowReason = 'navigation_suppressed';
+    if (!BLOCKING_ADS_ENABLED) shouldShowReason = 'blocking_ads_disabled';
+    else if (this.navigationAdsSuppressed) shouldShowReason = 'navigation_suppressed';
     else if (this.drivingState.isDriving || this.drivingState.hasActiveRoute) shouldShowReason = 'driving_active';
     else if (!user) shouldShowReason = 'guest_user';
     else if (isAdminUser(user)) shouldShowReason = 'admin_override';
@@ -651,7 +661,10 @@ export class AdService {
     if (!this.shouldShowAds()) return 'skipped_not_eligible';
 
     const now = Date.now();
-    if (placement === 'onboarding_location_granted' && this.hasShownOnboardingAppOpen) {
+    if (
+      (placement === 'onboarding_entry' || placement === 'onboarding_location_granted') &&
+      this.hasShownOnboardingAppOpen
+    ) {
       return 'skipped_not_eligible';
     }
     if (placement === 'app_foreground' && now - this.lastAppOpenShownAt < APP_OPEN_COOLDOWN_MS) {
@@ -679,7 +692,7 @@ export class AdService {
       const shownAt = Date.now();
       this.lastAppOpenShownAt = shownAt;
       this.lastPlacementShownAt[placement] = shownAt;
-      if (placement === 'onboarding_location_granted') {
+      if (placement === 'onboarding_entry' || placement === 'onboarding_location_granted') {
         this.hasShownOnboardingAppOpen = true;
       }
 
@@ -708,6 +721,12 @@ export class AdService {
 
   static async trackNavigationEntry(screenName: string): Promise<AdShowResult> {
     const normalized = (screenName || '').trim().toLowerCase();
+    if (
+      normalized === 'radardrivenavigation' ||
+      (normalized.includes('radar') && normalized.includes('navigation'))
+    ) {
+      return this.showInterstitial('open_navigation');
+    }
     if (normalized.includes('leader')) {
       return this.showInterstitial('open_leaderboard');
     }

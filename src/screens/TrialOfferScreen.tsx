@@ -3,10 +3,10 @@ import {
   View, 
   StyleSheet, 
   Dimensions, 
-  Image, 
   TouchableOpacity, 
   FlatList, 
-  Platform 
+  Platform,
+  Linking,
 } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -14,8 +14,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 import { FirebaseAuthService } from '../services/FirebaseAuthService';
-import { LocationService } from '../services/LocationService';
-import { AdService } from '../services/AdService';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -24,12 +22,18 @@ import Animated, {
   Easing,
   FadeInDown,
   withSequence,
-  withDelay
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  APP_DISPLAY_NAME,
+  APP_PRIVACY_POLICY_URL,
+  APP_STANDARD_EULA_URL,
+  APP_TERMS_URL,
+} from '../config/appIdentity';
 
 const { width, height } = Dimensions.get('window');
 const allowLayoutAnimations = Platform.OS !== 'android';
+type AccountLinkProvider = 'apple' | 'google';
 
 const FEATURES = [
   {
@@ -59,6 +63,8 @@ const FEATURES = [
 const RadarScan = () => {
     const rotation = useSharedValue(0);
     const scale = useSharedValue(1);
+    const pulseScale = useSharedValue(0.9);
+    const pulseOpacity = useSharedValue(0.2);
     
     useEffect(() => {
         rotation.value = withRepeat(
@@ -70,6 +76,22 @@ const RadarScan = () => {
             withSequence(
                 withTiming(1.2, { duration: 2000 }),
                 withTiming(1, { duration: 2000 })
+            ),
+            -1,
+            true
+        );
+        pulseScale.value = withRepeat(
+            withSequence(
+                withTiming(1, { duration: 1200 }),
+                withTiming(1.18, { duration: 1200 })
+            ),
+            -1,
+            true
+        );
+        pulseOpacity.value = withRepeat(
+            withSequence(
+                withTiming(0.1, { duration: 1200 }),
+                withTiming(0.28, { duration: 1200 })
             ),
             -1,
             true
@@ -87,15 +109,8 @@ const RadarScan = () => {
 
     const pulseStyle = useAnimatedStyle(() => {
         return {
-            transform: [{ scale: scale.value }],
-            opacity: withRepeat(
-                withSequence(
-                    withTiming(0.1, { duration: 1000 }),
-                    withTiming(0.3, { duration: 1000 })
-                ),
-                -1,
-                true
-            )
+            transform: [{ scale: pulseScale.value }],
+            opacity: pulseOpacity.value,
         };
     });
 
@@ -133,11 +148,8 @@ const TrialOfferScreen = ({ navigation }: any) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const [loading, setLoading] = useState(false);
-  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
-  const [locationStepComplete, setLocationStepComplete] = useState(false);
-  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+  const [activeAction, setActiveAction] = useState<'yearly' | 'weekly' | 'free' | 'restore' | null>(null);
   const { signInAnonymously } = useAuthStore();
-  const scrollX = useSharedValue(0);
 
   // Auto-scrolling logic
   useEffect(() => {
@@ -163,6 +175,191 @@ const TrialOfferScreen = ({ navigation }: any) => {
     return () => clearInterval(interval);
   }, [activeIndex]);
 
+  const handleLinkAccount = async (provider: AccountLinkProvider) => {
+    try {
+      setLoading(true);
+      const { AccountLinkService } = await import('../services/AccountLinkService');
+      const result = await AccountLinkService.linkCurrentUser(provider);
+      if (!result.ok) {
+        Alert.alert('Link Failed', result.message || 'Could not link your account right now.');
+        return;
+      }
+
+      Alert.alert(
+        'Account Linked',
+        `Your purchase is now attached to your ${provider === 'apple' ? 'Apple' : 'Google'} sign-in and will restore across devices.`
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const promptForAccountLink = async () => {
+    const currentUser = useAuthStore.getState().user;
+    if (currentUser?.email) return;
+    const { AccountLinkService } = await import('../services/AccountLinkService');
+
+    const buttons: Array<{ text: string; onPress?: () => void; style?: 'cancel' | 'default' | 'destructive' }> = [
+      { text: 'Later', style: 'cancel' },
+    ];
+
+    if (Platform.OS === 'ios' && AccountLinkService.isProviderSupported('apple')) {
+      buttons.push({
+        text: 'Link Apple ID',
+        onPress: () => {
+          void handleLinkAccount('apple');
+        },
+      });
+    }
+
+    if (AccountLinkService.isProviderSupported('google')) {
+      buttons.push({
+        text: 'Link Google',
+        onPress: () => {
+          void handleLinkAccount('google');
+        },
+      });
+    }
+
+    Alert.alert(
+      'Protect Your Purchase',
+      'Your subscription is active. Link it to Apple or Google so Pro restores across devices and stays mirrored in Supabase.',
+      buttons
+    );
+  };
+
+  const handleRestorePurchase = async () => {
+    try {
+      setLoading(true);
+      setActiveAction('restore');
+      try {
+        await FirebaseAuthService.signInAnonymously();
+      } catch (firebaseError) {
+        console.warn('Firebase anonymous auth failed:', firebaseError);
+      }
+      await signInAnonymously();
+
+      const { SubscriptionService } = await import('../services/SubscriptionService');
+      const restored = await SubscriptionService.restorePurchases();
+
+      if (!restored) {
+        Alert.alert('Restore Failed', 'No previous purchase was found for this device.');
+        return;
+      }
+
+      Alert.alert('Restored', 'Your purchase was restored successfully.');
+      await promptForAccountLink();
+    } catch (error: any) {
+      Alert.alert(
+        'Restore Failed',
+        typeof error?.message === 'string' && error.message.trim()
+          ? error.message
+          : 'Could not restore purchases right now.'
+      );
+    } finally {
+      setActiveAction(null);
+      setLoading(false);
+    }
+  };
+
+  const openExternalLink = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert('Link unavailable', 'Please try again in Safari.');
+        return;
+      }
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Link unavailable', 'Please try again in Safari.');
+    }
+  };
+
+  const bootstrapAnonymousSession = async () => {
+    try {
+      await FirebaseAuthService.signInAnonymously();
+    } catch (firebaseError) {
+      console.warn('Firebase anonymous auth failed:', firebaseError);
+    }
+    await signInAnonymously();
+  };
+
+  const purchasePlan = async (plan: 'yearly' | 'weekly'): Promise<boolean> => {
+    const { SubscriptionService } = await import('../services/SubscriptionService');
+    const resolution = await SubscriptionService.getPackageResolution(plan);
+    console.log(`[TrialOffer] available ${plan} packages:`, resolution.debugPackages || 'None');
+
+    if (resolution.targetPackage) {
+      console.log(
+        `[TrialOffer] selected ${plan} package:`,
+        `${resolution.targetPackage.identifier} (${resolution.targetPackage.product?.identifier || 'no-product-id'}) [${(resolution.targetPackage as any)?.packageType || 'unknown'}]`
+      );
+      return SubscriptionService.purchasePackage(resolution.targetPackage);
+    }
+
+    const directResolution = await SubscriptionService.getDirectProductResolution(plan);
+    console.log(`[TrialOffer] available ${plan} direct products:`, directResolution.debugProducts || 'None');
+
+    if (directResolution.targetProduct) {
+      console.log(
+        `[TrialOffer] selected direct ${plan} product:`,
+        directResolution.targetProduct.identifier
+      );
+      return SubscriptionService.purchaseStoreProduct(directResolution.targetProduct);
+    }
+
+    console.warn(
+      `[TrialOffer] ${plan} package not found`,
+      resolution.offering?.identifier || 'no-offering',
+      resolution.expectedPackageIds,
+      directResolution.expectedProductIds
+    );
+    return false;
+  };
+
+  const handlePurchase = async (plan: 'yearly' | 'weekly') => {
+    try {
+      setLoading(true);
+      setActiveAction(plan);
+      await bootstrapAnonymousSession();
+
+      let didPurchase = false;
+      try {
+        didPurchase = await purchasePlan(plan);
+      } catch (subError) {
+        console.log(`${plan} subscription not started:`, subError);
+      }
+
+      if (didPurchase) {
+        await promptForAccountLink();
+      }
+    } catch (err: any) {
+      console.error('Silent identification error:', err);
+      const message =
+        typeof err?.message === 'string' && err.message.trim().length > 0
+          ? err.message
+          : 'Please check your internet connection and try again.';
+      Alert.alert('Sign-in Error', message);
+    } finally {
+      setActiveAction(null);
+      setLoading(false);
+    }
+  };
+
+  const handleContinueFree = async () => {
+    try {
+      setLoading(true);
+      setActiveAction('free');
+      await bootstrapAnonymousSession();
+    } catch (err: any) {
+      console.error('Free entry sign-in error:', err);
+      Alert.alert('Error', 'Please check your internet connection.');
+    } finally {
+      setActiveAction(null);
+      setLoading(false);
+    }
+  };
+
   const renderItem = ({ item }: any) => (
     <View style={styles.slide}>
       <Animated.View
@@ -176,21 +373,6 @@ const TrialOfferScreen = ({ navigation }: any) => {
     </View>
   );
 
-  const handleLocationStep = async () => {
-    if (isRequestingLocation || locationStepComplete) return;
-    setIsRequestingLocation(true);
-    setLocationPermissionDenied(false);
-    try {
-      await LocationService.requestLocationPermission();
-      await AdService.showAppOpen('onboarding_location_granted');
-    } catch (error) {
-      setLocationPermissionDenied(true);
-    } finally {
-      setIsRequestingLocation(false);
-      setLocationStepComplete(true);
-    }
-  };
-
   return (
     <View style={styles.container}>
       <RadarScan />
@@ -201,7 +383,7 @@ const TrialOfferScreen = ({ navigation }: any) => {
         <Animated.View entering={allowLayoutAnimations ? FadeInDown.delay(200) : undefined} style={styles.header}>
             <View style={styles.brandContainer}>
                 <MaterialCommunityIcons name="radar" size={24} color="#FF5252" />
-                <Text style={styles.appName}>RADAR TINDER</Text>
+                <Text style={styles.appName}>{APP_DISPLAY_NAME.toUpperCase()}</Text>
             </View>
         </Animated.View>
 
@@ -247,153 +429,96 @@ const TrialOfferScreen = ({ navigation }: any) => {
                 style={styles.offerCard}
             >
                 <View style={styles.planBadge}>
-                    <Text style={styles.planBadgeText}>PREMIUM ACCESS</Text>
+                    <Text style={styles.planBadgeText}>CLEAR SUBSCRIPTION TERMS</Text>
                 </View>
-                <Text style={styles.trialText}>3-Day Free Trial</Text>
-                <Text style={styles.priceText}>Then $19.99/year. Or start weekly at $3.99/week.</Text>
+                <Text style={styles.trialText}>{APP_DISPLAY_NAME} Pro Yearly</Text>
+                <Text style={styles.priceText}>
+                  3-day free trial included, then $19.99/year. Auto-renews until cancelled.
+                </Text>
 
-                {!locationStepComplete ? (
-                    <>
-                        <TouchableOpacity
-                            style={styles.ctaButton}
-                            onPress={handleLocationStep}
-                            disabled={isRequestingLocation || loading}
-                        >
-                            <LinearGradient
-                                colors={['#22C55E', '#16A34A']}
-                                style={styles.ctaGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                            >
-                                {isRequestingLocation ? (
-                                    <ActivityIndicator color="white" />
-                                ) : (
-                                    <Text style={styles.ctaText}>ENABLE LOCATION TO CONTINUE</Text>
-                                )}
-                            </LinearGradient>
-                        </TouchableOpacity>
-                        <Text style={styles.ctaSub}>
-                            Location helps detect nearby radars and unlocks the free/ad flow.
-                        </Text>
-                        {locationPermissionDenied ? (
-                            <Text style={styles.permissionHint}>
-                                Location not granted. You can still continue and allow it later in app settings.
-                            </Text>
-                        ) : null}
-                    </>
-                ) : (
-                    <>
-                        <TouchableOpacity 
-                            style={styles.ctaButton}
-                            onPress={async () => {
-                                try {
-                                    setLoading(true);
-                                    
-                                    // 1. First sign in anonymously to create user session
-                                    try {
-                                        await FirebaseAuthService.signInAnonymously();
-                                    } catch (firebaseError) {
-                                        console.warn('Firebase anonymous auth failed:', firebaseError);
-                                    }
-                                    await signInAnonymously();
-                                    
-                                    // 2. Now try to start the subscription with free trial
-                                    // RevenueCat will handle the trial period
-                                    try {
-                                        const { SubscriptionService } = await import('../services/SubscriptionService');
-                                        const resolution = await SubscriptionService.getPackageResolution('yearly');
-                                        console.log('[TrialOffer] available packages:', resolution.debugPackages || 'None');
+                <View style={styles.offerSummary}>
+                  <View style={styles.offerLine}>
+                    <Text style={styles.offerLineTitle}>{APP_DISPLAY_NAME} Pro Weekly</Text>
+                    <Text style={styles.offerLineBody}>
+                      $3.99/week billed immediately. Auto-renews until cancelled.
+                    </Text>
+                  </View>
+                </View>
 
-                                        if (resolution.targetPackage) {
-                                            console.log(
-                                              '[TrialOffer] selected yearly package:',
-                                              `${resolution.targetPackage.identifier} (${resolution.targetPackage.product?.identifier || 'no-product-id'}) [${(resolution.targetPackage as any)?.packageType || 'unknown'}]`
-                                            );
-                                            await SubscriptionService.purchasePackage(resolution.targetPackage);
-                                        } else {
-                                            const directResolution = await SubscriptionService.getDirectProductResolution('yearly');
-                                            console.log('[TrialOffer] available direct products:', directResolution.debugProducts || 'None');
+                <TouchableOpacity 
+                    style={styles.ctaButton}
+                    onPress={() => {
+                      void handlePurchase('yearly');
+                    }}
+                    disabled={loading}
+                >
+                    <LinearGradient
+                        colors={['#FF5252', '#D32F2F']}
+                        style={styles.ctaGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                    >
+                        {loading && activeAction === 'yearly' ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <Text style={styles.ctaText}>START 3-DAY FREE TRIAL</Text>
+                        )}
+                    </LinearGradient>
+                </TouchableOpacity>
 
-                                            if (directResolution.targetProduct) {
-                                                console.log(
-                                                  '[TrialOffer] selected direct yearly product:',
-                                                  directResolution.targetProduct.identifier
-                                                );
-                                                await SubscriptionService.purchaseStoreProduct(directResolution.targetProduct);
-                                            } else {
-                                                console.warn(
-                                                  '[TrialOffer] yearly package not found',
-                                                  resolution.offering?.identifier || 'no-offering',
-                                                  resolution.expectedPackageIds,
-                                                  directResolution.expectedProductIds
-                                                );
-                                            }
-                                        }
-                                    } catch (subError) {
-                                        // Subscription failed or cancelled - user continues with free tier
-                                        console.log('Subscription not started:', subError);
-                                    }
-                                    
-                                    // User enters app (authenticated now)
-                                } catch (err: any) {
-                                    console.error('Silent identification error:', err);
-                                    const message =
-                                      typeof err?.message === 'string' && err.message.trim().length > 0
-                                        ? err.message
-                                        : 'Please check your internet connection and try again.';
-                                    Alert.alert('Sign-in Error', message);
-                                } finally {
-                                    setLoading(false);
-                                }
-                            }}
-                            disabled={loading}
-                        >
-                            <LinearGradient
-                                colors={['#FF5252', '#D32F2F']}
-                                style={styles.ctaGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                            >
-                                {loading ? (
-                                    <ActivityIndicator color="white" />
-                                ) : (
-                                    <Text style={styles.ctaText}>START 3-DAY FREE TRIAL</Text>
-                                )}
-                            </LinearGradient>
-                        </TouchableOpacity>
-                        
-                        <Text style={styles.ctaSub}>Unlocks all features. Weekly plan bills immediately.</Text>
-                        
-                        {/* Skip option for free tier with ads */}
-                        <TouchableOpacity 
-                            style={styles.skipBtn}
-                            onPress={async () => {
-                                try {
-                                    setLoading(true);
-                                    try {
-                                        await FirebaseAuthService.signInAnonymously();
-                                    } catch (firebaseError) {
-                                        console.warn('Firebase anonymous auth failed:', firebaseError);
-                                    }
-                                    await signInAnonymously();
-                                    // User continues with free tier (will see ads)
-                                } catch (err: any) {
-                                    console.error('Skip sign-in error:', err);
-                                    Alert.alert('Error', 'Please check your internet connection.');
-                                } finally {
-                                    setLoading(false);
-                                }
-                            }}
-                            disabled={loading}
-                        >
-                            <Text style={styles.skipText}>Continue with Ads (Free)</Text>
-                        </TouchableOpacity>
-                    </>
-                )}
+                <TouchableOpacity
+                  style={[styles.secondaryButton, loading && styles.secondaryButtonDisabled]}
+                  onPress={() => {
+                    void handlePurchase('weekly');
+                  }}
+                  disabled={loading}
+                >
+                  {loading && activeAction === 'weekly' ? (
+                    <ActivityIndicator color="#F8FAFC" />
+                  ) : (
+                    <Text style={styles.secondaryButtonText}>GET WEEKLY PLAN</Text>
+                  )}
+                </TouchableOpacity>
+
+                <Text style={styles.ctaSub}>
+                  Location is requested later, when you actually start using radar and drive features.
+                </Text>
+
+                <Text style={styles.legalText}>
+                  By subscribing you agree to the{' '}
+                  <Text style={styles.legalLink} onPress={() => { void openExternalLink(APP_STANDARD_EULA_URL); }}>
+                    Apple Standard EULA
+                  </Text>
+                  {' '}and our{' '}
+                  <Text style={styles.legalLink} onPress={() => { void openExternalLink(APP_PRIVACY_POLICY_URL); }}>
+                    Privacy Policy
+                  </Text>
+                  . Read our{' '}
+                  <Text style={styles.legalLink} onPress={() => { void openExternalLink(APP_TERMS_URL); }}>
+                    Terms & Conditions
+                  </Text>
+                  .
+                </Text>
+
+                <TouchableOpacity 
+                    style={styles.skipBtn}
+                    onPress={() => {
+                      void handleContinueFree();
+                    }}
+                    disabled={loading}
+                >
+                    {loading && activeAction === 'free' ? (
+                      <ActivityIndicator color="#CBD5E1" />
+                    ) : (
+                      <Text style={styles.skipText}>Continue Free</Text>
+                    )}
+                </TouchableOpacity>
             </LinearGradient>
             
-            <TouchableOpacity style={styles.restoreBtn}>
-                <Text style={styles.restoreText}>Restore Purchase</Text>
+            <TouchableOpacity style={styles.restoreBtn} onPress={handleRestorePurchase} disabled={loading}>
+                <Text style={styles.restoreText}>
+                  {loading && activeAction === 'restore' ? 'Restoring…' : 'Restore Purchase'}
+                </Text>
             </TouchableOpacity>
         </Animated.View>
 
@@ -562,7 +687,30 @@ const styles = StyleSheet.create({
   priceText: {
     color: '#94A3B8',
     fontSize: 16,
-    marginBottom: 20,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  offerSummary: {
+    width: '100%',
+    marginBottom: 18,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(15,23,42,0.68)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.12)',
+  },
+  offerLine: {
+    gap: 4,
+  },
+  offerLineTitle: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  offerLineBody: {
+    color: '#94A3B8',
+    fontSize: 13,
+    lineHeight: 18,
   },
   ctaButton: {
     width: '100%',
@@ -590,15 +738,29 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
   },
-  permissionHint: {
-    color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 8,
-    textAlign: 'center',
+  secondaryButton: {
+    width: '100%',
+    marginTop: 12,
+    minHeight: 56,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.24)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.72)',
+  },
+  secondaryButtonDisabled: {
+    opacity: 0.75,
+  },
+  secondaryButtonText: {
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
   skipBtn: {
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 18,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderWidth: 1,
@@ -606,9 +768,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   skipText: {
-    color: '#888',
+    color: '#CBD5E1',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '700',
+  },
+  legalText: {
+    color: '#64748B',
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+    marginTop: 14,
+  },
+  legalLink: {
+    color: '#9BDCF8',
+    textDecorationLine: 'underline',
   },
   restoreBtn: {
     alignItems: 'center',

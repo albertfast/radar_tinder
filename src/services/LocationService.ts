@@ -8,7 +8,36 @@ const LOCATION_RETRY_DELAY_MS = 900;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+export type LocationPermissionStatus = 'undetermined' | 'granted' | 'denied';
+
 export class LocationService {
+  private static async ensureForegroundPermission(requestPermission = true): Promise<void> {
+    if (requestPermission) {
+      await this.requestLocationPermission();
+      return;
+    }
+
+    if (!(await this.hasForegroundPermission())) {
+      throw new Error('Location permission not granted');
+    }
+  }
+
+  static async getForegroundPermissionStatus(): Promise<LocationPermissionStatus> {
+    try {
+      const response = await Location.getForegroundPermissionsAsync();
+      if (response.granted || response.status === 'granted') {
+        return 'granted';
+      }
+      if (response.canAskAgain === false || response.status === 'denied') {
+        return 'denied';
+      }
+      return 'undetermined';
+    } catch (error) {
+      console.error('Error reading location permission status:', error);
+      return 'undetermined';
+    }
+  }
+
   static async requestLocationPermission(): Promise<boolean> {
     try {
       const existing = await Location.getForegroundPermissionsAsync();
@@ -39,6 +68,10 @@ export class LocationService {
     }
   }
 
+  static async hasForegroundPermission(): Promise<boolean> {
+    return (await this.getForegroundPermissionStatus()) === 'granted';
+  }
+
   private static toLocationSnapshot(location: Location.LocationObject) {
     return {
       latitude: location.coords.latitude,
@@ -59,7 +92,9 @@ export class LocationService {
     return typeof accuracy === 'number' && Number.isFinite(accuracy) && accuracy <= thresholdMeters;
   }
 
-  static async getCurrentLocation(): Promise<{
+  static async getCurrentLocation(options?: {
+    requestPermission?: boolean;
+  }): Promise<{
     latitude: number;
     longitude: number;
     heading: number | null;
@@ -67,7 +102,7 @@ export class LocationService {
     accuracy: number | null;
   }> {
     try {
-      await this.requestLocationPermission();
+      await this.ensureForegroundPermission(options?.requestPermission !== false);
 
       let bestFix: ReturnType<typeof LocationService.toLocationSnapshot> | null = null;
       const lastKnown = await Location.getLastKnownPositionAsync({
@@ -127,10 +162,10 @@ export class LocationService {
       speed: number | null;
       accuracy: number | null;
     }) => void,
-    options?: { forDriving?: boolean }
+    options?: { forDriving?: boolean; requestPermission?: boolean }
   ): Promise<Location.LocationSubscription> {
     try {
-      await this.requestLocationPermission();
+      await this.ensureForegroundPermission(options?.requestPermission !== false);
       
       return await Location.watchPositionAsync(
         {
