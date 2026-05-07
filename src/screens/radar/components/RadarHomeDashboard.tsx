@@ -17,7 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { formatDistance, formatSpeed } from '../../../utils/format';
 import { getResponsiveHeight } from '../../../constants/layout';
-import { RadarAnimation, type RadarRendererMode } from '../../../components/RadarAnimation';
+import Home3DAnimation from '../../../components/Home3DAnimation';
 import { APP_DISPLAY_NAME } from '../../../config/appIdentity';
 
 type ProFeature = {
@@ -362,14 +362,7 @@ export function RadarHomeDashboard({
                 },
               ]}
             />
-            <RadarAnimation
-              size={radarAnimationSize}
-              rendererMode={legacyHomeRadarMode}
-              artPreset="contour_orbit"
-              signalLevel={radarSignalLevel}
-              dangerLevel={radarDangerLevel}
-              paused={pauseRadarAnimation}
-            />
+            <Home3DAnimation />
             <View style={[styles.radarChip, styles.radarChipLeft]}>
               <MaterialCommunityIcons name="radar" size={18} color="#4ECDC4" />
               <Text style={styles.radarChipText}>Live sweep</Text>

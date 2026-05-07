@@ -14,7 +14,7 @@ import { useAutoHideTabBar } from '../../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../../constants/layout';
 import { hasProAccess, isPremiumAccessPending } from '../../utils/access';
 import ProGate from '../../components/ProGate';
-import { RadarAnimation, type RadarRendererMode } from '../../components/RadarAnimation';
+import Graph3DAnimation from '../../components/Graph3DAnimation';
 import { AccessBootstrapView } from '../../components/AccessBootstrapView';
 
 interface RadarGraphicViewProps {
@@ -465,15 +465,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             <MaterialCommunityIcons name="chart-bar" size={20} color="#4ECDC4" />
             <Text style={styles.sectionTitle}>Weekly Trips</Text>
           </View>
-          <BarChart
-            data={weeklyData.map(d => ({ 
-              label: d.day, 
-              value: d.trips,
-              color: ['#FF6B6B', '#FFA500', '#FFD700', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'][weeklyData.indexOf(d)]
-            }))}
-            height={180}
-            maxValue={Math.max(3, ...weeklyData.map((item) => item.trips), 1)}
-          />
+          <Graph3DAnimation />
         </LinearGradient>
       </Animated.View>
 

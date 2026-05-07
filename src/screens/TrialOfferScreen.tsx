@@ -24,12 +24,7 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  APP_DISPLAY_NAME,
-  APP_PRIVACY_POLICY_URL,
-  APP_STANDARD_EULA_URL,
-  APP_TERMS_URL,
-} from '../config/appIdentity';
+import Trial3DAnimation from '../components/Trial3DAnimation';
 
 const { width, height } = Dimensions.get('window');
 const allowLayoutAnimations = Platform.OS !== 'android';
@@ -121,25 +116,8 @@ const RadarScan = () => {
                 style={StyleSheet.absoluteFill}
             />
             
-            {/* 3D Grid Floor Effect */}
-            <View style={styles.gridContainer}>
-                <View style={styles.grid} />
-            </View>
-
-            {/* Radar Center */}
-            <View style={styles.radarContainer}>
-                 {/* Pulse Rings */}
-                 <Animated.View style={[styles.pulseRing, pulseStyle, { width: 600, height: 600, borderRadius: 300 }]} />
-                 <Animated.View style={[styles.pulseRing, pulseStyle, { width: 400, height: 400, borderRadius: 200 }]} />
-                 
-                 {/* Rotating Beam */}
-                 <Animated.View style={[styles.scanner, radarStyle]}>
-                    <LinearGradient
-                        colors={['rgba(255, 82, 82, 0)', 'rgba(255, 82, 82, 0.4)']}
-                        style={styles.scannerGradient}
-                    />
-                 </Animated.View>
-            </View>
+            {/* 3D Animation Background */}
+            <Trial3DAnimation />
         </View>
     );
 };
