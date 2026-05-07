@@ -1,4 +1,4 @@
-package com.radartinder.app
+package com.radarscout.app
 
 import android.app.Application
 import android.content.res.Configuration

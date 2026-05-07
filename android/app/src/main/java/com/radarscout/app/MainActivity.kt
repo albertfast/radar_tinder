@@ -1,4 +1,4 @@
-package com.radartinder.app
+package com.radarscout.app
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

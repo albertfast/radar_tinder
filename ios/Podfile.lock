@@ -281,6 +281,9 @@ PODS:
     - ExpoModulesCore
   - ExpoFont (14.0.11):
     - ExpoModulesCore
+  - ExpoGL (16.0.10):
+    - ExpoModulesCore
+    - ReactCommon/turbomodule/core
   - ExpoHaptics (15.0.8):
     - ExpoModulesCore
   - ExpoImageManipulator (14.0.8):
@@ -586,7 +589,7 @@ PODS:
     - nanopb/encode (= 3.30910.0)
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
-  - onnxruntime-c (1.24.3)
+  - onnxruntime-c (1.25.1)
   - onnxruntime-react-native (1.23.2):
     - onnxruntime-c
     - React-Core
@@ -3630,6 +3633,7 @@ DEPENDENCIES:
   - "ExpoDevice (from `../node_modules/.pnpm/expo-device@8.0.10_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native-webview@_b6317bb240480dc50e20e7bcaa94f83e/node_modules/expo-device/ios`)"
   - "ExpoFileSystem (from `../node_modules/.pnpm/expo-file-system@19.0.21_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native-we_c2c45850bdf67f695d97c33902f8480d/node_modules/expo-file-system/ios`)"
   - "ExpoFont (from `../node_modules/.pnpm/expo-font@14.0.11_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native-webview@1_8cebe2b53a93ad77f67987b281e1fe4f/node_modules/expo-font/ios`)"
+  - "ExpoGL (from `../node_modules/.pnpm/expo-gl@16.0.10_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native-webview@13._e14433499afc7986f69e6888223ddac1/node_modules/expo-gl`)"
   - "ExpoHaptics (from `../node_modules/.pnpm/expo-haptics@15.0.8_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native-webview_50c582ff00e05003685282a0bb52d8cf/node_modules/expo-haptics/ios`)"
   - "ExpoImageManipulator (from `../node_modules/.pnpm/expo-image-manipulator@14.0.8_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-nati_cbc0a74df4910902af474475497cfb9a/node_modules/expo-image-manipulator/ios`)"
   - "ExpoImagePicker (from `../node_modules/.pnpm/expo-image-picker@17.0.10_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native-w_a51cdc4fb372f73d9aa0b3334dc0ecae/node_modules/expo-image-picker/ios`)"
@@ -3836,6 +3840,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/.pnpm/expo-file-system@19.0.21_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native-we_c2c45850bdf67f695d97c33902f8480d/node_modules/expo-file-system/ios"
   ExpoFont:
     :path: "../node_modules/.pnpm/expo-font@14.0.11_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native-webview@1_8cebe2b53a93ad77f67987b281e1fe4f/node_modules/expo-font/ios"
+  ExpoGL:
+    :path: "../node_modules/.pnpm/expo-gl@16.0.10_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native-webview@13._e14433499afc7986f69e6888223ddac1/node_modules/expo-gl"
   ExpoHaptics:
     :path: "../node_modules/.pnpm/expo-haptics@15.0.8_expo@54.0.33_@babel+core@7.29.0_graphql@16.8.1_react-native-webview_50c582ff00e05003685282a0bb52d8cf/node_modules/expo-haptics/ios"
   ExpoImageManipulator:
@@ -4085,6 +4091,7 @@ SPEC CHECKSUMS:
   ExpoDevice: 6327c3c200816795708885adf540d26ecab83d1a
   ExpoFileSystem: 858a44267a3e6e9057e0888ad7c7cfbf55d52063
   ExpoFont: f543ce20a228dd702813668b1a07b46f51878d47
+  ExpoGL: 067c5c9e7e0655ff8fd6e3dbb9424543d5ce9e43
   ExpoHaptics: d3a6375d8dcc3a1083d003bc2298ff654fafb536
   ExpoImageManipulator: 607a5c8c88085381639458a46cc55fb9d3869148
   ExpoImagePicker: 1af3e4e31512d2f34c95c2a3018a3edc40aee748
@@ -4138,7 +4145,7 @@ SPEC CHECKSUMS:
   lottie-ios: a881093fab623c467d3bce374367755c272bdd59
   lottie-react-native: b01c4b468aed88931afefbde03d790fc4f8b010a
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
-  onnxruntime-c: 4a1a1a81da2087869dc9b6357f182952db2df29c
+  onnxruntime-c: 932c8d7de1dbf38048d33f153203c3168d445283
   onnxruntime-react-native: d5aa0541cfdf9446aa32c7f07b8d88eba4c9623b
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PromisesSwift: 9d77319bbe72ebf6d872900551f7eeba9bce2851
@@ -4238,6 +4245,6 @@ SPEC CHECKSUMS:
   UMAppLoader: 145337733539f9af9b3dd97eeaa7f3bd97cacb23
   Yoga: cc4a6600d61e4e9276e860d4d68eebb834a050ba
 
-PODFILE CHECKSUM: d8db4b01ce50e8eac6117d8ba4b4b23de018c795
+PODFILE CHECKSUM: 1284eef6e6fb29b47c6120744ae7195969a691a2
 
 COCOAPODS: 1.16.2

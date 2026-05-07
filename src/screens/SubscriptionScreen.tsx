@@ -62,7 +62,7 @@ const SubscriptionScreen = ({ navigation }: any) => {
     },
   };
   const visiblePlanKeys: PlanKey[] =
-    Platform.OS === 'ios' ? ['yearly', 'weekly'] : ['yearly', 'adfree', 'weekly'];
+    Platform.OS === 'ios' ? ['yearly', 'weekly', 'adfree'] : ['yearly', 'adfree', 'weekly'];
   const selectedPlanConfig = plans[selectedPlan];
   const selectedPlanDisclosure =
     selectedPlan === 'yearly'
