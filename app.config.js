@@ -55,8 +55,8 @@ const RUNTIME_VERSION = process.env.EXPO_RUNTIME_VERSION || APP_VERSION;
 module.exports = {
   expo: {
     name: "Radar Scout",
-    scheme: "radartinder",
-    slug: "radar-tinder",
+    scheme: "radarscout",
+    slug: "radar-scout",
     version: APP_VERSION,
     icon: "./assets/icon.png",
     orientation: "portrait",
@@ -69,7 +69,7 @@ module.exports = {
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.radartinder.app",
+      bundleIdentifier: "com.radarscout.app",
       buildNumber: getIosBuildNumber(),
       googleServicesFile: "./GoogleService-Info.plist",
       config: {
@@ -110,7 +110,7 @@ module.exports = {
       }
     },
     android: {
-      package: "com.radartinder.app",
+      package: "com.radarscout.app",
       versionCode: getAndroidVersionCode(),
       googleServicesFile: "./google-services.json",
       softwareKeyboardLayoutMode: "pan",

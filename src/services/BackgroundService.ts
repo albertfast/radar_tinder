@@ -401,6 +401,41 @@ export class BackgroundService {
     this.lastRouteGuidanceState = isRouteGuidanceActive;
   }
 
+  private static hasUserProgressedTowardsRadar(
+    previous:
+      | {
+          latitude: number;
+          longitude: number;
+        }
+      | null,
+    next: {
+      latitude: number;
+      longitude: number;
+    },
+    radar: {
+      latitude: number;
+      longitude: number;
+    },
+    minimumProgressMeters = 8
+  ): boolean {
+    if (!previous) return true;
+    const previousDistanceMeters =
+      LocationService.calculateDistanceSync(
+        previous.latitude,
+        previous.longitude,
+        radar.latitude,
+        radar.longitude
+      ) * 1000;
+    const nextDistanceMeters =
+      LocationService.calculateDistanceSync(
+        next.latitude,
+        next.longitude,
+        radar.latitude,
+        radar.longitude
+      ) * 1000;
+    return previousDistanceMeters - nextDistanceMeters >= minimumProgressMeters;
+  }
+
   private static shouldPublishLocationUpdate(
     previous:
       | {
@@ -754,7 +789,36 @@ export class BackgroundService {
           ? relevance.isRelevant
           : headingMatched && (hasReliableSpeed ? relevance.etaSeconds <= 220 : true);
 
-        if (distance < threshold && relevanceMatched) {
+        const progressedTowardsRadar = this.hasUserProgressedTowardsRadar(
+          previousUpdate
+            ? { latitude: previousUpdate.latitude, longitude: previousUpdate.longitude }
+            : null,
+          { latitude: normalizedLocation.latitude, longitude: normalizedLocation.longitude },
+          { latitude: radar.latitude, longitude: radar.longitude },
+          routeMode ? 6 : 10
+        );
+
+        const freeDriveProximityGuard =
+          !routeMode &&
+          relevance.corridorDistanceMeters != null &&
+          relevance.corridorDistanceMeters <= 120;
+
+        const movementGuard =
+          !routeMode ? progressedTowardsRadar || distance <= 0.12 : true;
+
+        const reliableEtaGuard =
+          !routeMode && hasReliableSpeed
+            ? relevance.etaSeconds >= 4 && relevance.etaSeconds <= 220
+            : true;
+
+        const shouldAlert =
+          distance < threshold &&
+          relevanceMatched &&
+          movementGuard &&
+          reliableEtaGuard &&
+          (routeMode || freeDriveProximityGuard);
+
+        if (shouldAlert) {
           const distanceScore = 1 - Math.min(distance / Math.max(threshold, 0.1), 1);
           const corridorScore =
             relevance.corridorDistanceMeters == null

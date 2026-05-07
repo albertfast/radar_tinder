@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import { readBooleanFlag } from '../utils/flags';
 
 export const APP_DISPLAY_NAME = 'Radar Scout';
@@ -12,10 +11,6 @@ export const APP_TERMS_URL =
 export const APP_STANDARD_EULA_URL =
   'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 
-const IOS_BLOCKING_ADS_OVERRIDE = readBooleanFlag(
-  'EXPO_PUBLIC_IOS_BLOCKING_ADS_ENABLED',
-  false
-);
+const ADS_OVERRIDE = readBooleanFlag('EXPO_PUBLIC_BLOCKING_ADS_ENABLED', false);
 
-export const BLOCKING_ADS_ENABLED =
-  Platform.OS !== 'ios' || __DEV__ || IOS_BLOCKING_ADS_OVERRIDE;
+export const BLOCKING_ADS_ENABLED = __DEV__ || ADS_OVERRIDE;
