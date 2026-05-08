@@ -193,6 +193,7 @@ module.exports = {
       ],
       "./plugins/withFirebasePodfile.js",
       "./plugins/withPodfileFix.js",
+      "./plugins/withFmtFix.js",
       "./plugins/withSettingsGradleFix.js",
       "./plugins/withAndroidReleaseSigning.js",
       "./plugins/withOnnxRuntime.js",

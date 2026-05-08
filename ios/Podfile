@@ -101,6 +101,12 @@ target 'RadarScout' do
         end
       end
 
+      if target.name == 'fmt'
+        target.build_configurations.each do |config|
+          config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+        end
+      end
+
       if ['react-native-google-maps', 'react-native-maps'].include?(target.name)
         target.build_configurations.each do |build_config|
           # Keep modules enabled for Google Maps related headers used by this target.
