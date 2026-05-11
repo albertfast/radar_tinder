@@ -28,12 +28,18 @@ const BUILD_FINGERPRINT = (
 
 const getAndroidVersionCode = () => {
   try {
-    // Current timestamp logic
-    const now = Math.floor(Date.now() / 1000);
-    // Offset to ensure unique version code > 2000000042
-    // We use 300,000,000 offset. Current TS ~ 1.74B + 0.3B = 2.04B
-    // This will be valid for ~3 years before hitting Int32 limit (2.14B)
-    return now + 300000000;
+    const versionFile = path.join(__dirname, 'android_version_code.txt');
+    let versionCode = 2000000043; // Starting point higher than current
+
+    if (fs.existsSync(versionFile)) {
+      versionCode = parseInt(fs.readFileSync(versionFile, 'utf8').trim(), 10);
+    }
+
+    // Increment for next build
+    const nextVersionCode = versionCode + 1;
+    fs.writeFileSync(versionFile, nextVersionCode.toString());
+
+    return versionCode;
   } catch (e) {
     console.warn('Version code generation failed, using fallback:', e);
     return 2100000000;
