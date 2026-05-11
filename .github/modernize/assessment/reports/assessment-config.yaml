@@ -1,0 +1,14 @@
+assessmentDomains:
+  - java-upgrade
+  - cloud-readiness
+  - security
+analysisCoverage: issue-only
+targetRuntime: openjdk21
+targetComputeServices:
+  - azure-appservice
+  - azure-aks
+  - azure-container-apps
+targetOS:
+  - linux
+  - windows
+enableContainerization: false

@@ -1,0 +1,7 @@
+{
+  "azure-keystore-certificates-01000": "certificate-management-to-azure-key-vault",
+  "CWE-259": "scan-and-resolve-cwe-vulnerabilities",
+  "CWE-321": "scan-and-resolve-cwe-vulnerabilities",
+  "CWE-778": "scan-and-resolve-cwe-vulnerabilities",
+  "CWE-798": "scan-and-resolve-cwe-vulnerabilities"
+}
