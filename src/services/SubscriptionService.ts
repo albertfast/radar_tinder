@@ -216,6 +216,14 @@ const getCompatibleProductIds = (preferredPlan: RevenueCatPlanPreference): strin
   return uniqTokens(compatIds);
 };
 
+const getProProductIds = (): string[] =>
+  uniqTokens([
+    ...getExpectedProductIds('weekly'),
+    ...getExpectedProductIds('yearly'),
+    ...getCompatibleProductIds('weekly'),
+    ...getCompatibleProductIds('yearly'),
+  ]);
+
 const getOfferingSlotCandidate = (offering: any, preferredPlan?: RevenueCatPlanPreference) => {
   if (!preferredPlan || !offering) return null;
   if (preferredPlan === 'weekly') return offering?.weekly ?? null;
@@ -1050,8 +1058,17 @@ export class SubscriptionService {
     const authState = useAuthStore.getState();
     const { user } = authState;
 
-    const isPro = this.hasEntitlement(customerInfo, RC_ENTITLEMENT_PRO);
+    const hasProEntitlement = this.hasEntitlement(customerInfo, RC_ENTITLEMENT_PRO);
     const hasRemoveAds = this.hasEntitlement(customerInfo, RC_ENTITLEMENT_REMOVE_ADS);
+    const activeProductIds = uniqTokens([
+      ...((customerInfo as any)?.activeSubscriptions || []),
+      ...((customerInfo as any)?.allPurchasedProductIdentifiers || []),
+    ]);
+    const proProductIds = getProProductIds();
+    const hasProProduct = activeProductIds.some((productId) =>
+      proProductIds.includes(normalizeRevenueCatToken(productId))
+    );
+    const isPro = hasProEntitlement || hasProProduct;
     const adsRemoved = isPro || hasRemoveAds;
     const subscriptionType: 'free' | 'premium' | 'pro' = isPro ? 'pro' : 'free';
     const subscriptionExpiresAt = this.getSubscriptionExpiration(customerInfo);
