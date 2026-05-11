@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
+import { AdService } from '../services/AdService';
 
 const ADMIN_USERNAME = 'albertfast';
 const ADMIN_PASSWORD = 'abc123';
@@ -20,10 +21,17 @@ const AdminLoginScreen = ({ navigation }: any) => {
     // Removed __DEV__ check to allow production admin access
 
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      updateUser({ 
+      updateUser({
         isAdminSession: true,
-        subscriptionType: 'pro'
+        subscriptionType: 'pro',
+        adsRemoved: true,
       });
+
+      try {
+        AdService.setNavigationAdsSuppressed(true);
+      } catch (error) {
+        // ignore if AdService unavailable in this environment
+      }
       
       Alert.alert(
         'Sign in successful',
