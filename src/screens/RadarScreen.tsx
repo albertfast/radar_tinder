@@ -124,18 +124,13 @@ const RadarScreen = ({ navigation }: any) => {
     [navigation]
   );
 
-  const handleStartDriving = useCallback(async () => {
+  const handleStartDriving = useCallback(() => {
     if (isStartingDriveRef.current) {
       return;
     }
-
     isStartingDriveRef.current = true;
-    try {
-      await AdService.showInterstitial('start_driving_basic').catch(() => 'failed');
-      openDriveMode('Map');
-    } finally {
-      isStartingDriveRef.current = false;
-    }
+    openDriveMode('Map');
+    isStartingDriveRef.current = false;
   }, [openDriveMode]);
 
   return (

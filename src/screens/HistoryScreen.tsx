@@ -8,8 +8,7 @@ import { SupabaseService } from '../services/SupabaseService';
 import { useAuthStore } from '../store/authStore';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
-import { hasProAccess, isPremiumAccessPending } from '../utils/access';
-import ProGate from '../components/ProGate';
+import { isPremiumAccessPending } from '../utils/access';
 import { useSettingsStore } from '../store/settingsStore';
 import { formatDistance } from '../utils/format';
 import { AccessBootstrapView } from '../components/AccessBootstrapView';
@@ -17,8 +16,8 @@ import { AccessBootstrapView } from '../components/AccessBootstrapView';
 const HistoryScreen = ({ navigation }: any) => {
   const { user, accessBootstrapState } = useAuthStore();
   const unitSystem = useSettingsStore((state) => state.unitSystem);
-  const canUse = hasProAccess(user);
   const accessPending = isPremiumAccessPending(user, accessBootstrapState);
+  const canViewTrips = Boolean(user?.id);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [trips, setTrips] = useState<any[]>([]);
   const [pendingTripCount, setPendingTripCount] = useState(0);
@@ -43,18 +42,18 @@ const HistoryScreen = ({ navigation }: any) => {
   }, [user?.id]);
 
   useEffect(() => {
-    if (canUse) {
+    if (canViewTrips) {
       loadTrips();
     }
-  }, [canUse, loadTrips]);
+  }, [canViewTrips, loadTrips]);
 
   useFocusEffect(
     useCallback(() => {
-      if (canUse) {
+      if (canViewTrips) {
         loadTrips();
       }
       return () => {};
-    }, [canUse, loadTrips])
+    }, [canViewTrips, loadTrips])
   );
 
   if (accessPending) {
@@ -66,13 +65,13 @@ const HistoryScreen = ({ navigation }: any) => {
     );
   }
 
-  if (!canUse) {
+  if (!canViewTrips) {
     return (
-      <ProGate
-        title="Trip History"
-        subtitle="Upgrade to Pro to view trip history and weekly stats."
-        onUpgrade={() => navigation.navigate('Home', { screen: 'Subscription' })}
-      />
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <Text style={{ color: '#94A3B8', textAlign: 'center' }}>
+          Sign in to save and view your trip history.
+        </Text>
+      </View>
     );
   }
 

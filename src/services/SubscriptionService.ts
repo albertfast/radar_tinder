@@ -2,8 +2,10 @@ import { NativeModules, Platform } from 'react-native';
 import type { PurchasesPackage, CustomerInfo } from 'react-native-purchases';
 import { useAuthStore } from '../store/authStore';
 import { AnalyticsService } from './AnalyticsService';
+import { AdService } from './AdService';
 import { SupabaseService } from './SupabaseService';
 import { readBooleanFlag, readNumberFlag } from '../utils/flags';
+import { hasPaidSubscription } from '../utils/access';
 
 // Public SDK keys for RevenueCat (safe to ship in client apps)
 const REVENUECAT_API_KEY = Platform.select({
@@ -395,6 +397,7 @@ export class SubscriptionService {
       await this.ensureRevenueCatUserIdentity();
       const { customerInfo } = await bindings.Purchases.purchasePackage(pack);
       await this.updateUserSubscriptionStatus(customerInfo, 'purchase');
+      AdService.suppressAppOpenFor(90_000);
 
       await AnalyticsService.trackEvent('purchase_success', {
         package_id: pack.product.identifier,
@@ -432,7 +435,7 @@ export class SubscriptionService {
       await this.ensureRevenueCatUserIdentity();
       const customerInfo = await bindings.Purchases.restorePurchases();
       await this.updateUserSubscriptionStatus(customerInfo, 'restore');
-      return true;
+      return hasPaidSubscription(useAuthStore.getState().user);
     } catch (error: any) {
       if (this.isInvalidCredentialsError(error)) {
         this.markInvalidCredentials(error, 'restore');
@@ -512,10 +515,16 @@ export class SubscriptionService {
     const authState = useAuthStore.getState();
     const { user } = authState;
 
+    const activeEntitlements = (customerInfo as any)?.entitlements?.active || {};
+    const hasAnyActiveEntitlement = Object.keys(activeEntitlements).length > 0;
     const isPro = this.hasEntitlement(customerInfo, RC_ENTITLEMENT_PRO);
     const hasRemoveAds = this.hasEntitlement(customerInfo, RC_ENTITLEMENT_REMOVE_ADS);
-    const adsRemoved = isPro || hasRemoveAds;
-    const subscriptionType: 'free' | 'premium' | 'pro' = isPro ? 'pro' : 'free';
+    const adsRemoved = isPro || hasRemoveAds || hasAnyActiveEntitlement;
+    const subscriptionType: 'free' | 'premium' | 'pro' = isPro
+      ? 'pro'
+      : hasAnyActiveEntitlement || hasRemoveAds
+        ? 'premium'
+        : 'free';
     const subscriptionExpiresAt = this.getSubscriptionExpiration(customerInfo);
     const rcCustomerId =
       typeof (customerInfo as any)?.originalAppUserId === 'string'

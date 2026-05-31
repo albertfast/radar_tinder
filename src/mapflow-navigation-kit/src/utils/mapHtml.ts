@@ -1,4 +1,7 @@
-const MAP_HTML = `<!DOCTYPE html>
+import { MAP_ROUTE_COLORS, MAP_ROAD_MOTORWAY, MAP_WATERWAY_COLOR } from './mapTheme';
+
+export function buildMapHtml(initialSpeedCameraIconUri = ''): string {
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -53,9 +56,105 @@ const MAP_HTML = `<!DOCTYPE html>
     var cameraState = { bearing: 0, navigation: false };
     var userMarker = null;
     var userMarkerElement = null;
+    var currentVehicleMarkerId = 'classic';
     var destMarker = null;
     var overlayMarkerData = [];
     var overlayMarkerRegistry = {};
+    var speedCameraIconUri = ${JSON.stringify(initialSpeedCameraIconUri)};
+
+    function buildCanvasSpeedCameraUri() {
+      var canvas = document.createElement('canvas');
+      canvas.width = 96;
+      canvas.height = 96;
+      var ctx = canvas.getContext('2d');
+      if (!ctx) return '';
+      var size = 96;
+      var cx = size * 0.5;
+      var cy = size * 0.56;
+      var scale = size / 96;
+
+      ctx.clearRect(0, 0, size, size);
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 28 * scale, 22 * scale, 8 * scale, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      var pole = ctx.createLinearGradient(cx - 3 * scale, cy + 8 * scale, cx + 3 * scale, cy + 28 * scale);
+      pole.addColorStop(0, '#374152');
+      pole.addColorStop(1, '#1c2330');
+      ctx.fillStyle = pole;
+      roundRect(ctx, cx - 3.5 * scale, cy + 4 * scale, 7 * scale, 26 * scale, 2 * scale);
+      ctx.fill();
+
+      var boxW = 34 * scale;
+      var boxH = 22 * scale;
+      var top = cy - 18 * scale;
+      var left = cx - boxW * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(left, top + boxH * 0.35);
+      ctx.lineTo(left + boxW * 0.12, top);
+      ctx.lineTo(left + boxW * 0.88, top);
+      ctx.lineTo(left + boxW, top + boxH * 0.35);
+      ctx.lineTo(left + boxW, top + boxH);
+      ctx.lineTo(left, top + boxH);
+      ctx.closePath();
+      var body = ctx.createLinearGradient(left, top, left + boxW, top + boxH);
+      body.addColorStop(0, '#26303e');
+      body.addColorStop(1, '#121824');
+      ctx.fillStyle = body;
+      ctx.fill();
+
+      var lensCx = cx + 4 * scale;
+      var lensCy = cy - 4 * scale;
+      var lensR = 11 * scale;
+      var lens = ctx.createRadialGradient(lensCx - 2 * scale, lensCy - 2 * scale, 2, lensCx, lensCy, lensR * 1.2);
+      lens.addColorStop(0, '#2dd4bf');
+      lens.addColorStop(1, '#0e7490');
+      ctx.fillStyle = lens;
+      ctx.beginPath();
+      ctx.arc(lensCx, lensCy, lensR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#e24d4d';
+      ctx.lineWidth = 2 * scale;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(220,250,255,0.82)';
+      ctx.beginPath();
+      ctx.arc(lensCx - 2 * scale, lensCy - 2 * scale, lensR * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#f87171';
+      ctx.beginPath();
+      ctx.arc(left + boxW * 0.22, top + boxH * 0.55, 2.5 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(45,212,191,0.72)';
+      roundRect(ctx, left + 2 * scale, top + boxH * 0.72, boxW - 4 * scale, boxH * 0.1, 1 * scale);
+      ctx.fill();
+      return canvas.toDataURL('image/png');
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function applySpeedCameraIconUri(uri) {
+      if (uri && typeof uri === 'string' && uri.indexOf('data:image/') === 0) {
+        speedCameraIconUri = uri;
+      } else if (!speedCameraIconUri) {
+        speedCameraIconUri = buildCanvasSpeedCameraUri();
+      }
+      if (overlayMarkerData.length > 0) {
+        renderOverlayMarkers();
+      }
+    }
 
     var map = new maplibregl.Map({
       container: 'map',
@@ -131,24 +230,49 @@ const MAP_HTML = `<!DOCTYPE html>
       return 16.95;
     }
 
-    function ensureUserMarker() {
-      if (userMarkerElement) {
+    function buildVehicleMarkerHtml(markerId) {
+      var id = markerId || 'classic';
+      var body = '#2DD4BF';
+      var accent = '#5EEAD4';
+      if (id === 'sedan') { body = '#38BDF8'; accent = '#7DD3FC'; }
+      if (id === 'suv') { body = '#F59E0B'; accent = '#FCD34D'; }
+      if (id === 'sport') { body = '#FB7185'; accent = '#FDA4AF'; }
+      if (id === 'compact') { body = '#A78BFA'; accent = '#C4B5FD'; }
+      if (id === 'hatchback') { body = '#4ADE80'; accent = '#86EFAC'; }
+
+      return ''
+        + '<div style="position:relative;width:44px;height:44px;">'
+        + '  <div style="position:absolute;inset:0;border-radius:999px;background:rgba(45,212,191,0.14);animation:mapflowPulse 2.2s ease-out infinite;"></div>'
+        + '  <div style="position:absolute;left:50%;top:4px;margin-left:-8px;width:16px;height:20px;transform-origin:50% 80%;" data-marker-arrow>'
+        + '    <svg width="16" height="20" viewBox="0 0 14 18" fill="none"><path d="M7 0L14 14H8.9L7 18L5.1 14H0L7 0Z" fill="' + body + '"/></svg>'
+        + '  </div>'
+        + '  <div style="position:absolute;left:50%;top:50%;width:26px;height:26px;margin-left:-13px;margin-top:-13px;display:flex;align-items:center;justify-content:center;">'
+        + '    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">'
+        + '      <rect x="4" y="8" width="16" height="9" rx="3" fill="' + body + '" stroke="white" stroke-width="1.5"/>'
+        + '      <path d="M6 11h12" stroke="' + accent + '" stroke-width="1.2" stroke-linecap="round"/>'
+        + '      <circle cx="8" cy="17.5" r="2" fill="#0F172A" stroke="white" stroke-width="1"/>'
+        + '      <circle cx="16" cy="17.5" r="2" fill="#0F172A" stroke="white" stroke-width="1"/>'
+        + '    </svg>'
+        + '  </div>'
+        + '</div>'
+        + '<style>@keyframes mapflowPulse { 0% { transform: scale(0.45); opacity: 0.95; } 100% { transform: scale(1.95); opacity: 0; } }</style>';
+    }
+
+    function ensureUserMarker(markerId) {
+      var nextId = markerId || currentVehicleMarkerId || 'classic';
+      if (userMarkerElement && nextId === currentVehicleMarkerId) {
         return userMarkerElement;
       }
 
-      var wrapper = document.createElement('div');
-      wrapper.innerHTML = ''
-        + '<div style="position:relative;width:40px;height:40px;">'
-        + '  <div style="position:absolute;inset:0;border-radius:999px;background:rgba(96,165,250,0.16);animation:mapflowPulse 2.2s ease-out infinite;"></div>'
-        + '  <div style="position:absolute;left:50%;top:6px;margin-left:-7px;width:14px;height:18px;transform-origin:50% 75%;" data-marker-arrow>'
-        + '    <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">'
-        + '      <path d="M7 0L14 14H8.9L7 18L5.1 14H0L7 0Z" fill="#5b6ef7"/>'
-        + '    </svg>'
-        + '  </div>'
-        + '  <div style="position:absolute;left:50%;top:50%;width:18px;height:18px;margin-left:-9px;margin-top:-9px;border-radius:999px;background:#5b6ef7;border:3px solid white;box-shadow:0 8px 18px rgba(91,110,247,0.38);"></div>'
-        + '</div>'
-        + '<style>@keyframes mapflowPulse { 0% { transform: scale(0.45); opacity: 0.95; } 100% { transform: scale(1.95); opacity: 0; } }</style>';
+      if (userMarker) {
+        userMarker.remove();
+        userMarker = null;
+        userMarkerElement = null;
+      }
 
+      currentVehicleMarkerId = nextId;
+      var wrapper = document.createElement('div');
+      wrapper.innerHTML = buildVehicleMarkerHtml(nextId);
       userMarkerElement = wrapper.firstChild;
       userMarker = new maplibregl.Marker({ element: userMarkerElement, anchor: 'center' })
         .setLngLat([-74.006, 40.7128])
@@ -160,7 +284,7 @@ const MAP_HTML = `<!DOCTYPE html>
     function updateUserLocation(payload) {
       if (!payload) return;
 
-      ensureUserMarker();
+      ensureUserMarker(payload.vehicleMarkerId);
       userMarker.setLngLat([payload.lng, payload.lat]);
 
       var arrow = userMarkerElement.querySelector('[data-marker-arrow]');
@@ -168,6 +292,21 @@ const MAP_HTML = `<!DOCTYPE html>
       if (arrow) {
         arrow.style.transform = 'rotate(' + arrowBearing + 'deg)';
       }
+    }
+
+    function emitViewportChange() {
+      var bounds = map.getBounds();
+      var center = map.getCenter();
+      send('viewportChange', {
+        center: { lat: center.lat, lng: center.lng },
+        zoom: map.getZoom(),
+        bounds: {
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest(),
+        },
+      });
     }
 
     function updateDestination(payload) {
@@ -208,15 +347,25 @@ const MAP_HTML = `<!DOCTYPE html>
       wrapper.setAttribute('aria-label', kind + '-marker');
       wrapper.style.cssText = 'border:none;padding:0;background:transparent;cursor:pointer;';
 
-      var bg = '#6A2915';
-      var border = '#FFB074';
-      var innerRing = 'rgba(255, 213, 178, 0.42)';
-      var icon = ''
-        + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
-        + '  <path d="M7 8.4A1.4 1.4 0 0 1 8.4 7h.8l1-1.15c.36-.43.89-.67 1.45-.67h2.82c.56 0 1.09.24 1.45.67l1 1.15h.8A1.4 1.4 0 0 1 19 8.4v6.2a1.4 1.4 0 0 1-1.4 1.4H8.4A1.4 1.4 0 0 1 7 14.6V8.4Z" fill="#FFF2E8"/>'
-        + '  <circle cx="12" cy="11.5" r="3.05" fill="#6A2915"/>'
-        + '  <circle cx="12" cy="11.5" r="1.5" fill="#FFF2E8"/>'
-        + '</svg>';
+      if (kind === 'camera' || kind === 'speed_camera' || marker.type === 'speed_camera') {
+        wrapper.innerHTML = ''
+          + '<div style="position:relative;width:52px;height:52px;display:flex;align-items:center;justify-content:center;'
+          + 'filter:drop-shadow(0 6px 10px rgba(0,0,0,0.45)) drop-shadow(0 2px 4px rgba(45,212,191,0.25));">'
+          + '  <img src="' + speedCameraIconUri + '" width="48" height="48" alt="speed camera" '
+          + 'style="display:block;object-fit:contain;pointer-events:none;background:transparent;border:none;" draggable="false" />'
+          + '</div>';
+        wrapper.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          send('overlayMarkerPress', { id: marker.id });
+        });
+        return wrapper;
+      }
+
+      var bg = '#0F2A33';
+      var border = '#E55353';
+      var innerRing = 'rgba(45, 212, 191, 0.35)';
+      var icon = '';
 
       if (kind === 'red_light') {
         wrapper.innerHTML = ''
@@ -436,21 +585,21 @@ const MAP_HTML = `<!DOCTYPE html>
         type: 'line',
         source: 'route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#60a5fa', 'line-width': 16, 'line-opacity': 0.18 },
+        paint: { 'line-color': '${MAP_ROUTE_COLORS.glow}', 'line-width': ${MAP_ROUTE_COLORS.glowWidth}, 'line-opacity': 0.35 },
       });
       map.addLayer({
         id: 'route-shadow',
         type: 'line',
         source: 'route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#283a99', 'line-width': 10, 'line-opacity': 0.56 },
+        paint: { 'line-color': '${MAP_ROUTE_COLORS.shadow}', 'line-width': ${MAP_ROUTE_COLORS.shadowWidth}, 'line-opacity': 0.62 },
       });
       map.addLayer({
         id: 'route-line',
         type: 'line',
         source: 'route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#6f7cff', 'line-width': 6, 'line-opacity': 0.98 },
+        paint: { 'line-color': '${MAP_ROUTE_COLORS.line}', 'line-width': ${MAP_ROUTE_COLORS.lineWidth}, 'line-opacity': 0.98 },
       });
     }
 
@@ -543,7 +692,7 @@ const MAP_HTML = `<!DOCTYPE html>
           }
 
           if (sourceLayer === 'waterway' && layer.type === 'line') {
-            map.setPaintProperty(layer.id, 'line-color', '#2f78bf');
+            map.setPaintProperty(layer.id, 'line-color', '${MAP_WATERWAY_COLOR}');
             map.setPaintProperty(layer.id, 'line-opacity', 0.9);
           }
 
@@ -569,9 +718,9 @@ const MAP_HTML = `<!DOCTYPE html>
             map.setPaintProperty(layer.id, 'line-color', [
               'match',
               ['get', 'class'],
-              'motorway', '#628ad3',
-              'trunk', '#5d84ca',
-              'primary', '#4b73b6',
+              'motorway', '${MAP_ROAD_MOTORWAY}',
+              'trunk', '#358f89',
+              'primary', '#2f7a75',
               'secondary', '#40659f',
               'tertiary', '#365887',
               'street', '#28456e',
@@ -612,8 +761,10 @@ const MAP_HTML = `<!DOCTYPE html>
     }
 
     map.on('load', function () {
+      applySpeedCameraIconUri(speedCameraIconUri);
       applyDarkNavigationPalette();
       send('mapReady');
+      setTimeout(function () { emitViewportChange(); }, 350);
     });
 
     map.on('click', function (event) {
@@ -624,6 +775,7 @@ const MAP_HTML = `<!DOCTYPE html>
     });
 
     map.on('moveend', function () {
+      emitViewportChange();
       if (overlayMarkerData.length > 0) {
         renderOverlayMarkers();
       }
@@ -657,6 +809,9 @@ const MAP_HTML = `<!DOCTYPE html>
           case 'clearOverlays':
             clearOverlayMarkers();
             break;
+          case 'setSpeedCameraIcon':
+            applySpeedCameraIconUri(message.payload && message.payload.uri);
+            break;
         }
       } catch (error) {
         // Ignore malformed bridge payloads.
@@ -665,5 +820,7 @@ const MAP_HTML = `<!DOCTYPE html>
   <\/script>
 </body>
 </html>`;
+}
 
+const MAP_HTML = buildMapHtml('');
 export default MAP_HTML;

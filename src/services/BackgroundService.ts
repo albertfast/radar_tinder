@@ -723,8 +723,12 @@ export class BackgroundService {
       }
       const etaConfidence = speedFromSensorKph != null ? 'high' : inferredSpeedKph != null ? 'medium' : 'low';
 
+      const alertCandidates = routeMode
+        ? nearbyRadars.filter((radar) => radar.type === 'speed_camera')
+        : nearbyRadars;
+
       const alerts = [];
-      for (const radar of nearbyRadars) {
+      for (const radar of alertCandidates) {
         const distance = radar.distance || 0;
           const relevance = RadarService.evaluateRouteRelevance({
             radar,
@@ -735,8 +739,8 @@ export class BackgroundService {
             },
             routeCoords: routeMode ? routeGuidancePath : [],
             speedKph: hasReliableSpeed ? speedKph : 5,
-            maxCorridorMeters: routeMode ? 170 : 240,
-            maxHeadingDeltaDeg: routeMode ? 70 : 75,
+            maxCorridorMeters: routeMode ? 55 : 240,
+            maxHeadingDeltaDeg: routeMode ? 35 : 75,
             etaSecondsWindow: hasReliableSpeed
               ? routeMode
                 ? [5, 240]
@@ -751,7 +755,8 @@ export class BackgroundService {
           threshold = Math.max(threshold, routeMode ? 4.0 : 5.0);
         }
 
-        const headingMatched = relevance.headingDeltaDeg == null || relevance.headingDeltaDeg <= (routeMode ? 70 : 75);
+        const headingMatched =
+          relevance.headingDeltaDeg == null || relevance.headingDeltaDeg <= (routeMode ? 35 : 75);
         const relevanceMatched = routeMode
           ? relevance.isRelevant
           : headingMatched && (hasReliableSpeed ? relevance.etaSeconds <= 220 : true);

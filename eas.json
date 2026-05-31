@@ -66,7 +66,8 @@
       "developmentClient": false,
       "channel": "production",
       "env": {
-        "EXPO_SKIP_DOCTOR_CHECK": "1"
+        "EXPO_SKIP_DOCTOR_CHECK": "1",
+        "EXPO_PUBLIC_LIVE_OSM_FALLBACK": "true"
       },
       "ios": {
         "simulator": false,

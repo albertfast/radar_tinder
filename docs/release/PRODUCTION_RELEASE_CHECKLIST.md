@@ -15,7 +15,12 @@ Bu liste, production gönderimi öncesi hızlı ve güvenli final kontroldür.
 - [x] Uygulama içi `Terms of Service` metni güncellendi.
 - [x] Sorumluluk sınırlaması, doğruluk garantisi yokluğu ve sürüş sorumluluğu maddeleri eklendi.
 - [x] Subscription ekranında Terms ve Privacy metinleri tıklanabilir link yapıldı.
+- [x] Play fiyatları RevenueCat `priceString` ile lokalize gösteriliyor (sabit `$` kaldırıldı).
+- [x] Deneme şartları + iptal yolu `SubscriptionLegalBlock` ile paywall/onboarding'de gösteriliyor.
+- [x] "Manage subscription" Google Play abonelik sayfasına yönlendiriyor.
+- [x] EN/TR i18n (cihaz diline göre).
 - [ ] Uygulama içi Terms/Privacy ekranlarını açıp metin akışını ve scroll davranışını cihazda kontrol et.
+- [ ] TR ve US test hesaplarıyla satın alma fiyatının Play cart ile eşleştiğini doğrula.
 
 ## C) Sürüm / Build Tutarlılığı
 
@@ -58,6 +63,14 @@ ios/RadarTinder.xcworkspace -> Scheme: RadarTinder -> Release -> Product > Archi
 
 ## F) Android Release Akışı
 
+- [x] Navigasyon rotası turkuaz (`mapTheme.ts` / `mapHtml.ts`).
+- [x] Speed camera 3D PNG marker (`assets/markers/speed_camera_3d.png`).
+- [x] Production OSM fallback: `EXPO_PUBLIC_LIVE_OSM_FALLBACK=true` (`.env.submit` + `eas.json` production).
+- [x] Play closed→open rehberi: [PLAY_CONSOLE_CLOSED_TO_OPEN.md](PLAY_CONSOLE_CLOSED_TO_OPEN.md).
+- [x] Supabase audit SQL: [SUPABASE_PRE_PUBLISH_AUDIT.sql](SUPABASE_PRE_PUBLISH_AUDIT.sql).
+- [ ] Supabase Dashboard → Authentication → **Anonymous** provider ON (TrialOffer için).
+- [x] Release ABI hedefi: `armeabi-v7a` + `arm64-v8a` (`android/gradle.properties`).
+- [ ] RevenueCat Android ürün ID doğrulaması (weekly/yearly/remove_ads) Play Console ile eşleşiyor.
 - [ ] AAB üret:
 
 ```bash

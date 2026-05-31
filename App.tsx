@@ -23,6 +23,7 @@ import {
 } from '@expo/vector-icons';
 
 import MainDrawerNavigator from './src/navigation/MainDrawerNavigator';
+import AuthNavigator from './src/navigation/AuthNavigator';
 import ReportRadarScreen from './src/screens/ReportRadarScreen';
 import AdminLoginScreen from './src/screens/AdminLoginScreen';
 import { useAuthStore } from './src/store/authStore';
@@ -170,7 +171,9 @@ export default function App() {
       try {
         await AdService.init();
         await AdService.preloadAll();
-        AdService.showAppOpen('app_foreground').catch(() => {});
+        if (useAuthStore.getState().isAuthenticated) {
+          AdService.showAppOpen('app_foreground').catch(() => {});
+        }
         if (isAdDebugEnabled()) {
           console.log('[ADS] init state', AdService.getAdsDebugState());
         }
@@ -226,7 +229,8 @@ export default function App() {
         }
         await normalizeAccessState();
         if (cancelled) return;
-        if (useAuthStore.getState().user?.id) {
+        const bootUserId = useAuthStore.getState().user?.id;
+        if (bootUserId && !bootUserId.startsWith('guest-')) {
           const synced = await SubscriptionService.syncAccessState().catch((error) => {
             console.warn('Initial subscription sync failed:', error);
             return false;
@@ -321,6 +325,9 @@ export default function App() {
       const movedToForeground =
         (previous === 'background' || previous === 'inactive') && nextState === 'active';
       if (!movedToForeground) return;
+      if (!useAuthStore.getState().isAuthenticated) return;
+      SubscriptionService.syncAccessState().catch(() => {});
+      useAuthStore.getState().normalizeAccessState().catch(() => {});
       AdService.showAppOpen('app_foreground').catch(() => {});
       AdService.preloadAll().catch(() => {});
     });
@@ -341,7 +348,7 @@ export default function App() {
         user_id: user.id,
       }).catch(() => {});
       AnalyticsService.setUserId(user.id).catch(() => {});
-      if (lastRevenueCatUserIdRef.current !== user.id) {
+      if (!user.id.startsWith('guest-') && lastRevenueCatUserIdRef.current !== user.id) {
         lastRevenueCatUserIdRef.current = user.id;
         SubscriptionService.setUserId(user.id).catch(() => {});
       }
@@ -430,10 +437,7 @@ export default function App() {
                       />
                     </>
                   ) : (
-                    <Stack.Screen
-                      name="Auth"
-                      component={require('./src/navigation/AuthNavigator').default}
-                    />
+                    <Stack.Screen name="Auth" component={AuthNavigator} />
                   )}
                 </Stack.Navigator>
               </NavigationContainer>

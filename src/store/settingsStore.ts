@@ -29,9 +29,12 @@ const secureStorage = {
   },
 };
 
+export type VehicleMarkerId = 'classic' | 'sedan' | 'suv' | 'sport' | 'compact' | 'hatchback';
+
 interface SettingsState {
   hasHydrated: boolean;
   unitSystem: 'metric' | 'imperial'; // metric = km, imperial = miles
+  vehicleMarkerId: VehicleMarkerId;
   voiceWarningsEnabled: boolean;
   hapticAlertsEnabled: boolean;
   keepAwakeWhileDriving: boolean;
@@ -39,6 +42,7 @@ interface SettingsState {
   setHasHydrated: (hydrated: boolean) => void;
   toggleUnitSystem: () => void;
   setUnitSystem: (unitSystem: 'metric' | 'imperial') => void;
+  setVehicleMarkerId: (id: VehicleMarkerId) => void;
   setVoiceWarningsEnabled: (enabled: boolean) => void;
   setHapticAlertsEnabled: (enabled: boolean) => void;
   setKeepAwakeWhileDriving: (enabled: boolean) => void;
@@ -84,6 +88,7 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       hasHydrated: false,
       unitSystem: defaultUnitSystem(),
+      vehicleMarkerId: 'classic',
       voiceWarningsEnabled: true,
       hapticAlertsEnabled: true,
       keepAwakeWhileDriving: true,
@@ -93,6 +98,7 @@ export const useSettingsStore = create<SettingsState>()(
         unitSystem: state.unitSystem === 'metric' ? 'imperial' : 'metric' 
       })),
       setUnitSystem: (unitSystem) => set({ unitSystem }),
+      setVehicleMarkerId: (vehicleMarkerId) => set({ vehicleMarkerId }),
       setVoiceWarningsEnabled: (enabled) => set({ voiceWarningsEnabled: enabled }),
       setHapticAlertsEnabled: (enabled) => set({ hapticAlertsEnabled: enabled }),
       setKeepAwakeWhileDriving: (enabled) => set({ keepAwakeWhileDriving: enabled }),
@@ -101,6 +107,7 @@ export const useSettingsStore = create<SettingsState>()(
       resetToRegionalDefaults: () =>
         set({
           unitSystem: defaultUnitSystem(),
+          vehicleMarkerId: 'classic',
           voiceWarningsEnabled: true,
           hapticAlertsEnabled: true,
           keepAwakeWhileDriving: true,

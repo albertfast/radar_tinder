@@ -1,215 +1,123 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Platform, Alert } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  Alert,
+  useWindowDimensions,
+  ActivityIndicator,
+} from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
+import { hasProAccess } from '../utils/access';
 import { SubscriptionService } from '../services/SubscriptionService';
 import { AnalyticsService } from '../services/AnalyticsService';
-import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
-import { TAB_BAR_HEIGHT } from '../constants/layout';
+import { SubscriptionLegalBlock } from '../components/SubscriptionLegalBlock';
+import {
+  buildCtaLabel,
+  formatPlanPricing,
+  type PlanKey,
+  type PlanPricing,
+} from '../utils/subscriptionPricing';
+import { mapOfferingPackages } from '../utils/subscriptionPackages';
 import type { PurchasesPackage } from 'react-native-purchases';
 
-const TITLE_FONT = Platform.select({ ios: 'Georgia', android: 'serif' });
-const DISPLAY_FONT = Platform.select({ ios: 'AvenirNext-Heavy', android: 'sans-serif-condensed' });
-type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-type PlanKey = 'weekly' | 'yearly' | 'adfree';
+const FEATURES: Array<{ icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; key: string; color: string }> = [
+  { icon: 'radar', key: 'realtimeAlerts', color: '#4ECDC4' },
+  { icon: 'map-marker-path', key: 'smartRoutes', color: '#FFE66D' },
+  { icon: 'car-cog', key: 'aiDiagnosis', color: '#FF8A65' },
+  { icon: 'chart-line', key: 'driveAnalytics', color: '#7CE8DF' },
+];
 
-const SubscriptionScreen = ({ navigation }: any) => {
+const SubscriptionScreen = ({ navigation }: { navigation: { goBack: () => void; navigate: (name: string) => void } }) => {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const isCompact = height < 740;
+
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>('yearly');
   const [isTrialEnabled, setIsTrialEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
-  const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
+  const [pricingLoading, setPricingLoading] = useState(true);
+  const [packagesByPlan, setPackagesByPlan] = useState<Record<PlanKey, PurchasesPackage | null>>({
+    weekly: null,
+    yearly: null,
+    adfree: null,
+  });
+  const [pricingByPlan, setPricingByPlan] = useState<Partial<Record<PlanKey, PlanPricing | null>>>({});
   const { user } = useAuthStore();
+
   const trialAvailable = selectedPlan === 'yearly';
   const trialActive = trialAvailable && isTrialEnabled;
-  const successMessage = user?.accountLinkRequiredUntil
-    ? 'Your subscription is active. Link your account within 24h to keep access across devices.'
-    : 'Your subscription is active.';
+  const selectedPricing = pricingByPlan[selectedPlan];
 
-  const plans = {
-    adfree: {
-      id: 'remove_ads',
-      name: 'Ad-Free Basic',
-      price: '$0.99',
-      period: 'once',
-      trial: null,
-      tag: 'AD-FREE',
-      description: 'Remove ads. Limited access to core features.',
-      accent: '#F59E0B',
-    },
-    weekly: {
-      id: 'pro_subscription_weekly',
-      name: 'Weekly',
-      price: '$3.99',
-      period: 'week',
-      trial: null,
-      tag: 'FLEXIBLE',
-      description: 'Billed weekly. Starts immediately.',
-      accent: '#FF8A3D',
-    },
-    yearly: {
-      id: 'pro_subscription_yearly',
-      name: 'Yearly',
-      price: '$19.99',
-      period: 'year',
-      trial: '3-Day Free Trial',
-      tag: 'BEST VALUE',
-      description: 'Then $19.99/year. About $0.38/week.',
-      accent: '#2DD4BF',
-    },
-  };
-
-  const getProductHints = (plan: PlanKey): string[] => {
-    const fromEnv = {
-      weekly: process.env.EXPO_PUBLIC_RC_PRODUCT_WEEKLY,
-      yearly: process.env.EXPO_PUBLIC_RC_PRODUCT_YEARLY,
-      adfree: process.env.EXPO_PUBLIC_RC_PRODUCT_ADFREE,
-    }[plan];
-    const fromPackageEnv = {
-      weekly: process.env.EXPO_PUBLIC_RC_PACKAGE_WEEKLY,
-      yearly: process.env.EXPO_PUBLIC_RC_PACKAGE_YEARLY,
-      adfree: process.env.EXPO_PUBLIC_RC_PACKAGE_LIFETIME,
-    }[plan];
-    const fromPlan = plans[plan]?.id;
-    const aliases = {
-      weekly: [
-        '$rc_weekly',
-        'rc_weekly',
-        'pro_subscription:weekly',
-        'pro_subscription_weekly',
-        'rc_weekly_399',
-        'weekly',
-        'pro_subscription_weekly_399',
-      ],
-      yearly: [
-        '$rc_annual',
-        'rc_annual',
-        '$rc_yearly',
-        'rc_yearly',
-        'pro_subscription:yearly',
-        'pro_subscription_yearly',
-        'rc_yearly_1999',
-        'yearly',
-        'annual',
-      ],
-      adfree: [
-        '$rc_lifetime',
-        'rc_lifetime',
-        'remove_ads',
-        'remove_advertisement',
-        'adfree',
-        'ad_free',
-        'lifetime',
-      ],
-    }[plan];
-
-    return [fromEnv, fromPackageEnv, fromPlan, ...aliases]
-      .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
-      .map((v) => v.toLowerCase());
-  };
-
-  const packageTypeMatchesPlan = (pkg: PurchasesPackage, plan: PlanKey): boolean => {
-    const packageType = String((pkg as any)?.packageType || '').toUpperCase();
-    if (plan === 'weekly') return packageType === 'WEEKLY';
-    if (plan === 'yearly') return packageType === 'ANNUAL' || packageType === 'YEARLY';
-    return packageType === 'LIFETIME';
-  };
-
-  const packageMatchesPlan = (pkg: PurchasesPackage, plan: PlanKey) => {
-    const id = String(pkg?.identifier || '').toLowerCase();
-    const productId = String(pkg?.product?.identifier || '').toLowerCase();
-    const hints = getProductHints(plan);
-    if (hints.some((hint) => id === hint || productId === hint || id.includes(hint) || productId.includes(hint))) {
-      return true;
+  const loadPricing = useCallback(async () => {
+    setPricingLoading(true);
+    try {
+      if (!SubscriptionService.isConfigured()) {
+        setPackagesByPlan({ weekly: null, yearly: null, adfree: null });
+        setPricingByPlan({});
+        return;
+      }
+      const offering = await SubscriptionService.getOfferings();
+      const availablePackages = offering?.availablePackages || [];
+      const mapped = mapOfferingPackages(availablePackages, offering);
+      setPackagesByPlan(mapped);
+      setPricingByPlan({
+        weekly: formatPlanPricing(mapped.weekly, 'weekly'),
+        yearly: formatPlanPricing(mapped.yearly, 'yearly'),
+        adfree: formatPlanPricing(mapped.adfree, 'adfree'),
+      });
+    } catch {
+      setPricingByPlan({});
+    } finally {
+      setPricingLoading(false);
     }
+  }, []);
 
-    if (plan === 'yearly') {
-      return /annual|year|yearly/.test(id) || /annual|year|yearly/.test(productId);
-    }
-    if (plan === 'weekly') {
-      return /week|weekly/.test(id) || /week|weekly/.test(productId);
-    }
-    return /lifetime|one[_-]?time|remove[_-]?ads|ad[_-]?free/.test(id) ||
-      /lifetime|one[_-]?time|remove[_-]?ads|ad[_-]?free/.test(productId);
-  };
-
-  const findPackageForPlan = (
-    availablePackages: PurchasesPackage[],
-    plan: PlanKey,
-    offering: any
-  ): PurchasesPackage | null => {
-    const slotCandidate =
-      plan === 'weekly'
-        ? offering?.weekly
-        : plan === 'yearly'
-          ? offering?.annual || offering?.yearly
-          : offering?.lifetime;
-    if (slotCandidate) return slotCandidate as PurchasesPackage;
-
-    const byHints = availablePackages.find((pkg) => packageMatchesPlan(pkg, plan));
-    if (byHints) return byHints;
-
-    return availablePackages.find((pkg) => packageTypeMatchesPlan(pkg, plan)) || null;
-  };
+  useEffect(() => {
+    loadPricing().catch(() => {});
+  }, [loadPricing]);
 
   const handleSubscribe = async () => {
     setLoading(true);
     try {
       if (!SubscriptionService.isConfigured()) {
-        Alert.alert(
-          'Payments Not Configured',
-          'RevenueCat API key is missing. Configure EXPO_PUBLIC_REVENUECAT_IOS_API_KEY and EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY.'
-        );
+        Alert.alert('Payments Not Configured', 'RevenueCat API key is missing.');
         return;
       }
 
       const planToPurchase = trialActive ? 'yearly' : selectedPlan;
-
-      await AnalyticsService.trackEvent('subscription_attempt', {
-        plan: planToPurchase,
-        trial: trialActive,
-      });
-
-      const offering = await SubscriptionService.getOfferings();
-      const availablePackages: PurchasesPackage[] = offering?.availablePackages || [];
-      if (availablePackages.length === 0) {
-        Alert.alert(
-          'No Packages Available',
-          'No purchasable package was found. Check RevenueCat Offering and App Store / Play products.'
-        );
-        return;
-      }
-
-      const targetPackage = findPackageForPlan(availablePackages, planToPurchase, offering);
+      const targetPackage = packagesByPlan[planToPurchase];
       if (!targetPackage) {
-        const packageDebug = availablePackages
-          .map((p) => `${p.identifier} (${p.product?.identifier || 'no-product-id'}) [${(p as any)?.packageType || 'unknown'}]`)
-          .join('\n');
-        Alert.alert(
-          'Package Mapping Missing',
-          `No package mapped for "${planToPurchase}".\n\nExpected package IDs: $rc_weekly / $rc_annual / $rc_lifetime.\n\nAvailable packages:\n${packageDebug}`
-        );
+        Alert.alert('Package Missing', t('subscription.priceUnavailable'));
         return;
       }
 
+      await AnalyticsService.trackEvent('subscription_attempt', { plan: planToPurchase, trial: trialActive });
       const purchased = await SubscriptionService.purchasePackage(targetPackage);
       if (!purchased) {
-        Alert.alert('Payment Failed', 'Purchase could not be completed. Please try again.');
+        Alert.alert('Payment Failed', 'Purchase could not be completed.');
         return;
       }
-
-      await AnalyticsService.trackEvent('subscription_success', {
-        source: 'direct_package',
-        package_id: targetPackage.identifier,
-        product_id: targetPackage.product?.identifier,
-      });
-
-      Alert.alert('Success', successMessage);
+      await SubscriptionService.syncAccessState().catch(() => {});
+      await useAuthStore.getState().normalizeAccessState().catch(() => {});
+      await AnalyticsService.trackEvent('subscription_success', { plan: planToPurchase });
+      if (!hasProAccess(useAuthStore.getState().user)) {
+        Alert.alert(
+          'Subscription Pending',
+          'Payment received. Restart the app if Pro features are not unlocked yet.'
+        );
+      }
       navigation.goBack();
     } catch (err) {
       console.error('Subscription purchase error:', err);
-      Alert.alert('Payment Error', 'An unexpected error occurred during payment.');
+      Alert.alert('Payment Error', 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
@@ -217,245 +125,346 @@ const SubscriptionScreen = ({ navigation }: any) => {
 
   const handleRestore = async () => {
     setLoading(true);
-    const restored = await SubscriptionService.restorePurchases();
-    setLoading(false);
-    if (restored) {
-      Alert.alert('Restored', 'Your purchases have been restored.');
-      navigation.goBack();
-      return;
+    try {
+      const restored = await SubscriptionService.restorePurchases();
+      await SubscriptionService.syncAccessState().catch(() => {});
+      await useAuthStore.getState().normalizeAccessState().catch(() => {});
+      if (restored || hasProAccess(useAuthStore.getState().user)) {
+        navigation.goBack();
+        return;
+      }
+      Alert.alert('Restore Failed', 'No active subscription was found for this account.');
+    } finally {
+      setLoading(false);
     }
-    Alert.alert('Restore Failed', 'No purchases were restored.');
   };
+
+  const ctaLabel = buildCtaLabel(selectedPlan, selectedPricing ?? null, trialActive, t);
+
+  const periodSuffix =
+    selectedPlan === 'yearly'
+      ? t('subscription.perYear')
+      : selectedPlan === 'weekly'
+        ? t('subscription.perWeek')
+        : t('subscription.once');
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#0B0E14', '#121821', '#0B0E14']} style={styles.background} />
-      <View style={styles.glowTop} />
-      <View style={styles.glowBottom} />
-
-      <View style={styles.header}>
-        <IconButton
-          icon="close"
-          iconColor="#F8FAFC"
-          size={28}
-          onPress={() => navigation.goBack()}
-        />
-        <TouchableOpacity onPress={handleRestore}>
-          <Text style={styles.restoreText}>Restore</Text>
+      <LinearGradient colors={['#0F0A1E', '#1A1033', '#120A24']} style={StyleSheet.absoluteFill} />
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <IconButton icon="close" iconColor="#F8FAFC" size={26} onPress={() => navigation.goBack()} />
+        <TouchableOpacity onPress={handleRestore} disabled={loading}>
+          <Text style={styles.restoreText}>{t('subscription.restore')}</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + 24 }]}
-        onScroll={onScroll}
-        onScrollBeginDrag={onScrollBeginDrag}
-        onScrollEndDrag={onScrollEndDrag}
-        scrollEventThrottle={16}
-      >
-        <View style={styles.hero}>
-          <Text style={styles.heroEyebrow}>PRO PASS</Text>
-          <Text style={styles.heroTitle}>Drive with confidence</Text>
-          <Text style={styles.heroSubtitle}>
-            Unlock live radar alerts, navigation insights, and AI diagnostics with a plan that fits your ride.
-          </Text>
-        </View>
-
-        <View style={styles.planStack}>
-          <PlanOption
-            plan={plans.yearly}
-            isSelected={selectedPlan === 'yearly'}
-            onSelect={() => {
-              setSelectedPlan('yearly');
-              setIsTrialEnabled(true);
-            }}
-          />
-          <PlanOption
-            plan={plans.adfree}
-            isSelected={selectedPlan === 'adfree'}
-            onSelect={() => {
-              setSelectedPlan('adfree');
-              setIsTrialEnabled(false);
-            }}
-          />
-          <PlanOption
-            plan={plans.weekly}
-            isSelected={selectedPlan === 'weekly'}
-            onSelect={() => {
-              setSelectedPlan('weekly');
-              setIsTrialEnabled(false);
-            }}
-          />
-        </View>
-
-        <View style={styles.trialRow}>
-          <TouchableOpacity
-            style={styles.trialToggle}
-            onPress={() => {
-              if (trialAvailable) setIsTrialEnabled(!isTrialEnabled);
-            }}
-            disabled={!trialAvailable}
-          >
-            <MaterialCommunityIcons
-              name={trialActive ? 'checkbox-marked' : 'checkbox-blank-outline'}
-              size={24}
-              color={trialAvailable ? '#2DD4BF' : '#3A3F4B'}
-            />
-          </TouchableOpacity>
-          <View style={styles.trialCopy}>
-            <Text style={[styles.trialTitle, !trialAvailable && styles.mutedText]}>
-              Enable 3-Day Free Trial
-            </Text>
-            <Text style={[styles.trialSubtitle, !trialAvailable && styles.mutedText]}>
-              Yearly plan only. Weekly plan bills immediately.
-            </Text>
+      <View style={[styles.body, isCompact && styles.bodyCompact]}>
+        <View style={styles.titleRow}>
+          <MaterialCommunityIcons name="crown" size={28} color="#F5C842" />
+          <View style={styles.titleCopy}>
+            <Text style={styles.title}>{t('subscription.unlockPro')}</Text>
+            <Text style={styles.subtitle}>{t('subscription.unlockSubtitle')}</Text>
           </View>
         </View>
 
         <View style={styles.featureGrid}>
-          <FeatureTile icon="radar" text="Live radar & police alerts" tone="#FF8A3D" />
-          <FeatureTile icon="map-marker-path" text="Safe-route navigation" tone="#38BDF8" />
-          <FeatureTile icon="account-group" text="Community confirmations" tone="#FBBF24" />
-          <FeatureTile icon="history" text="Trip history & weekly stats" tone="#34D399" />
-          <FeatureTile icon="trophy" text="Leaderboard & driver rank" tone="#F97316" />
-          <FeatureTile icon="car-cog" text="AI car diagnostics" tone="#2DD4BF" />
-          <FeatureTile icon="block-helper" text="Ad-free experience" tone="#F59E0B" />
-          <FeatureTile icon="clipboard-text" text="Permit test practice" tone="#60A5FA" />
+          {FEATURES.map((item) => (
+            <View key={item.key} style={styles.featureTile}>
+              <MaterialCommunityIcons name={item.icon} size={20} color={item.color} />
+              <Text style={styles.featureLabel}>{t(`features.${item.key}`)}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.planRow}>
+          <PlanCard
+            label={t('subscription.weekly')}
+            badge={t('subscription.flexible')}
+            price={pricingByPlan.weekly?.priceString}
+            period={t('subscription.perWeek')}
+            trialNote={undefined}
+            selected={selectedPlan === 'weekly'}
+            onSelect={() => {
+              setSelectedPlan('weekly');
+              setIsTrialEnabled(false);
+            }}
+            loading={pricingLoading}
+          />
+          <PlanCard
+            label={t('subscription.yearly')}
+            badge={t('subscription.bestValue')}
+            price={pricingByPlan.yearly?.priceString}
+            period={t('subscription.perYear')}
+            trialNote={pricingByPlan.yearly?.hasIntroTrial ? t('subscription.trialDays') : undefined}
+            subNote={pricingByPlan.yearly?.monthlyEquivalent ? `~${pricingByPlan.yearly.monthlyEquivalent}/mo` : undefined}
+            selected={selectedPlan === 'yearly'}
+            highlight
+            accentColor="#7C6CFF"
+            onSelect={() => {
+              setSelectedPlan('yearly');
+              setIsTrialEnabled(true);
+            }}
+            loading={pricingLoading}
+          />
         </View>
 
         <TouchableOpacity
-          style={[styles.subscribeButton, loading && { opacity: 0.7 }]}
-          onPress={handleSubscribe}
-          disabled={loading}
+          style={styles.adFreeRow}
+          onPress={() => {
+            setSelectedPlan('adfree');
+            setIsTrialEnabled(false);
+          }}
+          activeOpacity={0.9}
         >
-          <LinearGradient
-            colors={['#F97316', '#FDBA74']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.subscribeGradient}
+          <View style={[styles.radio, selectedPlan === 'adfree' && styles.radioOn]} />
+          <Text style={styles.adFreeLabel}>{t('subscription.adFree')}</Text>
+          {pricingLoading ? (
+            <ActivityIndicator size="small" color="#94A3B8" />
+          ) : (
+            <Text style={styles.adFreePrice}>
+              {pricingByPlan.adfree?.priceString || '—'} {t('subscription.once')}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {selectedPlan === 'yearly' && (
+          <TouchableOpacity
+            style={styles.trialRow}
+            onPress={() => setIsTrialEnabled(!isTrialEnabled)}
+            activeOpacity={0.9}
           >
-            <Text style={styles.subscribeButtonText}>
-              {loading ? 'PROCESSING...' : trialActive ? 'START 3-DAY FREE TRIAL' : 'SUBSCRIBE NOW'}
-            </Text>
-            <Text style={styles.subscribeSubtext}>
-              {!loading &&
-                (trialActive
-                  ? `Then ${plans.yearly.price}/year after trial`
-                  : selectedPlan === 'adfree'
-                    ? 'One-time purchase'
-                    : `${plans[selectedPlan].price}/${plans[selectedPlan].period} billed immediately`)}
-            </Text>
+            <MaterialCommunityIcons
+              name={trialActive ? 'checkbox-marked' : 'checkbox-blank-outline'}
+              size={22}
+              color={trialActive ? '#F5C842' : '#475569'}
+            />
+            <Text style={styles.trialLabel}>{t('subscription.enableTrial')}</Text>
+          </TouchableOpacity>
+        )}
+
+        <SubscriptionLegalBlock
+          selectedPlan={selectedPlan}
+          trialActive={trialActive}
+          pricingByPlan={pricingByPlan}
+          onTermsPress={() => navigation.navigate('Terms')}
+          onPrivacyPress={() => navigation.navigate('Privacy')}
+          compact
+        />
+
+        <TouchableOpacity
+          style={[styles.cta, loading && { opacity: 0.75 }]}
+          onPress={handleSubscribe}
+          disabled={loading || pricingLoading}
+          activeOpacity={0.92}
+        >
+          <LinearGradient colors={['#F5C842', '#E8A820']} style={styles.ctaGradient}>
+            {loading ? (
+              <ActivityIndicator color="#1A1408" />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="lightning-bolt" size={20} color="#1A1408" />
+                <View style={styles.ctaTextCol}>
+                  <Text style={styles.ctaTitle}>{ctaLabel}</Text>
+                  {selectedPricing && (
+                    <Text style={styles.ctaSub}>
+                      {selectedPricing.priceString} / {periodSuffix}
+                    </Text>
+                  )}
+                </View>
+              </>
+            )}
           </LinearGradient>
         </TouchableOpacity>
 
-        <Text style={styles.termsText}>
-          Recurring billing. Free trial applies to the yearly plan only. Cancel anytime.{"\n"}
-          By continuing you agree to our{' '}
-          <Text style={styles.termsLink} onPress={() => navigation.navigate('Terms')}>
-            Terms of Service
+        {!pricingLoading && !pricingByPlan[selectedPlan] && (
+          <TouchableOpacity onPress={() => loadPricing()}>
+            <Text style={styles.retryText}>{t('subscription.retry')}</Text>
+          </TouchableOpacity>
+        )}
+
+        {user?.accountLinkRequiredUntil && (
+          <Text style={styles.linkHint}>
+            Link your account within 24h to keep access across devices.
           </Text>
-          {' '}and{' '}
-          <Text style={styles.termsLink} onPress={() => navigation.navigate('Privacy')}>
-            Privacy Policy
-          </Text>
-          .
-        </Text>
-      </ScrollView>
+        )}
+      </View>
     </View>
   );
 };
 
-const FeatureTile = ({ icon, text, tone }: { icon: MaterialIconName; text: string; tone: string }) => (
-  <View style={[styles.featureTile, { borderColor: `${tone}40` }]}>
-    <View style={[styles.featureIcon, { backgroundColor: `${tone}20` }]}>
-      <MaterialCommunityIcons name={icon} size={18} color={tone} />
-    </View>
-    <Text style={styles.featureText}>{text}</Text>
-  </View>
-);
-
-const PlanOption = ({ plan, isSelected, onSelect }: any) => (
+const PlanCard = ({
+  label,
+  badge,
+  price,
+  period,
+  trialNote,
+  subNote,
+  selected,
+  highlight,
+  accentColor = '#7C6CFF',
+  onSelect,
+  loading,
+}: {
+  label: string;
+  badge: string;
+  price?: string;
+  period: string;
+  trialNote?: string;
+  subNote?: string;
+  selected: boolean;
+  highlight?: boolean;
+  accentColor?: string;
+  onSelect: () => void;
+  loading: boolean;
+}) => (
   <TouchableOpacity
-    style={[styles.planWrapper, isSelected && { borderColor: plan.accent }]}
+    style={[
+      styles.planCard,
+      selected && { borderColor: accentColor },
+      highlight && { backgroundColor: `${accentColor}18` },
+    ]}
     onPress={onSelect}
-    activeOpacity={0.85}
+    activeOpacity={0.9}
   >
-    <LinearGradient
-      colors={
-        isSelected
-          ? [`${plan.accent}35`, `${plan.accent}10`]
-          : ['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.02)']
-      }
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.planCard}
+    <View style={styles.planCardTop}>
+      <Text style={styles.planLabel}>{label}</Text>
+      <View style={[styles.badge, highlight && { backgroundColor: `${accentColor}35` }]}>
+        <Text style={[styles.badgeText, highlight && { color: accentColor }]}>{badge}</Text>
+      </View>
+    </View>
+    {loading ? (
+      <ActivityIndicator size="small" color="#94A3B8" style={{ marginTop: 8 }} />
+    ) : (
+      <>
+        <Text style={[styles.planPrice, selected && { color: accentColor }]}>{price || '—'}</Text>
+        <Text style={styles.planPeriod}>{period}</Text>
+        {trialNote && <Text style={styles.planTrial}>{trialNote}</Text>}
+        {subNote && <Text style={styles.planSub}>{subNote}</Text>}
+      </>
+    )}
+    <View
+      style={[
+        styles.planRadio,
+        selected && { backgroundColor: accentColor, borderColor: accentColor },
+      ]}
     >
-      <View style={styles.planHeaderRow}>
-        <Text style={styles.planName}>{plan.name}</Text>
-        <View style={[styles.planTag, { backgroundColor: isSelected ? plan.accent : 'rgba(255,255,255,0.08)' }]}>
-          <Text style={[styles.planTagText, isSelected && styles.planTagTextActive]}>{plan.tag}</Text>
-        </View>
-      </View>
-      <View style={styles.planPriceRow}>
-        <Text style={[styles.planPrice, { color: isSelected ? plan.accent : '#F8FAFC' }]}>{plan.price}</Text>
-        <Text style={styles.planPeriod}>/{plan.period}</Text>
-      </View>
-      {plan.trial && <Text style={styles.planTrial}>{plan.trial}</Text>}
-      <Text style={styles.planDetail}>{plan.description}</Text>
-      <View style={[styles.planCheck, isSelected && { backgroundColor: plan.accent, borderColor: plan.accent }]}>
-        {isSelected && <MaterialCommunityIcons name="check" size={16} color="#0B0E14" />}
-      </View>
-    </LinearGradient>
+      {selected && <MaterialCommunityIcons name="check" size={14} color="#0F0A1E" />}
+    </View>
   </TouchableOpacity>
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0E14' },
-  background: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
-  glowTop: { position: 'absolute', top: -120, right: -80, width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(45,212,191,0.15)' },
-  glowBottom: { position: 'absolute', bottom: -140, left: -90, width: 260, height: 260, borderRadius: 130, backgroundColor: 'rgba(249,115,22,0.18)' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 10, paddingTop: 50 },
-  restoreText: { color: '#94A3B8', fontSize: 14, marginRight: 20 },
-  content: { padding: 20 },
-
-  hero: { marginBottom: 20 },
-  heroEyebrow: { color: '#94A3B8', letterSpacing: 2, fontSize: 11, fontWeight: '700' },
-  heroTitle: { color: '#F8FAFC', fontSize: 30, fontWeight: '800', marginTop: 8, fontFamily: DISPLAY_FONT },
-  heroSubtitle: { color: '#CBD5F5', fontSize: 14, marginTop: 10, lineHeight: 20 },
-
-  planStack: { gap: 12, marginBottom: 18 },
-  planWrapper: { borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
-  planCard: { padding: 18, borderRadius: 20, minHeight: 130 },
-  planHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  planName: { color: '#F8FAFC', fontSize: 18, fontWeight: '700', fontFamily: TITLE_FONT },
-  planTag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  planTagText: { color: '#CBD5F5', fontSize: 10, fontWeight: '700', letterSpacing: 0.6 },
-  planTagTextActive: { color: '#0B0E14' },
-  planPriceRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 8 },
-  planPrice: { fontSize: 28, fontWeight: '800' },
-  planPeriod: { color: '#CBD5F5', fontSize: 14, marginLeft: 6, marginBottom: 4 },
-  planTrial: { color: '#FBBF24', fontSize: 12, marginTop: 6, fontWeight: '700' },
-  planDetail: { color: '#94A3B8', fontSize: 12, marginTop: 6 },
-  planCheck: { position: 'absolute', right: 16, bottom: 16, width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-
-  trialRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  trialToggle: { marginRight: 10 },
-  trialCopy: { flex: 1 },
-  trialTitle: { color: '#F8FAFC', fontWeight: '700', fontSize: 13 },
-  trialSubtitle: { color: '#94A3B8', fontSize: 12, marginTop: 4 },
-  mutedText: { color: '#475569' },
-
-  featureGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
-  featureTile: { width: '48%', borderRadius: 14, borderWidth: 1, padding: 12, backgroundColor: 'rgba(255,255,255,0.03)' },
-  featureIcon: { width: 28, height: 28, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  featureText: { color: '#E2E8F0', fontSize: 12, fontWeight: '600' },
-
-  subscribeButton: { borderRadius: 18, overflow: 'hidden' },
-  subscribeGradient: { paddingVertical: 16, paddingHorizontal: 16, alignItems: 'center', borderRadius: 18 },
-  subscribeButtonText: { color: '#0B0E14', fontWeight: '900', fontSize: 14, letterSpacing: 0.6 },
-  subscribeSubtext: { color: '#1E293B', fontSize: 12, marginTop: 6, fontWeight: '700' },
-
-  termsText: { color: '#64748B', fontSize: 11, textAlign: 'center', marginTop: 20, lineHeight: 16 },
-  termsLink: { color: '#9BDCF8', textDecorationLine: 'underline' },
+  container: { flex: 1, backgroundColor: '#0F0A1E' },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  restoreText: { color: '#94A3B8', fontSize: 14, marginRight: 16, fontWeight: '600' },
+  body: { flex: 1, paddingHorizontal: 20, paddingBottom: 24, justifyContent: 'flex-start' },
+  bodyCompact: { paddingTop: 0 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  titleCopy: { flex: 1 },
+  title: {
+    color: '#F8FAFC',
+    fontSize: 26,
+    fontWeight: '900',
+    fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
+  },
+  subtitle: { color: '#94A3B8', fontSize: 13, marginTop: 4, lineHeight: 18 },
+  featureGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+  featureTile: {
+    width: '47%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  featureLabel: { color: '#CBD5E1', fontSize: 12, fontWeight: '700', flex: 1 },
+  planRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  planCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.08)',
+    minHeight: 120,
+  },
+  planCardSelected: { borderColor: '#7C6CFF' },
+  planCardHighlight: { backgroundColor: 'rgba(124,108,255,0.12)' },
+  planCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  planLabel: { color: '#F8FAFC', fontSize: 14, fontWeight: '800' },
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  badgeHighlight: { backgroundColor: 'rgba(124,108,255,0.35)' },
+  badgeText: { color: '#94A3B8', fontSize: 9, fontWeight: '800' },
+  badgeTextHighlight: { color: '#C4B5FD' },
+  planPrice: { color: '#F8FAFC', fontSize: 22, fontWeight: '900', marginTop: 8 },
+  planPeriod: { color: '#94A3B8', fontSize: 11, marginTop: 2 },
+  planTrial: { color: '#7CE8DF', fontSize: 10, fontWeight: '700', marginTop: 4 },
+  planSub: { color: '#64748B', fontSize: 10, marginTop: 2 },
+  planRadio: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planRadioOn: { backgroundColor: '#7C6CFF', borderColor: '#7C6CFF' },
+  adFreeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    marginBottom: 4,
+  },
+  radio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  radioOn: { backgroundColor: '#F5C842', borderColor: '#F5C842' },
+  adFreeLabel: { color: '#E2E8F0', fontSize: 14, fontWeight: '700', flex: 1 },
+  adFreePrice: { color: '#94A3B8', fontSize: 13, fontWeight: '700' },
+  trialRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  trialLabel: { color: '#CBD5E1', fontSize: 12, fontWeight: '600' },
+  cta: { borderRadius: 16, overflow: 'hidden', marginTop: 12 },
+  ctaGradient: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+  },
+  ctaTitle: { color: '#1A1408', fontSize: 15, fontWeight: '900' },
+  ctaSub: { color: 'rgba(26,20,8,0.65)', fontSize: 11, fontWeight: '700', marginTop: 2 },
+  ctaTextCol: { alignItems: 'center' },
+  retryText: { color: '#7CE8DF', textAlign: 'center', marginTop: 8, fontSize: 12 },
+  linkHint: { color: '#64748B', fontSize: 10, textAlign: 'center', marginTop: 8 },
 });
 
 export default SubscriptionScreen;

@@ -55,7 +55,7 @@ const getIosBuildNumber = () => {
   return Date.now().toString();
 };
 
-const APP_VERSION = "1.0.5";
+const APP_VERSION = "1.0.7";
 const RUNTIME_VERSION = process.env.EXPO_RUNTIME_VERSION || APP_VERSION;
 
 module.exports = {
@@ -154,6 +154,7 @@ module.exports = {
       favicon: "./assets/favicon.png"
     },
     plugins: [
+      "expo-localization",
       "expo-asset",
       "expo-font",
       "expo-location",
