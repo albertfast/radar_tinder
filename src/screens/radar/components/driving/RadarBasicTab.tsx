@@ -5,7 +5,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigationStore } from '../../../../mapflow-navigation-kit';
 import { LocationService } from '../../../../services/LocationService';
-import { formatDistance, formatDuration, convertSpeed, getUnitLabel } from '../../../../mapflow-navigation-kit/src/utils/units';
+import { SpeedometerAnimation } from '../../../../components/SpeedometerAnimation';
+import { formatDistance, formatDuration, convertSpeed, getUnitLabel, getUnitSystem } from '../../../../mapflow-navigation-kit/src/utils/units';
 import {
   describeRadarApproach,
   describeRadarLocation,
@@ -72,6 +73,7 @@ export function RadarBasicTab({
     eta,
     destinationName,
     hasArrived,
+    countryCode,
     startNavigation,
     stopNavigation,
   } = useNavigationStore();
@@ -126,17 +128,23 @@ export function RadarBasicTab({
   );
   const closestRadar = sortedRadars[0] || null;
   const displayRadars = sortedRadars.slice(0, 14);
-  const currentSpeedValue = convertSpeed(userSpeed, unitSystem);
-  const currentSpeedUnit = getUnitLabel(unitSystem).toUpperCase();
+  const displayUnitSystem = useMemo(
+    () => (countryCode ? getUnitSystem(countryCode.toUpperCase()) : unitSystem),
+    [countryCode, unitSystem],
+  );
+  const currentSpeedValue = convertSpeed(userSpeed, displayUnitSystem);
+  const currentSpeedUnit = getUnitLabel(displayUnitSystem).toUpperCase();
   const limitDisplay =
     typeof speedLimit === 'number' && speedLimit > 0
-      ? unitSystem === 'imperial'
+      ? displayUnitSystem === 'imperial'
         ? Math.round(speedLimit * 0.621371)
         : Math.round(speedLimit)
       : null;
   const speedDelta = limitDisplay ? currentSpeedValue - limitDisplay : null;
   const isOverspeed = typeof speedDelta === 'number' && speedDelta > 0;
-  const speedTone = isOverspeed ? '#FF6B6B' : '#4ECDC4';
+  const speedRatio = limitDisplay ? currentSpeedValue / limitDisplay : 0;
+  const isCriticalOverspeed = Boolean(limitDisplay && speedRatio > 1.2);
+  const speedTone = isCriticalOverspeed ? '#FF4D5F' : isOverspeed ? '#FACC15' : '#4ECDC4';
   const riskLabel = useMemo(() => {
     const distanceKm = Number(closestRadar?.distance);
     if (!Number.isFinite(distanceKm)) return 'Scanning';
@@ -159,21 +167,14 @@ export function RadarBasicTab({
         return '#94A3B8';
     }
   }, [riskLabel]);
-  const speedArcRotation = useMemo(() => {
-    if (!limitDisplay || limitDisplay <= 0) {
-      return Math.min(320, Math.max(25, currentSpeedValue * 2.2));
-    }
-    const ratio = Math.max(0.06, Math.min(1, currentSpeedValue / limitDisplay));
-    return 35 + ratio * 290;
-  }, [currentSpeedValue, limitDisplay]);
   const currentStep = route?.steps?.[currentStepIndex] || route?.steps?.[0] || null;
   const nextStep = route?.steps?.[currentStepIndex + 1] || null;
-  const routeDistanceLabel = route ? formatDistance(route.distance, unitSystem) : '';
+  const routeDistanceLabel = route ? formatDistance(route.distance, displayUnitSystem) : '';
   const routeDurationLabel = route ? formatDuration(route.duration) : '';
   const turnDistanceLabel =
     hasArrived
       ? 'Destination reached'
-      : formatDistance(remainingStepDistance || currentStep?.distance || 0, unitSystem);
+      : formatDistance(remainingStepDistance || currentStep?.distance || 0, displayUnitSystem);
   const speedLimitSubtitle = useMemo(() => {
     if (!limitDisplay) return 'No speed-limit feed yet';
     if (isOverspeed) {
@@ -198,7 +199,7 @@ export function RadarBasicTab({
   };
 
   const getRadarSubtitle = (radar: any) => {
-    const approach = describeRadarApproach(Number(radar?.distance), unitSystem);
+    const approach = describeRadarApproach(Number(radar?.distance), displayUnitSystem);
     const label = radar?.locationLabel || resolvedLabels[radar?.id] || radar?.locationHint || '';
     const locationDescriptor = describeRadarLocation(label);
     return locationDescriptor ? `${approach} | ${locationDescriptor}` : approach;
@@ -243,7 +244,7 @@ export function RadarBasicTab({
                   {isNavigating
                     ? nextStep?.instruction
                       ? `Then ${nextStep.instruction}`
-                      : `${formatDistance(remainingDistance, unitSystem)} | ${formatDuration(remainingDuration)}`
+                      : `${formatDistance(remainingDistance, displayUnitSystem)} | ${formatDuration(remainingDuration)}`
                     : `${routeDurationLabel}${eta ? ` | ETA ${eta.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`}
                 </Text>
               ) : null}
@@ -269,22 +270,13 @@ export function RadarBasicTab({
       >
         <Text style={styles.eyebrow}>BASIC DASHBOARD</Text>
 
-        <View style={styles.speedDialWrap}>
-          <View style={styles.speedDialOuter}>
-            <View style={styles.speedDialOrbit} />
-            <View
-              style={[
-                styles.speedDialSweep,
-                {
-                  transform: [{ rotate: `${speedArcRotation}deg` }],
-                },
-              ]}
-            />
-            <View style={styles.speedDialInner}>
-              <Text style={styles.speedValue}>{currentSpeedValue}</Text>
-              <Text style={styles.speedUnit}>{currentSpeedUnit}</Text>
-            </View>
-          </View>
+        <View style={styles.speedometerWrap}>
+          <SpeedometerAnimation
+            speed={currentSpeedValue}
+            unitSystem={displayUnitSystem}
+            speedLimit={limitDisplay}
+            style={styles.speedometer3d}
+          />
         </View>
 
         <View style={styles.pillRow}>
@@ -302,7 +294,7 @@ export function RadarBasicTab({
             <MaterialCommunityIcons name="map-marker-distance" size={16} color="#38BDF8" />
             <Text style={styles.metaPillText}>
               {closestRadar
-                ? `${formatRadarDistanceAdaptive(Number(closestRadar.distance || 0), unitSystem)} to nearest`
+                ? `${formatRadarDistanceAdaptive(Number(closestRadar.distance || 0), displayUnitSystem)} to nearest`
                 : 'No immediate cameras'}
             </Text>
           </View>
@@ -316,7 +308,7 @@ export function RadarBasicTab({
             <Text style={styles.kpiLabel}>Closest camera</Text>
             <Text style={styles.kpiValue}>
               {closestRadar
-                ? formatRadarDistanceAdaptive(Number(closestRadar.distance || 0), unitSystem)
+                ? formatRadarDistanceAdaptive(Number(closestRadar.distance || 0), displayUnitSystem)
                 : '--'}
             </Text>
             <Text style={styles.kpiHint} numberOfLines={2}>
@@ -332,7 +324,7 @@ export function RadarBasicTab({
             <Text style={[styles.kpiValue, { color: riskColor }]}>{riskLabel}</Text>
             <Text style={styles.kpiHint}>
               {closestRadar
-                ? describeRadarApproach(Number(closestRadar.distance || 0), unitSystem)
+                ? describeRadarApproach(Number(closestRadar.distance || 0), displayUnitSystem)
                 : 'No active threats in your lane'}
             </Text>
           </LinearGradient>
@@ -356,7 +348,7 @@ export function RadarBasicTab({
             </View>
             <View style={styles.limitCopy}>
               <Text style={[styles.limitStatus, { color: speedTone }]}>
-                {isOverspeed ? 'Reduce speed now' : 'Stable driving pace'}
+                {isCriticalOverspeed ? 'Reduce speed now' : isOverspeed ? 'Watch your speed' : 'Stable driving pace'}
               </Text>
               <Text style={styles.limitSub}>{speedLimitSubtitle}</Text>
             </View>
@@ -398,7 +390,7 @@ export function RadarBasicTab({
                 </View>
                 <View style={[styles.radarDistanceBadge, { backgroundColor: `${accent}24` }]}>
                   <Text style={[styles.radarDistanceText, { color: accent }]}>
-                    {formatRadarDistanceAdaptive(distanceKm, unitSystem)}
+                    {formatRadarDistanceAdaptive(distanceKm, displayUnitSystem)}
                   </Text>
                 </View>
               </LinearGradient>
@@ -498,6 +490,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.1,
+  },
+  speedometerWrap: {
+    width: '100%',
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(78,205,196,0.18)',
+    backgroundColor: 'rgba(2,6,23,0.92)',
+  },
+  speedometer3d: {
+    width: '100%',
+    height: 300,
+    borderRadius: 22,
   },
   speedDialWrap: {
     alignItems: 'center',
