@@ -27,10 +27,12 @@ const fetchWithTimeout: typeof fetch = async (input: any, init?: any) => {
 };
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY;
+const supabaseAnonKey =
+  process.env.EXPO_PUBLIC_SUPABASE_KEY ||
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 const MISSING_ENV_MESSAGE =
-  'Missing Supabase env: set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_KEY in build/runtime environment.';
+  'Missing Supabase env: set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_KEY or EXPO_PUBLIC_SUPABASE_ANON_KEY in build/runtime environment.';
 
 const createMissingEnvError = () => {
   const error = new Error(MISSING_ENV_MESSAGE) as Error & {
