@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
@@ -10,7 +10,6 @@ import {
   MapFlowNavigationScreen,
   useNavigationStore,
   type MapOverlayMarker,
-  type MapViewport,
 } from '../mapflow-navigation-kit';
 import { useAuthStore } from '../store/authStore';
 import { useRadarStore } from '../store/radarStore';
@@ -18,17 +17,11 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useUiStore } from '../store/uiStore';
 import { RadarService } from '../services/RadarService';
 import { LocationService } from '../services/LocationService';
-import { AdService } from '../services/AdService';
-import { SupabaseService } from '../services/SupabaseService';
 import { hasProAccess } from '../utils/access';
-import { visualTokens } from '../constants/visualTokens';
 import { RadarGraphicView } from './components/RadarGraphicView';
 import { RadarBasicTab } from './radar/components/driving/RadarBasicTab';
 
-const RADAR_REFRESH_BROWSE_MS = 15000;
-const RADAR_REFRESH_NAV_MS = 8000;
-const VIEWPORT_DEBOUNCE_MS = 500;
-const OFF_ROUTE_REFRESH_COOLDOWN_MS = 2500;
+const RADAR_REFRESH_MS = 15000;
 const DRIVE_MODES = ['Basic', 'Map', 'Graphic'] as const;
 
 type DriveMode = (typeof DRIVE_MODES)[number];
@@ -61,7 +54,6 @@ const DriveScreen = ({ navigation, route }: any) => {
   const userSpeed = useNavigationStore((state) => state.userSpeed);
   const routeState = useNavigationStore((state) => state.route);
   const isNavigating = useNavigationStore((state) => state.isNavigating);
-  const isOffRoute = useNavigationStore((state) => state.isOffRoute);
   const navCountryCode = useNavigationStore((state) => state.countryCode);
   const setNavUnitSystem = useNavigationStore((state) => state.setUnitSystem);
   const setRouteGuidanceActive = useRadarStore((state) => state.setRouteGuidanceActive);
@@ -71,7 +63,6 @@ const DriveScreen = ({ navigation, route }: any) => {
   const hideTabBar = useUiStore((state) => state.hideTabBar);
   const showTabBar = useUiStore((state) => state.showTabBar);
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
   const isFocused = useIsFocused();
   const [activeMode, setActiveMode] = useState<DriveMode>(
     resolveDriveMode(route?.params?.initialMode)
@@ -81,16 +72,11 @@ const DriveScreen = ({ navigation, route }: any) => {
   const [driveStartTime, setDriveStartTime] = useState<Date | null>(null);
   const [tripDistanceKm, setTripDistanceKm] = useState(0);
 
-  const tripStartLocationRef = useRef<{ lat: number; lng: number } | null>(null);
-  const tripDistanceKmRef = useRef(0);
   const lastLocationRef = useRef<{ lat: number; lng: number } | null>(null);
-  const viewportRef = useRef<MapViewport | null>(null);
-  const viewportDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastOffRouteRefreshRef = useRef(0);
   const routeCoordinates = useMemo(() => toRouteCoordinates(routeState?.geometry), [routeState?.geometry]);
   const hasRoutePreview = routeCoordinates.length > 1;
   const hasActiveRoute = isNavigating && hasRoutePreview;
-  const chromeTopOffset = insets.top + (height < 700 ? 88 : 108);
+  const chromeTopOffset = insets.top + 108;
   const currentSpeedDisplay = useMemo(
     () => calculateDisplaySpeed(userSpeed, unitSystem),
     [unitSystem, userSpeed]
@@ -111,53 +97,12 @@ const DriveScreen = ({ navigation, route }: any) => {
   useFocusEffect(
     useCallback(() => {
       hideTabBar('drive_screen');
-      const startedAt = new Date();
-      setDriveStartTime(startedAt);
+      setDriveStartTime(new Date());
       setTripDistanceKm(0);
-      tripDistanceKmRef.current = 0;
       lastLocationRef.current = null;
-      tripStartLocationRef.current = userLocation
-        ? { lat: userLocation.lat, lng: userLocation.lng }
-        : null;
-      AdService.markDrivingState(true, hasActiveRoute);
-
-      return () => {
-        const endedAt = new Date();
-        const durationSec = Math.round((endedAt.getTime() - startedAt.getTime()) / 1000);
-        const distanceMeters = Math.round(tripDistanceKmRef.current * 1000);
-        const endCoords = lastLocationRef.current ?? tripStartLocationRef.current;
-
-        if (
-          user?.id &&
-          distanceMeters >= 100 &&
-          durationSec >= 30
-        ) {
-          SupabaseService.createTrip({
-            userId: user.id,
-            distance: distanceMeters,
-            duration: durationSec,
-            startTime: startedAt.toISOString(),
-            endTime: endedAt.toISOString(),
-            startLatitude: tripStartLocationRef.current?.lat ?? null,
-            startLongitude: tripStartLocationRef.current?.lng ?? null,
-            endLatitude: endCoords?.lat ?? null,
-            endLongitude: endCoords?.lng ?? null,
-            avgSpeedKph:
-              durationSec > 0 ? Math.round((distanceMeters / durationSec) * 3.6) : null,
-          }).catch(() => {});
-        }
-
-        AdService.markDrivingState(false, false);
-        showTabBar('drive_screen');
-      };
-    }, [hasActiveRoute, hideTabBar, showTabBar, user?.id, userLocation])
+      return () => showTabBar('drive_screen');
+    }, [hideTabBar, showTabBar])
   );
-
-  useEffect(() => {
-    if (isFocused) {
-      AdService.markDrivingState(true, hasActiveRoute);
-    }
-  }, [hasActiveRoute, isFocused]);
 
   useEffect(() => {
     if (isFocused && keepAwakeWhileDriving) {
@@ -202,11 +147,7 @@ const DriveScreen = ({ navigation, route }: any) => {
         userLocation.lng
       );
       if (movedKm > 0.003) {
-        setTripDistanceKm((current) => {
-          const next = current + movedKm;
-          tripDistanceKmRef.current = next;
-          return next;
-        });
+        setTripDistanceKm((current) => current + movedKm);
       }
     }
 
@@ -217,105 +158,59 @@ const DriveScreen = ({ navigation, route }: any) => {
   }, [driveStartTime, isFocused, userLocation]);
 
   const refreshOverlayMarkers = useCallback(async () => {
-    try {
-      let filtered: any[] = [];
-
-      if (hasRoutePreview && routeCoordinates.length > 1 && userLocation) {
-        filtered = await RadarService.getRouteAwareRadars({
-          routeCoords: routeCoordinates,
-          currentLocation: {
-            latitude: userLocation.lat,
-            longitude: userLocation.lng,
-            heading: Number.isFinite(userHeading) ? userHeading : null,
-          },
-          speedKph: Math.max(10, userSpeed * 3.6),
-          allowedTypes: ['speed_camera'],
-          maxCorridorMeters: 55,
-          maxHeadingDeltaDeg: 35,
-          minAheadMeters: 0,
-        });
-      } else {
-        const viewport = viewportRef.current;
-        if (viewport) {
-          filtered = await RadarService.getSpeedCamerasInViewport({
-            center: { latitude: viewport.center.lat, longitude: viewport.center.lng },
-            bounds: {
-              north: viewport.bounds.north,
-              south: viewport.bounds.south,
-              east: viewport.bounds.east,
-              west: viewport.bounds.west,
-            },
-          });
-        } else if (userLocation) {
-          const nearby = await RadarService.getNearbyRadars(
-            userLocation.lat,
-            userLocation.lng,
-            canUsePro ? 10 : 5
-          );
-          filtered = nearby.filter((radar) => radar.type === 'speed_camera');
-        }
-      }
-
-      setNearbyRadars(filtered);
-      setOverlayMarkers(
-        filtered.slice(0, 48).map((radar) => ({
-          id: radar.id,
-          latitude: radar.latitude,
-          longitude: radar.longitude,
-          type: radar.type,
-          markerKind: 'camera' as const,
-          speedLimit: radar.speedLimit,
-        }))
-      );
-    } catch {
-      setNearbyRadars([]);
+    if (!userLocation) {
       setOverlayMarkers([]);
+      setNearbyRadars([]);
+      return;
     }
+
+    const nearby = await RadarService.getNearbyRadars(
+      userLocation.lat,
+      userLocation.lng,
+      canUsePro ? 10 : 5
+    );
+    const filtered =
+      hasRoutePreview && routeCoordinates.length > 1
+        ? RadarService.filterRouteRelevantRadars(nearby, {
+            currentLocation: {
+              latitude: userLocation.lat,
+              longitude: userLocation.lng,
+              heading: Number.isFinite(userHeading) ? userHeading : null,
+            },
+            routeCoords: routeCoordinates,
+            speedKph: Math.max(10, userSpeed * 3.6),
+            maxCorridorMeters: 180,
+            maxHeadingDeltaDeg: 75,
+            etaSecondsWindow: [0, 3600],
+            requireEtaWindow: false,
+          })
+        : nearby;
+
+    setNearbyRadars(filtered);
+    setOverlayMarkers(
+      filtered.slice(0, 48).map((radar) => ({
+        id: radar.id,
+        latitude: radar.latitude,
+        longitude: radar.longitude,
+        type: radar.type,
+        markerKind: radar.markerKind,
+        speedLimit: radar.speedLimit,
+      }))
+    );
   }, [canUsePro, hasRoutePreview, routeCoordinates, userHeading, userLocation, userSpeed]);
-
-  const handleViewportChange = useCallback(
-    (viewport: MapViewport) => {
-      viewportRef.current = viewport;
-      if (hasRoutePreview) return;
-
-      if (viewportDebounceRef.current) {
-        clearTimeout(viewportDebounceRef.current);
-      }
-      viewportDebounceRef.current = setTimeout(() => {
-        refreshOverlayMarkers().catch(() => {});
-      }, VIEWPORT_DEBOUNCE_MS);
-    },
-    [hasRoutePreview, refreshOverlayMarkers]
-  );
 
   useEffect(() => {
     if (!isFocused) return undefined;
 
     refreshOverlayMarkers().catch(() => {});
-    const intervalMs = hasActiveRoute ? RADAR_REFRESH_NAV_MS : RADAR_REFRESH_BROWSE_MS;
     const intervalId = setInterval(() => {
       refreshOverlayMarkers().catch(() => {});
-    }, intervalMs);
+    }, RADAR_REFRESH_MS);
 
     return () => {
       clearInterval(intervalId);
-      if (viewportDebounceRef.current) {
-        clearTimeout(viewportDebounceRef.current);
-      }
     };
-  }, [hasActiveRoute, isFocused, refreshOverlayMarkers]);
-
-  useEffect(() => {
-    if (!isFocused || !isOffRoute || !hasRoutePreview) return;
-    const now = Date.now();
-    if (now - lastOffRouteRefreshRef.current < OFF_ROUTE_REFRESH_COOLDOWN_MS) return;
-    lastOffRouteRefreshRef.current = now;
-    refreshOverlayMarkers().catch(() => {});
-  }, [hasRoutePreview, isFocused, isOffRoute, refreshOverlayMarkers]);
-
-  useEffect(() => {
-    refreshOverlayMarkers().catch(() => {});
-  }, [hasRoutePreview, routeCoordinates.length, refreshOverlayMarkers]);
+  }, [isFocused, refreshOverlayMarkers]);
 
   const handleNavigateHome = useCallback(() => {
     navigation.navigate('Home');
@@ -325,9 +220,20 @@ const DriveScreen = ({ navigation, route }: any) => {
     navigation.navigate('Home', { screen: 'RadarSettings' });
   }, [navigation]);
 
-  const handleSelectMode = useCallback((mode: DriveMode) => {
-    setActiveMode(mode);
-  }, []);
+  const handleOpenSubscription = useCallback(() => {
+    navigation.navigate('Home', { screen: 'Subscription' });
+  }, [navigation]);
+
+  const handleSelectMode = useCallback(
+    (mode: DriveMode) => {
+      if (mode === 'Graphic' && !canUsePro) {
+        handleOpenSubscription();
+        return;
+      }
+      setActiveMode(mode);
+    },
+    [canUsePro, handleOpenSubscription]
+  );
 
   return (
     <View style={styles.container}>
@@ -344,7 +250,6 @@ const DriveScreen = ({ navigation, route }: any) => {
         <MapFlowNavigationScreen
           overlayMarkers={overlayMarkers}
           topOverlayOffset={chromeTopOffset}
-          onViewportChange={handleViewportChange}
         />
       )}
 
@@ -401,7 +306,7 @@ export default DriveScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: visualTokens.bg,
+    backgroundColor: '#000',
   },
   header: {
     paddingHorizontal: 14,
@@ -409,17 +314,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: visualTokens.headerShadow,
-    borderBottomWidth: 1,
-    borderBottomColor: visualTokens.surfaceGlassBorder,
+    backgroundColor: '#000000',
   },
   headerButton: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: visualTokens.surfaceGlass,
-    borderWidth: 1,
-    borderColor: visualTokens.surfaceGlassBorder,
+    backgroundColor: 'rgba(15,23,42,0.72)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -428,12 +329,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    color: visualTokens.textPrimary,
+    color: '#F8FAFC',
     fontWeight: '900',
     fontSize: 16,
   },
   headerSubtitle: {
-    color: visualTokens.accentTurquoise,
+    color: '#4ECDC4',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1,
@@ -441,37 +342,32 @@ const styles = StyleSheet.create({
   tabBarWrap: {
     paddingHorizontal: 20,
     paddingTop: 10,
-    backgroundColor: 'transparent',
+    backgroundColor: '#000000',
   },
   tabBar: {
     flexDirection: 'row',
     justifyContent: 'center',
-    backgroundColor: visualTokens.surfaceGlass,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: visualTokens.surfaceGlassBorder,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(17,17,17,0.96)',
+    borderRadius: 12,
+    padding: 4,
   },
   tabItem: {
     flex: 1,
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: 8,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
   },
   tabItemActive: {
-    borderBottomColor: visualTokens.tabActive,
+    backgroundColor: '#222',
   },
   tabText: {
-    color: visualTokens.tabInactive,
-    fontWeight: '700',
+    color: '#888',
+    fontWeight: '800',
     fontSize: 12,
   },
   tabTextActive: {
-    color: visualTokens.tabActive,
+    color: '#FF5252',
   },
   graphicWrap: {
     flex: 1,

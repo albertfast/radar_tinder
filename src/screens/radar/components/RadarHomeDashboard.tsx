@@ -200,7 +200,7 @@ export function RadarHomeDashboard({
         </TouchableOpacity>
 
         <Text style={styles.appName}>
-          RADAR <Text style={{ color: '#2DD4BF' }}>TINDER</Text>
+          RADAR <Text style={{ color: '#FF5252' }}>TINDER</Text>
         </Text>
 
         <View style={styles.headerRight}>
@@ -339,7 +339,7 @@ export function RadarHomeDashboard({
 
           <View style={styles.statRow}>
             <StatPill styles={styles} icon="map-marker-distance" label="Nearest radar" value={nearestRadarSummary} accent="#4ECDC4" />
-            <StatPill styles={styles} icon="speedometer" label="Speed" value={formatSpeed(currentSpeed, unitSystem)} accent="#2DD4BF" />
+            <StatPill styles={styles} icon="speedometer" label="Speed" value={formatSpeed(currentSpeed, unitSystem)} accent="#FF5252" />
             <StatPill
               styles={styles}
               icon={
@@ -360,7 +360,7 @@ export function RadarHomeDashboard({
             onPress={onToggleDrivingMode}
           >
             <LinearGradient
-              colors={['#14B8A6', '#2DD4BF']}
+              colors={['#FF6B6B', '#FF5252']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.startButtonGradient}

@@ -586,11 +586,10 @@ export class AdService {
   }
 
   private static isNavigationBlockedPlacement(placement: AdPlacement): boolean {
-    return (
-      placement === 'start_driving_basic' ||
-      placement === 'navigate_route' ||
-      placement === 'end_ride'
-    );
+    if (this.drivingState.isDriving || this.drivingState.hasActiveRoute) {
+      return placement === 'navigate_route' || placement === 'end_ride';
+    }
+    return false;
   }
 
   private static checkInterstitialEligibility(placement: AdPlacement): AdSkipResult | null {

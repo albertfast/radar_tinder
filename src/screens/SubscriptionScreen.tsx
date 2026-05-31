@@ -127,13 +127,39 @@ const SubscriptionScreen = ({ navigation }: { navigation: { goBack: () => void; 
     setLoading(true);
     try {
       const restored = await SubscriptionService.restorePurchases();
+      if (!restored) {
+        Alert.alert('Restore Failed', 'No previous purchase was found.');
+        return;
+      }
+
+      const auth = useAuthStore.getState();
+      if (!auth.user?.id) {
+        const { FirebaseAuthService } = await import('../services/FirebaseAuthService');
+        try {
+          await FirebaseAuthService.signInAnonymously();
+        } catch (firebaseError) {
+          console.warn('Firebase anonymous auth failed:', firebaseError);
+        }
+        const signInResult = await auth.signInAnonymously();
+        if (signInResult.error) {
+          await auth.signInAsGuest();
+        }
+        const userId = useAuthStore.getState().user?.id;
+        if (userId) {
+          await SubscriptionService.setUserId(userId).catch(() => {});
+        }
+      }
+
       await SubscriptionService.syncAccessState().catch(() => {});
       await useAuthStore.getState().normalizeAccessState().catch(() => {});
-      if (restored || hasProAccess(useAuthStore.getState().user)) {
+      if (hasProAccess(useAuthStore.getState().user)) {
         navigation.goBack();
         return;
       }
-      Alert.alert('Restore Failed', 'No active subscription was found for this account.');
+      Alert.alert(
+        'Restore Pending',
+        'Purchase found. Restart the app if Pro features are not unlocked yet.'
+      );
     } finally {
       setLoading(false);
     }
