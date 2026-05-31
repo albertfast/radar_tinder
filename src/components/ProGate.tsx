@@ -12,6 +12,7 @@ interface ProGateProps {
   subtitle?: string;
   onUpgrade?: () => void | Promise<void>;
   adUnitId?: string;
+  showAd?: boolean;
 }
 
 const ProGate: React.FC<ProGateProps> = ({
@@ -19,6 +20,7 @@ const ProGate: React.FC<ProGateProps> = ({
   subtitle = 'Upgrade to unlock this feature.',
   onUpgrade,
   adUnitId,
+  showAd = true,
 }) => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -54,9 +56,11 @@ const ProGate: React.FC<ProGateProps> = ({
           ) : null}
         </View>
 
-        <View style={[styles.featureAdWrap, { width: maxContentWidth }]}>
-          <AdBanner size="MEDIUM_RECTANGLE" unitId={featureGateAdUnitId} />
-        </View>
+        {showAd ? (
+          <View style={[styles.featureAdWrap, { width: maxContentWidth }]}>
+            <AdBanner size="MEDIUM_RECTANGLE" unitId={featureGateAdUnitId} />
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );

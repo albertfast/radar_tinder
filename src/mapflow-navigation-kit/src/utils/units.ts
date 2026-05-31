@@ -63,12 +63,14 @@ export function getSpeedWarning(current: number, limit: number | null): SpeedWar
   }
   const ratio = current / limit;
   const over = (ratio - 1) * 100;
-  if (over <= 0) return { color: '#cbd5e1', bgColor: 'rgba(148,163,184,0.14)', percent: 0, severity: 'safe' };
-  if (over <= 10) {
-    const t = over / 10;
+  if (over <= 0) {
+    return { color: '#4ECDC4', bgColor: 'rgba(78,205,196,0.14)', percent: 0, severity: 'safe' };
+  }
+  if (over <= 20) {
+    const t = over / 20;
     return {
-      color: lerpColor('#f97316', '#ef4444', t),
-      bgColor: `rgba(239,68,68,${0.12 + t * 0.18})`,
+      color: lerpColor('#4ECDC4', '#f59e0b', t),
+      bgColor: `rgba(245,158,11,${0.10 + t * 0.16})`,
       percent: over, severity: over < 5 ? 'caution' : 'warning',
     };
   }

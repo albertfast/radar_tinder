@@ -1,5 +1,6 @@
 import React from 'react';
-import { Platform, UIManager, ViewProps, requireNativeComponent } from 'react-native';
+import { Platform, StyleSheet, UIManager, View, ViewProps, requireNativeComponent } from 'react-native';
+import { RadarAnimation } from './RadarAnimation';
 
 export interface GraphicRadarPanelViewProps extends ViewProps {
   signalLevel?: number;
@@ -34,10 +35,28 @@ const getNativeComponent = () => {
 const GraphicRadarPanelView = (props: GraphicRadarPanelViewProps) => {
   const NativeGraphicRadarPanelView = getNativeComponent();
   if (!NativeGraphicRadarPanelView) {
-    return null;
+    const { style, signalLevel = 0.55, dangerLevel = 0.15, paused } = props;
+    return (
+      <View style={[style, styles.fallback]} pointerEvents="none">
+        <RadarAnimation
+          size={230}
+          rendererMode="life3d"
+          signalLevel={signalLevel}
+          dangerLevel={dangerLevel}
+          paused={paused}
+        />
+      </View>
+    );
   }
 
   return <NativeGraphicRadarPanelView {...props} />;
 };
+
+const styles = StyleSheet.create({
+  fallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 export default GraphicRadarPanelView;

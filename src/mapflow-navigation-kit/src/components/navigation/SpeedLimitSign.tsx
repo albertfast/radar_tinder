@@ -25,16 +25,15 @@ export default memo(function SpeedLimitSign() {
     unitSystem,
   );
   const warning = getSpeedWarning(currentSpeed, displayLimit);
-  const isOver = currentSpeed > displayLimit;
 
   return (
     <View style={styles.container}>
-      <View style={[styles.sign, isOver && { borderColor: warning.color }]}>
-        <View style={[styles.innerBorder, isOver && { borderColor: warning.color }]}>
-          <Text style={[styles.value, isOver && { color: warning.color }]}>{displayLimit}</Text>
+      <View style={[styles.sign, { borderColor: warning.color }]}>
+        <View style={[styles.innerBorder, { borderColor: warning.color }]}>
+          <Text style={[styles.value, { color: warning.color }]}>{displayLimit}</Text>
         </View>
       </View>
-      <Text style={[styles.unitLabel, isOver && { color: warning.color }]}>{unit}</Text>
+      <Text style={[styles.unitLabel, { color: warning.color }]}>{unit}</Text>
     </View>
   );
 });

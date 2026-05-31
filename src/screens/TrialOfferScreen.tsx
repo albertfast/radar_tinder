@@ -34,14 +34,14 @@ const FEATURES = [
   {
     id: 'graphic',
     title: 'Graphic mode',
-    subtitle: 'Premium driving panel',
+    subtitle: 'Live speed, limit, and route-aware camera banner',
     icon: 'chart-areaspline',
     color: '#FF8A65',
   },
   {
     id: 'route',
     title: 'Safe route',
-    subtitle: 'Route-aware alerts',
+    subtitle: 'Route-aware speed camera alerts and trip history',
     icon: 'map-marker-path',
     color: '#FFE66D',
   },
@@ -226,6 +226,11 @@ const TrialOfferScreen = () => {
                 <Text style={styles.offerPriceBottom}>per year</Text>
               </View>
             </View>
+
+            <Text style={styles.offerCopy}>
+              Graphic mode is where route-aware speed-camera warnings, live speed-limit context,
+              and saved trip analytics live. It stays premium so driving remains clear and distraction-free.
+            </Text>
 
             <View style={styles.offerBenefits}>
               <Benefit label="Graphic" value="Included" color="#4ECDC4" />
@@ -535,6 +540,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
     flexDirection: 'row',
     gap: 8,
+  },
+  offerCopy: {
+    marginTop: 10,
+    color: '#93A4BE',
+    fontSize: 12,
+    lineHeight: 18,
   },
   benefitCard: {
     flex: 1,
