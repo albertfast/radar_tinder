@@ -23,6 +23,8 @@ import { useNavigation } from './hooks/useNavigation';
 
 import { useNavigationStore } from './stores/navigationStore';
 import { MapOverlayMarker, SearchResult, StoredDestination } from './types/map';
+import type { MapViewport } from './types/viewport';
+import { useSettingsStore } from '../../store/settingsStore';
 import { COLORS } from './utils/colors';
 import { reverseGeocode } from './services/api';
 import {
@@ -40,12 +42,15 @@ import {
 type MapFlowNavigationScreenProps = {
   overlayMarkers?: MapOverlayMarker[];
   topOverlayOffset?: number;
+  onViewportChange?: (viewport: MapViewport) => void;
 };
 
 export default function MapFlowNavigationScreen({
   overlayMarkers = [],
   topOverlayOffset,
+  onViewportChange,
 }: MapFlowNavigationScreenProps) {
+  const vehicleMarkerId = useSettingsStore((state) => state.vehicleMarkerId);
   const insets = useSafeAreaInsets();
   const topChromeOffset = topOverlayOffset ?? (insets.top + 8);
   const searchBarTop = topChromeOffset + 10;
@@ -239,6 +244,7 @@ export default function MapFlowNavigationScreen({
         lng: userLocation.lng,
         heading: userHeading,
         routeHeading,
+        vehicleMarkerId,
       },
     });
 
@@ -256,7 +262,7 @@ export default function MapFlowNavigationScreen({
         },
       });
     }
-  }, [isNavigating, mapReady, routeHeading, sendToMap, userHeading, userLocation, userSpeed]);
+  }, [isNavigating, mapReady, routeHeading, sendToMap, userHeading, userLocation, userSpeed, vehicleMarkerId]);
 
   useEffect(() => {
     if (!mapReady || !userLocation || hasCenteredInitialLocation.current) {
@@ -551,6 +557,7 @@ export default function MapFlowNavigationScreen({
         onMapReady={handleMapReady}
         onMapClick={handleMapClick}
         onOverlayMarkerPress={handleOverlayMarkerPress}
+        onViewportChange={onViewportChange}
       />
 
       <View style={styles.overlay}>

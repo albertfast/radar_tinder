@@ -13,8 +13,6 @@ import { DatabaseService } from '../../services/DatabaseService';
 import { useRadarStore } from '../../store/radarStore';
 import { useAutoHideTabBar } from '../../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../../constants/layout';
-import { hasProAccess } from '../../utils/access';
-import ProGate from '../../components/ProGate';
 
 interface RadarGraphicViewProps {
   totalDistance: number;
@@ -43,7 +41,6 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
 }) => {
   const heroTopInset = Math.max(6, topOverlayInset - 104);
   const { user } = useAuthStore();
-  const canUse = hasProAccess(user);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [weeklyData, setWeeklyData] = useState(emptyWeeklyTrips);
@@ -55,10 +52,10 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   const lastRecentIds = useRef('');
 
   useEffect(() => {
-    if (canUse) {
+    if (user?.id) {
       loadDrivingData();
     }
-  }, [canUse, user?.id]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (drivingStartTime) {
@@ -219,9 +216,8 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   };
 
   useEffect(() => {
-    if (!canUse) return;
     loadRecentActivity();
-  }, [user?.id, activeAlerts.length, canUse]);
+  }, [user?.id, activeAlerts.length]);
 
   const weeklyStats = {
     totalDistance: weeklyData.reduce((acc, item) => acc + item.distance, 0),
@@ -273,15 +269,6 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
     return `${formatDistance(nearest.distance)} ahead`;
   }, [activeAlerts, unitSystem]);
 
-  if (!canUse) {
-    return (
-      <ProGate
-        title="Graphic Dashboard"
-        subtitle="Upgrade to Pro to unlock weekly stats and activity insights."
-      />
-    );
-  }
-
   return (
     <ScrollView
       style={styles.container}
@@ -303,12 +290,12 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
       >
         <View style={styles.radarHeroHeader}>
           <View>
-            <Text style={styles.radarHeroEyebrow}>Premium graphic</Text>
+            <Text style={styles.radarHeroEyebrow}>Live graphic</Text>
             <Text style={styles.radarHeroTitle}>Drive Visualization</Text>
           </View>
           <View style={styles.radarHeroChip}>
-            <MaterialCommunityIcons name="diamond-stone" size={15} color="#4ECDC4" />
-            <Text style={styles.radarHeroChipText}>Pro live panel</Text>
+            <MaterialCommunityIcons name="radar" size={15} color="#4ECDC4" />
+            <Text style={styles.radarHeroChipText}>3D radar panel</Text>
           </View>
         </View>
 

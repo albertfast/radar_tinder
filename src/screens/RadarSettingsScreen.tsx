@@ -15,7 +15,11 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { useSettingsStore } from '../store/settingsStore';
+import { useTranslation } from 'react-i18next';
+import { useSettingsStore, type VehicleMarkerId } from '../store/settingsStore';
+import { SubscriptionService } from '../services/SubscriptionService';
+import { openManageSubscriptions } from '../utils/subscriptionLinks';
+import { hasProAccess } from '../utils/access';
 import { useAuthStore } from '../store/authStore';
 import { SupabaseService } from '../services/SupabaseService';
 import { NotificationService } from '../services/NotificationService';
@@ -35,9 +39,12 @@ import {
 const RadarSettingsScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { t } = useTranslation();
   const {
     unitSystem,
     setUnitSystem,
+    vehicleMarkerId,
+    setVehicleMarkerId,
     voiceWarningsEnabled,
     hapticAlertsEnabled,
     keepAwakeWhileDriving,
@@ -272,6 +279,69 @@ const RadarSettingsScreen = ({ navigation }: any) => {
             </View>
           }
         />
+
+        <SettingCard
+          title={t('settings.vehicleIcon')}
+          subtitle={t('settings.vehicleIconHint')}
+          icon="car-sports"
+          delay={150}
+        >
+          <View style={styles.vehicleRow}>
+            {(
+              [
+                { id: 'classic', color: '#2DD4BF' },
+                { id: 'sedan', color: '#38BDF8' },
+                { id: 'suv', color: '#F59E0B' },
+                { id: 'sport', color: '#FB7185' },
+                { id: 'compact', color: '#A78BFA' },
+                { id: 'hatchback', color: '#4ADE80' },
+              ] as Array<{ id: VehicleMarkerId; color: string }>
+            ).map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.vehicleChip,
+                  vehicleMarkerId === item.id && styles.vehicleChipActive,
+                  { borderColor: item.color },
+                ]}
+                onPress={() => setVehicleMarkerId(item.id)}
+              >
+                <MaterialCommunityIcons name="car" size={18} color={item.color} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </SettingCard>
+
+        <SettingCard
+          title="Subscription"
+          subtitle={
+            hasProAccess(user)
+              ? t('subscription.activePro')
+              : user?.adsRemoved
+                ? t('subscription.activeAdFree')
+                : t('subscription.freePlan')
+          }
+          icon="crown"
+          delay={165}
+        >
+          <View style={styles.subscriptionActions}>
+            <TouchableOpacity style={styles.subscriptionButton} onPress={() => openManageSubscriptions()}>
+              <Text style={styles.subscriptionButtonText}>{t('subscription.manageSubscription')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.subscriptionButtonOutline}
+              onPress={async () => {
+                const restored = await SubscriptionService.restorePurchases();
+                Alert.alert(
+                  restored ? 'Restored' : 'Restore Failed',
+                  restored ? 'Your purchases were restored.' : 'No purchases found.'
+                );
+              }}
+            >
+              <Text style={styles.subscriptionButtonOutlineText}>{t('subscription.restorePurchases')}</Text>
+            </TouchableOpacity>
+          </View>
+        </SettingCard>
 
         <SettingCard
           title="Warning Sound Level"
@@ -567,6 +637,53 @@ const styles = StyleSheet.create({
     fontSize: 12,
     paddingHorizontal: 2,
     marginTop: 2,
+  },
+  vehicleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4,
+  },
+  vehicleChip: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+  },
+  vehicleChipActive: {
+    backgroundColor: 'rgba(78, 205, 196, 0.15)',
+  },
+  subscriptionActions: {
+    gap: 8,
+    marginTop: 4,
+  },
+  subscriptionButton: {
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+    backgroundColor: 'rgba(78, 205, 196, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(78, 205, 196, 0.45)',
+  },
+  subscriptionButtonText: {
+    color: '#6EE7E3',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  subscriptionButtonOutline: {
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+  },
+  subscriptionButtonOutlineText: {
+    color: '#CBD5E1',
+    fontSize: 13,
+    fontWeight: '700',
   },
   adContainer: {
     marginTop: 12,

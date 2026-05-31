@@ -9,7 +9,7 @@ import { TAB_BAR_HEIGHT } from '../constants/layout';
 interface ProGateProps {
   title?: string;
   subtitle?: string;
-  onUpgrade?: () => void;
+  onUpgrade?: () => void | Promise<void>;
 }
 
 const ProGate: React.FC<ProGateProps> = ({

@@ -24,11 +24,24 @@ export const isAdminUser = (user?: User | null) => {
   return Boolean(email) && ADMIN_EMAILS.has(email);
 };
 
+const isSubscriptionExpired = (user?: User | null) => {
+  const expiresAt = user?.subscriptionExpiresAt;
+  if (!expiresAt) return false;
+  const expiryMs = expiresAt instanceof Date ? expiresAt.getTime() : new Date(String(expiresAt)).getTime();
+  return Number.isFinite(expiryMs) && expiryMs <= Date.now();
+};
+
+/** Weekly/yearly subscribers and ad-free purchasers (RevenueCat entitlements). */
+export const hasPaidSubscription = (user?: User | null) => {
+  if (!user) return false;
+  if (isSubscriptionExpired(user)) return false;
+  if (user.subscriptionType === 'pro' || user.subscriptionType === 'premium') return true;
+  if (user.adsRemoved) return true;
+  return false;
+};
+
 export const hasProAccess = (user?: User | null) =>
-  Boolean(user?.isAdminSession) ||
-  user?.subscriptionType === 'pro' ||
-  user?.subscriptionType === 'premium' ||
-  isAdminUser(user);
+  Boolean(user?.isAdminSession) || hasPaidSubscription(user) || isAdminUser(user);
 
 export const isPremiumAccessPending = (
   user?: User | null,

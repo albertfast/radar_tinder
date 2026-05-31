@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { SubscriptionService } from '../services/SubscriptionService';
 import {
   View,
   StyleSheet,
@@ -51,7 +53,7 @@ type DiagnosisOutput = {
 };
 
 const AIDiagnoseScreen = ({ navigation }: any) => {
-  const { user, accessBootstrapState } = useAuthStore();
+  const { user, accessBootstrapState, normalizeAccessState } = useAuthStore();
   const canUse = hasProAccess(user);
   const accessPending = isPremiumAccessPending(user, accessBootstrapState);
   const insets = useSafeAreaInsets();
@@ -93,14 +95,21 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     };
   }, [recording]);
 
+  useFocusEffect(
+    useCallback(() => {
+      SubscriptionService.syncAccessState()
+        .then(() => normalizeAccessState())
+        .catch(() => {});
+    }, [normalizeAccessState])
+  );
+
   useEffect(() => {
     if (!canUse) return;
-    
-    // iOS için gecikmeli model yükleme
+
     const loadTimeout = setTimeout(() => {
       loadModels();
     }, Platform.OS === 'ios' ? 2000 : 500);
-    
+
     return () => clearTimeout(loadTimeout);
   }, [canUse]);
 
@@ -224,7 +233,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 0.85,
     });
 
     if (!result.canceled) {
@@ -244,7 +253,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 0.85,
     });
 
     if (!result.canceled) {
@@ -287,6 +296,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       
       console.log('Starting analysis...');
       const result = (await AIService.analyzeDashboardLight(selectedImage)) as DiagnosisOutput;
+      if (!isMounted.current) return;
       setModelDiagnostics(AIService.getModelDiagnostics?.() || null);
 
       const issueLabel = (result.issue || '').toLowerCase();
@@ -307,9 +317,11 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
       }
       setModelReady(true);
       
+      if (!isMounted.current) return;
       setDiagnosis(result);
       speakDiagnosis(buildSpeechSummary(result));
     } catch (error) {
+      if (!isMounted.current) return;
       console.error('Analysis error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorCode = (error as any)?.code as AIModelErrorCode | undefined;
@@ -343,8 +355,15 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     return (
       <ProGate
         title="AI Diagnostics"
-        subtitle="Upgrade to Pro to scan dashboard lights with AI."
-        onUpgrade={() => navigation.navigate('Home', { screen: 'Subscription' })}
+        subtitle="Weekly and yearly subscribers get full AI dashboard analysis."
+        onUpgrade={async () => {
+          await SubscriptionService.syncAccessState().catch(() => {});
+          await normalizeAccessState().catch(() => {});
+          if (hasProAccess(useAuthStore.getState().user)) {
+            return;
+          }
+          navigation.navigate('Home', { screen: 'Subscription' });
+        }}
       />
     );
   }

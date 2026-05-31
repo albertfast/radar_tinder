@@ -28,6 +28,23 @@ const secureStorage = {
 };
 
 let inflightAnonymousSignIn: Promise<{ data: any; error: any }> | null = null;
+const GUEST_USER_ID_KEY = 'rt_guest_user_id_v1';
+
+const buildGuestUser = (guestId: string): User => ({
+  id: guestId,
+  email: 'guest@radartinder.local',
+  name: 'Guest Driver',
+  displayName: 'Guest Driver',
+  subscriptionType: 'free',
+  adsRemoved: false,
+  points: 0,
+  xp: 0,
+  level: 1,
+  rank: 'Rookie',
+  stats: { reports: 0, confirmations: 0, distanceDriven: 0 },
+  createdAt: new Date(),
+  updatedAt: new Date(),
+});
 
 const normalizeSubscriptionType = (value: unknown): User['subscriptionType'] => {
   if (value === 'free' || value === 'premium' || value === 'pro') {
@@ -248,6 +265,7 @@ interface AuthState {
   lastEntitlementSyncAt?: Date;
   signIn: (identifier: string, password: string) => Promise<{ data: any; error: any }>;
   signInAnonymously: () => Promise<{ data: any; error: any }>;
+  signInAsGuest: () => Promise<{ data: any; error: any }>;
   signUp: (
     email: string,
     password: string,
@@ -433,6 +451,30 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      signInAsGuest: async () => {
+        set({ isLoading: true });
+        try {
+          let guestId = await secureStorage.getItem(GUEST_USER_ID_KEY);
+          if (!guestId) {
+            guestId = `guest-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+            await secureStorage.setItem(GUEST_USER_ID_KEY, guestId);
+          }
+
+          const appUser = buildGuestUser(guestId);
+          set({
+            user: appUser,
+            isAuthenticated: true,
+            isLoading: false,
+            lastKnownEntitlement: toEntitlementSnapshot(appUser),
+            lastEntitlementSyncAt: new Date(),
+          });
+          return { data: { user: appUser }, error: null };
+        } catch (error) {
+          set({ isLoading: false });
+          return { data: null, error };
+        }
+      },
+
       signUp: async (
         email: string,
         password: string,
@@ -586,6 +628,7 @@ export const useAuthStore = create<AuthState>()(
             currentUser = get().user;
           }
           if (!currentUser) return;
+          if (currentUser.id.startsWith('guest-')) return;
 
           const profile = await SupabaseService.getProfile(currentUser.id);
           const normalizedUser = buildAppUserFromProfile({
@@ -616,6 +659,7 @@ export const useAuthStore = create<AuthState>()(
       refreshProfile: async () => {
         const currentUser = get().user;
         if (!currentUser) return;
+        if (currentUser.id.startsWith('guest-')) return;
 
         try {
           const profile = await SupabaseService.getProfile(currentUser.id);

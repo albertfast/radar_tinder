@@ -189,6 +189,16 @@ export class AdService {
   private static lastAppOpenShownAt = 0;
   private static lastPlacementShownAt: Partial<Record<AdPlacement, number>> = {};
   private static hasShownOnboardingAppOpen = false;
+  private static suppressAppOpenUntilMs = 0;
+
+  static suppressAppOpenFor(durationMs: number): void {
+    const safeMs = Math.max(0, Number(durationMs) || 0);
+    this.suppressAppOpenUntilMs = Date.now() + safeMs;
+  }
+
+  private static isAppOpenSuppressed(): boolean {
+    return Date.now() < this.suppressAppOpenUntilMs;
+  }
 
   private static resetSlot(slot: FullscreenSlotState) {
     slot.ad = null;
@@ -575,8 +585,20 @@ export class AdService {
     return result;
   }
 
+  private static isNavigationBlockedPlacement(placement: AdPlacement): boolean {
+    return (
+      placement === 'start_driving_basic' ||
+      placement === 'navigate_route' ||
+      placement === 'end_ride'
+    );
+  }
+
   private static checkInterstitialEligibility(placement: AdPlacement): AdSkipResult | null {
     if (!this.shouldShowAds()) return 'skipped_not_eligible';
+
+    if (this.isNavigationBlockedPlacement(placement)) {
+      return 'skipped_not_eligible';
+    }
 
     if (this.interstitialShownThisSession >= INTERSTITIAL_SESSION_MAX) {
       return 'skipped_session_cap';
@@ -650,6 +672,13 @@ export class AdService {
 
   private static checkAppOpenEligibility(placement: AdPlacement): AdSkipResult | null {
     if (!this.shouldShowAds()) return 'skipped_not_eligible';
+    if (this.isAppOpenSuppressed()) return 'skipped_not_eligible';
+
+    const user = useAuthStore.getState().user;
+    const isAuthenticated = useAuthStore.getState().isAuthenticated;
+    if (placement === 'app_foreground' && (!isAuthenticated || !user)) {
+      return 'skipped_not_eligible';
+    }
 
     const now = Date.now();
     if (placement === 'onboarding_location_granted' && this.hasShownOnboardingAppOpen) {

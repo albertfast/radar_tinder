@@ -521,7 +521,7 @@ export class RadarService {
     const metadata = this.readRowMetadata(row);
     const rawCountryCode = String(metadata.country_code || '').trim().toUpperCase();
     if (rawCountryCode) return rawCountryCode;
-    if (sourceKey === 'osm' || sourceKey?.startsWith('gov_')) {
+    if (sourceKey?.startsWith('gov_')) {
       return 'US';
     }
     return undefined;
@@ -534,6 +534,22 @@ export class RadarService {
       sourceLabel: radar.sourceLabel || radar.reportedBy,
       etaConfidence: radar.etaConfidence || 'unknown',
     };
+  }
+
+  private static parseOsmCountryCode(tags: any): string | undefined {
+    if (!tags) return undefined;
+    const raw = String(
+      tags['addr:country'] || tags['ISO3166-1:alpha2'] || tags['addr:country_code'] || ''
+    ).trim();
+    if (!raw) return undefined;
+    if (raw.length === 2) return raw.toUpperCase();
+    const normalized = raw.toLowerCase();
+    if (normalized === 'france') return 'FR';
+    if (normalized === 'turkey' || normalized === 'türkiye') return 'TR';
+    if (normalized === 'united states' || normalized === 'usa') return 'US';
+    if (normalized === 'germany' || normalized === 'deutschland') return 'DE';
+    if (normalized === 'united kingdom') return 'GB';
+    return undefined;
   }
 
   private static getOsmLocationLabel(tags: any): string {
@@ -580,7 +596,7 @@ export class RadarService {
       longitude: Number(lon),
       type,
       locationLabel: this.getOsmLocationLabel(tags),
-      countryCode: 'US',
+      countryCode: this.parseOsmCountryCode(tags),
       speedLimit: this.parseMaxspeed(tags),
       confidence: 1.0,
       source: 'external_osm',
@@ -859,6 +875,92 @@ export class RadarService {
     return mergeAndImproveRadars([...supabaseRadars, ...osmRadars]).map((radar) =>
       this.withRadarMetadata(radar)
     );
+  }
+
+  static async getRouteAwareRadars(params: {
+    routeCoords: Array<{ latitude: number; longitude: number }>;
+    currentLocation: { latitude: number; longitude: number; heading?: number | null };
+    speedKph: number;
+    allowedTypes?: RadarLocation['type'][];
+    maxCorridorMeters?: number;
+    maxHeadingDeltaDeg?: number;
+    minAheadMeters?: number;
+  }): Promise<NearbyRadar[]> {
+    if (params.routeCoords.length < 2) return [];
+
+    const alongRoute = await this.getRadarsAlongRoute(params.routeCoords);
+    const allowedTypes = params.allowedTypes ?? ['speed_camera'];
+    const typed = alongRoute.filter((radar) => allowedTypes.includes(radar.type));
+
+    const withDistance: NearbyRadar[] = typed.map((radar) => ({
+      ...radar,
+      distance: LocationService.calculateDistanceSync(
+        params.currentLocation.latitude,
+        params.currentLocation.longitude,
+        radar.latitude,
+        radar.longitude
+      ),
+    }));
+
+    const filtered = filterRouteRelevantRadarsInternal(withDistance, {
+      currentLocation: params.currentLocation,
+      routeCoords: params.routeCoords,
+      speedKph: params.speedKph,
+      maxCorridorMeters: params.maxCorridorMeters ?? 55,
+      maxHeadingDeltaDeg: params.maxHeadingDeltaDeg ?? 35,
+      etaSecondsWindow: [0, 3600],
+      requireEtaWindow: false,
+    });
+
+    const minAheadMeters = params.minAheadMeters ?? 0;
+    if (minAheadMeters <= 0) return filtered;
+
+    return filtered.filter((radar) => radar.distance * 1000 >= minAheadMeters);
+  }
+
+  static radiusKmFromBounds(bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  }): number {
+    const centerLat = (bounds.north + bounds.south) / 2;
+    const centerLng = (bounds.east + bounds.west) / 2;
+    const corners = [
+      { lat: bounds.north, lng: bounds.east },
+      { lat: bounds.north, lng: bounds.west },
+      { lat: bounds.south, lng: bounds.east },
+      { lat: bounds.south, lng: bounds.west },
+    ];
+    let maxKm = 3;
+    for (const corner of corners) {
+      const d = LocationService.calculateDistanceSync(centerLat, centerLng, corner.lat, corner.lng);
+      if (d > maxKm) maxKm = d;
+    }
+    return Math.min(Math.max(maxKm * 1.15, 2), 25);
+  }
+
+  static async getSpeedCamerasInViewport(params: {
+    center: { latitude: number; longitude: number };
+    bounds: { north: number; south: number; east: number; west: number };
+    radiusKm?: number;
+  }): Promise<NearbyRadar[]> {
+    const radiusKm = params.radiusKm ?? this.radiusKmFromBounds(params.bounds);
+    const nearby = await this.getNearbyRadars(
+      params.center.latitude,
+      params.center.longitude,
+      radiusKm
+    );
+
+    return nearby
+      .filter((radar) => radar.type === 'speed_camera')
+      .filter(
+        (radar) =>
+          radar.latitude <= params.bounds.north &&
+          radar.latitude >= params.bounds.south &&
+          radar.longitude <= params.bounds.east &&
+          radar.longitude >= params.bounds.west
+      );
   }
 
   private static getCachedNearbyRadars(
