@@ -1,76 +1,219 @@
+import { isSupabaseEnvMissingError, supabase } from '../../utils/supabase';
+import {
+  PermitAnswerKey,
+  PermitCategory,
+  PermitCategoryCount,
+  PermitQuestion,
+  PermitState,
+  PermitTestAnswer,
+  PermitTestAttempt,
+  VehicleCategory,
+} from '../types/permit';
 
-interface Question {
-  id: number;
-  question: string;
-  options: string[];
-  correctAnswer: string;
-  explanation: string;
-  image?: string;
+const QUESTION_SELECT = `
+  *,
+  permit_states!inner(code,name),
+  permit_categories!inner(code,name)
+`;
+
+const normalizeCode = (value: string) => value.trim().toUpperCase();
+const normalizeCategoryCode = (value: string) => value.trim().toLowerCase() as VehicleCategory;
+
+const sortCategories = (categories: PermitCategory[]) =>
+  [...categories].sort((left, right) => {
+    const byOrder = Number(left.sort_order || 0) - Number(right.sort_order || 0);
+    return byOrder || left.name.localeCompare(right.name);
+  });
+
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const next = [...array];
+  for (let i = next.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [next[i], next[j]] = [next[j], next[i]];
+  }
+  return next;
+};
+
+const toPermitError = (error: unknown) => {
+  if (isSupabaseEnvMissingError(error)) {
+    return new Error('Supabase is not configured for permit tests.');
+  }
+  return error;
+};
+
+export async function getPermitStates(): Promise<PermitState[]> {
+  const { data, error } = await supabase
+    .from('permit_states')
+    .select('*')
+    .eq('is_active', true)
+    .order('name');
+
+  if (error) throw toPermitError(error);
+  return (data || []) as PermitState[];
 }
 
-const US_STATES = [
-    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia", 
-    "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", 
-    "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", 
-    "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", 
-    "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", 
-    "West Virginia", "Wisconsin", "Wyoming"
-];
+export async function getPermitCategories(): Promise<PermitCategory[]> {
+  const query = supabase
+    .from('permit_categories')
+    .select('*')
+    .order('sort_order');
 
-const generateMockQuestions = (currentState: string) => {
-    return Array(20).fill(null).map((_, i) => ({
-        id: i + 1,
-        question: `[${currentState}] Practice Question ${i + 1}: What should you do when...`,
-        options: ["Stop immediately", "Proceed with caution", "Honk your horn", "Speed up"],
-        correctAnswer: "Proceed with caution",
-        explanation: `This is a placeholder explanation for ${currentState} question #${i + 1}. In the real app, this would be specific state law data.`
-    }));
-};
+  const { data, error } = await query.eq('is_active', true);
 
-// Populate Data for all states
-export const PERMIT_TEST_DATA: Record<string, Question[]> = {};
+  if (!error) {
+    return sortCategories((data || []) as PermitCategory[]);
+  }
 
-US_STATES.forEach(state => {
-    PERMIT_TEST_DATA[state] = generateMockQuestions(state);
-});
+  const missingIsActive =
+    typeof error.message === 'string' &&
+    error.message.toLowerCase().includes('is_active');
 
-// Override specific states with real data if available
-PERMIT_TEST_DATA['California'] = [
-    {
-      id: 1,
-      question: "It is illegal for a person 21 years of age or older to drive with a blood alcohol concentration (BAC) that is ___ or higher.",
-      options: ["0.08%", "0.10%", "0.05%"],
-      correctAnswer: "0.08%",
-      explanation: "It is illegal for any person to operate a vehicle with a BAC of 0.08% or higher, if the person is 21 years old or older."
-    },
-    {
-      id: 2,
-      question: "You must notify the DMV within 5 days if you:",
-      options: ["Sell or transfer your vehicle", "Paint your vehicle a different color", "Are cited for a traffic violation"],
-      correctAnswer: "Sell or transfer your vehicle",
-      explanation: "If you sell or transfer a vehicle, you must notify the DMV within 5 days."
-    },
-    {
-      id: 3,
-      question: "You are driving on a freeway posted for 65 MPH. Traffic is heavy and moving at 35 MPH. The best speed for your vehicle is most likely:",
-      options: ["35 MPH", "30 MPH", "25 MPH"],
-      correctAnswer: "35 MPH",
-      explanation: "Drive with the flow of traffic. Driving faster or slower than other traffic can be dangerous."
-    },
-    {
-      id: 4,
-      question: "Is it illegal to listen to music through headphones that cover both ears?",
-      options: ["Yes", "No", "Only if the volume is too loud"],
-      correctAnswer: "Yes",
-      explanation: "You may not drive continuously with headphones covering both ears."
-    },
-    ...generateMockQuestions('California').slice(4) 
-];
+  if (!missingIsActive) throw toPermitError(error);
 
-// Add NY overrides similarly...
+  const fallback = await supabase
+    .from('permit_categories')
+    .select('*')
+    .order('sort_order');
 
-export const getQuestionsForState = (state: string): Question[] => {
-    return PERMIT_TEST_DATA[state] || generateMockQuestions(state);
-};
+  if (fallback.error) throw toPermitError(fallback.error);
+  return sortCategories((fallback.data || []) as PermitCategory[]);
+}
 
-export const getAllStates = () => US_STATES;
+export async function getPermitQuestions(
+  stateCode: string,
+  categoryCode: string,
+): Promise<PermitQuestion[]> {
+  const { data, error } = await supabase
+    .from('permit_questions')
+    .select(QUESTION_SELECT)
+    .eq('permit_states.code', normalizeCode(stateCode))
+    .eq('permit_categories.code', normalizeCategoryCode(categoryCode))
+    .eq('is_active', true)
+    .order('question_number', { ascending: true });
+
+  if (error) throw toPermitError(error);
+  return (data || []) as PermitQuestion[];
+}
+
+export async function getRandomPermitQuestions(
+  stateCode: string,
+  categoryCode: string,
+  count = 20,
+): Promise<PermitQuestion[]> {
+  const questions = await getPermitQuestions(stateCode, categoryCode);
+  return shuffleArray(questions).slice(0, count);
+}
+
+export async function getPermitQuestionCount(
+  stateCode: string,
+  categoryCode: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from('permit_questions')
+    .select(QUESTION_SELECT, { count: 'exact', head: true })
+    .eq('permit_states.code', normalizeCode(stateCode))
+    .eq('permit_categories.code', normalizeCategoryCode(categoryCode))
+    .eq('is_active', true);
+
+  if (error) throw toPermitError(error);
+  return count || 0;
+}
+
+export async function getPermitCategoryCounts(
+  stateCode: string,
+  categories: PermitCategory[],
+): Promise<PermitCategoryCount[]> {
+  const counts = await Promise.all(
+    categories.map(async (category) => ({
+      categoryCode: category.code,
+      count: await getPermitQuestionCount(stateCode, category.code),
+    })),
+  );
+  return counts;
+}
+
+export async function savePermitTestAttempt(
+  attempt: Omit<PermitTestAttempt, 'id' | 'created_at' | 'permit_states' | 'permit_categories'>,
+): Promise<PermitTestAttempt> {
+  const { data, error } = await supabase
+    .from('permit_test_attempts')
+    .insert(attempt)
+    .select()
+    .single();
+
+  if (error) throw toPermitError(error);
+  return data as PermitTestAttempt;
+}
+
+export async function savePermitTestAnswers(
+  answers: Array<Omit<PermitTestAnswer, 'id' | 'created_at'>>,
+): Promise<void> {
+  if (!answers.length) return;
+
+  const { error } = await supabase
+    .from('permit_test_answers')
+    .insert(answers);
+
+  if (error) throw toPermitError(error);
+}
+
+export async function saveCompletedPermitTest(params: {
+  userId: string;
+  state: PermitState;
+  category: PermitCategory;
+  score: number;
+  totalQuestions: number;
+  correctCount: number;
+  timeTakenSeconds: number;
+  answers: Array<{
+    questionId: string;
+    selectedAnswer: PermitAnswerKey | null;
+    isCorrect: boolean;
+  }>;
+}): Promise<PermitTestAttempt> {
+  const attempt = await savePermitTestAttempt({
+    user_id: params.userId,
+    state_id: params.state.id,
+    category_id: params.category.id,
+    score: params.score,
+    total_questions: params.totalQuestions,
+    correct_count: params.correctCount,
+    time_taken_seconds: params.timeTakenSeconds,
+    completed: true,
+  });
+
+  await savePermitTestAnswers(
+    params.answers.map((answer) => ({
+      attempt_id: attempt.id,
+      question_id: answer.questionId,
+      selected_answer: answer.selectedAnswer,
+      is_correct: answer.isCorrect,
+    })),
+  );
+
+  return attempt;
+}
+
+export async function getUserPermitTestHistory(userId: string): Promise<PermitTestAttempt[]> {
+  const { data, error } = await supabase
+    .from('permit_test_attempts')
+    .select('*, permit_states(code,name), permit_categories(code,name)')
+    .eq('user_id', userId)
+    .eq('completed', true)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (error) throw toPermitError(error);
+  return (data || []) as PermitTestAttempt[];
+}
+
+export function getPermitQuestionOptions(question: PermitQuestion) {
+  return [
+    { key: 'A' as const, text: question.option_a },
+    { key: 'B' as const, text: question.option_b },
+    { key: 'C' as const, text: question.option_c },
+    { key: 'D' as const, text: question.option_d },
+  ].filter((option): option is { key: PermitAnswerKey; text: string } =>
+    Boolean(option.text && String(option.text).trim()),
+  );
+}
