@@ -768,6 +768,38 @@ export class AIService {
     return dashboardSessionPromise;
   }
 
+  private static base64ToUint8Array(base64String: string): Uint8Array {
+    const base64 = base64String.replace(/-/g, '+').replace(/_/g, '/');
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const lookup = new Uint8Array(256);
+    for (let i = 0; i < chars.length; i++) {
+      lookup[chars.charCodeAt(i)] = i;
+    }
+    
+    const cleanBase64 = base64.replace(/=+$/, '');
+    const len = cleanBase64.length;
+    const bufferLength = Math.floor(len * 0.75);
+    const bytes = new Uint8Array(bufferLength);
+    
+    let p = 0;
+    for (let i = 0; i < len; i += 4) {
+      const encoded1 = lookup[cleanBase64.charCodeAt(i)] || 0;
+      const encoded2 = lookup[cleanBase64.charCodeAt(i + 1)] || 0;
+      const encoded3 = lookup[cleanBase64.charCodeAt(i + 2)] || 0;
+      const encoded4 = lookup[cleanBase64.charCodeAt(i + 3)] || 0;
+      
+      const bytes1 = (encoded1 << 2) | (encoded2 >> 4);
+      const bytes2 = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+      const bytes3 = ((encoded3 & 3) << 6) | encoded4;
+      
+      if (p < bufferLength) bytes[p++] = bytes1;
+      if (i + 2 < len && p < bufferLength) bytes[p++] = bytes2;
+      if (i + 3 < len && p < bufferLength) bytes[p++] = bytes3;
+    }
+    
+    return bytes;
+  }
+
 
   private static async detectWarningLightCrops(
     baseUri: string,
@@ -796,7 +828,7 @@ export class AIService {
     if (!resized.base64) return [];
 
     const jpeg = require('jpeg-js');
-    const jpegData = require('buffer').Buffer.from(resized.base64 || '', 'base64');
+    const jpegData = this.base64ToUint8Array(resized.base64 || '');
     const decoded = jpeg.decode(jpegData, { useTArray: true });
     const width = decoded.width;
     const height = decoded.height;
@@ -1440,7 +1472,7 @@ export class AIService {
     // Actually, properly decoding JPEG in pure JS without a library is complex.
     // Let's use 'jpeg-js' which I installed.
     const jpeg = require('jpeg-js');
-    const jpegData = require('buffer').Buffer.from(base64 || '', 'base64');
+    const jpegData = this.base64ToUint8Array(base64 || '');
     const decoded = jpeg.decode(jpegData, { useTArray: true }); // returns { width, height, data } (RGBA)
     
     let pixelIndex = 0;
@@ -1484,7 +1516,7 @@ export class AIService {
       // Try jpeg-js first
       try {
         const jpeg = require('jpeg-js');
-        const buffer = require('buffer').Buffer.from(base64 || '', 'base64');
+        const buffer = this.base64ToUint8Array(base64 || '');
         const decoded = jpeg.decode(buffer, { useTArray: true });
         
         if (decoded && decoded.data && decoded.data.length > 0) {
@@ -1518,7 +1550,7 @@ export class AIService {
       // Fallback: Use a simple normalization pattern for grayscale estimation
       // This creates a tensor where we normalize the base64 string bytes directly
       // It's not perfect, but prevents the model from crashing
-      const bytes = require('buffer').Buffer.from(base64 || '', 'base64');
+      const bytes = this.base64ToUint8Array(base64 || '');
       const channelSize = width * height;
       const meanVals = mean.length === 3 ? mean : [0.485, 0.456, 0.406];
       const stdVals = std.length === 3 ? std : [0.229, 0.224, 0.225];

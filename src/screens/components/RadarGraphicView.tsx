@@ -40,8 +40,7 @@ const emptyWeeklyTrips = [
 type SpeedPoint = { time: string; speed: number; trips?: number };
 
 const isRouteSpeedCameraAlert = (alert: any) =>
-  Boolean(alert?.routeMatched) &&
-  (alert.type === 'speed_camera' || alert.type === 'fixed' || alert.markerKind === 'camera');
+  Boolean(alert?.routeMatched);
 
 export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   totalDistance,

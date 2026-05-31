@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
-import MAP_HTML from '../../utils/mapHtml';
+import { buildMapHtml } from '../../utils/mapHtml';
 import { resolveSpeedCameraMarkerUri } from '../../../../native/SpeedCameraMarker';
 
 export { useMapBridge } from './map-bridge';
@@ -14,6 +14,7 @@ interface MapViewProps {
   onOverlayMarkerPress?: (markerId: string) => void;
   onViewportChange?: (viewport: MapViewport) => void;
   webViewRef?: React.RefObject<WebView | null>;
+  initialLocation?: { lat: number; lng: number } | null;
 }
 
 export default function MapView({
@@ -22,10 +23,15 @@ export default function MapView({
   onOverlayMarkerPress,
   onViewportChange,
   webViewRef,
+  initialLocation,
 }: MapViewProps) {
   const internalRef = useRef<WebView | null>(null);
   const resolvedRef = webViewRef ?? internalRef;
   const speedCameraIconUriRef = useRef('');
+
+  const htmlSource = React.useMemo(() => {
+    return buildMapHtml('', initialLocation || undefined);
+  }, []); // Only build once on WebView mount to prevent reloading
 
   useEffect(() => {
     let mounted = true;
@@ -76,7 +82,7 @@ export default function MapView({
       <WebView
         ref={resolvedRef}
         originWhitelist={['*']}
-        source={{ html: MAP_HTML, baseUrl: 'https://mapflow.local' }}
+        source={{ html: htmlSource, baseUrl: 'https://mapflow.local' }}
         style={styles.webview}
         onMessage={handleMessage}
         scrollEnabled={false}

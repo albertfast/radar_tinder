@@ -723,9 +723,7 @@ export class BackgroundService {
       }
       const etaConfidence = speedFromSensorKph != null ? 'high' : inferredSpeedKph != null ? 'medium' : 'low';
 
-      const alertCandidates = routeMode
-        ? nearbyRadars.filter((radar) => radar.type === 'speed_camera')
-        : nearbyRadars;
+      const alertCandidates = nearbyRadars;
 
       const alerts = [];
       for (const radar of alertCandidates) {

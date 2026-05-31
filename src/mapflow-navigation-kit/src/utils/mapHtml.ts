@@ -1,6 +1,8 @@
 import { MAP_ROUTE_COLORS, MAP_ROAD_MOTORWAY, MAP_WATERWAY_COLOR } from './mapTheme';
 
-export function buildMapHtml(initialSpeedCameraIconUri = ''): string {
+export function buildMapHtml(initialSpeedCameraIconUri = '', initialCenter?: { lat: number; lng: number }): string {
+  const centerLng = initialCenter ? initialCenter.lng : -122.4194;
+  const centerLat = initialCenter ? initialCenter.lat : 37.7749;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,38 +17,30 @@ export function buildMapHtml(initialSpeedCameraIconUri = ''): string {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body, #map { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
     body { background: #06111d; }
-    .maplibregl-ctrl-top-left,
+    .maplibregl-ctrl,
+    .maplibregl-ctrl-group,
+    .maplibregl-ctrl-attrib,
+    .maplibregl-ctrl-attrib-button,
+    .maplibregl-compact,
+    .maplibregl-ctrl-logo,
+    .mapboxgl-ctrl,
+    .mapboxgl-ctrl-group,
+    .mapboxgl-ctrl-attrib,
+    .mapboxgl-ctrl-logo,
+    .maplibregl-ctrl-bottom-right,
+    .maplibregl-ctrl-bottom-left,
     .maplibregl-ctrl-top-right,
-    .maplibregl-ctrl-bottom-left { display: none !important; }
-    .maplibregl-ctrl-bottom-right { right: 12px !important; bottom: 154px !important; }
-    .maplibregl-ctrl-group {
-      border-radius: 14px !important;
-      overflow: hidden;
-      border: 1px solid rgba(138, 166, 211, 0.14) !important;
-      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35) !important;
-      background: rgba(9, 20, 37, 0.9) !important;
-      backdrop-filter: blur(14px);
+    .maplibregl-ctrl-top-left,
+    .maplibregl-ctrl-attrib a,
+    a.maplibregl-ctrl-logo,
+    .maplibregl-attrib-empty {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      width: 0 !important;
+      height: 0 !important;
     }
-    .maplibregl-ctrl-group button {
-      width: 42px !important;
-      height: 42px !important;
-      background: transparent !important;
-    }
-    .maplibregl-ctrl-group button span {
-      filter: brightness(0) saturate(100%) invert(88%) sepia(4%) saturate(1211%) hue-rotate(181deg) brightness(98%) contrast(92%) !important;
-    }
-    .maplibregl-ctrl-attrib {
-      right: auto !important;
-      left: 12px !important;
-      bottom: 12px !important;
-      background: rgba(9, 20, 37, 0.74) !important;
-      border-radius: 10px !important;
-      padding: 2px 8px !important;
-      color: #9bb0cb !important;
-      font-size: 10px !important;
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24) !important;
-    }
-    .maplibregl-ctrl-attrib a { color: #c7d5ea !important; }
     .maplibregl-popup { display: none !important; }
   </style>
 </head>
@@ -159,16 +153,17 @@ export function buildMapHtml(initialSpeedCameraIconUri = ''): string {
     var map = new maplibregl.Map({
       container: 'map',
       style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-      center: [-74.006, 40.7128],
+      center: [${centerLng}, ${centerLat}],
       zoom: 14,
       pitch: 0,
       bearing: 0,
       maxPitch: 0,
-      attributionControl: true,
+      attributionControl: false,
       canvasContextAttributes: { antialias: true },
     });
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
+    // Hidden built-in NavigationControl completely
+    // map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
 
     function send(type, payload) {
       if (window.ReactNativeWebView) {
@@ -275,7 +270,7 @@ export function buildMapHtml(initialSpeedCameraIconUri = ''): string {
       wrapper.innerHTML = buildVehicleMarkerHtml(nextId);
       userMarkerElement = wrapper.firstChild;
       userMarker = new maplibregl.Marker({ element: userMarkerElement, anchor: 'center' })
-        .setLngLat([-74.006, 40.7128])
+        .setLngLat([${centerLng}, ${centerLat}])
         .addTo(map);
 
       return userMarkerElement;

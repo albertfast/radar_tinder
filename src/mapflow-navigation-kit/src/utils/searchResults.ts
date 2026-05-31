@@ -66,6 +66,7 @@ export function toSearchResult(
     sourceKind,
     isSaved,
     provider: sourceKind,
+    type: destination.label || null,
   };
 }
 

@@ -1,6 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SearchResult, StoredDestination } from '../types/map';
 import { buildStoredDestinationId, isSameSearchResult, toStoredDestination } from '../utils/searchResults';
+import { supabase } from '../../../../utils/supabase';
+
+const mapPlaceKindToLabel: Record<string, string> = {
+  home: 'Home',
+  work: 'Work',
+  school: 'School',
+};
+
+const mapLabelToPlaceKind: Record<string, string> = {
+  Home: 'home',
+  Work: 'work',
+  School: 'school',
+};
 
 const RECENT_DESTINATIONS_KEY = 'recent_destinations_v1';
 const SAVED_DESTINATIONS_KEY = 'saved_destinations_v1';
@@ -41,6 +54,7 @@ function sanitizeCollection(rawValue: string | null): StoredDestination[] {
           lng,
           savedAt: typeof item?.savedAt === 'string' ? item.savedAt : undefined,
           usedAt: typeof item?.usedAt === 'string' ? item.usedAt : undefined,
+          label: typeof item?.label === 'string' ? item.label : undefined,
         };
 
         return destination;
@@ -90,6 +104,44 @@ export async function loadDestinationCollections(): Promise<DestinationCollectio
     loadCollection(SAVED_DESTINATIONS_KEY),
   ]);
 
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (user && !user.id.startsWith('guest-')) {
+      const { data, error } = await supabase
+        .from('user_saved_places')
+        .select('place_kind, name, address, latitude, longitude, created_at, updated_at')
+        .eq('user_id', user.id);
+
+      if (data && !error) {
+        const supabasePresets: StoredDestination[] = data.map((item) => ({
+          id: `supabase-${item.place_kind}`,
+          name: item.name,
+          address: item.address,
+          lat: item.latitude,
+          lng: item.longitude,
+          label: mapPlaceKindToLabel[item.place_kind] || item.place_kind,
+          savedAt: item.created_at,
+          usedAt: item.updated_at,
+        }));
+
+        const nonPresetSaved = savedDestinations.filter(
+          (item) => !item.label || !['Home', 'Work', 'School'].includes(item.label)
+        );
+
+        const mergedSaved = [...supabasePresets, ...nonPresetSaved];
+        await saveCollection(SAVED_DESTINATIONS_KEY, mergedSaved);
+
+        return {
+          recentDestinations,
+          savedDestinations: mergedSaved,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[destinationStorage] Failed to sync saved places with Supabase:', err);
+  }
+
   return {
     recentDestinations,
     savedDestinations,
@@ -116,6 +168,14 @@ export async function toggleSavedDestination(
   const existing = current.find((item) => isSameSearchResult(item, result));
 
   if (existing) {
+    if (existing.label && ['Home', 'Work', 'School'].includes(existing.label)) {
+      const next = await deletePresetAddress(existing.label);
+      return {
+        savedDestinations: next,
+        isSaved: false,
+      };
+    }
+
     const next = current.filter((item) => !isSameSearchResult(item, result));
     await saveCollection(SAVED_DESTINATIONS_KEY, next);
     return {
@@ -135,4 +195,114 @@ export async function toggleSavedDestination(
     savedDestinations: next,
     isSaved: true,
   };
+}
+
+export async function clearRecentDestinations(): Promise<StoredDestination[]> {
+  await AsyncStorage.removeItem(RECENT_DESTINATIONS_KEY);
+  return [];
+}
+
+export async function clearSavedDestinations(): Promise<StoredDestination[]> {
+  await AsyncStorage.removeItem(SAVED_DESTINATIONS_KEY);
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (user && !user.id.startsWith('guest-')) {
+      const { error } = await supabase
+        .from('user_saved_places')
+        .delete()
+        .eq('user_id', user.id);
+      if (error) {
+        console.error('[destinationStorage] Supabase clearSavedDestinations error:', error);
+      }
+    }
+  } catch (err) {
+    console.warn('[destinationStorage] Failed to clear saved places from Supabase:', err);
+  }
+  return [];
+}
+
+
+export async function savePresetAddress(
+  label: string,
+  result: Pick<SearchResult, 'name' | 'address' | 'lat' | 'lng'>,
+): Promise<StoredDestination[]> {
+  const current = await loadCollection(SAVED_DESTINATIONS_KEY);
+  const now = new Date().toISOString();
+  
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    const placeKind = mapLabelToPlaceKind[label];
+    if (user && placeKind && !user.id.startsWith('guest-')) {
+      // Bulletproof: delete any existing preset of this kind first to prevent unique check RLS upsert bugs
+      await supabase
+        .from('user_saved_places')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('place_kind', placeKind);
+
+      // Insert fresh clean row
+      const { error } = await supabase
+        .from('user_saved_places')
+        .insert({
+          user_id: user.id,
+          place_kind: placeKind,
+          name: result.name,
+          address: result.address,
+          latitude: result.lat,
+          longitude: result.lng,
+          updated_at: now,
+        });
+
+      if (error) {
+        console.error('[destinationStorage] Supabase savePreset insert error:', error);
+      }
+    }
+  } catch (err) {
+    console.warn('[destinationStorage] Failed to save preset to Supabase:', err);
+  }
+
+  let next = current.filter((item) => item.label !== label && !isSameSearchResult(item, result));
+  
+  const entry: StoredDestination = {
+    id: `supabase-${mapLabelToPlaceKind[label] || label}`,
+    name: result.name,
+    address: result.address,
+    lat: result.lat,
+    lng: result.lng,
+    savedAt: now,
+    usedAt: now,
+    label: label,
+  };
+  
+  next = [entry, ...next];
+  await saveCollection(SAVED_DESTINATIONS_KEY, next);
+  return next;
+}
+
+export async function deletePresetAddress(label: string): Promise<StoredDestination[]> {
+  const current = await loadCollection(SAVED_DESTINATIONS_KEY);
+  
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    const placeKind = mapLabelToPlaceKind[label];
+    if (user && placeKind && !user.id.startsWith('guest-')) {
+      const { error } = await supabase
+        .from('user_saved_places')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('place_kind', placeKind);
+      if (error) {
+        console.error('[destinationStorage] Supabase delete error:', error);
+      }
+    }
+  } catch (err) {
+    console.warn('[destinationStorage] Failed to delete preset from Supabase:', err);
+  }
+
+  const next = current.filter((item) => item.label !== label);
+  await saveCollection(SAVED_DESTINATIONS_KEY, next);
+  return next;
 }

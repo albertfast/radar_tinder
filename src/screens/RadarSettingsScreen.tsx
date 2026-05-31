@@ -430,23 +430,7 @@ const RadarSettingsScreen = ({ navigation }: any) => {
           </LinearGradient>
         </Animated.View>
 
-        <SettingCard
-          title="Build Fingerprint"
-          subtitle={`v${appVersion} • build ${nativeBuildVersion}`}
-          icon="fingerprint"
-          delay={470}
-          right={
-            <Text style={styles.fingerprintValue} numberOfLines={1}>
-              {buildFingerprint}
-            </Text>
-          }
-        >
-          <View style={styles.buildMetaBlock}>
-            <Text style={styles.buildMetaText}>Runtime: {runtimeVersion}</Text>
-            <Text style={styles.buildMetaText}>Commit: {gitCommitShort}</Text>
-            <Text style={styles.buildMetaText}>Timestamp: {buildTimestampMs}</Text>
-          </View>
-        </SettingCard>
+
 
         <Text style={styles.footerHint}>
           Settings are stored on device. Distance unit syncs to profile when logged in.
@@ -559,21 +543,6 @@ const styles = StyleSheet.create({
     color: '#6EE7E3',
     fontSize: 12,
     fontWeight: '700',
-  },
-  fingerprintValue: {
-    color: '#67E8F9',
-    fontSize: 10,
-    fontWeight: '700',
-    maxWidth: 168,
-    textAlign: 'right',
-  },
-  buildMetaBlock: {
-    marginTop: 2,
-    gap: 4,
-  },
-  buildMetaText: {
-    color: '#93C5FD',
-    fontSize: 11,
   },
   volumeRow: {
     flexDirection: 'row',

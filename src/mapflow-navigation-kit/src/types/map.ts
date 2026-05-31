@@ -31,6 +31,7 @@ export interface StoredDestination {
   lng: number;
   savedAt?: string;
   usedAt?: string;
+  label?: string;
 }
 
 export interface RouteStep {

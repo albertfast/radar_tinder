@@ -12,11 +12,13 @@ import { SearchResult, SearchResultsSection } from '../../types/map';
 import { formatDistance } from '../../utils/units';
 
 const PLACE_ICONS: Record<string, string> = {
+  home: '🏠',
+  work: '💼',
+  school: '🏫',
   restaurant: '🍽️',
   cafe: '☕',
   hotel: '🏨',
   hospital: '🏥',
-  school: '🏫',
   park: '🌳',
   fuel: '⛽',
   parking: '🅿️',
@@ -37,6 +39,9 @@ function getTypeIcon(type?: string | null): string {
 function getTypeLabel(type?: string | null): string | null {
   if (!type) return null;
   const normalizedType = type.toLowerCase();
+  if (normalizedType === 'home') return 'Home';
+  if (normalizedType === 'work') return 'Work';
+  if (normalizedType === 'school') return 'School';
   if (normalizedType.includes('restaurant')) return 'Restaurant';
   if (normalizedType.includes('cafe')) return 'Cafe';
   if (normalizedType.includes('hospital')) return 'Hospital';
@@ -51,6 +56,9 @@ interface SearchResultsProps {
   sections: SearchResultsSection[];
   onSelect: (result: SearchResult) => void;
   onToggleSaved: (result: SearchResult) => void;
+  onClearRecents?: () => void;
+  onClearSaved?: () => void;
+  hideHeaders?: boolean;
   unitSystem: 'metric' | 'imperial';
   footerText?: string;
 }
@@ -59,10 +67,28 @@ export default memo(function SearchResults({
   sections,
   onSelect,
   onToggleSaved,
+  onClearRecents,
+  onClearSaved,
+  hideHeaders = false,
   unitSystem,
   footerText,
 }: SearchResultsProps) {
-  if (sections.length === 0) return null;
+  const isEmpty = sections.length === 0 || sections.every((s) => s.data.length === 0);
+
+  if (isEmpty) {
+    if (hideHeaders) return null;
+    return (
+      <View style={styles.container}>
+        <View style={styles.emptyContainer}>
+          <MaterialIcons name="bookmark-border" size={36} color={COLORS.textMuted} />
+          <Text style={styles.emptyTitle}>No saved locations yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Search for places and tap the bookmark icon to save them.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -72,12 +98,27 @@ export default memo(function SearchResults({
         keyboardShouldPersistTaps="handled"
         stickySectionHeadersEnabled={false}
         style={styles.list}
-        renderSectionHeader={({ section }) => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <Text style={styles.sectionCount}>{section.data.length}</Text>
-          </View>
-        )}
+        renderSectionHeader={({ section }) => {
+          if (hideHeaders) return null;
+          return (
+            <View style={styles.sectionHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Text style={styles.sectionTitle}>{section.title}</Text>
+                {section.key === 'recent' && onClearRecents && (
+                  <TouchableOpacity onPress={onClearRecents} style={styles.clearAllBtn} activeOpacity={0.7} hitSlop={8}>
+                    <Text style={styles.clearAllText}>Clear All</Text>
+                  </TouchableOpacity>
+                )}
+                {section.key === 'saved' && onClearSaved && (
+                  <TouchableOpacity onPress={onClearSaved} style={styles.clearAllBtn} activeOpacity={0.7} hitSlop={8}>
+                    <Text style={styles.clearAllText}>Clear All</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <Text style={styles.sectionCount}>{section.data.length}</Text>
+            </View>
+          );
+        }}
         renderItem={({ item }) => (
           <View style={styles.item}>
             <TouchableOpacity
@@ -271,5 +312,40 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: COLORS.textMuted,
     fontFamily: 'System',
+  },
+  clearAllBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(239, 68, 68, 0.24)',
+  },
+  clearAllText: {
+    fontSize: 10,
+    color: '#EF4444',
+    fontWeight: '600',
+    fontFamily: 'System',
+  },
+  emptyContainer: {
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginTop: 10,
+    marginBottom: 4,
+    fontFamily: 'System',
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    fontFamily: 'System',
+    lineHeight: 18,
   },
 });

@@ -4,8 +4,12 @@ import {
   StyleSheet,
   ActivityIndicator,
   Keyboard,
+  TouchableOpacity,
+  Modal,
+  Text,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import MapView, { useMapBridge } from './components/map/MapView.native';
 import SearchBar from './components/navigation/SearchBar';
@@ -14,11 +18,8 @@ import NavigationPanel from './components/navigation/NavigationPanel';
 import SpeedIndicator from './components/navigation/SpeedIndicator';
 import IconButton from './components/ui/IconButton';
 
-import { useLocation } from './hooks/useLocation';
 import { useGeocoding } from './hooks/useGeocoding';
 import { useRouting } from './hooks/useRouting';
-import { useSpeedLimits } from './hooks/useSpeedLimits';
-import { useNavigationTracking } from './hooks/useNavigationTracking';
 import { useNavigation } from './hooks/useNavigation';
 
 import { useNavigationStore } from './stores/navigationStore';
@@ -31,6 +32,10 @@ import {
   loadDestinationCollections,
   recordRecentDestination,
   toggleSavedDestination,
+  clearRecentDestinations,
+  clearSavedDestinations,
+  savePresetAddress,
+  deletePresetAddress,
 } from './services/destinationStorage';
 import {
   buildBrowseSections,
@@ -57,9 +62,11 @@ export default function MapFlowNavigationScreen({
   const searchResultsTop = searchBarTop + 66;
   const [mapReady, setMapReady] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [showSavedList, setShowSavedList] = useState(false);
   const [savedDestinations, setSavedDestinations] = useState<StoredDestination[]>([]);
   const [recentDestinations, setRecentDestinations] = useState<StoredDestination[]>([]);
   const [selectedDestinationResult, setSelectedDestinationResult] = useState<SearchResult | null>(null);
+
   const hasCenteredInitialLocation = useRef(false);
   const lastDestinationKey = useRef<string | null>(null);
   const rerouteAtRef = useRef(0);
@@ -87,9 +94,52 @@ export default function MapFlowNavigationScreen({
     setIsOffRoute,
   } = useNavigationStore();
 
-  useLocation();
-  useSpeedLimits();
-  useNavigationTracking();
+  const handleToggleSavedList = useCallback(() => {
+    setShowSavedList((current) => {
+      setIsSearchFocused(false);
+      Keyboard.dismiss();
+      return !current;
+    });
+  }, []);
+
+  // Save/Label Modal Dialog States
+  const [saveDialogVisible, setSaveDialogVisible] = useState(false);
+  const [saveDialogTarget, setSaveDialogTarget] = useState<SearchResult | null>(null);
+  const [labelDialogVisible, setLabelDialogVisible] = useState(false);
+
+  const handleOpenSaveDialog = useCallback((result: SearchResult) => {
+    setSaveDialogTarget(result);
+    setSaveDialogVisible(true);
+  }, []);
+
+  const handleRemoveSaved = useCallback(async () => {
+    if (!saveDialogTarget) return;
+    const next = await toggleSavedDestination(saveDialogTarget);
+    setSavedDestinations(next.savedDestinations);
+    setSaveDialogVisible(false);
+    setSaveDialogTarget(null);
+  }, [saveDialogTarget]);
+
+  const handleSaveBookmarkDirect = useCallback(async () => {
+    if (!saveDialogTarget) return;
+    const next = await toggleSavedDestination(saveDialogTarget);
+    setSavedDestinations(next.savedDestinations);
+    setSaveDialogVisible(false);
+    setSaveDialogTarget(null);
+  }, [saveDialogTarget]);
+
+  const handleOpenLabelDialog = useCallback(() => {
+    setSaveDialogVisible(false);
+    setLabelDialogVisible(true);
+  }, []);
+
+  const handleSavePresetDirect = useCallback(async (label: string) => {
+    if (!saveDialogTarget) return;
+    const next = await savePresetAddress(label, saveDialogTarget);
+    setSavedDestinations(next);
+    setLabelDialogVisible(false);
+    setSaveDialogTarget(null);
+  }, [saveDialogTarget]);
 
   const { calculateRoute } = useRouting();
   const savedSearchResults = useMemo(
@@ -185,6 +235,7 @@ export default function MapFlowNavigationScreen({
       setSearchQuery(result.name);
       setSearchResults([]);
       setIsSearchFocused(false);
+      setShowSavedList(false);
       Keyboard.dismiss();
       navigateTo(result.lat, result.lng, result.name);
       recordRecentDestination(result)
@@ -202,6 +253,11 @@ export default function MapFlowNavigationScreen({
 
   const handleMapClick = useCallback(
     async (lat: number, lng: number) => {
+      if (showSavedList) {
+        setShowSavedList(false);
+        return;
+      }
+      setIsSearchFocused(false);
       if (!isNavigating) {
         Keyboard.dismiss();
         try {
@@ -229,7 +285,7 @@ export default function MapFlowNavigationScreen({
         }
       }
     },
-    [commitDestinationSelection, isNavigating],
+    [commitDestinationSelection, isNavigating, showSavedList],
   );
 
   useEffect(() => {
@@ -433,6 +489,7 @@ export default function MapFlowNavigationScreen({
 
   const handleSearchFocus = useCallback(() => {
     setIsSearchFocused(true);
+    setShowSavedList(false);
   }, []);
 
   const handleSearchBlur = useCallback(() => {
@@ -441,6 +498,9 @@ export default function MapFlowNavigationScreen({
 
   const handleChangeQuery = useCallback(
     (query: string) => {
+      if (showSavedList) {
+        setShowSavedList(false);
+      }
       if (suppressSearchUntilEditRef.current && committedSearchQueryRef.current !== query.trim()) {
         suppressSearchUntilEditRef.current = false;
         committedSearchQueryRef.current = null;
@@ -455,7 +515,7 @@ export default function MapFlowNavigationScreen({
 
       setSearchQuery(query);
     },
-    [selectedDestinationResult, setSearchQuery],
+    [selectedDestinationResult, setSearchQuery, showSavedList],
   );
 
   const handleClearSearch = useCallback(() => {
@@ -465,7 +525,18 @@ export default function MapFlowNavigationScreen({
     setSearchQuery('');
     setSearchResults([]);
     setIsSearchFocused(true);
+    setShowSavedList(false);
   }, [setSearchQuery, setSearchResults]);
+
+  const handleClearRecents = useCallback(async () => {
+    const updated = await clearRecentDestinations();
+    setRecentDestinations(updated);
+  }, []);
+
+  const handleClearSaved = useCallback(async () => {
+    const updated = await clearSavedDestinations();
+    setSavedDestinations(updated);
+  }, []);
 
   const activeDestinationResult = useMemo(() => {
     if (selectedDestinationResult) {
@@ -494,25 +565,28 @@ export default function MapFlowNavigationScreen({
   );
 
   const handleToggleSaved = useCallback(
-    async (result: SearchResult) => {
-      const next = await toggleSavedDestination(result);
-      setSavedDestinations(next.savedDestinations);
-      setSelectedDestinationResult((current) => {
-        if (!current || !isSameSearchResult(current, result)) {
-          return current;
-        }
-
-        return {
-          ...current,
-          isSaved: next.isSaved,
-        };
-      });
+    (result: SearchResult) => {
+      handleOpenSaveDialog(result);
     },
-    [],
+    [handleOpenSaveDialog],
   );
 
   const searchSections = useMemo(() => {
-    if (isNavigating || !isSearchFocused) {
+    if (isNavigating) {
+      return [];
+    }
+
+    if (showSavedList) {
+      return [
+        {
+          key: 'saved' as const,
+          title: 'Saved Locations',
+          data: savedSearchResults,
+        },
+      ];
+    }
+
+    if (!isSearchFocused) {
       return [];
     }
 
@@ -529,6 +603,7 @@ export default function MapFlowNavigationScreen({
   }, [
     isNavigating,
     isSearchFocused,
+    showSavedList,
     recentSearchResults,
     savedSearchResults,
     searchQuery,
@@ -547,6 +622,14 @@ export default function MapFlowNavigationScreen({
     [sanitizedOverlayMarkers],
   );
 
+  if (!userLocation) {
+    return (
+      <View style={styles.welcome}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
   const showResults = searchSections.length > 0 && !isNavigating;
   const showProviderFooter = searchQuery.trim().length >= 2 && searchSections.some((section) => section.key === 'network');
 
@@ -558,6 +641,7 @@ export default function MapFlowNavigationScreen({
         onMapClick={handleMapClick}
         onOverlayMarkerPress={handleOverlayMarkerPress}
         onViewportChange={onViewportChange}
+        initialLocation={userLocation}
       />
 
       <View style={styles.overlay}>
@@ -571,6 +655,8 @@ export default function MapFlowNavigationScreen({
             onBlur={handleSearchBlur}
             isSearching={isSearching}
             topOffset={searchBarTop}
+            onToggleSavedList={handleToggleSavedList}
+            isSavedListActive={showSavedList}
           />
         )}
 
@@ -580,30 +666,49 @@ export default function MapFlowNavigationScreen({
               sections={searchSections}
               onSelect={handleSelectPlace}
               onToggleSaved={handleToggleSaved}
+              onClearRecents={handleClearRecents}
+              onClearSaved={handleClearSaved}
+              hideHeaders={showSavedList}
               unitSystem={unitSystem}
               footerText={showProviderFooter ? 'Live search via free provider fallbacks' : undefined}
             />
           </View>
         )}
 
-        {!isNavigating && (
-          <View style={[styles.fabColumn, { top: searchResultsTop + 70 }]}>
-            <IconButton icon="explore" onPress={handleMyLocation} />
-          </View>
-        )}
+        {/* Floating Custom Map Controls (Zoom +, Zoom -, Re-Center) */}
+        <View style={[styles.customMapControls, { bottom: isNavigating ? 130 : 96 }]}>
+          <TouchableOpacity
+            style={styles.controlButton}
+            onPress={() => {
+              webViewRef.current?.injectJavaScript("if (typeof map !== 'undefined') { map.zoomIn(); } true;");
+            }}
+          >
+            <MaterialCommunityIcons name="plus" size={24} color="#F8FAFC" />
+          </TouchableOpacity>
 
-        {isNavigating && (
-          <View style={[styles.fabColumn, { top: topChromeOffset + 96 }]}>
-            <IconButton icon="crosshairs-gps" onPress={handleMyLocation} color={COLORS.primary} />
-          </View>
-        )}
+          <TouchableOpacity
+            style={styles.controlButton}
+            onPress={() => {
+              webViewRef.current?.injectJavaScript("if (typeof map !== 'undefined') { map.zoomOut(); } true;");
+            }}
+          >
+            <MaterialCommunityIcons name="minus" size={24} color="#F8FAFC" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.controlButton, { marginTop: 4 }]}
+            onPress={handleMyLocation}
+          >
+            <MaterialCommunityIcons name="crosshairs-gps" size={22} color="#06B6D4" />
+          </TouchableOpacity>
+        </View>
 
         <SpeedIndicator />
 
         <NavigationPanel
           onStartNavigation={handleStartNavigation}
           onStopNavigation={handleStopNavigation}
-          onToggleSavedDestination={activeDestinationResult ? () => void handleToggleSaved(activeDestinationResult) : undefined}
+          onToggleSavedDestination={activeDestinationResult ? () => handleToggleSaved(activeDestinationResult) : undefined}
           isSavedDestination={isActiveDestinationSaved}
           topOffset={Math.max(0, topChromeOffset - (insets.top + 8))}
         />
@@ -619,6 +724,76 @@ export default function MapFlowNavigationScreen({
             <ActivityIndicator size="large" color={COLORS.primary} />
           </View>
         )}
+
+        {/* PREMIUM SAVE DESTINATION DIALOG MODAL */}
+        <Modal
+          visible={saveDialogVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setSaveDialogVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.dialogCard}>
+              <Text style={styles.dialogTitle}>Save destination</Text>
+              <Text style={styles.dialogSubtitle} numberOfLines={1}>
+                {saveDialogTarget?.name}
+              </Text>
+              
+              <View style={styles.dialogActionsHorizontal}>
+                {saveDialogTarget && savedDestinations.some(item => isSameSearchResult(item, saveDialogTarget)) ? (
+                  <TouchableOpacity onPress={handleRemoveSaved} style={styles.dialogBtn}>
+                    <Text style={[styles.dialogBtnText, styles.dialogBtnDangerText]}>REMOVE SAVED</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={handleSaveBookmarkDirect} style={styles.dialogBtn}>
+                    <Text style={styles.dialogBtnText}>SAVE BOOKMARK</Text>
+                  </TouchableOpacity>
+                )}
+                
+                <TouchableOpacity onPress={handleOpenLabelDialog} style={styles.dialogBtn}>
+                  <Text style={styles.dialogBtnText}>SET LABEL</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity onPress={() => setSaveDialogVisible(false)} style={styles.dialogBtn}>
+                  <Text style={[styles.dialogBtnText, styles.dialogBtnCancelText]}>CANCEL</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* PREMIUM LABEL DESTINATION DIALOG MODAL */}
+        <Modal
+          visible={labelDialogVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setLabelDialogVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.dialogCard}>
+              <Text style={styles.dialogTitle}>Label destination</Text>
+              <Text style={styles.dialogSubtitle} numberOfLines={1}>
+                {saveDialogTarget?.name}
+              </Text>
+              
+              <View style={styles.dialogActionsHorizontal}>
+                <TouchableOpacity onPress={() => handleSavePresetDirect('Home')} style={styles.labelOptionBtn}>
+                  <Text style={styles.labelOptionText}>HOME</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleSavePresetDirect('Work')} style={styles.labelOptionBtn}>
+                  <Text style={styles.labelOptionText}>WORK</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleSavePresetDirect('School')} style={styles.labelOptionBtn}>
+                  <Text style={styles.labelOptionText}>SCHOOL</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <TouchableOpacity onPress={() => setLabelDialogVisible(false)} style={styles.labelCancelBtn}>
+                <Text style={styles.labelCancelText}>CANCEL</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </View>
   );
@@ -627,11 +802,36 @@ export default function MapFlowNavigationScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    width: '100%',
+    height: '100%',
+    alignSelf: 'stretch',
     backgroundColor: COLORS.bg,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     pointerEvents: 'box-none',
+  },
+  customMapControls: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 30,
+    gap: 8,
+    alignItems: 'center',
+  },
+  controlButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderWidth: 1,
+    borderColor: '#334155',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   fabColumn: {
     position: 'absolute',
@@ -657,5 +857,93 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 50,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 6, 23, 0.76)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dialogCard: {
+    width: '88%',
+    borderRadius: 24,
+    padding: 24,
+    backgroundColor: 'rgba(15, 23, 42, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(88, 214, 216, 0.22)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  dialogTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#F8FAFC',
+    marginBottom: 6,
+    fontFamily: 'System',
+  },
+  dialogSubtitle: {
+    fontSize: 13,
+    color: '#94A3B8',
+    marginBottom: 24,
+    fontFamily: 'System',
+  },
+  dialogActionsHorizontal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  dialogBtn: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(45, 212, 191, 0.12)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(45, 212, 191, 0.24)',
+  },
+  dialogBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#2DD4BF',
+    fontFamily: 'System',
+  },
+  dialogBtnDangerText: {
+    color: '#F87171',
+  },
+  dialogBtnCancelText: {
+    color: '#94A3B8',
+  },
+  labelOptionBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  labelOptionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#E2E8F0',
+    fontFamily: 'System',
+  },
+  labelCancelBtn: {
+    marginTop: 14,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  labelCancelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+    fontFamily: 'System',
   },
 });
