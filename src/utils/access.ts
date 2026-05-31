@@ -43,12 +43,11 @@ export const hasPaidSubscription = (user?: User | null) => {
 export const hasProAccess = (user?: User | null) =>
   Boolean(user?.isAdminSession) || hasPaidSubscription(user) || isAdminUser(user);
 
+/** Subscription sync runs in the background; never block UI with a loading gate. */
 export const isPremiumAccessPending = (
-  user?: User | null,
-  accessBootstrapState?: AccessBootstrapState
-) =>
-  !hasProAccess(user) &&
-  (accessBootstrapState === 'idle' || accessBootstrapState === 'resolving');
+  _user?: User | null,
+  _accessBootstrapState?: AccessBootstrapState
+) => false;
 
 export const isAdFreeLimited = (user?: User | null) =>
   !isAdminUser(user) &&

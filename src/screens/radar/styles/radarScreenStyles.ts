@@ -29,7 +29,7 @@ export const radarScreenStyles = StyleSheet.create({
   statLabel: { color: '#94A3B8', fontSize: 11, letterSpacing: 0.4 },
   statValue: { color: '#F8FAFC', fontWeight: '800', fontSize: 15 },
   statHint: { color: '#94A3B8', fontSize: 10, marginTop: 3, fontWeight: '600' },
-  startButton: { marginTop: 6, borderRadius: 18, overflow: 'hidden', shadowColor: '#2DD4BF', shadowRadius: 16, shadowOpacity: 0.38, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
+  startButton: { marginTop: 6, borderRadius: 18, overflow: 'hidden', shadowColor: '#FF5252', shadowRadius: 16, shadowOpacity: 0.45, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
   startButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
   startText: { color: '#FFFFFF', fontWeight: '900', fontSize: 17, letterSpacing: 0.5 },
   startSubtext: { color: '#F8FAFC', opacity: 0.8, fontSize: 12, marginTop: 4 },

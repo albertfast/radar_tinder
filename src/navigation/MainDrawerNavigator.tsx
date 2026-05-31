@@ -26,6 +26,7 @@ const CustomDrawerContent = (props: any) => {
     { icon: 'car-cog', label: 'AI Diagnosis', screen: 'Diagnose', color: '#4ECDC4' },
     { icon: 'book-open-variant', label: 'Permit Test', screen: 'Permit', color: '#96CEB4' },
     { icon: 'trophy-outline', label: 'Leaderboard', screen: 'Leaderboard', color: '#FFD700' },
+    { icon: 'crown', label: 'Subscription', screen: 'Subscription', color: '#F5C842' },
   ];
 
   const secondaryItems = [

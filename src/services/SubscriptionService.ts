@@ -189,9 +189,58 @@ export class SubscriptionService {
     }
   }
 
+  private static getPaidEntitlementIds(): string[] {
+    const premiumId = (process.env.EXPO_PUBLIC_RC_ENTITLEMENT_PREMIUM || 'premium').trim();
+    return [...new Set([RC_ENTITLEMENT_PRO, RC_ENTITLEMENT_REMOVE_ADS, premiumId].filter(Boolean))];
+  }
+
   private static hasEntitlement(customerInfo: CustomerInfo, entitlementId: string): boolean {
     if (!entitlementId) return false;
-    return Boolean((customerInfo as any)?.entitlements?.active?.[entitlementId]);
+    const entitlement = (customerInfo as any)?.entitlements?.active?.[entitlementId];
+    if (!entitlement) return false;
+    const expiresAt = parseOptionalDate(entitlement?.expirationDate);
+    if (expiresAt && expiresAt.getTime() <= Date.now()) return false;
+    return true;
+  }
+
+  /** Only configured RevenueCat paid entitlements (Play/App Store purchase), not arbitrary active keys. */
+  private static customerInfoHasPaidEntitlement(customerInfo: CustomerInfo): boolean {
+    return this.getPaidEntitlementIds().some((entitlementId) =>
+      this.hasEntitlement(customerInfo, entitlementId)
+    );
+  }
+
+  private static async clearLocalPaidAccess(source: string): Promise<void> {
+    const authState = useAuthStore.getState();
+    const user = authState.user;
+    if (!user?.id) return;
+
+    authState.applyEntitlementSnapshot({
+      userId: user.id,
+      subscriptionType: 'free',
+      adsRemoved: false,
+      subscriptionExpiresAt: undefined,
+      accountLinkRequiredUntil: undefined,
+      rcCustomerId: user.rcCustomerId,
+      syncedAt: new Date(),
+    });
+
+    try {
+      await this.persistSubscriptionSnapshot({
+        subscriptionType: 'free',
+        adsRemoved: false,
+        subscriptionExpiresAt: undefined,
+        rcCustomerId: user.rcCustomerId,
+        accountLinkRequiredUntil: undefined,
+      });
+    } catch (error) {
+      console.warn('Failed to clear subscription snapshot:', error);
+    }
+
+    await AnalyticsService.trackEvent('subscription_sync_result', {
+      result: 'cleared',
+      source,
+    }).catch(() => {});
   }
 
   private static getSubscriptionExpiration(customerInfo: CustomerInfo): Date | undefined {
@@ -434,8 +483,12 @@ export class SubscriptionService {
 
       await this.ensureRevenueCatUserIdentity();
       const customerInfo = await bindings.Purchases.restorePurchases();
+      const hasStorePurchase = this.customerInfoHasPaidEntitlement(customerInfo);
       await this.updateUserSubscriptionStatus(customerInfo, 'restore');
-      return hasPaidSubscription(useAuthStore.getState().user);
+      if (!hasStorePurchase) {
+        await this.clearLocalPaidAccess('restore_no_purchase');
+      }
+      return hasStorePurchase;
     } catch (error: any) {
       if (this.isInvalidCredentialsError(error)) {
         this.markInvalidCredentials(error, 'restore');
@@ -515,14 +568,13 @@ export class SubscriptionService {
     const authState = useAuthStore.getState();
     const { user } = authState;
 
-    const activeEntitlements = (customerInfo as any)?.entitlements?.active || {};
-    const hasAnyActiveEntitlement = Object.keys(activeEntitlements).length > 0;
     const isPro = this.hasEntitlement(customerInfo, RC_ENTITLEMENT_PRO);
     const hasRemoveAds = this.hasEntitlement(customerInfo, RC_ENTITLEMENT_REMOVE_ADS);
-    const adsRemoved = isPro || hasRemoveAds || hasAnyActiveEntitlement;
+    const hasPaidEntitlement = this.customerInfoHasPaidEntitlement(customerInfo);
+    const adsRemoved = hasPaidEntitlement;
     const subscriptionType: 'free' | 'premium' | 'pro' = isPro
       ? 'pro'
-      : hasAnyActiveEntitlement || hasRemoveAds
+      : hasPaidEntitlement
         ? 'premium'
         : 'free';
     const subscriptionExpiresAt = this.getSubscriptionExpiration(customerInfo);
