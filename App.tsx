@@ -10,6 +10,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppState, View, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 
 import { 
   MaterialCommunityIcons, 
@@ -99,10 +101,23 @@ export default function App() {
     setAccessBootstrapState,
   } = useAuthStore();
   const [authBootstrapComplete, setAuthBootstrapComplete] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const lastRevenueCatUserIdRef = useRef<string | null>(null);
   const hasSettingsHydrated = useSettingsStore((state) => state.hasHydrated);
   const voiceWarningsEnabled = useSettingsStore((state) => state.voiceWarningsEnabled);
   const warningVolume = useSettingsStore((state) => state.warningVolume);
+
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      try {
+        const value = await AsyncStorage.getItem('has_seen_onboarding');
+        setShowOnboarding(value !== 'true');
+      } catch (e) {
+        setShowOnboarding(false);
+      }
+    };
+    checkOnboarding();
+  }, []);
   
   // Load all icon fonts using useFonts hook
   const [fontsLoaded] = useFonts({
@@ -358,8 +373,8 @@ export default function App() {
     }
   }, [isAuthenticated, user]);
 
-  // Don't render until fonts are loaded
-  if (!fontsLoaded || !authBootstrapComplete) {
+  // Don't render until fonts are loaded and onboarding state is checked
+  if (!fontsLoaded || !authBootstrapComplete || showOnboarding === null) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0F1A' }}>
         <ActivityIndicator size="large" color="#4ECDC4" />
@@ -373,8 +388,12 @@ export default function App() {
         <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
             <PaperProvider theme={combinedDarkTheme}>
-              <NavigationContainer
-                theme={combinedDarkTheme as any}
+              <StatusBar style="light" />
+              {showOnboarding ? (
+                <OnboardingScreen onComplete={() => setShowOnboarding(false)} />
+              ) : (
+                <NavigationContainer
+                  theme={combinedDarkTheme as any}
                 linking={{
                   prefixes: [prefix, 'radartinder://'],
                   config: {
@@ -441,6 +460,7 @@ export default function App() {
                   )}
                 </Stack.Navigator>
               </NavigationContainer>
+              )}
             </PaperProvider>
           </QueryClientProvider>
         </SafeAreaProvider>

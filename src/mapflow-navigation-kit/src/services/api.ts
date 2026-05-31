@@ -821,29 +821,29 @@ function adjustDurationForRoadReality(distance: number, duration: number, steps:
   let multiplier = 1;
 
   if (distanceKm <= 15) {
-    multiplier += Math.min(0.28, stepDensity * 0.08);
+    multiplier += Math.min(0.08, stepDensity * 0.03);
   }
 
   if (avgKph > 24) {
-    const speedPenaltyCap = distanceKm < 3 ? 0.28 : 0.42;
+    const speedPenaltyCap = distanceKm < 3 ? 0.04 : 0.06;
     multiplier += Math.min(speedPenaltyCap, ((avgKph - 24) / 18) * speedPenaltyCap);
   }
 
   if (distanceKm <= 12 && stepDensity > 0.7) {
-    multiplier += 0.18;
+    multiplier += 0.04;
   }
 
   if (distanceKm <= 3) {
-    multiplier = Math.min(multiplier, 1.65);
+    multiplier = Math.min(multiplier, 1.15);
   } else if (distanceKm <= 12) {
-    multiplier = Math.min(multiplier, 1.85);
+    multiplier = Math.min(multiplier, 1.18);
   } else {
-    multiplier = Math.min(multiplier, 1.45);
+    multiplier = Math.min(multiplier, 1.10);
   }
 
   const stopPenaltySeconds = Math.min(
-    distanceKm < 3 ? steps.length * 12 : steps.length * 18,
-    distanceKm < 3 ? 90 : 180,
+    distanceKm < 3 ? steps.length * 4 : steps.length * 5,
+    distanceKm < 3 ? 24 : 45,
   );
 
   return Math.max(duration, duration * multiplier + stopPenaltySeconds);
@@ -1112,7 +1112,6 @@ function parseMaxspeed(maxspeed: string, countryCode?: string | null): { value: 
 
 export async function searchPlaces(query: string, lat?: number, lng?: number) {
   const context = await getSearchContext(lat, lng);
-  const queryVariants = buildSearchQueries(query, context);
   const options = {
     query,
     lat,
@@ -1122,6 +1121,34 @@ export async function searchPlaces(query: string, lat?: number, lng?: number) {
   };
   const collected: SearchResult[] = [];
   const providers: string[] = [];
+
+  // Parallel raw search for optimal address results from Photon and Nominatim first (free and robust)
+  try {
+    const [photonRes, nominatimRes] = await Promise.allSettled([
+      searchPhoton(options),
+      searchNominatim(options),
+    ]);
+    
+    if (photonRes.status === 'fulfilled' && photonRes.value.length > 0) {
+      collected.push(...photonRes.value);
+      providers.push('photon');
+    }
+    if (nominatimRes.status === 'fulfilled' && nominatimRes.value.length > 0) {
+      collected.push(...nominatimRes.value);
+      providers.push('nominatim');
+    }
+  } catch (rawSearchError) {
+    console.warn('Raw search query failed, using context variants fallback:', rawSearchError);
+  }
+
+  if (collected.length >= options.limit) {
+    return {
+      results: dedupeAndRank(collected, query, lat, lng, options.limit),
+      providers,
+    };
+  }
+
+  const queryVariants = buildSearchQueries(query, context);
 
   for (const variant of queryVariants) {
     const variantOptions = {

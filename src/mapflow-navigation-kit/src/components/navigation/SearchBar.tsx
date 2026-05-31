@@ -17,6 +17,8 @@ interface SearchBarProps {
   onBlur: () => void;
   isSearching: boolean;
   topOffset: number;
+  onToggleSavedList?: () => void;
+  isSavedListActive?: boolean;
 }
 
 export default memo(function SearchBar({
@@ -28,6 +30,8 @@ export default memo(function SearchBar({
   onBlur,
   isSearching,
   topOffset,
+  onToggleSavedList,
+  isSavedListActive,
 }: SearchBarProps) {
   const hasValue = value.trim().length > 0;
 
@@ -39,7 +43,9 @@ export default memo(function SearchBar({
         </TouchableOpacity>
 
         <View style={styles.inputContainer}>
-          <MaterialIcons name="search" size={20} color="#a9bbd5" style={styles.searchIcon} />
+          <TouchableOpacity onPress={onToggleSavedList} style={styles.menuButton} activeOpacity={0.7} hitSlop={12}>
+            <MaterialIcons name="menu" size={24} color={isSavedListActive ? COLORS.primary : "#a9bbd5"} />
+          </TouchableOpacity>
           <TextInput
             style={styles.input}
             placeholder="Search places, addresses..."
@@ -111,8 +117,11 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 12,
   },
-  searchIcon: {
+  menuButton: {
     marginLeft: 16,
+    marginRight: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: {
     flex: 1,
@@ -121,7 +130,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     fontFamily: 'System',
-    paddingHorizontal: 14,
+    paddingHorizontal: 8,
   },
   clearButton: {
     marginRight: 16,

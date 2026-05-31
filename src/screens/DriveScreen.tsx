@@ -10,6 +10,9 @@ import { SupabaseService } from '../services/SupabaseService';
 import {
   MapFlowNavigationScreen,
   useNavigationStore,
+  useLocation,
+  useSpeedLimits,
+  useNavigationTracking,
   type MapOverlayMarker,
 } from '../mapflow-navigation-kit';
 import { useAuthStore } from '../store/authStore';
@@ -49,6 +52,11 @@ const calculateDisplaySpeed = (speedMetersPerSecond: number, unitSystem: 'imperi
   Math.max(0, speedMetersPerSecond * (unitSystem === 'imperial' ? 2.23694 : 3.6));
 
 const DriveScreen = ({ navigation, route }: any) => {
+  // Unified, persistent background synchronization for Driving tabs
+  useLocation();
+  useSpeedLimits();
+  useNavigationTracking();
+
   const { user } = useAuthStore();
   const canUsePro = hasProAccess(user);
   const userLocation = useNavigationStore((state) => state.userLocation);
@@ -406,23 +414,44 @@ const DriveScreen = ({ navigation, route }: any) => {
 
   return (
     <View style={styles.container}>
-      {renderMode === 'Graphic' ? (
-        <LinearGradient colors={['#020617', '#020617']} style={StyleSheet.absoluteFill} />
-      ) : renderMode === 'Basic' ? (
+      {/* Map Tab Container */}
+      <View style={[styles.tabContent, renderMode !== 'Map' && styles.hiddenContent]}>
+        <MapFlowNavigationScreen
+          overlayMarkers={overlayMarkers}
+          topOverlayOffset={chromeTopOffset}
+        />
+      </View>
+
+      {/* Basic Tab Container */}
+      <View style={[styles.tabContent, renderMode !== 'Basic' && styles.hiddenContent]}>
         <RadarBasicTab
           nearbyRadars={nearbyRadars}
           topContentInset={chromeTopOffset}
           bottomContentInset={Math.max(insets.bottom, 16)}
           unitSystem={unitSystem}
         />
+      </View>
+
+      {/* Graphic Tab Container */}
+      {canUsePro ? (
+        <View style={[styles.tabContent, renderMode !== 'Graphic' && styles.hiddenContent]}>
+          <RadarGraphicView
+            totalDistance={tripDistanceKm}
+            drivingStartTime={driveStartTime}
+            currentSpeed={currentSpeedDisplay}
+            unitSystem={unitSystem}
+            topOverlayInset={chromeTopOffset + 8}
+            onUpgrade={handleOpenSubscription}
+          />
+        </View>
       ) : (
-        <MapFlowNavigationScreen
-          overlayMarkers={overlayMarkers}
-          topOverlayOffset={chromeTopOffset}
-        />
+        renderMode === 'Graphic' && (
+          <LinearGradient colors={['#020617', '#020617']} style={StyleSheet.absoluteFill} />
+        )
       )}
 
-      <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+      {/* Floating Header and Switcher Tabs with permanent high zIndex */}
+      <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 100 }]}>
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity onPress={handleNavigateHome} style={styles.headerButton}>
             <MaterialCommunityIcons name="home-variant" size={22} color="#F8FAFC" />
@@ -453,19 +482,6 @@ const DriveScreen = ({ navigation, route }: any) => {
             ))}
           </View>
         </View>
-
-        {renderMode === 'Graphic' && canUsePro ? (
-          <View style={styles.graphicWrap}>
-            <RadarGraphicView
-              totalDistance={tripDistanceKm}
-              drivingStartTime={driveStartTime}
-              currentSpeed={currentSpeedDisplay}
-              unitSystem={unitSystem}
-              topOverlayInset={chromeTopOffset + 8}
-              onUpgrade={handleOpenSubscription}
-            />
-          </View>
-        ) : null}
       </View>
     </View>
   );
@@ -541,5 +557,15 @@ const styles = StyleSheet.create({
   },
   graphicWrap: {
     flex: 1,
+  },
+  tabContent: {
+    flex: 1,
+  },
+  hiddenContent: {
+    display: 'none',
+    position: 'absolute',
+    width: 0,
+    height: 0,
+    opacity: 0,
   },
 });

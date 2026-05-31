@@ -547,6 +547,14 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
           </Text>
         </Surface>
 
+        {/* Warning Disclaimer Box */}
+        <Surface style={[styles.infoBox, { borderColor: '#EAB308', marginTop: 14, borderWidth: 1 }]} elevation={1}>
+          <MaterialCommunityIcons name="alert-circle" size={24} color="#EAB308" />
+          <Text style={[styles.infoText, { color: '#FADF7F' }]}>
+            AI can make mistakes. Please verify important information and consult a professional mechanic.
+          </Text>
+        </Surface>
+
       </ScrollView>
     </View>
     </ErrorBoundary>
