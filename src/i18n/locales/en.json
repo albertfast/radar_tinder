@@ -51,5 +51,29 @@
   "settings": {
     "vehicleIcon": "Map vehicle icon",
     "vehicleIconHint": "Shown on the map when driving"
+  },
+  "navigation": {
+    "saveDestination": "Save destination",
+    "saveBookmark": "SAVE BOOKMARK",
+    "removeSaved": "REMOVE SAVED",
+    "setLabel": "SET LABEL",
+    "labelDestination": "Label destination",
+    "home": "HOME",
+    "work": "WORK",
+    "school": "SCHOOL",
+    "cancel": "CANCEL",
+    "noSavedTitle": "No saved locations yet",
+    "noSavedSubtitle": "Search for places and tap the bookmark icon to save them.",
+    "clearAll": "Clear All",
+    "savedLocations": "Saved Locations",
+    "recentLocations": "Recent Locations",
+    "upcomingRadars": "UPCOMING ROUTE RADARS",
+    "noRadars": "Scanning nearby roads for cameras...",
+    "limit": "LIMIT",
+    "active": "Active",
+    "onRoute": "on route",
+    "oneOnRoute": "1 on route",
+    "radarsOnRoute": "{{count}} on route",
+    "liveSearch": "Live search via free provider fallbacks"
   }
 }

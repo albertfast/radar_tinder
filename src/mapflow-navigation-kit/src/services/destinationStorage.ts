@@ -114,7 +114,7 @@ export async function loadDestinationCollections(): Promise<DestinationCollectio
         .eq('user_id', user.id);
 
       if (data && !error) {
-        const supabasePresets: StoredDestination[] = data.map((item) => ({
+        const supabasePresets: StoredDestination[] = data.map((item: any) => ({
           id: `supabase-${item.place_kind}`,
           name: item.name,
           address: item.address,
