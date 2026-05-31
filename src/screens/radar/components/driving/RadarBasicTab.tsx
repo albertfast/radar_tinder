@@ -202,7 +202,7 @@ export function RadarBasicTab({
     const approach = describeRadarApproach(Number(radar?.distance), displayUnitSystem);
     const label = radar?.locationLabel || resolvedLabels[radar?.id] || radar?.locationHint || '';
     const locationDescriptor = describeRadarLocation(label);
-    return locationDescriptor ? `${approach} | ${locationDescriptor}` : approach;
+    return locationDescriptor ? `${locationDescriptor} • ${approach}` : approach;
   };
 
   return (
@@ -262,103 +262,44 @@ export function RadarBasicTab({
         </LinearGradient>
       ) : null}
 
-      <LinearGradient
-        colors={['rgba(6,12,25,0.96)', 'rgba(4,9,19,0.93)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.dashboardCard}
-      >
-        <Text style={styles.eyebrow}>BASIC DASHBOARD</Text>
-
-        <View style={styles.speedometerWrap}>
-          <SpeedometerAnimation
-            speed={currentSpeedValue}
-            unitSystem={displayUnitSystem}
-            speedLimit={limitDisplay}
-            style={styles.speedometer3d}
-          />
-        </View>
-
-        <View style={styles.pillRow}>
-          <View style={styles.metaPill}>
-            <MaterialCommunityIcons name="radar" size={16} color="#4ECDC4" />
-            <Text style={styles.metaPillText}>
-              {sortedRadars.length === 1 ? '1 radar' : `${sortedRadars.length} radars`}
-            </Text>
-          </View>
-          <View style={styles.metaPill}>
-            <View style={[styles.liveDot, { backgroundColor: riskColor }]} />
-            <Text style={styles.metaPillText}>{riskLabel}</Text>
-          </View>
-          <View style={styles.metaPill}>
-            <MaterialCommunityIcons name="map-marker-distance" size={16} color="#38BDF8" />
-            <Text style={styles.metaPillText}>
-              {closestRadar
-                ? `${formatRadarDistanceAdaptive(Number(closestRadar.distance || 0), displayUnitSystem)} to nearest`
-                : 'No immediate cameras'}
+      {/* Floating Speedometer Container - Sleek & Unboxed */}
+      <View style={styles.speedometerContainer}>
+        <SpeedometerAnimation
+          speed={currentSpeedValue}
+          unitSystem={displayUnitSystem}
+          speedLimit={limitDisplay}
+          style={styles.speedometer3d}
+        />
+        
+        {/* Absolute Centered Speed Limit Pill Overlay inside gauge */}
+        <View style={styles.limitOverlay}>
+          <View style={styles.limitPill}>
+            <Text style={styles.limitLabel}>LIMIT</Text>
+            <Text style={[styles.limitValue, { color: speedTone }]}>
+              {limitDisplay ?? '--'}
             </Text>
           </View>
         </View>
+      </View>
 
-        <View style={styles.kpiRow}>
-          <LinearGradient
-            colors={['rgba(26,32,52,0.95)', 'rgba(11,16,30,0.95)']}
-            style={styles.kpiCard}
-          >
-            <Text style={styles.kpiLabel}>Closest camera</Text>
-            <Text style={styles.kpiValue}>
-              {closestRadar
-                ? formatRadarDistanceAdaptive(Number(closestRadar.distance || 0), displayUnitSystem)
-                : '--'}
-            </Text>
-            <Text style={styles.kpiHint} numberOfLines={2}>
-              {closestLocationDescriptor || 'Waiting for location intelligence'}
-            </Text>
-          </LinearGradient>
-
-          <LinearGradient
-            colors={['rgba(36,22,32,0.95)', 'rgba(18,12,22,0.95)']}
-            style={styles.kpiCard}
-          >
-            <Text style={styles.kpiLabel}>Threat level</Text>
-            <Text style={[styles.kpiValue, { color: riskColor }]}>{riskLabel}</Text>
-            <Text style={styles.kpiHint}>
-              {closestRadar
-                ? describeRadarApproach(Number(closestRadar.distance || 0), displayUnitSystem)
-                : 'No active threats in your lane'}
-            </Text>
-          </LinearGradient>
+      {/* Modern Dashboard Pill Row */}
+      <View style={styles.pillRow}>
+        <View style={styles.metaPill}>
+          <MaterialCommunityIcons name="radar" size={16} color="#38BDF8" />
+          <Text style={styles.metaPillText}>
+            {sortedRadars.length === 1 ? '1 on route' : `${sortedRadars.length} on route`}
+          </Text>
         </View>
+        <View style={styles.metaPill}>
+          <View style={[styles.liveDot, { backgroundColor: riskColor }]} />
+          <Text style={styles.metaPillText}>{riskLabel}</Text>
+        </View>
+      </View>
 
-        <LinearGradient
-          colors={['rgba(9,22,32,0.95)', 'rgba(6,14,22,0.95)']}
-          style={styles.limitPanel}
-        >
-          <View style={styles.limitHeaderRow}>
-            <Text style={styles.limitTitle}>SPEED LIMIT BOARD</Text>
-            <View style={styles.limitSourceChip}>
-              <Text style={styles.limitSourceText}>{limitDisplay ? 'Live' : 'Waiting'}</Text>
-            </View>
-          </View>
-          <View style={styles.limitBody}>
-            <View style={styles.limitSign}>
-              <Text style={styles.limitSignTop}>LIMIT</Text>
-              <Text style={[styles.limitSignValue, { color: speedTone }]}>{limitDisplay ?? '--'}</Text>
-              <Text style={styles.limitSignUnit}>{currentSpeedUnit}</Text>
-            </View>
-            <View style={styles.limitCopy}>
-              <Text style={[styles.limitStatus, { color: speedTone }]}>
-                {isCriticalOverspeed ? 'Reduce speed now' : isOverspeed ? 'Watch your speed' : 'Stable driving pace'}
-              </Text>
-              <Text style={styles.limitSub}>{speedLimitSubtitle}</Text>
-            </View>
-          </View>
-        </LinearGradient>
-      </LinearGradient>
-
+      {/* Upcoming Radars Section matching mockup exactly */}
       <View style={styles.listSection}>
         <View style={styles.listHeader}>
-          <Text style={styles.listTitle}>NEARBY CAMERAS</Text>
+          <Text style={styles.listTitle}>UPCOMING ROUTE RADARS</Text>
           <View style={styles.listCount}>
             <Text style={styles.listCountText}>{displayRadars.length}</Text>
           </View>
@@ -370,11 +311,13 @@ export function RadarBasicTab({
             const accent = getCardAccent(distanceKm);
 
             return (
-              <LinearGradient
+              <View
                 key={radar?.id || `radar-${index}`}
-                colors={['rgba(12,18,30,0.94)', 'rgba(9,14,26,0.94)']}
-                style={[styles.radarCard, { borderColor: `${accent}44` }]}
+                style={styles.radarCard}
               >
+                {/* Custom Left Accent Border Stripe */}
+                <View style={[styles.radarCardAccentBar, { backgroundColor: accent }]} />
+                
                 <View style={styles.radarIconWrap}>
                   <MaterialCommunityIcons
                     name={radar?.type === 'police' ? 'alarm-light' : radar?.type === 'red_light' ? 'traffic-light' : 'camera-outline'}
@@ -388,17 +331,17 @@ export function RadarBasicTab({
                     {getRadarSubtitle(radar)}
                   </Text>
                 </View>
-                <View style={[styles.radarDistanceBadge, { backgroundColor: `${accent}24` }]}>
+                <View style={[styles.radarDistanceBadge, { backgroundColor: `${accent}16` }]}>
                   <Text style={[styles.radarDistanceText, { color: accent }]}>
                     {formatRadarDistanceAdaptive(distanceKm, displayUnitSystem)}
                   </Text>
                 </View>
-              </LinearGradient>
+              </View>
             );
           })
         ) : (
           <View style={styles.emptyState}>
-            <MaterialCommunityIcons name="radar" size={24} color="#4ECDC4" />
+            <MaterialCommunityIcons name="radar" size={24} color="#38BDF8" />
             <Text style={styles.emptyStateText}>Scanning nearby roads for cameras...</Text>
           </View>
         )}
@@ -413,15 +356,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#020617',
   },
   content: {
-    paddingHorizontal: 14,
-    gap: 12,
+    paddingHorizontal: 16,
+    gap: 16,
   },
   navCard: {
     borderRadius: 18,
     borderWidth: 1,
     borderColor: 'rgba(56,189,248,0.22)',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   navCardRow: {
     flexDirection: 'row',
@@ -476,238 +424,104 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(251,113,133,0.22)',
   },
-  dashboardCard: {
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(78,205,196,0.18)',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    overflow: 'hidden',
-    gap: 12,
-  },
-  eyebrow: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-  },
-  speedometerWrap: {
-    width: '100%',
-    borderRadius: 22,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(78,205,196,0.18)',
-    backgroundColor: 'rgba(2,6,23,0.92)',
+  speedometerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 4,
+    position: 'relative',
+    alignSelf: 'center',
+    width: 320,
+    height: 320,
   },
   speedometer3d: {
-    width: '100%',
-    height: 300,
-    borderRadius: 22,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'transparent',
   },
-  speedDialWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  speedDialOuter: {
-    width: 258,
-    height: 258,
-    borderRadius: 129,
-    borderWidth: 1,
-    borderColor: 'rgba(78,205,196,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(3,10,24,0.84)',
-  },
-  speedDialOrbit: {
+  limitOverlay: {
     position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
-  },
-  speedDialSweep: {
-    position: 'absolute',
-    width: 122,
-    height: 4,
-    backgroundColor: '#4ECDC4',
-    borderRadius: 3,
-    top: 127,
-    left: 129,
-    opacity: 0.75,
-  },
-  speedDialInner: {
-    width: 176,
-    height: 176,
-    borderRadius: 88,
-    borderWidth: 4,
-    borderColor: 'rgba(78,205,196,0.78)',
+    bottom: 32,
+    left: 0,
+    right: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(6,13,28,0.95)',
   },
-  speedValue: {
-    color: '#FFFFFF',
-    fontSize: 58,
-    fontWeight: '900',
-    lineHeight: 62,
+  limitPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(148,163,184,0.16)',
+    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  speedUnit: {
+  limitLabel: {
     color: '#94A3B8',
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 4,
-    letterSpacing: 1,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  limitValue: {
+    fontSize: 15,
+    fontWeight: '900',
+    fontFamily: 'System',
   },
   pillRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 12,
     justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: -8,
+    marginBottom: 8,
   },
   metaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.26)',
-    backgroundColor: 'rgba(10,18,35,0.75)',
+    borderColor: 'rgba(148,163,184,0.18)',
+    backgroundColor: 'rgba(15, 23, 42, 0.44)',
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   metaPillText: {
     color: '#E2E8F0',
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
   },
   liveDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
-  kpiRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  kpiCard: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.22)',
-    paddingHorizontal: 11,
-    paddingVertical: 10,
-    minHeight: 98,
-  },
-  kpiLabel: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-  },
-  kpiValue: {
-    color: '#F8FAFC',
-    fontSize: 24,
-    fontWeight: '900',
-    marginTop: 4,
-  },
-  kpiHint: {
-    color: '#CBD5E1',
-    fontSize: 11,
-    marginTop: 4,
-  },
-  limitPanel: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.24)',
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    gap: 9,
-  },
-  limitHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  limitTitle: {
-    color: '#67E8F9',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  limitSourceChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.25)',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(15,23,42,0.8)',
-  },
-  limitSourceText: {
-    color: '#CBD5E1',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  limitBody: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  limitSign: {
-    width: 102,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
-    backgroundColor: 'rgba(255,255,255,0.94)',
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  limitSignTop: {
-    color: '#0F172A',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-  limitSignValue: {
-    fontSize: 32,
-    fontWeight: '900',
-    lineHeight: 36,
-    marginTop: 2,
-  },
-  limitSignUnit: {
-    color: '#334155',
-    fontSize: 11,
-    fontWeight: '800',
-    marginTop: -1,
-  },
-  limitCopy: {
-    flex: 1,
-  },
-  limitStatus: {
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  limitSub: {
-    color: '#CBD5E1',
-    fontSize: 12,
-    marginTop: 3,
-    fontWeight: '600',
-  },
   listSection: {
-    gap: 9,
+    gap: 12,
   },
   listHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 2,
-    marginTop: 2,
+    paddingHorizontal: 4,
+    marginTop: 6,
   },
   listTitle: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 1.1,
   },
   listCount: {
@@ -727,13 +541,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   radarCard: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    borderColor: 'rgba(148,163,184,0.06)',
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
+    gap: 12,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  radarCardAccentBar: {
+    position: 'absolute',
+    left: 0,
+    top: 14,
+    bottom: 14,
+    width: 3.5,
+    borderRadius: 2,
   },
   radarIconWrap: {
     width: 40,
@@ -742,6 +572,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.04)',
+    marginLeft: 4,
   },
   radarCopy: {
     flex: 1,
@@ -753,27 +584,28 @@ const styles = StyleSheet.create({
   },
   radarSubtitle: {
     color: '#94A3B8',
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 12,
+    marginTop: 3,
     lineHeight: 16,
   },
   radarDistanceBadge: {
-    borderRadius: 11,
+    borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 7,
-    minWidth: 74,
+    paddingVertical: 6,
+    minWidth: 70,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   radarDistanceText: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '900',
   },
   emptyState: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(78,205,196,0.24)',
+    borderColor: 'rgba(56,189,248,0.2)',
     backgroundColor: 'rgba(7,14,28,0.88)',
-    paddingVertical: 16,
+    paddingVertical: 24,
     alignItems: 'center',
     gap: 8,
   },

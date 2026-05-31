@@ -51,5 +51,29 @@
   "settings": {
     "vehicleIcon": "Harita araç simgesi",
     "vehicleIconHint": "Sürüşte haritada gösterilir"
+  },
+  "navigation": {
+    "saveDestination": "Adresi kaydet",
+    "saveBookmark": "YER İŞARETİ YAP",
+    "removeSaved": "KAYDEDİLENİ SİL",
+    "setLabel": "ETİKET EKLE",
+    "labelDestination": "Adres etiketi seçin",
+    "home": "EV",
+    "work": "İŞ",
+    "school": "OKUL",
+    "cancel": "İPTAL",
+    "noSavedTitle": "Henüz kayıtlı adres yok",
+    "noSavedSubtitle": "Yerleri aratıp yanındaki yıldız/kaydet butonuna basarak buraya ekleyebilirsiniz.",
+    "clearAll": "Temizle",
+    "savedLocations": "Kayıtlı Adresler",
+    "recentLocations": "Geçmiş Adresler",
+    "upcomingRadars": "YOL ÜSTÜNDEKİ RADARLAR",
+    "noRadars": "Yakındaki yollarda hız kameraları aranıyor...",
+    "limit": "LİMİT",
+    "active": "Aktif",
+    "onRoute": "rota üzerinde",
+    "oneOnRoute": "Rota üzerinde 1",
+    "radarsOnRoute": "Rota üzerinde {{count}}",
+    "liveSearch": "Ücretsiz sağlayıcı yedekleri üzerinden canlı arama"
   }
 }
