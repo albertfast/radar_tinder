@@ -16,7 +16,16 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 }
 
 export function useSpeedLimits() {
-  const { userLocation, isNavigating, userHeading, routeHeading, speedLimit, setSpeedLimit } = useNavigationStore();
+  const {
+    userLocation,
+    isNavigating,
+    userHeading,
+    routeHeading,
+    countryCode,
+    unitSystem,
+    speedLimit,
+    setSpeedLimit,
+  } = useNavigationStore();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastLookupRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const failureCountRef = useRef(0);
@@ -57,6 +66,7 @@ export function useSpeedLimits() {
           40,
           userHeading > 0 ? userHeading : null,
           routeHeading,
+          countryCode || (unitSystem === 'imperial' ? 'US' : null),
         );
         if (data.speedLimit?.value) {
           let val = data.speedLimit.value;
@@ -80,7 +90,7 @@ export function useSpeedLimits() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isNavigating, userLocation, userHeading, routeHeading, setSpeedLimit, speedLimit]);
+  }, [countryCode, isNavigating, routeHeading, setSpeedLimit, speedLimit, unitSystem, userHeading, userLocation]);
 
   return { speedLimit };
 }

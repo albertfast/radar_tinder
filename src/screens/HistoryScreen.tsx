@@ -9,16 +9,29 @@ import { useAuthStore } from '../store/authStore';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { useSettingsStore } from '../store/settingsStore';
-import { formatDistance } from '../utils/format';
+import { isFreeWithAds } from '../utils/access';
+import { formatDistance, formatSpeed } from '../utils/format';
+import AdBanner from '../components/AdBanner';
 
 const HistoryScreen = ({ navigation }: any) => {
   const { user } = useAuthStore();
   const unitSystem = useSettingsStore((state) => state.unitSystem);
+  const showAds = isFreeWithAds(user);
   const canViewTrips = Boolean(user?.id);
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [trips, setTrips] = useState<any[]>([]);
   const [pendingTripCount, setPendingTripCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  const formatDuration = (seconds: number) => {
+    const safeSeconds = Math.max(0, Number(seconds) || 0);
+    if (safeSeconds <= 0) return '--';
+    const minutes = Math.round(safeSeconds / 60);
+    if (minutes < 60) return `${Math.max(1, minutes)}m`;
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
+  };
 
   const loadTrips = useCallback(async () => {
     try {
@@ -86,6 +99,12 @@ const HistoryScreen = ({ navigation }: any) => {
         </View>
       ) : null}
 
+      {showAds ? (
+        <View style={styles.adWrap}>
+          <AdBanner size="MEDIUM_RECTANGLE" />
+        </View>
+      ) : null}
+
       <FlatList
         data={trips}
         keyExtractor={item => item.id}
@@ -109,6 +128,8 @@ const HistoryScreen = ({ navigation }: any) => {
           const dateLabel = createdAt && !Number.isNaN(createdAt.getTime())
             ? createdAt.toLocaleDateString()
             : '—';
+          const avgSpeed = Number(item.avgSpeedKph || 0);
+          const topSpeed = Number(item.topSpeedKph || 0);
           return (
             <Surface style={styles.tripCard}>
                 <View style={styles.tripHeader}>
@@ -139,7 +160,7 @@ const HistoryScreen = ({ navigation }: any) => {
                     </View>
                     <View style={styles.stat}>
                         <MaterialCommunityIcons name="clock-outline" size={16} color="#94A3B8" />
-                        <Text style={styles.statText}>{Math.round((item.duration || 0) / 60)}m</Text>
+                        <Text style={styles.statText}>{formatDuration(item.duration || 0)}</Text>
                     </View>
                     <TouchableOpacity
                       style={styles.detailsBtn}
@@ -148,6 +169,25 @@ const HistoryScreen = ({ navigation }: any) => {
                         <Text style={styles.detailsText}>Details</Text>
                         <MaterialCommunityIcons name="chevron-right" size={16} color="#4ECDC4" />
                     </TouchableOpacity>
+                </View>
+
+                <View style={styles.tripMetaGrid}>
+                  <View style={styles.tripMetaItem}>
+                    <Text style={styles.tripMetaLabel}>Avg speed</Text>
+                    <Text style={styles.tripMetaValue}>
+                      {avgSpeed > 0 ? formatSpeed(avgSpeed, unitSystem) : '--'}
+                    </Text>
+                  </View>
+                  <View style={styles.tripMetaItem}>
+                    <Text style={styles.tripMetaLabel}>Top speed</Text>
+                    <Text style={[styles.tripMetaValue, topSpeed > avgSpeed ? styles.tripMetaHot : null]}>
+                      {topSpeed > 0 ? formatSpeed(topSpeed, unitSystem) : '--'}
+                    </Text>
+                  </View>
+                  <View style={styles.tripMetaItem}>
+                    <Text style={styles.tripMetaLabel}>Samples</Text>
+                    <Text style={styles.tripMetaValue}>{item.speedSamplesCount || 0}</Text>
+                  </View>
                 </View>
             </Surface>
           );
@@ -181,6 +221,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
+  adWrap: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(15,23,42,0.45)',
+  },
   
   tripCard: { backgroundColor: '#1E293B', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   tripHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
@@ -199,7 +248,35 @@ const styles = StyleSheet.create({
   stat: { flexDirection: 'row', alignItems: 'center', marginRight: 20 },
   statText: { color: '#94A3B8', marginLeft: 6, fontWeight: '500' },
   detailsBtn: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center' },
-  detailsText: { color: '#4ECDC4', fontSize: 12, fontWeight: 'bold' }
+  detailsText: { color: '#4ECDC4', fontSize: 12, fontWeight: 'bold' },
+  tripMetaGrid: {
+    marginTop: 14,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  tripMetaItem: {
+    flex: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(15,23,42,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.12)',
+  },
+  tripMetaLabel: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  tripMetaValue: {
+    marginTop: 5,
+    color: '#E2E8F0',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  tripMetaHot: {
+    color: '#FF8A65',
+  }
 });
 
 export default HistoryScreen;

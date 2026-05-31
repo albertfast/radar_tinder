@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SupabaseService } from '../services/SupabaseService';
 import {
   MapFlowNavigationScreen,
   useNavigationStore,
@@ -17,6 +18,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useUiStore } from '../store/uiStore';
 import { RadarService } from '../services/RadarService';
 import { LocationService } from '../services/LocationService';
+import { AdService } from '../services/AdService';
 import { hasProAccess } from '../utils/access';
 import { RadarGraphicView } from './components/RadarGraphicView';
 import { RadarBasicTab } from './radar/components/driving/RadarBasicTab';
@@ -53,6 +55,7 @@ const DriveScreen = ({ navigation, route }: any) => {
   const userHeading = useNavigationStore((state) => state.userHeading);
   const userSpeed = useNavigationStore((state) => state.userSpeed);
   const routeState = useNavigationStore((state) => state.route);
+  const destinationName = useNavigationStore((state) => state.destinationName);
   const isNavigating = useNavigationStore((state) => state.isNavigating);
   const navCountryCode = useNavigationStore((state) => state.countryCode);
   const setNavUnitSystem = useNavigationStore((state) => state.setUnitSystem);
@@ -64,15 +67,36 @@ const DriveScreen = ({ navigation, route }: any) => {
   const showTabBar = useUiStore((state) => state.showTabBar);
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
-  const [activeMode, setActiveMode] = useState<DriveMode>(
-    resolveDriveMode(route?.params?.initialMode)
-  );
+  const [activeMode, setActiveMode] = useState<DriveMode>(() => {
+    const requestedMode = resolveDriveMode(route?.params?.initialMode);
+    return requestedMode === 'Graphic' && !canUsePro ? 'Map' : requestedMode;
+  });
   const [overlayMarkers, setOverlayMarkers] = useState<MapOverlayMarker[]>([]);
   const [nearbyRadars, setNearbyRadars] = useState<any[]>([]);
   const [driveStartTime, setDriveStartTime] = useState<Date | null>(null);
   const [tripDistanceKm, setTripDistanceKm] = useState(0);
+  const [speedSamples, setSpeedSamples] = useState<Array<{ speedKph: number; at: number }>>([]);
 
   const lastLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const tripStartLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const tripEndLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastSpeedSampleAtRef = useRef(0);
+  const persistedTripRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
+  const appStateRef = useRef(AppState.currentState);
+  const tripSnapshotRef = useRef({
+    driveStartTime: null as Date | null,
+    tripDistanceKm: 0,
+    destinationName: '' as string | null,
+    avgSpeedKph: 0,
+    topSpeedKph: 0,
+    movingDuration: 0,
+    sampleCount: 0,
+    startLatitude: null as number | null,
+    startLongitude: null as number | null,
+    endLatitude: null as number | null,
+    endLongitude: null as number | null,
+  });
   const routeCoordinates = useMemo(() => toRouteCoordinates(routeState?.geometry), [routeState?.geometry]);
   const hasRoutePreview = routeCoordinates.length > 1;
   const hasActiveRoute = isNavigating && hasRoutePreview;
@@ -81,6 +105,93 @@ const DriveScreen = ({ navigation, route }: any) => {
     () => calculateDisplaySpeed(userSpeed, unitSystem),
     [unitSystem, userSpeed]
   );
+  const currentSpeedKph = useMemo(() => Math.max(0, userSpeed * 3.6), [userSpeed]);
+  const renderMode = activeMode === 'Graphic' && !canUsePro ? 'Map' : activeMode;
+
+  const tripTelemetry = useMemo(() => {
+    const sampleCount = speedSamples.length;
+    const avgSpeedKph = sampleCount
+      ? Math.round(speedSamples.reduce((sum, sample) => sum + sample.speedKph, 0) / sampleCount)
+      : 0;
+    const topSpeedKph = sampleCount ? Math.max(...speedSamples.map((sample) => sample.speedKph)) : 0;
+    const movingDuration = speedSamples.filter((sample) => sample.speedKph >= 5).length * 5;
+    return {
+      sampleCount,
+      avgSpeedKph,
+      topSpeedKph,
+      movingDuration,
+    };
+  }, [speedSamples]);
+
+  useEffect(() => {
+    userIdRef.current = user?.id ?? null;
+  }, [user?.id]);
+
+  useEffect(() => {
+    tripSnapshotRef.current = {
+      driveStartTime,
+      tripDistanceKm,
+      destinationName: destinationName || null,
+      avgSpeedKph: tripTelemetry.avgSpeedKph,
+      topSpeedKph: tripTelemetry.topSpeedKph,
+      movingDuration: tripTelemetry.movingDuration,
+      sampleCount: tripTelemetry.sampleCount,
+      startLatitude: tripStartLocationRef.current?.lat ?? null,
+      startLongitude: tripStartLocationRef.current?.lng ?? null,
+      endLatitude: tripEndLocationRef.current?.lat ?? null,
+      endLongitude: tripEndLocationRef.current?.lng ?? null,
+    };
+  }, [destinationName, driveStartTime, tripDistanceKm, tripTelemetry]);
+
+  const persistTripSnapshot = useCallback(async () => {
+    const userId = userIdRef.current;
+    const snapshot = tripSnapshotRef.current;
+    if (persistedTripRef.current || !userId || !snapshot.driveStartTime) {
+      return;
+    }
+    const durationSeconds = Math.max(1, Math.round((Date.now() - snapshot.driveStartTime.getTime()) / 1000));
+    const distanceMeters = Math.max(0, Math.round(snapshot.tripDistanceKm * 1000));
+    if (distanceMeters < 50 && snapshot.sampleCount < 3) {
+      return;
+    }
+
+    persistedTripRef.current = true;
+    await SupabaseService.createTrip({
+      userId,
+      startLocation: 'Current location',
+      endLocation: snapshot.destinationName || 'Route destination',
+      distance: distanceMeters,
+      duration: durationSeconds,
+      score: Math.min(100, Math.max(0, Math.round(78 + Math.min(20, snapshot.sampleCount * 2)))),
+      startTime: snapshot.driveStartTime.toISOString(),
+      endTime: new Date().toISOString(),
+      avgSpeedKph: snapshot.avgSpeedKph,
+      topSpeedKph: snapshot.topSpeedKph,
+      movingDuration: snapshot.movingDuration,
+      speedSamplesCount: snapshot.sampleCount,
+      startLatitude: snapshot.startLatitude,
+      startLongitude: snapshot.startLongitude,
+      endLatitude: snapshot.endLatitude,
+      endLongitude: snapshot.endLongitude,
+    }).catch((error) => {
+      console.warn('Failed to persist trip snapshot:', error);
+    });
+  }, []);
+
+  const resetTripSession = useCallback(() => {
+    persistedTripRef.current = false;
+    tripStartLocationRef.current = null;
+    tripEndLocationRef.current = null;
+    setDriveStartTime(new Date());
+    setTripDistanceKm(0);
+    setSpeedSamples([]);
+    lastSpeedSampleAtRef.current = 0;
+    lastLocationRef.current = null;
+  }, []);
+
+  const handleOpenSubscription = useCallback(() => {
+    navigation.navigate('Home', { screen: 'Subscription' });
+  }, [navigation]);
 
   useEffect(() => {
     setNavUnitSystem(unitSystem, navCountryCode);
@@ -89,20 +200,40 @@ const DriveScreen = ({ navigation, route }: any) => {
   useEffect(() => {
     const requestedMode = resolveDriveMode(route?.params?.initialMode);
     if (route?.params?.initialMode) {
-      setActiveMode(requestedMode);
       navigation.setParams?.({ initialMode: undefined });
+      if (requestedMode === 'Graphic' && !canUsePro) {
+        setActiveMode('Map');
+        handleOpenSubscription();
+        return;
+      }
+      setActiveMode(requestedMode);
     }
-  }, [navigation, route?.params?.initialMode]);
+  }, [canUsePro, handleOpenSubscription, navigation, route?.params?.initialMode]);
+
+  useEffect(() => {
+    if (activeMode === 'Graphic' && !canUsePro) {
+      setActiveMode('Map');
+      handleOpenSubscription();
+    }
+  }, [activeMode, canUsePro, handleOpenSubscription]);
 
   useFocusEffect(
     useCallback(() => {
       hideTabBar('drive_screen');
-      setDriveStartTime(new Date());
-      setTripDistanceKm(0);
-      lastLocationRef.current = null;
-      return () => showTabBar('drive_screen');
-    }, [hideTabBar, showTabBar])
+      resetTripSession();
+      return () => {
+        void persistTripSnapshot();
+        showTabBar('drive_screen');
+      };
+    }, [hideTabBar, persistTripSnapshot, resetTripSession, showTabBar])
   );
+
+  useEffect(() => {
+    AdService.markDrivingState(isFocused && Boolean(driveStartTime), isFocused && hasActiveRoute);
+    return () => {
+      AdService.markDrivingState(false, false);
+    };
+  }, [driveStartTime, hasActiveRoute, isFocused]);
 
   useEffect(() => {
     if (isFocused && keepAwakeWhileDriving) {
@@ -138,6 +269,18 @@ const DriveScreen = ({ navigation, route }: any) => {
       setDriveStartTime(new Date());
     }
 
+    if (!tripStartLocationRef.current) {
+      tripStartLocationRef.current = {
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+      };
+    }
+
+    tripEndLocationRef.current = {
+      lat: userLocation.lat,
+      lng: userLocation.lng,
+    };
+
     const previous = lastLocationRef.current;
     if (previous) {
       const movedKm = LocationService.calculateDistanceSync(
@@ -156,6 +299,36 @@ const DriveScreen = ({ navigation, route }: any) => {
       lng: userLocation.lng,
     };
   }, [driveStartTime, isFocused, userLocation]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
+      if (nextState !== 'active') {
+        void persistTripSnapshot();
+        return;
+      }
+      if (isFocused && previousState !== 'active') {
+        resetTripSession();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [isFocused, persistTripSnapshot, resetTripSession]);
+
+  useEffect(() => {
+    if (!isFocused || !driveStartTime) return;
+    const now = Date.now();
+    if (now - lastSpeedSampleAtRef.current < 5000) return;
+    lastSpeedSampleAtRef.current = now;
+    setSpeedSamples((prev) => [
+      ...prev.slice(-23),
+      {
+        speedKph: currentSpeedKph,
+        at: now,
+      },
+    ]);
+  }, [currentSpeedKph, driveStartTime, isFocused]);
 
   const refreshOverlayMarkers = useCallback(async () => {
     if (!userLocation) {
@@ -220,10 +393,6 @@ const DriveScreen = ({ navigation, route }: any) => {
     navigation.navigate('Home', { screen: 'RadarSettings' });
   }, [navigation]);
 
-  const handleOpenSubscription = useCallback(() => {
-    navigation.navigate('Home', { screen: 'Subscription' });
-  }, [navigation]);
-
   const handleSelectMode = useCallback(
     (mode: DriveMode) => {
       if (mode === 'Graphic' && !canUsePro) {
@@ -237,9 +406,9 @@ const DriveScreen = ({ navigation, route }: any) => {
 
   return (
     <View style={styles.container}>
-      {activeMode === 'Graphic' ? (
+      {renderMode === 'Graphic' ? (
         <LinearGradient colors={['#020617', '#020617']} style={StyleSheet.absoluteFill} />
-      ) : activeMode === 'Basic' ? (
+      ) : renderMode === 'Basic' ? (
         <RadarBasicTab
           nearbyRadars={nearbyRadars}
           topContentInset={chromeTopOffset}
@@ -261,7 +430,7 @@ const DriveScreen = ({ navigation, route }: any) => {
 
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>DRIVING MODE</Text>
-            <Text style={styles.headerSubtitle}>{activeMode.toUpperCase()}</Text>
+            <Text style={styles.headerSubtitle}>{renderMode.toUpperCase()}</Text>
           </View>
 
           <TouchableOpacity onPress={handleOpenSettings} style={styles.headerButton}>
@@ -275,9 +444,9 @@ const DriveScreen = ({ navigation, route }: any) => {
               <Pressable
                 key={mode}
                 onPress={() => handleSelectMode(mode)}
-                style={[styles.tabItem, activeMode === mode && styles.tabItemActive]}
+                style={[styles.tabItem, renderMode === mode && styles.tabItemActive]}
               >
-                <Text style={[styles.tabText, activeMode === mode && styles.tabTextActive]}>
+                <Text style={[styles.tabText, renderMode === mode && styles.tabTextActive]}>
                   {mode}
                 </Text>
               </Pressable>
@@ -285,7 +454,7 @@ const DriveScreen = ({ navigation, route }: any) => {
           </View>
         </View>
 
-        {activeMode === 'Graphic' ? (
+        {renderMode === 'Graphic' && canUsePro ? (
           <View style={styles.graphicWrap}>
             <RadarGraphicView
               totalDistance={tripDistanceKm}
@@ -293,6 +462,7 @@ const DriveScreen = ({ navigation, route }: any) => {
               currentSpeed={currentSpeedDisplay}
               unitSystem={unitSystem}
               topOverlayInset={chromeTopOffset + 8}
+              onUpgrade={handleOpenSubscription}
             />
           </View>
         ) : null}

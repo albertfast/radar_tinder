@@ -6,15 +6,17 @@ import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ANIMATION_TIMING, STAGGER_DELAYS } from '../../utils/animationConstants';
 import { BarChart, LineChart, StatCard } from '../../components/AnimatedCharts';
-import GraphicRadarPanelView from '../../components/GraphicRadarPanelView';
+import NebulaCore3DView from '../../components/NebulaCore3DView';
 import { SupabaseService } from '../../services/SupabaseService';
 import { useAuthStore } from '../../store/authStore';
 import { DatabaseService } from '../../services/DatabaseService';
 import { useRadarStore } from '../../store/radarStore';
+import { useNavigationStore } from '../../mapflow-navigation-kit';
 import { useAutoHideTabBar } from '../../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../../constants/layout';
 import { hasProAccess } from '../../utils/access';
 import ProGate from '../../components/ProGate';
+import { formatRadarSpeedLimitText, formatRadarTimingText } from '../../utils/radarAlerts';
 
 interface RadarGraphicViewProps {
   totalDistance: number;
@@ -22,6 +24,7 @@ interface RadarGraphicViewProps {
   currentSpeed: number;
   unitSystem: 'metric' | 'imperial';
   topOverlayInset?: number;
+  onUpgrade?: () => void;
 }
 
 const emptyWeeklyTrips = [
@@ -34,20 +37,35 @@ const emptyWeeklyTrips = [
   { day: 'Sat', trips: 0, distance: 0 },
 ];
 
+type SpeedPoint = { time: string; speed: number; trips?: number };
+
+const isRouteSpeedCameraAlert = (alert: any) =>
+  Boolean(alert?.routeMatched) &&
+  (alert.type === 'speed_camera' || alert.type === 'fixed' || alert.markerKind === 'camera');
+
 export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   totalDistance,
   drivingStartTime,
   currentSpeed,
   unitSystem,
   topOverlayInset = 0,
+  onUpgrade,
 }) => {
   const heroTopInset = Math.max(6, topOverlayInset - 104);
   const { user } = useAuthStore();
   const canUse = hasProAccess(user);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
+  const navigationState = useNavigationStore((state) => ({
+    remainingDistance: state.remainingDistance,
+    remainingDuration: state.remainingDuration,
+    routeDistance: state.route?.distance ?? 0,
+    speedLimit: state.speedLimit,
+    isNavigating: state.isNavigating,
+  }));
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
   const [weeklyData, setWeeklyData] = useState(emptyWeeklyTrips);
-  const [speedData, setSpeedData] = useState<Array<{ time: string; speed: number }>>([]);
+  const [weeklySpeedData, setWeeklySpeedData] = useState<SpeedPoint[]>([]);
+  const [speedData, setSpeedData] = useState<SpeedPoint[]>([]);
   const lastSpeedSampleRef = useRef(0);
   const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
   const [weeklyDurationSeconds, setWeeklyDurationSeconds] = useState(0);
@@ -58,7 +76,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
     if (canUse) {
       loadDrivingData();
     }
-  }, [canUse, user?.id]);
+  }, [canUse, user?.id, unitSystem]);
 
   useEffect(() => {
     if (drivingStartTime) {
@@ -86,13 +104,13 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   const loadDrivingData = async () => {
     try {
       const trips = await SupabaseService.getUserTrips(user?.id);
-      const dayMap: { [key: string]: { trips: number; distance: number } } = {};
+      const dayMap: { [key: string]: { trips: number; distance: number; avgSpeedSum: number; topSpeed: number; duration: number; movingDuration: number } } = {};
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const weekStart = Date.now() - 7 * 24 * 60 * 60 * 1000;
       let durationSeconds = 0;
 
       days.forEach((day) => {
-        dayMap[day] = { trips: 0, distance: 0 };
+        dayMap[day] = { trips: 0, distance: 0, avgSpeedSum: 0, topSpeed: 0, duration: 0, movingDuration: 0 };
       });
 
       trips.forEach((trip: any) => {
@@ -101,9 +119,19 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         if (date.getTime() < weekStart) return;
         const dayName = days[date.getDay()];
         if (dayMap[dayName]) {
+          const tripSpeedKph = Number(trip.avgSpeedKph ?? 0);
+          const tripTopSpeedKph = Number(trip.topSpeedKph ?? tripSpeedKph ?? 0);
+          const tripSpeed = unitSystem === 'imperial' ? Math.round(tripSpeedKph * 0.621371) : Math.round(tripSpeedKph);
+          const tripTopSpeed = unitSystem === 'imperial' ? Math.round(tripTopSpeedKph * 0.621371) : Math.round(tripTopSpeedKph);
+          const tripDuration = Number(trip.duration || 0);
+          const tripMovingDuration = Number(trip.movingDuration || 0);
           dayMap[dayName].trips += 1;
           dayMap[dayName].distance += (trip.distance || 0) / 1000;
-          durationSeconds += Number(trip.duration || 0);
+          dayMap[dayName].avgSpeedSum += Number.isFinite(tripSpeed) ? tripSpeed : 0;
+          dayMap[dayName].topSpeed = Math.max(dayMap[dayName].topSpeed, Number.isFinite(tripTopSpeed) ? tripTopSpeed : 0);
+          dayMap[dayName].duration += Number.isFinite(tripDuration) ? tripDuration : 0;
+          dayMap[dayName].movingDuration += Number.isFinite(tripMovingDuration) ? tripMovingDuration : 0;
+          durationSeconds += Number.isFinite(tripDuration) ? tripDuration : 0;
         }
       });
 
@@ -112,7 +140,13 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         trips: dayMap[day].trips,
         distance: dayMap[day].distance,
       }));
+      const newWeeklySpeedData = days.map((day) => ({
+        time: day,
+        speed: dayMap[day].trips > 0 ? Math.round(dayMap[day].avgSpeedSum / dayMap[day].trips) : 0,
+        trips: dayMap[day].trips,
+      }));
       setWeeklyData(newWeeklyData);
+      setWeeklySpeedData(newWeeklySpeedData);
       setWeeklyDurationSeconds(durationSeconds);
     } catch (error) {
       console.error('Failed to load driving data:', error);
@@ -218,16 +252,43 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
     return `${minutes}m`;
   };
 
+  const formatSecondsDuration = (seconds: number) => {
+    if (!Number.isFinite(seconds) || seconds <= 0) return '--';
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${Math.max(1, minutes)}m`;
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
+  };
+
   useEffect(() => {
     if (!canUse) return;
     loadRecentActivity();
   }, [user?.id, activeAlerts.length, canUse]);
 
+  const weeklySpeedSamples = weeklySpeedData.filter((item) => (item.trips ?? 0) > 0 && item.speed > 0);
+  const activeSpeedSamples = speedData.length > 0 ? speedData : weeklySpeedSamples;
+  const weeklyTripCount = weeklyData.reduce((acc, item) => acc + item.trips, 0);
+  const activeChartSeries =
+    speedData.length > 0
+      ? speedData
+      : weeklySpeedSamples.length > 0
+        ? weeklySpeedData
+        : [{ time: '--', speed: 0 }];
+  const hasSpeedChartData = speedData.length > 0 || weeklySpeedSamples.length > 0;
+  const speedChartTitle = speedData.length > 0 ? 'Live Speed' : 'Speed Trends (Trips)';
+  const speedChartCaption =
+    speedData.length > 0
+      ? `${speedData.length} live samples`
+      : weeklySpeedSamples.length > 0
+        ? `${weeklyTripCount} trips this week`
+        : 'No speed samples yet';
+
   const weeklyStats = {
     totalDistance: weeklyData.reduce((acc, item) => acc + item.distance, 0),
-    totalTrips: weeklyData.reduce((acc, item) => acc + item.trips, 0),
-    avgSpeed: speedData.length
-      ? Math.round(speedData.reduce((acc, item) => acc + item.speed, 0) / speedData.length)
+    totalTrips: weeklyTripCount,
+    avgSpeed: weeklySpeedSamples.length
+      ? Math.round(weeklySpeedSamples.reduce((acc, item) => acc + item.speed, 0) / weeklySpeedSamples.length)
       : 0,
   };
 
@@ -242,19 +303,27 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   }, [weeklyDurationSeconds]);
 
   const speedSummary = {
-    average: speedData.length
-      ? Math.round(speedData.reduce((acc, item) => acc + item.speed, 0) / speedData.length)
+    average: activeSpeedSamples.length
+      ? Math.round(activeSpeedSamples.reduce((acc, item) => acc + item.speed, 0) / activeSpeedSamples.length)
       : 0,
-    peak: speedData.length ? Math.max(...speedData.map((item) => item.speed)) : 0,
-    stability: speedData.length
+    peak: activeSpeedSamples.length
+      ? Math.max(...activeSpeedSamples.map((item) => item.speed))
+      : 0,
+    stability: activeSpeedSamples.length
       ? Math.max(
           0,
-          100 - (Math.max(...speedData.map((item) => item.speed)) - Math.min(...speedData.map((item) => item.speed)))
+          100 -
+            (Math.max(...activeSpeedSamples.map((item) => item.speed)) -
+              Math.min(...activeSpeedSamples.map((item) => item.speed)))
         )
       : 0,
   };
 
-  const speedSeries = speedData.length ? speedData : [{ time: '--', speed: 0 }];
+  const activeTripCount = weeklyStats.totalTrips;
+  const tripEfficiency = speedSummary.peak > 0
+    ? Math.max(0, Math.min(100, Math.round((speedSummary.average / speedSummary.peak) * 100)))
+    : 0;
+  const safetyScore = Math.max(0, Math.min(10, Number((10 - weeklyAlertCount * 0.3 - (speedSummary.peak - speedSummary.average) / 50).toFixed(1))));
   const displayDistance = formatDistance(weeklyStats.totalDistance);
   const displayAvgSpeed = `${weeklyStats.avgSpeed} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`;
   const heroSignalLevel = useMemo(
@@ -266,18 +335,101 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
     [activeAlerts.length]
   );
   const heroNearestLabel = useMemo(() => {
-    const nearest = activeAlerts[0];
+    const nearest = activeAlerts.find(isRouteSpeedCameraAlert);
     if (!nearest || typeof nearest.distance !== 'number' || !Number.isFinite(nearest.distance)) {
       return 'Live scan';
     }
     return `${formatDistance(nearest.distance)} ahead`;
   }, [activeAlerts, unitSystem]);
+  const heroRouteAlert = useMemo(() => {
+    return [...activeAlerts]
+      .filter(isRouteSpeedCameraAlert)
+      .sort((a, b) => Number(a.distance || 0) - Number(b.distance || 0))[0] || null;
+  }, [activeAlerts]);
+  const routeRemainingKm = useMemo(() => {
+    if (!navigationState.isNavigating || !Number.isFinite(navigationState.remainingDistance)) {
+      return null;
+    }
+    return Math.max(0, navigationState.remainingDistance / 1000);
+  }, [navigationState.isNavigating, navigationState.remainingDistance]);
+  const routeRemainingLabel = useMemo(() => {
+    if (routeRemainingKm === null) {
+      return 'Route idle';
+    }
+    return `${formatDistance(routeRemainingKm)} left`;
+  }, [routeRemainingKm, unitSystem]);
+  const speedLimitDisplay = useMemo(() => {
+    const speedLimit = navigationState.speedLimit;
+    if (typeof speedLimit !== 'number' || !Number.isFinite(speedLimit) || speedLimit <= 0) {
+      return null;
+    }
+    return unitSystem === 'imperial' ? Math.round(speedLimit * 0.621371) : Math.round(speedLimit);
+  }, [navigationState.speedLimit, unitSystem]);
+  const currentSpeedDisplay = Math.max(0, Math.round(currentSpeed));
+  const speedTone = useMemo(() => {
+    if (speedLimitDisplay === null || speedLimitDisplay <= 0) {
+      return '#4ECDC4';
+    }
+    const ratio = currentSpeedDisplay / speedLimitDisplay;
+    if (ratio > 1.2) return '#FF5252';
+    if (ratio > 1) return '#F59E0B';
+    return '#4ECDC4';
+  }, [currentSpeedDisplay, speedLimitDisplay]);
+  const speedTrendLabel = useMemo(() => {
+    if (speedLimitDisplay === null || speedLimitDisplay <= 0) {
+      return 'No limit lock';
+    }
+    const ratio = currentSpeedDisplay / speedLimitDisplay;
+    if (ratio > 1.2) return 'Over limit';
+    if (ratio > 1) return 'Above limit';
+    return 'Within limit';
+  }, [currentSpeedDisplay, speedLimitDisplay]);
+  const routeAlertTitle = useMemo(() => {
+    if (!heroRouteAlert) return 'No active route camera';
+    return 'Speed camera on your route';
+  }, [heroRouteAlert]);
+  const routeAlertDetail = useMemo(() => {
+    if (!heroRouteAlert) return 'Keep driving, the panel will highlight the next camera automatically.';
+    const speedLimitText = formatRadarSpeedLimitText(heroRouteAlert, unitSystem);
+    const timingText = formatRadarTimingText(heroRouteAlert);
+    const parts = [timingText];
+    if (speedLimitText) parts.push(speedLimitText);
+    if (typeof heroRouteAlert.distance === 'number' && Number.isFinite(heroRouteAlert.distance)) {
+      parts.push(`${formatDistance(heroRouteAlert.distance)} ahead`);
+    }
+    return parts.join(' • ');
+  }, [heroRouteAlert, unitSystem]);
+  const journeyProgress = useMemo(() => {
+    if (!navigationState.isNavigating || routeRemainingKm === null) return 0;
+    const routeTotalKm = Number(navigationState.routeDistance || 0) / 1000;
+    const denominatorKm = routeTotalKm > 0 ? routeTotalKm : Math.max(routeRemainingKm + totalDistance, 0.1);
+    return Math.max(0, Math.min(1, 1 - routeRemainingKm / denominatorKm));
+  }, [navigationState.isNavigating, navigationState.routeDistance, routeRemainingKm, totalDistance]);
+  const journeyProgressLabel = useMemo(() => {
+    if (!navigationState.isNavigating) return 'Trip paused';
+    const pct = Math.round(journeyProgress * 100);
+    return `${pct}% complete`;
+  }, [journeyProgress, navigationState.isNavigating]);
+  const journeyRemainingLabel = useMemo(() => {
+    if (!navigationState.isNavigating) return 'No active route';
+    return routeRemainingLabel;
+  }, [navigationState.isNavigating, routeRemainingLabel]);
+  const routeDurationLabel = useMemo(
+    () => (navigationState.isNavigating ? formatSecondsDuration(navigationState.remainingDuration) : '--'),
+    [navigationState.isNavigating, navigationState.remainingDuration]
+  );
+  const speedUnitLabel = unitSystem === 'imperial' ? 'MPH' : 'KM/H';
+  const currentSpeedLabel = `${currentSpeedDisplay} ${speedUnitLabel}`;
+  const speedLimitLabel =
+    speedLimitDisplay === null ? `-- ${speedUnitLabel}` : `${speedLimitDisplay} ${speedUnitLabel}`;
 
   if (!canUse) {
     return (
       <ProGate
-        title="Graphic Dashboard"
-        subtitle="Upgrade to Pro to unlock weekly stats and activity insights."
+        title="Graphic Drive"
+        subtitle="Unlock the route-aware dashboard, live speed-limit context, and saved trip analytics."
+        onUpgrade={onUpgrade}
+        showAd={false}
       />
     );
   }
@@ -313,7 +465,10 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         </View>
 
         <View style={styles.radarHeroImageShell}>
-          <GraphicRadarPanelView
+          <View style={styles.radarHeroDepthGlow} />
+          <View style={styles.radarHeroDepthRingOuter} />
+          <View style={styles.radarHeroDepthRingInner} />
+          <NebulaCore3DView
             style={styles.radarHeroImage}
             signalLevel={heroSignalLevel}
             dangerLevel={heroDangerLevel}
@@ -334,30 +489,60 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             </View>
           </View>
         </View>
+
+        <LinearGradient
+          colors={heroRouteAlert ? ['rgba(41, 18, 20, 0.96)', 'rgba(18, 10, 19, 0.96)'] : ['rgba(10,18,35,0.96)', 'rgba(8,14,26,0.94)']}
+          style={[styles.routeAlertCard, heroRouteAlert ? styles.routeAlertCardHot : null]}
+        >
+          <View style={styles.routeAlertHeader}>
+            <View style={[styles.routeAlertIcon, { borderColor: `${heroRouteAlert ? '#FF5252' : '#4ECDC4'}55` }]}>
+              <MaterialCommunityIcons
+                name={heroRouteAlert ? 'radar' : 'alert-circle-outline'}
+                size={20}
+                color={heroRouteAlert ? '#FF6B6B' : '#4ECDC4'}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.routeAlertTitle}>{routeAlertTitle}</Text>
+              <Text style={styles.routeAlertText} numberOfLines={2}>
+                {routeAlertDetail}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.max(4, journeyProgress * 100)}%`, backgroundColor: speedTone }]} />
+          </View>
+        </LinearGradient>
+
         <Animated.View
-          style={styles.statsGrid}
+          style={styles.liveMetricsGrid}
           entering={FadeInDown.delay(STAGGER_DELAYS.ITEM_FAST).duration(ANIMATION_TIMING.BASE)}
         >
-          <StatBox
-            icon="navigation"
-            label="Distance"
-            value={formatDistance(totalDistance)}
+          <LiveMetricCard
+            icon="map-marker-distance"
+            label="Distance left"
+            value={journeyRemainingLabel}
             color="#4ECDC4"
-            delay={0}
           />
-          <StatBox
+          <LiveMetricCard
             icon="clock-outline"
-            label="Duration"
-            value={formatDuration(drivingStartTime)}
+            label="Duration left"
+            value={routeDurationLabel}
             color="#FFD700"
-            delay={100}
           />
-          <StatBox
+          <LiveMetricCard
             icon="speedometer"
-            label="Current Speed"
-            value={`${Math.round(currentSpeed)} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`}
-            color="#FF5252"
-            delay={200}
+            label="Current speed"
+            value={currentSpeedLabel}
+            color={speedTone}
+          />
+          <LiveMetricCard
+            icon="sign-direction"
+            label="Speed limit"
+            value={speedLimitLabel}
+            color={speedTone}
+            footer={speedTrendLabel}
           />
         </Animated.View>
       </Animated.View>
@@ -396,7 +581,10 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
         >
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons name="chart-line" size={20} color="#45B7D1" />
-            <Text style={styles.sectionTitle}>Speed Trends (Today)</Text>
+            <View style={styles.sectionHeaderCopy}>
+              <Text style={styles.sectionTitle}>{speedChartTitle}</Text>
+              <Text style={styles.sectionCaption}>{speedChartCaption}</Text>
+            </View>
           </View>
           <View style={styles.speedSummary}>
             <View style={styles.speedCardWrapper}>
@@ -425,11 +613,11 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             </View>
           </View>
           <LineChart
-            data={speedSeries.map((item) => item.speed)}
-            labels={speedSeries.map((item) => item.time)}
+            data={activeChartSeries.map((item) => item.speed)}
+            labels={activeChartSeries.map((item) => item.time)}
             height={160}
-            maxValue={100}
-            color="#45B7D1"
+            maxValue={Math.max(hasSpeedChartData ? 30 : 1, speedSummary.peak + 10)}
+            color={hasSpeedChartData ? '#45B7D1' : '#334155'}
           />
         </LinearGradient>
       </Animated.View>
@@ -457,21 +645,21 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
             <MetricCard
               icon="chart-line"
               label="Efficiency"
-              value="94%"
+              value={`${tripEfficiency}%`}
               color="#96CEB4"
               delay={340}
             />
             <MetricCard
               icon="alert-circle"
               label="Alerts"
-              value="5"
+              value={String(weeklyAlertCount)}
               color="#FF6B6B"
               delay={360}
             />
             <MetricCard
               icon="shield-check"
               label="Safety Score"
-              value="9.2/10"
+              value={`${safetyScore}/10`}
               color="#4ECDC4"
               delay={380}
             />
@@ -619,6 +807,24 @@ const ActivityStat = ({ icon, label, value, color, delay }: any) => (
   </Animated.View>
 );
 
+const LiveMetricCard = ({ icon, label, value, color, footer }: any) => (
+  <LinearGradient
+    colors={['rgba(15,23,42,0.96)', 'rgba(8,17,32,0.94)']}
+    style={[styles.liveMetricCard, { borderColor: `${color}33` }]}
+  >
+    <View style={[styles.liveMetricIcon, { backgroundColor: `${color}18` }]}>
+      <MaterialCommunityIcons name={icon} size={18} color={color} />
+    </View>
+    <View style={styles.liveMetricCopy}>
+      <Text style={styles.liveMetricLabel}>{label}</Text>
+      <Text style={[styles.liveMetricValue, { color }]} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+      {footer ? <Text style={styles.liveMetricFooter}>{footer}</Text> : null}
+    </View>
+  </LinearGradient>
+);
+
 const nearbyAlertIntensity = (count: number) => Math.min(1, count / 6);
 
 const styles = StyleSheet.create({
@@ -686,6 +892,35 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  radarHeroDepthGlow: {
+    position: 'absolute',
+    width: '78%',
+    aspectRatio: 1,
+    borderRadius: 999,
+    backgroundColor: 'rgba(78,205,196,0.12)',
+    shadowColor: '#4ECDC4',
+    shadowOpacity: 0.28,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  radarHeroDepthRingOuter: {
+    position: 'absolute',
+    width: '70%',
+    aspectRatio: 1,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(125, 232, 223, 0.24)',
+    transform: [{ scaleX: 1.06 }, { scaleY: 0.86 }],
+  },
+  radarHeroDepthRingInner: {
+    position: 'absolute',
+    width: '46%',
+    aspectRatio: 1,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    transform: [{ scaleX: 1.02 }, { scaleY: 0.92 }],
+  },
   radarHeroShade: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -712,6 +947,210 @@ const styles = StyleSheet.create({
   heroOverlayPillText: {
     color: '#E2E8F0',
     fontSize: 12,
+    fontWeight: '700',
+  },
+  routeStrip: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  routeChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    backgroundColor: 'rgba(2,7,18,0.68)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  routeChipText: {
+    color: '#D5E2F2',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  routeAlertCard: {
+    marginTop: 12,
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  routeAlertCardHot: {
+    borderColor: 'rgba(255,82,82,0.42)',
+  },
+  routeAlertHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  routeAlertIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+  },
+  routeAlertTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  routeAlertText: {
+    marginTop: 5,
+    color: '#B8C6DA',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  journeyBoard: {
+    marginTop: 12,
+    borderRadius: 24,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(78,205,196,0.14)',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
+  },
+  journeyBoardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  journeyBoardKicker: {
+    color: '#7CE8DF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+  journeyBoardTitle: {
+    marginTop: 6,
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  journeyPill: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  journeyPillText: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  journeyMetricsRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  journeyMetricCard: {
+    flex: 1,
+    borderRadius: 18,
+    padding: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+  },
+  journeyMetricLabel: {
+    color: '#91A0B7',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  journeyMetricValue: {
+    marginTop: 6,
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  progressTrack: {
+    marginTop: 12,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  journeyFooterRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  journeyFooterChip: {
+    flex: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  journeyFooterText: {
+    color: '#D5DEED',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  liveMetricsGrid: {
+    marginTop: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  liveMetricCard: {
+    width: '48%',
+    minHeight: 102,
+    borderRadius: 18,
+    padding: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  liveMetricIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveMetricCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  liveMetricLabel: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  liveMetricValue: {
+    marginTop: 6,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  liveMetricFooter: {
+    marginTop: 4,
+    color: '#CBD5E1',
+    fontSize: 10,
     fontWeight: '700',
   },
   statsGrid: {
@@ -757,6 +1196,9 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 16,
   },
+  sectionHeaderCopy: {
+    flex: 1,
+  },
   speedSummary: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -770,6 +1212,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: 'white',
+  },
+  sectionCaption: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8FA0B9',
   },
   metricsGrid: {
     flexDirection: 'row',

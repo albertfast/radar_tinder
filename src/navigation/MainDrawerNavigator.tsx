@@ -30,7 +30,7 @@ const CustomDrawerContent = (props: any) => {
   ];
 
   const secondaryItems = [
-    { icon: 'history', label: 'History', screen: 'History' },
+    { icon: 'history', label: 'Trip History', screen: 'History' },
     { icon: 'bell-alert-outline', label: 'Alerts', screen: 'Alerts' },
     { icon: 'cog-outline', label: 'Settings', screen: 'Settings' },
   ];
@@ -169,7 +169,6 @@ const MainDrawerNavigator = () => {
     return (
         <Drawer.Navigator
             id="main-drawer"
-            useLegacyImplementation={false}
             drawerContent={(props) => <CustomDrawerContent {...props} />}
             screenOptions={{
                 headerShown: false,
@@ -179,7 +178,6 @@ const MainDrawerNavigator = () => {
                 },
                 drawerType: 'slide',
                 overlayColor: 'rgba(0,0,0,0.8)',
-                sceneContainerStyle: { backgroundColor: '#0F172A' },
             }}
         >
         <Drawer.Screen name="MainTabs" component={MainTabNavigator} />

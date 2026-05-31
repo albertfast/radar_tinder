@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+  <title>Nebula Core — 3D Animation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #050510;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    canvas { display: block; width: 100vw; height: 100vh; }
+
+    /* Overlay HUD */
+    #hud {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 10;
+    }
+    #hud .corner {
+      position: absolute; width: 60px; height: 60px;
+      border-color: rgba(120, 80, 255, 0.3);
+      border-style: solid; border-width: 0;
+    }
+    #hud .corner.tl { top: 20px; left: 20px; border-top-width: 2px; border-left-width: 2px; }
+    #hud .corner.tr { top: 20px; right: 20px; border-top-width: 2px; border-right-width: 2px; }
+    #hud .corner.bl { bottom: 20px; left: 20px; border-bottom-width: 2px; border-left-width: 2px; }
+    #hud .corner.br { bottom: 20px; right: 20px; border-bottom-width: 2px; border-right-width: 2px; }
+
+    #hud .title {
+      position: absolute; top: 30px; left: 50%; transform: translateX(-50%);
+      color: rgba(180, 140, 255, 0.6);
+      font-size: 11px; letter-spacing: 6px; text-transform: uppercase;
+    }
+    #hud .status {
+      position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+      color: rgba(100, 200, 255, 0.4);
+      font-size: 10px; letter-spacing: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Scanline overlay */
+    #scanlines {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 5;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.03) 2px,
+        rgba(0, 0, 0, 0.03) 4px
+      );
+    }
+  </style>
+</head>
+<body>
+  <div id="scanlines"></div>
+  <div id="hud">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+    <div class="title">Nebula Core</div>
+    <div class="status" id="status-text">CORE ACTIVE &mdash; ENERGY 100%</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // ─── SCENE SETUP ──────────────────────────────────────────
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x050510, 0.035);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 2, 9);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    document.body.appendChild(renderer.domElement);
+
+    // ─── COLOR PALETTE ────────────────────────────────────────
+    const COLORS = {
+      deepPurple: 0x6a0dad,
+      electricBlue: 0x00d4ff,
+      hotPink: 0xff2d7b,
+      gold: 0xffd700,
+      violet: 0x8b5cf6,
+      cyan: 0x22d3ee,
+    };
+
+    // ─── LIGHTING ─────────────────────────────────────────────
+    const ambientLight = new THREE.AmbientLight(0x1a1a3e, 0.6);
+    scene.add(ambientLight);
+
+    const coreLight = new THREE.PointLight(COLORS.electricBlue, 3, 15);
+    coreLight.position.set(0, 0, 0);
+    scene.add(coreLight);
+
+    const pinkLight = new THREE.PointLight(COLORS.hotPink, 1.5, 12);
+    scene.add(pinkLight);
+
+    const goldLight = new THREE.PointLight(COLORS.gold, 1, 10);
+    goldLight.position.set(3, 2, -2);
+    scene.add(goldLight);
+
+    // ─── 1. CENTRAL CORE — ICOSAHEDRON with custom morph ─────
+    const coreGeo = new THREE.IcosahedronGeometry(1.0, 1);
+    const coreMat = new THREE.MeshPhysicalMaterial({
+      color: COLORS.violet,
+      emissive: COLORS.deepPurple,
+      emissiveIntensity: 0.8,
+      transparent: true,
+      opacity: 0.85,
+      roughness: 0.1,
+      metalness: 0.9,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.1,
+    });
+    const core = new THREE.Mesh(coreGeo, coreMat);
+    scene.add(core);
+
+    // Core wireframe overlay
+    const coreWireGeo = new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1.02, 1));
+    const coreWireMat = new THREE.LineBasicMaterial({
+      color: COLORS.electricBlue,
+      transparent: true,
+      opacity: 0.6,
+    });
+    const coreWire = new THREE.LineSegments(coreWireGeo, coreWireMat);
+    core.add(coreWire);
+
+    // Inner glow sphere
+    const glowGeo = new THREE.SphereGeometry(0.6, 16, 16);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: COLORS.electricBlue,
+      transparent: true,
+      opacity: 0.3,
+    });
+    const glowSphere = new THREE.Mesh(glowGeo, glowMat);
+    core.add(glowSphere);
+
+    // ─── 2. ENERGY RINGS (3 rotating torus rings) ────────────
+    const ringGroup = new THREE.Group();
+
+    function createRing(radius, tube, color, rotAxis) {
+      const geo = new THREE.TorusGeometry(radius, tube, 16, 100);
+      const mat = new THREE.MeshPhysicalMaterial({
+        color: color,
+        emissive: color,
+        emissiveIntensity: 0.5,
+        transparent: true,
+        opacity: 0.7,
+        roughness: 0.2,
+        metalness: 0.8,
+        side: THREE.DoubleSide,
+      });
+      const ring = new THREE.Mesh(geo, mat);
+
+      // Wireframe overlay for each ring
+      const wireGeo = new THREE.WireframeGeometry(geo);
+      const wireMat = new THREE.LineBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.15,
+      });
+      ring.add(new THREE.LineSegments(wireGeo, wireMat));
+
+      return ring;
+    }
+
+    const ring1 = createRing(2.2, 0.03, COLORS.electricBlue);
+    ring1.rotation.x = Math.PI * 0.5;
+    ringGroup.add(ring1);
+
+    const ring2 = createRing(2.8, 0.025, COLORS.hotPink);
+    ring2.rotation.x = Math.PI * 0.35;
+    ring2.rotation.z = Math.PI * 0.25;
+    ringGroup.add(ring2);
+
+    const ring3 = createRing(3.4, 0.02, COLORS.gold);
+    ring3.rotation.x = Math.PI * 0.7;
+    ring3.rotation.z = -Math.PI * 0.15;
+    ringGroup.add(ring3);
+
+    scene.add(ringGroup);
+
+    // ─── 3. SPIRAL PARTICLE STREAMS ──────────────────────────
+    const SPIRAL_COUNT = 120;
+    const spiralParticles = [];
+    const spiralGroup = new THREE.Group();
+
+    const spiralColors = [COLORS.electricBlue, COLORS.hotPink, COLORS.violet, COLORS.cyan, COLORS.gold];
+
+    for (let i = 0; i < SPIRAL_COUNT; i++) {
+      const size = 0.03 + Math.random() * 0.06;
+      const geo = new THREE.SphereGeometry(size, 6, 6);
+      const color = spiralColors[Math.floor(Math.random() * spiralColors.length)];
+      const mat = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.6 + Math.random() * 0.4,
+      });
+      const p = new THREE.Mesh(geo, mat);
+
+      // Spiral parameters
+      const armIndex = Math.floor(Math.random() * 3); // 3 spiral arms
+      const baseAngle = (armIndex / 3) * Math.PI * 2;
+      const dist = 1.5 + Math.random() * 2.5;
+      const angleOffset = (dist / 3) * Math.PI * 2; // tighter spiral
+      const spiralAngle = baseAngle + angleOffset;
+      const heightOffset = (Math.random() - 0.5) * 1.5;
+
+      p.userData = {
+        dist: dist,
+        baseAngle: spiralAngle,
+        speed: 0.008 + Math.random() * 0.012,
+        heightOffset: heightOffset,
+        heightSpeed: 0.002 + Math.random() * 0.004,
+        heightPhase: Math.random() * Math.PI * 2,
+      };
+
+      p.position.set(
+        Math.cos(spiralAngle) * dist,
+        heightOffset,
+        Math.sin(spiralAngle) * dist
+      );
+
+      spiralParticles.push(p);
+      spiralGroup.add(p);
+    }
+    scene.add(spiralGroup);
+
+    // ─── 4. FLOATING CRYSTAL SHARDS (Octahedrons) ────────────
+    const shardGroup = new THREE.Group();
+    const SHARD_COUNT = 12;
+
+    for (let i = 0; i < SHARD_COUNT; i++) {
+      const size = 0.12 + Math.random() * 0.2;
+      const geo = new THREE.OctahedronGeometry(size, 0);
+      const colorChoice = [COLORS.violet, COLORS.electricBlue, COLORS.hotPink][Math.floor(Math.random() * 3)];
+      const mat = new THREE.MeshPhysicalMaterial({
+        color: colorChoice,
+        emissive: colorChoice,
+        emissiveIntensity: 0.4,
+        transparent: true,
+        opacity: 0.75,
+        roughness: 0.0,
+        metalness: 1.0,
+        clearcoat: 1.0,
+      });
+      const shard = new THREE.Mesh(geo, mat);
+
+      // Wireframe for crystal effect
+      const wireGeo = new THREE.WireframeGeometry(geo);
+      const wireMat = new THREE.LineBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.4,
+      });
+      shard.add(new THREE.LineSegments(wireGeo, wireMat));
+
+      const angle = (i / SHARD_COUNT) * Math.PI * 2;
+      const dist = 3.5 + Math.random() * 1.5;
+      const y = (Math.random() - 0.5) * 3;
+
+      shard.position.set(Math.cos(angle) * dist, y, Math.sin(angle) * dist);
+      shard.userData = {
+        rotSpeed: { x: 0.01 + Math.random() * 0.03, y: 0.01 + Math.random() * 0.03, z: 0.005 + Math.random() * 0.02 },
+        orbitSpeed: 0.002 + Math.random() * 0.004,
+        orbitAngle: angle,
+        orbitDist: dist,
+        baseY: y,
+        floatSpeed: 0.002 + Math.random() * 0.003,
+        floatPhase: Math.random() * Math.PI * 2,
+      };
+
+      shardGroup.add(shard);
+    }
+    scene.add(shardGroup);
+
+    // ─── 5. SHOCKWAVE RINGS (expanding and fading) ───────────
+    const shockwaves = [];
+    const SHOCKWAVE_INTERVAL = 2500; // ms between shockwaves
+    let lastShockwave = 0;
+
+    function createShockwave() {
+      const geo = new THREE.RingGeometry(0.5, 0.55, 64);
+      const mat = new THREE.MeshBasicMaterial({
+        color: COLORS.electricBlue,
+        transparent: true,
+        opacity: 0.8,
+        side: THREE.DoubleSide,
+      });
+      const ring = new THREE.Mesh(geo, mat);
+      ring.rotation.x = -Math.PI * 0.5;
+      ring.userData = { age: 0, maxAge: 3000 };
+      scene.add(ring);
+      shockwaves.push(ring);
+    }
+
+    // ─── 6. STAR FIELD (background depth) ────────────────────
+    const starsGroup = new THREE.Group();
+    const STAR_COUNT = 500;
+
+    for (let i = 0; i < STAR_COUNT; i++) {
+      const size = 0.01 + Math.random() * 0.03;
+      const geo = new THREE.SphereGeometry(size, 4, 4);
+      const brightness = 0.3 + Math.random() * 0.7;
+      const colorChoice = Math.random() > 0.8 ?
+        [COLORS.electricBlue, COLORS.hotPink, COLORS.violet][Math.floor(Math.random() * 3)] :
+        0xffffff;
+      const mat = new THREE.MeshBasicMaterial({
+        color: colorChoice,
+        transparent: true,
+        opacity: brightness,
+      });
+      const star = new THREE.Mesh(geo, mat);
+
+      // Distribute in a large sphere around the scene
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const dist = 20 + Math.random() * 40;
+
+      star.position.set(
+        dist * Math.sin(phi) * Math.cos(theta),
+        dist * Math.sin(phi) * Math.sin(theta),
+        dist * Math.cos(phi)
+      );
+
+      star.userData = { twinkleSpeed: 0.001 + Math.random() * 0.003, twinklePhase: Math.random() * Math.PI * 2 };
+      starsGroup.add(star);
+    }
+    scene.add(starsGroup);
+
+    // ─── 7. ORBITING ENERGY DOTS on rings ────────────────────
+    const orbitDots = [];
+    const ORBIT_DOT_COUNT = 6;
+
+    for (let i = 0; i < ORBIT_DOT_COUNT; i++) {
+      const ringIndex = i < 2 ? 0 : (i < 4 ? 1 : 2);
+      const size = 0.06 + Math.random() * 0.04;
+      const geo = new THREE.SphereGeometry(size, 8, 8);
+      const colorChoice = [COLORS.electricBlue, COLORS.hotPink, COLORS.gold][ringIndex];
+      const mat = new THREE.MeshBasicMaterial({
+        color: colorChoice,
+        transparent: true,
+        opacity: 0.9,
+      });
+      const dot = new THREE.Mesh(geo, mat);
+
+      // Add a small trail effect (elongated shape)
+      const trailGeo = new THREE.SphereGeometry(size * 0.6, 6, 6);
+      trailGeo.scale(3, 1, 1);
+      const trailMat = new THREE.MeshBasicMaterial({
+        color: colorChoice,
+        transparent: true,
+        opacity: 0.3,
+      });
+      const trail = new THREE.Mesh(trailGeo, trailMat);
+      trail.position.x = -size * 3;
+      dot.add(trail);
+
+      const ringRadii = [2.2, 2.8, 3.4];
+      dot.userData = {
+        ringIndex: ringIndex,
+        radius: ringRadii[ringIndex],
+        angle: (i / ORBIT_DOT_COUNT) * Math.PI * 2,
+        speed: 0.015 + Math.random() * 0.01,
+        ringRotX: ringIndex === 0 ? Math.PI * 0.5 : (ringIndex === 1 ? Math.PI * 0.35 : Math.PI * 0.7),
+        ringRotZ: ringIndex === 0 ? 0 : (ringIndex === 1 ? Math.PI * 0.25 : -Math.PI * 0.15),
+      };
+
+      scene.add(dot);
+      orbitDots.push(dot);
+    }
+
+    // ─── 8. FLOATING RUNE/GLYPH RINGS around core ────────────
+    const glyphGroup = new THREE.Group();
+    const GLYPH_COUNT = 8;
+
+    for (let i = 0; i < GLYPH_COUNT; i++) {
+      // Small flat ring segments as "glyphs"
+      const arc = Math.PI * (0.3 + Math.random() * 0.4);
+      const geo = new THREE.RingGeometry(1.4 + Math.random() * 0.3, 1.45 + Math.random() * 0.3, 32, 1, i * 0.8, arc);
+      const mat = new THREE.MeshBasicMaterial({
+        color: [COLORS.electricBlue, COLORS.violet, COLORS.hotPink][i % 3],
+        transparent: true,
+        opacity: 0.3 + Math.random() * 0.2,
+        side: THREE.DoubleSide,
+      });
+      const glyph = new THREE.Mesh(geo, mat);
+      glyph.rotation.x = Math.random() * Math.PI;
+      glyph.rotation.y = Math.random() * Math.PI;
+      glyph.userData = {
+        rotSpeedX: 0.002 + Math.random() * 0.005,
+        rotSpeedY: 0.003 + Math.random() * 0.005,
+      };
+      glyphGroup.add(glyph);
+    }
+    scene.add(glyphGroup);
+
+    // ─── ANIMATION LOOP ──────────────────────────────────────
+    const clock = new THREE.Clock();
+    let energy = 100;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = Date.now();
+      const elapsed = clock.getElapsedTime();
+
+      // ── Core animation (rotation + morph pulse + glow) ──
+      core.rotation.y += 0.008;
+      core.rotation.x += 0.003;
+      const coreScale = 1 + Math.sin(t * 0.002) * 0.08;
+      core.scale.set(coreScale, coreScale, coreScale);
+
+      // Morph the core vertices slightly
+      const positions = core.geometry.attributes.position;
+      for (let i = 0; i < positions.count; i++) {
+        const x = positions.getX(i);
+        const y = positions.getY(i);
+        const z = positions.getZ(i);
+        const offset = Math.sin(x * 3 + t * 0.002) * Math.cos(y * 3 + t * 0.003) * 0.05;
+        const len = Math.sqrt(x * x + y * y + z * z);
+        if (len > 0) {
+          positions.setX(i, x + (x / len) * offset);
+          positions.setY(i, y + (y / len) * offset);
+          positions.setZ(i, z + (z / len) * offset);
+        }
+      }
+      positions.needsUpdate = true;
+
+      // Inner glow pulse
+      const glowScale = 0.6 + Math.sin(t * 0.004) * 0.15;
+      glowSphere.scale.set(glowScale, glowScale, glowScale);
+      glowMat.opacity = 0.2 + Math.sin(t * 0.003) * 0.15;
+
+      // Core light intensity
+      coreLight.intensity = 2.5 + Math.sin(t * 0.003) * 1;
+      coreLight.color.setHex(
+        Math.sin(t * 0.001) > 0 ? COLORS.electricBlue : COLORS.violet
+      );
+
+      // ── Energy rings rotation ──
+      ring1.rotation.z += 0.006;
+      ring2.rotation.y += 0.004;
+      ring2.rotation.z += 0.003;
+      ring3.rotation.z -= 0.005;
+      ring3.rotation.x += 0.002;
+
+      // Ring pulse
+      const r1Scale = 1 + Math.sin(t * 0.004) * 0.03;
+      const r2Scale = 1 + Math.sin(t * 0.003 + 1) * 0.03;
+      const r3Scale = 1 + Math.sin(t * 0.005 + 2) * 0.03;
+      ring1.scale.set(r1Scale, r1Scale, r1Scale);
+      ring2.scale.set(r2Scale, r2Scale, r2Scale);
+      ring3.scale.set(r3Scale, r3Scale, r3Scale);
+
+      // ── Spiral particles ──
+      spiralParticles.forEach(p => {
+        p.userData.baseAngle += p.userData.speed;
+        const a = p.userData.baseAngle;
+        const d = p.userData.dist;
+        p.position.x = Math.cos(a) * d;
+        p.position.z = Math.sin(a) * d;
+        p.position.y = p.userData.heightOffset + Math.sin(t * p.userData.heightSpeed + p.userData.heightPhase) * 0.5;
+      });
+      spiralGroup.rotation.y += 0.001;
+
+      // ── Crystal shards ──
+      shardGroup.children.forEach(shard => {
+        const d = shard.userData;
+        shard.rotation.x += d.rotSpeed.x;
+        shard.rotation.y += d.rotSpeed.y;
+        shard.rotation.z += d.rotSpeed.z;
+        d.orbitAngle += d.orbitSpeed;
+        shard.position.x = Math.cos(d.orbitAngle) * d.orbitDist;
+        shard.position.z = Math.sin(d.orbitAngle) * d.orbitDist;
+        shard.position.y = d.baseY + Math.sin(t * d.floatSpeed + d.floatPhase) * 0.5;
+      });
+
+      // ── Shockwave rings ──
+      if (t - lastShockwave > SHOCKWAVE_INTERVAL) {
+        createShockwave();
+        lastShockwave = t;
+      }
+
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const sw = shockwaves[i];
+        sw.userData.age += 16;
+        const progress = sw.userData.age / sw.userData.maxAge;
+
+        if (progress >= 1) {
+          scene.remove(sw);
+          sw.geometry.dispose();
+          sw.material.dispose();
+          shockwaves.splice(i, 1);
+          continue;
+        }
+
+        const newScale = 1 + progress * 8;
+        sw.scale.set(newScale, newScale, newScale);
+        sw.material.opacity = 0.6 * (1 - progress);
+
+        // Shift color from blue to pink as it expands
+        const r = Math.floor(0 + progress * 255);
+        const g = Math.floor(212 * (1 - progress));
+        const b = Math.floor(255 * (1 - progress * 0.3));
+        sw.material.color.setRGB(r / 255, g / 255, b / 255);
+      }
+
+      // ── Orbiting energy dots ──
+      orbitDots.forEach(dot => {
+        const d = dot.userData;
+        d.angle += d.speed;
+        // Position on ring (accounting for ring rotation)
+        const localX = Math.cos(d.angle) * d.radius;
+        const localY = Math.sin(d.angle) * d.radius;
+        // Apply ring rotation
+        const cosX = Math.cos(d.ringRotX), sinX = Math.sin(d.ringRotX);
+        const cosZ = Math.cos(d.ringRotZ), sinZ = Math.sin(d.ringRotZ);
+
+        let x = localX;
+        let y = localY * cosX;
+        let z = localY * sinX;
+
+        const x2 = x * cosZ - y * sinZ;
+        const y2 = x * sinZ + y * cosZ;
+
+        dot.position.set(x2, y2, z);
+      });
+
+      // ── Glyph rings ──
+      glyphGroup.children.forEach(g => {
+        g.rotation.x += g.userData.rotSpeedX;
+        g.rotation.y += g.userData.rotSpeedY;
+      });
+
+      // ── Star twinkle ──
+      starsGroup.children.forEach(star => {
+        const d = star.userData;
+        star.material.opacity = 0.3 + Math.sin(t * d.twinkleSpeed + d.twinklePhase) * 0.4;
+      });
+      starsGroup.rotation.y += 0.0001;
+
+      // ── Camera gentle orbit ──
+      const camAngle = elapsed * 0.15;
+      const camRadius = 9;
+      camera.position.x = Math.sin(camAngle) * camRadius * 0.3;
+      camera.position.z = Math.cos(camAngle) * camRadius;
+      camera.position.y = 2 + Math.sin(elapsed * 0.2) * 0.5;
+      camera.lookAt(0, 0, 0);
+
+      // ── Pink & gold lights orbit ──
+      pinkLight.position.set(
+        Math.sin(elapsed * 0.5) * 4,
+        Math.cos(elapsed * 0.3) * 2,
+        Math.cos(elapsed * 0.5) * 4
+      );
+      goldLight.position.set(
+        Math.cos(elapsed * 0.4) * 3,
+        Math.sin(elapsed * 0.6) * 2,
+        Math.sin(elapsed * 0.4) * 3
+      );
+
+      // ── Energy HUD update ──
+      energy = 85 + Math.sin(t * 0.001) * 15;
+      const statusEl = document.getElementById('status-text');
+      if (statusEl) {
+        statusEl.textContent = `CORE ACTIVE \u2014 ENERGY ${Math.round(energy)}%`;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // ─── RESIZE ──────────────────────────────────────────────
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>

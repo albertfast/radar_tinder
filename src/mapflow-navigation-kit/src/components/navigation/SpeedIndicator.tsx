@@ -24,14 +24,13 @@ export default memo(function SpeedIndicator({ bottomOffset = 0 }: SpeedIndicator
 
   const warning = getSpeedWarning(displaySpeed, displayLimit);
   const unit = getUnitLabel(unitSystem);
-  const isOver = displayLimit !== null && displaySpeed > displayLimit;
   const bottom = Math.max(152, insets.bottom + 118) + bottomOffset;
 
   return (
     <View style={[styles.container, { bottom }]} pointerEvents="none">
       <View style={[styles.metricBox, styles.speedBox, { borderColor: warning.color }]}>
         <Text style={[styles.speedLabel, { color: warning.color }]}>SPEED</Text>
-        <Text style={[styles.speedValue, { color: isOver ? warning.color : COLORS.text }]}>{displaySpeed}</Text>
+        <Text style={[styles.speedValue, { color: warning.color }]}>{displaySpeed}</Text>
         <Text style={[styles.speedUnit, { color: warning.color }]}>{unit}</Text>
       </View>
 
@@ -39,14 +38,12 @@ export default memo(function SpeedIndicator({ bottomOffset = 0 }: SpeedIndicator
         style={[
           styles.metricBox,
           styles.limitBox,
-          displayLimit !== null && isOver
-            ? { borderColor: warning.color }
-            : undefined,
+          { borderColor: warning.color },
         ]}
       >
         <Text style={styles.limitLabel}>LIMIT</Text>
-        <Text style={styles.limitValue}>{displayLimit ?? '--'}</Text>
-        <Text style={styles.limitUnit}>{unit}</Text>
+        <Text style={[styles.limitValue, { color: warning.color }]}>{displayLimit ?? '--'}</Text>
+        <Text style={[styles.limitUnit, { color: warning.color }]}>{unit}</Text>
       </View>
     </View>
   );

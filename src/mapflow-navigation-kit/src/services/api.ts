@@ -1003,6 +1003,10 @@ function headingDelta(a: number, b: number): number {
   return Math.abs(((a - b + 540) % 360) - 180);
 }
 
+function bidirectionalHeadingDelta(a: number, b: number): number {
+  return Math.min(headingDelta(a, b), headingDelta(a, (b + 180) % 360));
+}
+
 function metersBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   return haversineMeters(a.lat, a.lng, b.lat, b.lng);
 }
@@ -1019,7 +1023,33 @@ function scoreCandidate(candidate: SpeedLimitCandidate, lat: number, lng: number
     return distanceScore;
   }
 
-  return distanceScore + headingDelta(desiredHeading, candidate.bearing) * 6;
+  return distanceScore + bidirectionalHeadingDelta(desiredHeading, candidate.bearing) * 4;
+}
+
+function projectPointToSegment(
+  lat: number,
+  lng: number,
+  start: NodePoint,
+  end: NodePoint,
+): { lat: number; lng: number; distanceMeters: number } {
+  const metersPerDegreeLat = 111320;
+  const metersPerDegreeLng = Math.max(1, 111320 * Math.cos((lat * Math.PI) / 180));
+  const ax = (start.lng - lng) * metersPerDegreeLng;
+  const ay = (start.lat - lat) * metersPerDegreeLat;
+  const bx = (end.lng - lng) * metersPerDegreeLng;
+  const by = (end.lat - lat) * metersPerDegreeLat;
+  const vx = bx - ax;
+  const vy = by - ay;
+  const lengthSq = vx * vx + vy * vy;
+  const t = lengthSq > 0 ? Math.max(0, Math.min(1, -(ax * vx + ay * vy) / lengthSq)) : 0;
+  const x = ax + vx * t;
+  const y = ay + vy * t;
+
+  return {
+    lat: lat + y / metersPerDegreeLat,
+    lng: lng + x / metersPerDegreeLng,
+    distanceMeters: Math.sqrt(x * x + y * y),
+  };
 }
 
 function sampleWay(nodeIds: number[], nodes: Record<string, NodePoint>, lat: number, lng: number) {
@@ -1033,16 +1063,12 @@ function sampleWay(nodeIds: number[], nodes: Record<string, NodePoint>, lat: num
       continue;
     }
 
-    const midpoint = {
-      lat: (start.lat + end.lat) / 2,
-      lng: (start.lng + end.lng) / 2,
-    };
-
-    const score = metersBetween({ lat, lng }, midpoint);
+    const closest = projectPointToSegment(lat, lng, start, end);
+    const score = closest.distanceMeters;
     if (!best || score < best.score) {
       best = {
-        lat: midpoint.lat,
-        lng: midpoint.lng,
+        lat: closest.lat,
+        lng: closest.lng,
         bearing: bearingBetweenPoints([start.lng, start.lat], [end.lng, end.lat]),
         score,
       };
@@ -1052,7 +1078,7 @@ function sampleWay(nodeIds: number[], nodes: Record<string, NodePoint>, lat: num
   return best;
 }
 
-function parseMaxspeed(maxspeed: string): { value: number; unit: string } | null {
+function parseMaxspeed(maxspeed: string, countryCode?: string | null): { value: number; unit: string } | null {
   if (!maxspeed) return null;
 
   if (maxspeed === 'walk' || maxspeed === 'living_street') {
@@ -1064,15 +1090,21 @@ function parseMaxspeed(maxspeed: string): { value: number; unit: string } | null
 
   const match = maxspeed.match(/^(\d+)\s*(km\/h|kmh|km|mph)?$/i);
   if (match) {
+    const parsedUnit = match[2]?.toLowerCase();
+    const inferredUnit =
+      parsedUnit || (String(countryCode || '').trim().toUpperCase() === 'US' ? 'mph' : 'km/h');
     return {
       value: parseInt(match[1], 10),
-      unit: match[2]?.toLowerCase() || 'km/h',
+      unit: inferredUnit,
     };
   }
 
   const numMatch = maxspeed.match(/^(\d+)$/);
   if (numMatch) {
-    return { value: parseInt(numMatch[1], 10), unit: 'km/h' };
+    return {
+      value: parseInt(numMatch[1], 10),
+      unit: String(countryCode || '').trim().toUpperCase() === 'US' ? 'mph' : 'km/h',
+    };
   }
 
   return null;
@@ -1224,8 +1256,10 @@ export async function getSpeedLimits(
   radius = 40,
   heading?: number | null,
   routeHeading?: number | null,
+  countryCode?: string | null,
 ): Promise<SpeedLimitResponse> {
   const desiredHeading = routeHeading ?? heading ?? null;
+  const normalizedCountryCode = countryCode?.trim().toUpperCase() || null;
 
   try {
     const overpassQuery = `
@@ -1277,7 +1311,7 @@ export async function getSpeedLimits(
 
     for (const element of data.elements ?? []) {
       if (element.type === 'way' && element.tags?.maxspeed) {
-        const maxspeed = parseMaxspeed(element.tags.maxspeed);
+        const maxspeed = parseMaxspeed(element.tags.maxspeed, normalizedCountryCode);
         if (!maxspeed || maxspeed.value <= 0) {
           continue;
         }
