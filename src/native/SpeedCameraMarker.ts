@@ -1,4 +1,5 @@
 import { NativeModules, Platform } from 'react-native';
+import { MAP_MARKER_ICON_URIS } from './mapMarkerSvgAssets';
 
 type SpeedCameraMarkerModule = {
   getDataUri: (sizePx: number) => Promise<string>;
@@ -8,8 +9,12 @@ const nativeModule = NativeModules.RTSpeedCameraMarker as SpeedCameraMarkerModul
 
 const MARKER_SIZE_PX = 96;
 
-/** Android: Java Canvas 3D marker. Other platforms: empty (map uses Canvas fallback). */
+/** Uses the bundled speed-camera artwork; Android native Canvas remains a fallback. */
 export async function resolveSpeedCameraMarkerUri(sizePx = MARKER_SIZE_PX): Promise<string> {
+  if (MAP_MARKER_ICON_URIS.speedCamera) {
+    return MAP_MARKER_ICON_URIS.speedCamera;
+  }
+
   if (Platform.OS === 'android' && nativeModule?.getDataUri) {
     try {
       const uri = await nativeModule.getDataUri(sizePx);

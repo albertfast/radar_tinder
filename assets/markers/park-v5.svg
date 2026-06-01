@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="screenGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background glow -->
+  <rect x="10" y="4" width="44" height="56" rx="4" fill="#0D47A1" opacity="0.15" filter="url(#glow)"/>
+  <!-- Meter pole -->
+  <rect x="30" y="44" width="4" height="16" rx="1" fill="#546E7A"/>
+  <!-- Meter base -->
+  <rect x="26" y="56" width="12" height="4" rx="2" fill="#455A64"/>
+  <!-- Meter body -->
+  <rect x="16" y="10" width="32" height="36" rx="5" fill="#1565C0" stroke="#42A5F5" stroke-width="1.5" filter="url(#glow)"/>
+  <!-- Meter display -->
+  <rect x="20" y="14" width="24" height="14" rx="3" fill="#0D47A1" stroke="#1E88E5" stroke-width="0.8"/>
+  <!-- Display content -->
+  <g filter="url(#screenGlow)">
+    <text x="32" y="25" font-family="monospace" font-size="10" fill="#69F0AE" text-anchor="middle" font-weight="bold">2:00</text>
+  </g>
+  <!-- Coin slot -->
+  <rect x="26" y="32" width="12" height="3" rx="1.5" fill="#0D47A1" stroke="#1E88E5" stroke-width="0.5"/>
+  <!-- Coin slot inner -->
+  <rect x="28" y="33" width="8" height="1" rx="0.5" fill="#1565C0"/>
+  <!-- P symbol -->
+  <g>
+    <rect x="38" y="38" width="3" height="6" rx="0.5" fill="#64B5F6"/>
+    <path d="M41,38 L44,38 Q46,38 46,40 Q46,42 44,42 L41,42 Z" fill="#64B5F6"/>
+    <path d="M41,39.5 L43.5,39.5 Q44.5,39.5 44.5,40 Q44.5,40.5 43.5,40.5 L41,40.5 Z" fill="#1565C0"/>
+  </g>
+  <!-- Button -->
+  <circle cx="24" cy="40" r="2.5" fill="#0D47A1" stroke="#1E88E5" stroke-width="0.5"/>
+  <circle cx="24" cy="40" r="1.2" fill="#1976D2"/>
+</svg>

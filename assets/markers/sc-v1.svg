@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <!-- Teal glow filter -->
+    <filter id="tealGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#00e5cc" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Subtle shadow -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <!-- Isometric top face gradient -->
+    <linearGradient id="topFace" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00ffe5"/>
+      <stop offset="100%" stop-color="#00ccb8"/>
+    </linearGradient>
+    <!-- Isometric right face gradient (darker) -->
+    <linearGradient id="rightFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#009e8e"/>
+      <stop offset="100%" stop-color="#007a6e"/>
+    </linearGradient>
+    <!-- Isometric left face gradient (medium) -->
+    <linearGradient id="leftFace" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#00b8a8"/>
+      <stop offset="100%" stop-color="#009e8e"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Camera body - isometric box -->
+  <g filter="url(#shadow)">
+    <!-- Base/pole -->
+    <rect x="28" y="48" width="8" height="10" rx="1" fill="#3a3a4a"/>
+    <rect x="24" y="55" width="16" height="4" rx="2" fill="#2a2a3a"/>
+
+    <!-- Left face of camera body -->
+    <polygon points="12,22 32,32 32,48 12,38" fill="url(#leftFace)"/>
+
+    <!-- Right face of camera body -->
+    <polygon points="32,32 52,22 52,38 32,48" fill="url(#rightFace)"/>
+
+    <!-- Top face of camera body -->
+    <polygon points="12,22 32,12 52,22 32,32" fill="url(#topFace)"/>
+  </g>
+
+  <!-- Lens area on front face (left face) -->
+  <g filter="url(#tealGlow)">
+    <!-- Lens housing - red accent ring -->
+    <circle cx="22" cy="30" r="6" fill="#1a1a2e" stroke="#ff3355" stroke-width="1.5"/>
+    <!-- Lens inner -->
+    <circle cx="22" cy="30" r="4" fill="#0a0a1a"/>
+    <!-- Lens highlight -->
+    <circle cx="20" cy="28" r="1.5" fill="#ffffff" opacity="0.85"/>
+    <circle cx="24" cy="31" r="0.7" fill="#ffffff" opacity="0.4"/>
+  </g>
+
+  <!-- Small indicator LED on top -->
+  <circle cx="32" cy="17" r="1.5" fill="#ff3355" opacity="0.9"/>
+  <circle cx="32" cy="17" r="3" fill="#ff3355" opacity="0.2"/>
+</svg>

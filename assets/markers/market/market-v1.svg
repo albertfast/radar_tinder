@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="canopyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#44DD66"/>
+      <stop offset="100%" stop-color="#22AA44"/>
+    </linearGradient>
+    <linearGradient id="standGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#886644"/>
+      <stop offset="100%" stop-color="#664422"/>
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Canopy/awning -->
+    <path d="M4 16 L60 16 L56 26 L8 26 Z" fill="url(#canopyGrad)"/>
+    <!-- Canopy scallops -->
+    <path d="M8 26 Q12 32 16 26 Q20 32 24 26 Q28 32 32 26 Q36 32 40 26 Q44 32 48 26 Q52 32 56 26" fill="none" stroke="#44DD66" stroke-width="2"/>
+    <!-- Stand/table -->
+    <rect x="10" y="26" width="44" height="6" rx="2" fill="url(#standGrad)"/>
+    <!-- Table legs -->
+    <rect x="14" y="32" width="4" height="20" rx="1" fill="url(#standGrad)"/>
+    <rect x="46" y="32" width="4" height="20" rx="1" fill="url(#standGrad)"/>
+    <!-- Produce on table -->
+    <circle cx="22" cy="24" r="5" fill="#FF4444"/>
+    <circle cx="32" cy="24" r="5" fill="#FFAA22"/>
+    <circle cx="42" cy="24" r="5" fill="#44CC44"/>
+    <!-- Produce stems/leaves -->
+    <path d="M22 19 Q24 16 22 14" fill="none" stroke="#228822" stroke-width="1.5"/>
+    <path d="M32 19 Q34 16 32 14" fill="none" stroke="#228822" stroke-width="1.5"/>
+  </g>
+</svg>

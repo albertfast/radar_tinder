@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#00e5ff" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="bgGrad" cx="40%" cy="35%">
+      <stop offset="0%" stop-color="#00acc1"/>
+      <stop offset="100%" stop-color="#006064"/>
+    </radialGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <circle cx="32" cy="32" r="26" fill="url(#bgGrad)"/>
+    <circle cx="32" cy="32" r="24" fill="none" stroke="#00e5ff" stroke-width="1" opacity="0.4"/>
+    <!-- White swimmer icon -->
+    <!-- Head -->
+    <circle cx="22" cy="22" r="4.5" fill="#ffffff"/>
+    <!-- Body -->
+    <path d="M26,24 Q30,22 36,25" stroke="#ffffff" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+    <!-- Arm forward -->
+    <line x1="18" y1="24" x2="12" y2="20" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Arm back -->
+    <line x1="26" y1="25" x2="32" y2="28" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Legs -->
+    <line x1="36" y1="25" x2="42" y2="27" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="42" y1="27" x2="46" y2="24" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Water line -->
+    <path d="M10,32 Q16,28 22,32 Q28,36 34,32 Q40,28 46,32 Q52,36 56,32" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.7"/>
+    <!-- Lower wave -->
+    <path d="M10,38 Q16,34 22,38 Q28,42 34,38 Q40,34 46,38 Q52,42 56,38" fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.4"/>
+  </g>
+</svg>

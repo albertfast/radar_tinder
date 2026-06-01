@@ -43,18 +43,6 @@ const buildNebulaHtml = (signalLevel: number, dangerLevel: number, paused: boole
       background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.16) 3px);
       mix-blend-mode: multiply;
     }
-    #title {
-      position: fixed;
-      top: 12px;
-      left: 0;
-      right: 0;
-      z-index: 5;
-      text-align: center;
-      color: rgba(180,140,255,.56);
-      font-size: 9px;
-      letter-spacing: 6px;
-      text-transform: uppercase;
-    }
     #fallback {
       position: fixed;
       inset: 0;
@@ -73,9 +61,8 @@ const buildNebulaHtml = (signalLevel: number, dangerLevel: number, paused: boole
 </head>
 <body>
   <div id="stage"></div>
-  <div id="fallback">NEBULA CORE</div>
+  <div id="fallback"></div>
   <div id="scanlines"></div>
-  <div id="title">NEBULA CORE</div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
     (function () {

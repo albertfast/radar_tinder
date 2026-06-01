@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="orangeGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feFlood flood-color="#ff6d00" flood-opacity="0.55" result="color" />
+      <feComposite in="color" in2="blur" operator="in" result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <linearGradient id="orangeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffab40" />
+      <stop offset="40%" stop-color="#ff9100" />
+      <stop offset="100%" stop-color="#ff6d00" />
+    </linearGradient>
+  </defs>
+  <!-- Directional arrow-car shape -->
+  <g filter="url(#orangeGlow)">
+    <!-- Arrow body morphing into car shape -->
+    <path d="M32 3
+             C35 3 38 5 40 8
+             L48 22 C49 24 49 26 48 28
+             L44 28 L44 46
+             C44 52 40 58 36 58
+             L34 58 L34 50 C34 48 33 47 32 47 C31 47 30 48 30 50 L30 58 L28 58
+             C24 58 20 52 20 46
+             L20 28 L16 28
+             C15 26 15 24 16 22
+             L24 8
+             C26 5 29 3 32 3 Z"
+          fill="url(#orangeGrad)" stroke="#ffcc80" stroke-width="1" />
+  </g>
+  <!-- Car cabin window area -->
+  <path d="M28 14 L26 20 L26 26 L38 26 L38 20 L36 14 C36 12 34 10 32 10 C30 10 28 12 28 14 Z"
+        fill="#4e342e" stroke="#ff9100" stroke-width="0.5" opacity="0.7" />
+  <!-- Windshield highlight -->
+  <path d="M28 12 L27 15 L37 15 L36 12 C35 11 33 10 32 10 C31 10 29 11 28 12 Z"
+        fill="#ffcc80" opacity="0.3" />
+  <!-- Side accent lines -->
+  <line x1="20" y1="32" x2="20" y2="44" stroke="#ffcc80" stroke-width="0.8" opacity="0.5" />
+  <line x1="44" y1="32" x2="44" y2="44" stroke="#ffcc80" stroke-width="0.8" opacity="0.5" />
+  <!-- Headlight (arrow tip) -->
+  <ellipse cx="32" cy="6" rx="2.5" ry="1.5" fill="#ffffff" opacity="0.85" />
+  <!-- Tail lights -->
+  <rect x="22" y="54" width="4" height="2" rx="0.5" fill="#ff1744" opacity="0.8" />
+  <rect x="38" y="54" width="4" height="2" rx="0.5" fill="#ff1744" opacity="0.8" />
+  <!-- Directional speed lines -->
+  <line x1="12" y1="30" x2="18" y2="30" stroke="#ff9100" stroke-width="1.2" opacity="0.4" stroke-linecap="round" />
+  <line x1="46" y1="30" x2="52" y2="30" stroke="#ff9100" stroke-width="1.2" opacity="0.4" stroke-linecap="round" />
+  <line x1="10" y1="36" x2="18" y2="36" stroke="#ff9100" stroke-width="1" opacity="0.3" stroke-linecap="round" />
+  <line x1="46" y1="36" x2="54" y2="36" stroke="#ff9100" stroke-width="1" opacity="0.3" stroke-linecap="round" />
+  <line x1="12" y1="42" x2="18" y2="42" stroke="#ff9100" stroke-width="1.2" opacity="0.4" stroke-linecap="round" />
+  <line x1="46" y1="42" x2="52" y2="42" stroke="#ff9100" stroke-width="1.2" opacity="0.4" stroke-linecap="round" />
+</svg>

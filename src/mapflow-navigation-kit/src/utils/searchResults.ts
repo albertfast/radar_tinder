@@ -141,24 +141,12 @@ function buildSection(
   };
 }
 
-export function buildBrowseSections(
-  savedResults: SearchResult[],
-  recentResults: SearchResult[],
-): SearchResultsSection[] {
-  return [
-    buildSection('saved', 'Saved', savedResults),
-    buildSection('recent', 'Recent', recentResults),
-  ].filter((section): section is SearchResultsSection => section !== null);
-}
-
 export function buildQuerySections(results: SearchResult[]): SearchResultsSection[] {
   const saved = results.filter((item) => item.sourceKind === 'saved');
-  const recent = results.filter((item) => item.sourceKind === 'recent');
   const network = results.filter((item) => item.sourceKind !== 'saved' && item.sourceKind !== 'recent');
 
   return [
     buildSection('saved', 'Saved', saved),
-    buildSection('recent', 'Recent', recent),
     buildSection('network', 'Results', network),
   ].filter((section): section is SearchResultsSection => section !== null);
 }

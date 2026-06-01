@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="innerGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Badge background circle -->
+  <circle cx="32" cy="32" r="28" fill="#1565C0" opacity="0.3" filter="url(#glow)"/>
+  <!-- 5-pointed star badge -->
+  <polygon
+    points="32,6 37.5,22 54,22 40.5,32.5 45.5,49 32,39 18.5,49 23.5,32.5 10,22 26.5,22"
+    fill="#2196F3" stroke="#64B5F6" stroke-width="1.5" filter="url(#glow)"/>
+  <!-- Inner star highlight -->
+  <polygon
+    points="32,14 35.5,24.5 46,24.5 37.8,30.8 40.8,41.5 32,35.5 23.2,41.5 26.2,30.8 18,24.5 28.5,24.5"
+    fill="#42A5F5" stroke="none"/>
+  <!-- White center circle -->
+  <circle cx="32" cy="28" r="6" fill="#FFFFFF" opacity="0.9" filter="url(#innerGlow)"/>
+  <!-- Center dot -->
+  <circle cx="32" cy="28" r="2.5" fill="#1565C0"/>
+</svg>

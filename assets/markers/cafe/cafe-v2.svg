@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="circleGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#E8A855"/>
+      <stop offset="100%" stop-color="#8B4513"/>
+    </radialGradient>
+  </defs>
+  <!-- Amber circle background -->
+  <circle cx="32" cy="32" r="28" fill="url(#circleGrad)" filter="url(#glow)"/>
+  <!-- White coffee cup -->
+  <g fill="#FFFFFF">
+    <!-- Cup body -->
+    <path d="M18 24 L18 44 Q18 50 26 50 L36 50 Q44 50 44 44 L44 24 Z"/>
+    <!-- Cup handle -->
+    <path d="M44 28 Q52 28 52 36 Q52 44 44 44" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <!-- Steam lines -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity="0.7">
+    <path d="M26 20 Q24 14 26 10"/>
+    <path d="M31 18 Q29 12 31 8"/>
+    <path d="M36 20 Q34 14 36 10"/>
+  </g>
+</svg>

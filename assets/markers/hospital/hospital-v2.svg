@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="redGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#FF1744" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF1744"/>
+      <stop offset="100%" stop-color="#D50000"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="44" height="44" rx="12" ry="12" fill="url(#bgGrad)" filter="url(#redGlow)"/>
+  <!-- H letter as paths -->
+  <path d="M20 18 L20 46 L25 46 L25 35 L39 35 L39 46 L44 46 L44 18 L39 18 L39 30 L25 30 L25 18 Z" fill="#FFFFFF"/>
+</svg>

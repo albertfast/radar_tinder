@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#9C27B0" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Purple hotel building -->
+  <rect x="14" y="16" width="36" height="40" rx="2" fill="#9C27B0" filter="url(#glow)"/>
+  <rect x="16" y="18" width="32" height="4" rx="1" fill="#7B1FA2"/>
+  <!-- H sign -->
+  <rect x="25" y="18" width="14" height="4" rx="1" fill="#CE93D8"/>
+  <line x1="28" y1="19" x2="28" y2="21" stroke="white" stroke-width="1.5"/>
+  <line x1="36" y1="19" x2="36" y2="21" stroke="white" stroke-width="1.5"/>
+  <line x1="28" y1="20" x2="36" y2="20" stroke="white" stroke-width="1.5"/>
+  <!-- Windows -->
+  <rect x="18" y="26" width="6" height="6" rx="1" fill="#E1BEE7" opacity="0.9"/>
+  <rect x="29" y="26" width="6" height="6" rx="1" fill="#E1BEE7" opacity="0.9"/>
+  <rect x="40" y="26" width="6" height="6" rx="1" fill="#E1BEE7" opacity="0.9"/>
+  <rect x="18" y="36" width="6" height="6" rx="1" fill="#E1BEE7" opacity="0.9"/>
+  <rect x="29" y="36" width="6" height="6" rx="1" fill="#E1BEE7" opacity="0.9"/>
+  <rect x="40" y="36" width="6" height="6" rx="1" fill="#E1BEE7" opacity="0.9"/>
+  <!-- Door -->
+  <rect x="27" y="46" width="10" height="10" rx="1" fill="#7B1FA2"/>
+  <circle cx="35" cy="52" r="1" fill="#CE93D8"/>
+</svg>

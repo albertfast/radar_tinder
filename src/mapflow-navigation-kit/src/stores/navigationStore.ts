@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { LatLng, RouteData, SearchResult, UnitSystem, RouteStep } from '../types/map';
+import { LatLng, RouteChoice, RouteData, SearchResult, UnitSystem, RouteStep } from '../types/map';
 
 interface NavigationStore {
   // Location
@@ -21,6 +21,7 @@ interface NavigationStore {
   destination: LatLng | null;
   destinationName: string;
   route: RouteData | null;
+  routeAlternatives: RouteChoice[];
   isRouting: boolean;
 
   // Navigation
@@ -46,6 +47,8 @@ interface NavigationStore {
   setIsSearching: (v: boolean) => void;
   setDestination: (dest: LatLng | null, name?: string) => void;
   setRoute: (route: RouteData | null) => void;
+  setRouteAlternatives: (routes: RouteChoice[]) => void;
+  selectRouteAlternative: (routeId: string) => void;
   setIsRouting: (v: boolean) => void;
   startNavigation: () => void;
   stopNavigation: () => void;
@@ -74,6 +77,7 @@ export const useNavigationStore = create<NavigationStore>((set) => ({
   destination: null,
   destinationName: '',
   route: null,
+  routeAlternatives: [],
   isRouting: false,
   isNavigating: false,
   currentStepIndex: 0,
@@ -102,9 +106,30 @@ export const useNavigationStore = create<NavigationStore>((set) => ({
   setIsSearching: (v) => set({ isSearching: v }),
 
   setDestination: (dest, name) =>
-    set({ destination: dest, destinationName: name ?? '' }),
+    set({ destination: dest, destinationName: name ?? '', route: null, routeAlternatives: [] }),
 
   setRoute: (route) => set({ route, hasArrived: false }),
+  setRouteAlternatives: (routes) => set({ routeAlternatives: routes }),
+  selectRouteAlternative: (routeId) =>
+    set((state) => {
+      const selected = state.routeAlternatives.find((route) => route.id === routeId);
+      if (!selected) {
+        return {};
+      }
+
+      return {
+        route: selected,
+        remainingDistance: selected.distance,
+        remainingDuration: selected.duration,
+        eta: new Date(Date.now() + selected.duration * 1000),
+        currentStepIndex: 0,
+        remainingStepDistance: 0,
+        distanceToRoute: 0,
+        routeHeading: null,
+        isOffRoute: false,
+        hasArrived: false,
+      };
+    }),
   setIsRouting: (v) => set({ isRouting: v }),
 
   startNavigation: () => set({ isNavigating: true, hasArrived: false }),
@@ -115,6 +140,7 @@ export const useNavigationStore = create<NavigationStore>((set) => ({
       destination: null,
       destinationName: '',
       currentStepIndex: 0,
+      routeAlternatives: [],
       remainingStepDistance: 0,
       remainingDistance: 0,
       remainingDuration: 0,

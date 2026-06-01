@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="badgeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF66AA"/>
+      <stop offset="100%" stop-color="#DD2288"/>
+    </linearGradient>
+  </defs>
+  <!-- Pink badge circle -->
+  <circle cx="32" cy="32" r="28" fill="url(#badgeGrad)" filter="url(#glow)"/>
+  <circle cx="32" cy="32" r="25" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.3"/>
+  <!-- White store front -->
+  <g fill="#FFFFFF">
+    <!-- Building body -->
+    <rect x="14" y="26" width="36" height="24" rx="2"/>
+    <!-- Roof/awning -->
+    <path d="M10 26 L54 26 L50 18 L14 18 Z"/>
+    <!-- Awning scallops -->
+    <path d="M14 26 Q18 30 22 26 Q26 30 30 26 Q34 30 38 26 Q42 30 46 26 Q50 30 54 26" fill="none" stroke="#DD2288" stroke-width="1.5" opacity="0.4"/>
+    <!-- Door -->
+    <rect x="26" y="36" width="12" height="14" rx="2" fill="#DD2288" opacity="0.4"/>
+    <!-- Windows -->
+    <rect x="16" y="30" width="7" height="7" rx="1" fill="#DD2288" opacity="0.3"/>
+    <rect x="41" y="30" width="7" height="7" rx="1" fill="#DD2288" opacity="0.3"/>
+  </g>
+</svg>

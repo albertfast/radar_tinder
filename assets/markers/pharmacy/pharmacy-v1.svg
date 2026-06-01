@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="greenGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#00E676" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="crossGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00E676"/>
+      <stop offset="100%" stop-color="#00C853"/>
+    </linearGradient>
+  </defs>
+  <!-- Classic green pharmacy cross -->
+  <rect x="24" y="8" width="16" height="48" rx="4" ry="4" fill="url(#crossGrad)" filter="url(#greenGlow)"/>
+  <rect x="8" y="24" width="48" height="16" rx="4" ry="4" fill="url(#crossGrad)" filter="url(#greenGlow)"/>
+  <!-- Inner highlight -->
+  <rect x="27" y="11" width="10" height="42" rx="2" fill="#FFFFFF" opacity="0.15"/>
+  <rect x="11" y="27" width="42" height="10" rx="2" fill="#FFFFFF" opacity="0.15"/>
+</svg>

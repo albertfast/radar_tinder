@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="redGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feFlood flood-color="#ff1744" flood-opacity="0.5" result="color" />
+      <feComposite in="color" in2="blur" operator="in" result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <linearGradient id="redPinGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff5252" />
+      <stop offset="50%" stop-color="#ff1744" />
+      <stop offset="100%" stop-color="#d50000" />
+    </linearGradient>
+    <filter id="greenFlagGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur" />
+      <feFlood flood-color="#00e676" flood-opacity="0.5" result="color" />
+      <feComposite in="color" in2="blur" operator="in" result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Red map pin -->
+  <g filter="url(#redGlow)">
+    <path d="M32 12 C23 12 17 18.5 17 26 C17 37 32 56 32 56 C32 56 47 37 47 26 C47 18.5 41 12 32 12 Z"
+          fill="url(#redPinGrad)" stroke="#ff8a80" stroke-width="1" />
+  </g>
+  <!-- White circle in pin -->
+  <circle cx="32" cy="25" r="8" fill="#ffffff" opacity="0.9" />
+  <!-- Small green flag on top of pin -->
+  <g filter="url(#greenFlagGlow)">
+    <!-- Flag pole -->
+    <rect x="31" y="2" width="2" height="14" rx="1" fill="#e0e0e0" />
+    <!-- Flag -->
+    <path d="M33 3 L33 11 L45 7 Z" fill="#00e676" stroke="#69f0ae" stroke-width="0.5" />
+  </g>
+  <!-- Pin highlight -->
+  <ellipse cx="28" cy="20" rx="4" ry="5" fill="#ffffff" opacity="0.12" />
+</svg>

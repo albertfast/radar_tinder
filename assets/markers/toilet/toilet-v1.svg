@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#009688" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Teal toilet icon -->
+  <g filter="url(#glow)">
+    <rect x="22" y="14" width="20" height="8" rx="2" fill="#009688"/>
+    <rect x="20" y="22" width="24" height="6" rx="2" fill="#00897B"/>
+  </g>
+  <path d="M20 28 Q18 28 18 36 Q18 50 32 52 Q46 50 46 36 Q46 28 44 28 Z" fill="#26A69A" filter="url(#glow)"/>
+  <!-- Seat -->
+  <ellipse cx="32" cy="34" rx="10" ry="4" fill="#4DB6AC" opacity="0.6"/>
+  <!-- Bowl -->
+  <ellipse cx="32" cy="38" rx="8" ry="6" fill="#009688" opacity="0.5"/>
+  <!-- Flush handle -->
+  <rect x="42" y="14" width="4" height="3" rx="1" fill="#4DB6AC"/>
+  <rect x="44" y="15" width="3" height="2" rx="1" fill="#4DB6AC"/>
+</svg>

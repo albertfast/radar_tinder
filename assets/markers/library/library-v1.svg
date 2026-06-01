@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="amberGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#FFAB00" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="bookGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD740"/>
+      <stop offset="100%" stop-color="#FFAB00"/>
+    </linearGradient>
+  </defs>
+  <!-- Book stack -->
+  <!-- Bottom book -->
+  <rect x="10" y="40" width="44" height="10" rx="2" fill="url(#bookGrad)" filter="url(#amberGlow)"/>
+  <line x1="16" y1="42" x2="16" y2="48" stroke="#E65100" stroke-width="1" opacity="0.4"/>
+  <!-- Middle book -->
+  <rect x="12" y="28" width="40" height="10" rx="2" fill="#FFD740" filter="url(#amberGlow)"/>
+  <line x1="18" y1="30" x2="18" y2="36" stroke="#E65100" stroke-width="1" opacity="0.4"/>
+  <!-- Top book -->
+  <rect x="14" y="16" width="36" height="10" rx="2" fill="#FFE57F" filter="url(#amberGlow)"/>
+  <line x1="20" y1="18" x2="20" y2="24" stroke="#E65100" stroke-width="1" opacity="0.4"/>
+  <!-- Page edges -->
+  <rect x="11" y="42" width="42" height="2" rx="0.5" fill="#FFFFFF" opacity="0.2"/>
+  <rect x="13" y="30" width="38" height="2" rx="0.5" fill="#FFFFFF" opacity="0.2"/>
+  <rect x="15" y="18" width="34" height="2" rx="0.5" fill="#FFFFFF" opacity="0.2"/>
+</svg>

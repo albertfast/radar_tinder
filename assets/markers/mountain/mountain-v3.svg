@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#B0BEC5" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="32" cy="32" r="28" fill="#37474F" filter="url(#glow)"/>
+  <circle cx="32" cy="32" r="25" fill="#455A64" stroke="#90A4AE" stroke-width="1.5"/>
+  <!-- White snowcap peak -->
+  <path d="M8 48 L28 10 L48 48 Z" fill="white"/>
+  <!-- Snow cap detail -->
+  <path d="M20 26 L28 10 L36 26 Z" fill="white"/>
+  <path d="M22 26 L28 16 L34 26 Z" fill="#455A64" opacity="0.15"/>
+  <!-- Ridge lines -->
+  <line x1="28" y1="10" x2="38" y2="30" stroke="#455A64" stroke-width="0.8" opacity="0.3"/>
+  <line x1="28" y1="10" x2="18" y2="30" stroke="#455A64" stroke-width="0.8" opacity="0.3"/>
+  <!-- Cloud -->
+  <ellipse cx="40" cy="18" rx="8" ry="4" fill="white" opacity="0.5"/>
+  <ellipse cx="36" cy="16" rx="5" ry="3" fill="white" opacity="0.4"/>
+</svg>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#FFB300" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="32" cy="32" r="28" fill="#E65100" filter="url(#glow)"/>
+  <circle cx="32" cy="32" r="26" fill="#EF6C00"/>
+  <!-- White building -->
+  <path d="M12 40 L32 18 L52 40 Z" fill="white" opacity="0.9"/>
+  <rect x="14" y="40" width="36" height="4" fill="white"/>
+  <rect x="18" y="40" width="3" height="10" fill="white"/>
+  <rect x="26" y="40" width="3" height="10" fill="white"/>
+  <rect x="35" y="40" width="3" height="10" fill="white"/>
+  <rect x="43" y="40" width="3" height="10" fill="white"/>
+  <rect x="14" y="50" width="36" height="3" rx="1" fill="white"/>
+</svg>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="badgeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#BB66FF"/>
+      <stop offset="100%" stop-color="#7722CC"/>
+    </linearGradient>
+  </defs>
+  <!-- Purple badge circle -->
+  <circle cx="32" cy="32" r="28" fill="url(#badgeGrad)" filter="url(#glow)"/>
+  <circle cx="32" cy="32" r="25" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.3"/>
+  <!-- White beer mug -->
+  <g fill="#FFFFFF">
+    <!-- Mug body -->
+    <rect x="16" y="18" width="26" height="28" rx="3"/>
+    <!-- Mug handle -->
+    <path d="M42 24 Q52 24 52 32 Q52 40 42 40" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+    <!-- Beer foam -->
+    <path d="M16 18 Q16 12 22 12 Q26 8 30 12 Q34 8 38 12 Q42 12 42 18 Z"/>
+    <!-- Foam bubbles -->
+    <circle cx="22" cy="14" r="2" fill="#BB66FF" opacity="0.3"/>
+    <circle cx="30" cy="12" r="2" fill="#BB66FF" opacity="0.3"/>
+    <circle cx="36" cy="14" r="2" fill="#BB66FF" opacity="0.3"/>
+  </g>
+</svg>

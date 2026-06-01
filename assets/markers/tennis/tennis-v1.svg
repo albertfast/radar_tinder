@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#c6ff00" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="ballGrad" cx="38%" cy="32%">
+      <stop offset="0%" stop-color="#f4ff81"/>
+      <stop offset="50%" stop-color="#c6ff00"/>
+      <stop offset="100%" stop-color="#aeea00"/>
+    </radialGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Tennis ball -->
+    <circle cx="32" cy="32" r="20" fill="url(#ballGrad)" stroke="#aeea00" stroke-width="1.5"/>
+    <!-- Seam curve left -->
+    <path d="M16,24 Q24,32 16,40" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.9"/>
+    <!-- Seam curve right -->
+    <path d="M48,24 Q40,32 48,40" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.9"/>
+    <!-- Highlight -->
+    <ellipse cx="26" cy="24" rx="5" ry="7" fill="#ffffff" opacity="0.15" transform="rotate(-20,26,24)"/>
+  </g>
+</svg>

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#00e676" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="bgGrad" cx="40%" cy="35%">
+      <stop offset="0%" stop-color="#43a047"/>
+      <stop offset="100%" stop-color="#1b5e20"/>
+    </radialGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <circle cx="32" cy="32" r="26" fill="url(#bgGrad)"/>
+    <circle cx="32" cy="32" r="24" fill="none" stroke="#00e676" stroke-width="1" opacity="0.4"/>
+    <!-- Tennis racket head -->
+    <ellipse cx="28" cy="24" rx="9" ry="12" fill="none" stroke="#ffffff" stroke-width="2.2" transform="rotate(-15,28,24)"/>
+    <!-- Racket strings vertical -->
+    <line x1="22" y1="16" x2="22" y2="32" stroke="#ffffff" stroke-width="0.8" opacity="0.6" transform="rotate(-15,28,24)"/>
+    <line x1="25" y1="14" x2="25" y2="34" stroke="#ffffff" stroke-width="0.8" opacity="0.6" transform="rotate(-15,28,24)"/>
+    <line x1="28" y1="13" x2="28" y2="35" stroke="#ffffff" stroke-width="0.8" opacity="0.6" transform="rotate(-15,28,24)"/>
+    <line x1="31" y1="14" x2="31" y2="34" stroke="#ffffff" stroke-width="0.8" opacity="0.6" transform="rotate(-15,28,24)"/>
+    <line x1="34" y1="16" x2="34" y2="32" stroke="#ffffff" stroke-width="0.8" opacity="0.6" transform="rotate(-15,28,24)"/>
+    <!-- Racket strings horizontal -->
+    <line x1="19" y1="19" x2="37" y2="19" stroke="#ffffff" stroke-width="0.8" opacity="0.6" transform="rotate(-15,28,24)"/>
+    <line x1="18" y1="23" x2="38" y2="23" stroke="#ffffff" stroke-width="0.8" opacity="0.6" transform="rotate(-15,28,24)"/>
+    <line x1="18" y1="27" x2="38" y2="27" stroke="#ffffff" stroke-width="0.8" opacity="0.6" transform="rotate(-15,28,24)"/>
+    <line x1="19" y1="31" x2="37" y2="31" stroke="#ffffff" stroke-width="0.8" opacity="0.6" transform="rotate(-15,28,24)"/>
+    <!-- Racket handle -->
+    <line x1="34" y1="35" x2="42" y2="52" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+    <!-- Handle grip -->
+    <line x1="40" y1="47" x2="44" y2="55" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+  </g>
+</svg>

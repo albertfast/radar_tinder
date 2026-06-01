@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <!-- Red glow filter -->
+    <filter id="redGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#ff2222" flood-opacity="0.55" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Shadow -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <!-- Camera body gradient -->
+    <linearGradient id="camGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a4a60"/>
+      <stop offset="100%" stop-color="#2a2a3e"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Red border/frame -->
+  <g filter="url(#redGlow)">
+    <rect x="4" y="4" width="56" height="56" rx="10" fill="none" stroke="#ff2222" stroke-width="3"/>
+    <!-- Corner accents -->
+    <circle cx="8" cy="8" r="2" fill="#ff4444"/>
+    <circle cx="56" cy="8" r="2" fill="#ff4444"/>
+    <circle cx="8" cy="56" r="2" fill="#ff4444"/>
+    <circle cx="56" cy="56" r="2" fill="#ff4444"/>
+  </g>
+
+  <!-- Background fill -->
+  <rect x="6" y="6" width="52" height="52" rx="9" fill="#1a1a2e" opacity="0.85"/>
+
+  <!-- Camera body -->
+  <g filter="url(#shadow)">
+    <!-- Main camera body -->
+    <rect x="14" y="24" width="30" height="22" rx="4" fill="url(#camGrad)" stroke="#5a5a70" stroke-width="1"/>
+    <!-- Camera top (viewfinder/flash housing) -->
+    <rect x="22" y="20" width="14" height="6" rx="2" fill="#3a3a50" stroke="#5a5a70" stroke-width="0.5"/>
+  </g>
+
+  <!-- Camera lens -->
+  <circle cx="29" cy="35" r="7" fill="#111120" stroke="#666680" stroke-width="1.5"/>
+  <circle cx="29" cy="35" r="5" fill="#1a1a30"/>
+  <circle cx="29" cy="35" r="3" fill="#222240"/>
+  <!-- Lens highlight -->
+  <circle cx="27" cy="33" r="1.5" fill="#ffffff" opacity="0.6"/>
+
+  <!-- Small traffic light element (top right) -->
+  <g>
+    <!-- Mini housing -->
+    <rect x="42" y="10" width="10" height="22" rx="3" fill="#2a2a3e" stroke="#ff3333" stroke-width="1.5"/>
+    <!-- Red light - ACTIVE -->
+    <g filter="url(#redGlow)">
+      <circle cx="47" cy="15" r="2.5" fill="#ff2222"/>
+      <circle cx="47" cy="15" r="1.2" fill="#ff5555"/>
+    </g>
+    <!-- Yellow light - dim -->
+    <circle cx="47" cy="21" r="2" fill="#2a2a20"/>
+    <!-- Green light - dim -->
+    <circle cx="47" cy="27" r="2" fill="#1a2a1a"/>
+  </g>
+
+  <!-- Recording indicator -->
+  <circle cx="40" cy="30" r="1.5" fill="#ff2222" opacity="0.9">
+    <animate attributeName="opacity" values="0.9;0.3;0.9" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg>

@@ -51,8 +51,9 @@
       "channel": "testflight",
       "env": {
         "EXPO_SKIP_DOCTOR_CHECK": "1",
-        "EXPO_PUBLIC_AD_DEBUG": "1",
-        "EXPO_PUBLIC_ADMOB_FORCE_TEST_IDS": "1"
+        "EXPO_PUBLIC_AD_DEBUG": "0",
+        "EXPO_PUBLIC_ADMOB_FORCE_TEST_IDS": "0",
+        "EXPO_PUBLIC_ADMOB_FALLBACK_TO_TEST_ON_ERROR": "0"
       },
       "ios": {
         "simulator": false,
@@ -67,7 +68,10 @@
       "channel": "production",
       "env": {
         "EXPO_SKIP_DOCTOR_CHECK": "1",
-        "EXPO_PUBLIC_LIVE_OSM_FALLBACK": "true"
+        "EXPO_PUBLIC_LIVE_OSM_FALLBACK": "true",
+        "EXPO_PUBLIC_AD_DEBUG": "0",
+        "EXPO_PUBLIC_ADMOB_FORCE_TEST_IDS": "0",
+        "EXPO_PUBLIC_ADMOB_FALLBACK_TO_TEST_ON_ERROR": "0"
       },
       "ios": {
         "simulator": false,

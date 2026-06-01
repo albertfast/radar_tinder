@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="shellGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Glow background -->
+  <circle cx="30" cy="34" r="22" fill="#E65100" opacity="0.15" filter="url(#glow)"/>
+  <!-- Snail body (foot) -->
+  <path d="M8,44 Q8,36 20,36 Q40,36 56,44 Q40,50 20,50 Q8,50 8,44 Z"
+        fill="#FF8F00" stroke="#FFB74D" stroke-width="1" filter="url(#glow)"/>
+  <!-- Snail head -->
+  <ellipse cx="14" cy="34" rx="6" ry="5" fill="#FFA000" stroke="#FFB74D" stroke-width="1"/>
+  <!-- Eye stalks -->
+  <line x1="12" y1="30" x2="10" y2="20" stroke="#FF8F00" stroke-width="2" stroke-linecap="round"/>
+  <line x1="16" y1="30" x2="18" y2="20" stroke="#FF8F00" stroke-width="2" stroke-linecap="round"/>
+  <!-- Eyes -->
+  <circle cx="10" cy="19" r="3" fill="#FF6D00" stroke="#FFAB40" stroke-width="0.5" filter="url(#shellGlow)"/>
+  <circle cx="18" cy="19" r="3" fill="#FF6D00" stroke="#FFAB40" stroke-width="0.5" filter="url(#shellGlow)"/>
+  <circle cx="10" cy="18.5" r="1.2" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="18" cy="18.5" r="1.2" fill="#FFFFFF" opacity="0.8"/>
+  <!-- Shell (spiral) -->
+  <circle cx="38" cy="30" r="14" fill="#FF6D00" stroke="#FFAB40" stroke-width="1.5" filter="url(#shellGlow)"/>
+  <circle cx="38" cy="30" r="10" fill="none" stroke="#FF8F00" stroke-width="1.5"/>
+  <circle cx="38" cy="30" r="6" fill="none" stroke="#FF8F00" stroke-width="1.5"/>
+  <circle cx="38" cy="30" r="2.5" fill="#FF8F00"/>
+  <!-- Shell highlight -->
+  <path d="M30,20 Q34,18 40,20" fill="none" stroke="#FFCC80" stroke-width="1" opacity="0.5"/>
+  <!-- Slime trail -->
+  <path d="M8,46 Q4,46 2,44" fill="none" stroke="#FFAB40" stroke-width="1" opacity="0.4"/>
+</svg>

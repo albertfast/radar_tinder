@@ -1,8 +1,12 @@
-import { RouteData, RouteStep, SearchResult } from '../types/map';
+import { POI_CATEGORY_CONFIG } from '../../../native/mapMarkerSvgAssets';
+import { MapPoiMarker, RouteChoice, RouteData, RouteSnapInfo, RouteStep, SearchResult } from '../types/map';
 
 const GEOAPIFY_API_KEY = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY?.trim();
 const OPENROUTESERVICE_API_KEY = process.env.EXPO_PUBLIC_OPENROUTESERVICE_API_KEY?.trim();
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+const PAID_GOOGLE_MAPS_ENABLED = String(process.env.EXPO_PUBLIC_ENABLE_PAID_GOOGLE_MAPS || '')
+  .trim()
+  .toLowerCase() === 'true';
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://lz4.overpass-api.de/api/interpreter',
@@ -53,6 +57,31 @@ interface RouteOptions {
   originLng: number;
   destLat: number;
   destLng: number;
+}
+
+interface RouteRequestOptions extends RouteOptions {
+  originalOriginLat?: number;
+  originalOriginLng?: number;
+  originalDestLat?: number;
+  originalDestLng?: number;
+  snapInfo?: {
+    origin?: RouteSnapInfo | null;
+    destination?: RouteSnapInfo | null;
+  };
+}
+
+interface MapPoiViewport {
+  zoom: number;
+  bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  };
+  center?: {
+    lat: number;
+    lng: number;
+  };
 }
 
 interface NodePoint {
@@ -600,8 +629,50 @@ async function searchNominatim({ query, lat, lng, limit, countryCode }: SearchOp
     .filter(Boolean) as SearchResult[];
 }
 
+async function reversePhoton(lat: number, lng: number): Promise<ReverseGeocodeResult | null> {
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lon: String(lng),
+    limit: '1',
+  });
+
+  const data = await fetchJson<{ features?: any[] }>(
+    `https://photon.komoot.io/reverse?${params.toString()}`,
+    {
+      headers: {
+        Accept: 'application/json',
+      },
+    },
+  );
+
+  const feature = data.features?.[0];
+  const properties = feature?.properties ?? {};
+  if (!feature || !properties) {
+    return null;
+  }
+
+  const streetLine = buildAddress([properties.street, properties.housenumber]);
+  const displayName = buildAddress([
+    properties.name || streetLine,
+    properties.city,
+    properties.state,
+    properties.postcode,
+    properties.country,
+  ]);
+
+  return {
+    countryCode: properties.countrycode?.toUpperCase() || null,
+    country: properties.country || null,
+    city: properties.city || properties.county || null,
+    state: properties.state || null,
+    road: properties.street || null,
+    displayName: displayName || null,
+    provider: 'photon',
+  };
+}
+
 async function searchGoogle({ query, lat, lng, limit }: SearchOptions): Promise<SearchResult[]> {
-  if (!GOOGLE_MAPS_API_KEY) {
+  if (!PAID_GOOGLE_MAPS_ENABLED || !GOOGLE_MAPS_API_KEY) {
     return [];
   }
 
@@ -890,7 +961,30 @@ function normalizeOrsStep(step: any, geometry: [number, number][]): RouteStep | 
   };
 }
 
-async function routeWithOpenRouteService(options: RouteOptions): Promise<RouteData> {
+function normalizeOrsFeature(feature: any, options: RouteRequestOptions): RouteData | null {
+  const geometry = feature?.geometry?.coordinates;
+  const segment = feature?.properties?.segments?.[0];
+  const summary = feature?.properties?.summary;
+
+  if (!Array.isArray(geometry) || !summary) {
+    return null;
+  }
+
+  const steps = cleanupRouteSteps((segment?.steps ?? [])
+    .map((step: any) => normalizeOrsStep(step, geometry))
+    .filter(Boolean) as RouteStep[]);
+
+  return {
+    geometry,
+    distance: summary.distance ?? 0,
+    duration: summary.duration ?? 0,
+    steps,
+    provider: 'openrouteservice',
+    snapInfo: options.snapInfo,
+  };
+}
+
+async function routeWithOpenRouteServiceAlternatives(options: RouteRequestOptions): Promise<RouteData[]> {
   if (!OPENROUTESERVICE_API_KEY) {
     throw new Error('Missing OPENROUTESERVICE_API_KEY');
   }
@@ -912,37 +1006,72 @@ async function routeWithOpenRouteService(options: RouteOptions): Promise<RouteDa
       units: 'm',
       language: 'en',
       geometry_simplify: false,
+      alternative_routes: {
+        target_count: 3,
+        share_factor: 0.6,
+        weight_factor: 1.4,
+      },
     }),
   });
 
-  const feature = data.features?.[0];
-  const geometry = feature?.geometry?.coordinates;
-  const segment = feature?.properties?.segments?.[0];
-  const summary = feature?.properties?.summary;
+  const routes = (data.features ?? [])
+    .map((feature: any) => normalizeOrsFeature(feature, options))
+    .filter(Boolean) as RouteData[];
 
-  if (!Array.isArray(geometry) || !summary) {
+  if (!routes.length) {
     throw new Error('Invalid OpenRouteService response');
   }
 
-  const steps = cleanupRouteSteps((segment?.steps ?? [])
-    .map((step: any) => normalizeOrsStep(step, geometry))
-    .filter(Boolean) as RouteStep[]);
+  return routes;
+}
+
+async function routeWithOpenRouteService(options: RouteRequestOptions): Promise<RouteData> {
+  return (await routeWithOpenRouteServiceAlternatives(options))[0];
+}
+
+function normalizeOsrmRoute(route: any, options: RouteRequestOptions): RouteData | null {
+  const leg = route.legs?.[0];
+  const geometry = route.geometry?.coordinates;
+  if (!Array.isArray(geometry)) {
+    return null;
+  }
+
+  const steps = cleanupRouteSteps((leg?.steps ?? [])
+    .filter((step: any) => step.maneuver?.type !== 'arrive')
+    .map((step: any) => ({
+      instruction: buildInstruction(step),
+      distance: step.distance ?? 0,
+      duration: step.duration ?? 0,
+      maneuver: {
+        type: step.maneuver?.type || 'continue',
+        modifier: step.maneuver?.modifier,
+        location: step.maneuver?.location || geometry[0],
+      },
+      name: step.name || null,
+      ref: step.ref || null,
+      bearingBefore: typeof step.maneuver?.bearing_before === 'number' ? step.maneuver.bearing_before : null,
+      bearingAfter: typeof step.maneuver?.bearing_after === 'number' ? step.maneuver.bearing_after : null,
+      exit: typeof step.maneuver?.exit === 'number' ? step.maneuver.exit : null,
+    })) as RouteStep[]);
 
   return {
     geometry,
-    distance: summary.distance ?? 0,
-    duration: summary.duration ?? 0,
+    distance: route.distance,
+    duration: route.duration,
     steps,
-    provider: 'openrouteservice',
+    provider: 'osrm',
+    snapInfo: options.snapInfo,
   };
 }
 
-async function routeWithOsrm(options: RouteOptions): Promise<RouteData> {
+async function routeWithOsrmAlternatives(options: RouteRequestOptions): Promise<RouteData[]> {
   const params = new URLSearchParams({
     overview: 'full',
     geometries: 'geojson',
     steps: 'true',
     annotations: 'true',
+    alternatives: 'true',
+    continue_straight: 'false',
   });
 
   const data = await fetchJson<any>(
@@ -956,33 +1085,19 @@ async function routeWithOsrm(options: RouteOptions): Promise<RouteData> {
     throw new Error('No OSRM route found');
   }
 
-  const route = data.routes[0];
-  const leg = route.legs?.[0];
-  const steps = cleanupRouteSteps((leg?.steps ?? [])
-    .filter((step: any) => step.maneuver?.type !== 'arrive')
-    .map((step: any) => ({
-      instruction: buildInstruction(step),
-      distance: step.distance ?? 0,
-      duration: step.duration ?? 0,
-      maneuver: {
-        type: step.maneuver?.type || 'continue',
-        modifier: step.maneuver?.modifier,
-        location: step.maneuver?.location || route.geometry.coordinates[0],
-      },
-      name: step.name || null,
-      ref: step.ref || null,
-      bearingBefore: typeof step.maneuver?.bearing_before === 'number' ? step.maneuver.bearing_before : null,
-      bearingAfter: typeof step.maneuver?.bearing_after === 'number' ? step.maneuver.bearing_after : null,
-      exit: typeof step.maneuver?.exit === 'number' ? step.maneuver.exit : null,
-    })) as RouteStep[]);
+  const routes = data.routes
+    .map((route: any) => normalizeOsrmRoute(route, options))
+    .filter(Boolean) as RouteData[];
 
-  return {
-    geometry: route.geometry.coordinates,
-    distance: route.distance,
-    duration: route.duration,
-    steps,
-    provider: 'osrm',
-  };
+  if (!routes.length) {
+    throw new Error('Invalid OSRM route response');
+  }
+
+  return routes;
+}
+
+async function routeWithOsrm(options: RouteRequestOptions): Promise<RouteData> {
+  return (await routeWithOsrmAlternatives(options))[0];
 }
 
 function bearingBetweenPoints(start: [number, number], end: [number, number]): number {
@@ -1194,11 +1309,20 @@ export async function searchPlaces(query: string, lat?: number, lng?: number) {
 
 export async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeResult> {
   try {
+    const photon = await reversePhoton(lat, lng);
+    if (photon?.displayName || photon?.road || photon?.city) {
+      return photon;
+    }
+  } catch {}
+
+  try {
     const nominatim = await fetchJson<any>(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`,
       {
         headers: {
           Accept: 'application/json',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'User-Agent': 'RadarTinder/1.0',
         },
       },
     );
@@ -1257,6 +1381,390 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
   }
 }
 
+function normalizePoiHaystack(tags: Record<string, unknown> = {}): string {
+  return [
+    tags.amenity,
+    tags.shop,
+    tags.tourism,
+    tags.leisure,
+    tags.natural,
+    tags.sport,
+    tags.aeroway,
+    tags.railway,
+    tags.highway,
+    tags.public_transport,
+    tags.internet_access,
+    tags.name,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+    .replace(/-/g, '_');
+}
+
+function resolvePoiCategory(tags: Record<string, unknown> = {}): keyof typeof POI_CATEGORY_CONFIG | null {
+  const haystack = normalizePoiHaystack(tags);
+  const entries = Object.entries(POI_CATEGORY_CONFIG).sort(
+    ([, left], [, right]) => Number(right.priority) - Number(left.priority),
+  );
+
+  for (const [category, config] of entries) {
+    const matched = config.matchTerms.some((term) => {
+      const normalizedTerm = String(term).toLowerCase().replace(/-/g, '_');
+      return haystack.includes(normalizedTerm);
+    });
+    if (matched) {
+      return category as keyof typeof POI_CATEGORY_CONFIG;
+    }
+  }
+
+  return null;
+}
+
+function buildPoiQuery(bounds: MapPoiViewport['bounds']): string {
+  const south = Math.max(-90, Math.min(bounds.south, bounds.north));
+  const north = Math.min(90, Math.max(bounds.south, bounds.north));
+  const west = Math.max(-180, Math.min(bounds.west, bounds.east));
+  const east = Math.min(180, Math.max(bounds.west, bounds.east));
+  const bbox = `${south},${west},${north},${east}`;
+
+  return `
+    [out:json][timeout:10];
+    (
+      nwr["amenity"](${bbox});
+      nwr["shop"](${bbox});
+      nwr["tourism"](${bbox});
+      nwr["leisure"](${bbox});
+      nwr["natural"](${bbox});
+      nwr["sport"](${bbox});
+      nwr["aeroway"](${bbox});
+      nwr["railway"](${bbox});
+      nwr["highway"="bus_stop"](${bbox});
+      nwr["public_transport"](${bbox});
+      nwr["internet_access"](${bbox});
+    );
+    out center tags qt 160;
+  `;
+}
+
+let poiViewportCache:
+  | {
+      key: string;
+      fetchedAt: number;
+      markers: MapPoiMarker[];
+    }
+  | null = null;
+
+export async function getMapPoiMarkers(viewport: MapPoiViewport): Promise<MapPoiMarker[]> {
+  if (!viewport || viewport.zoom < 14.2) {
+    return [];
+  }
+
+  const roundedZoom = Math.floor(viewport.zoom * 2) / 2;
+  const key = [
+    roundedZoom.toFixed(1),
+    viewport.bounds.north.toFixed(3),
+    viewport.bounds.south.toFixed(3),
+    viewport.bounds.east.toFixed(3),
+    viewport.bounds.west.toFixed(3),
+  ].join(':');
+
+  if (poiViewportCache && poiViewportCache.key === key && Date.now() - poiViewportCache.fetchedAt < 45_000) {
+    return poiViewportCache.markers;
+  }
+
+  const query = buildPoiQuery(viewport.bounds);
+  let data: any = null;
+
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `data=${encodeURIComponent(query)}`,
+      });
+
+      if (!response.ok) {
+        continue;
+      }
+
+      data = await response.json();
+      break;
+    } catch {
+      // Try the next mirror.
+    }
+  }
+
+  if (!data) {
+    return [];
+  }
+
+  const counts = new Map<string, number>();
+  const seen = new Set<string>();
+  const markers: MapPoiMarker[] = [];
+
+  for (const element of data.elements ?? []) {
+    const tags = element.tags ?? {};
+    const category = resolvePoiCategory(tags);
+    if (!category) {
+      continue;
+    }
+
+    const config = POI_CATEGORY_CONFIG[category];
+    if (!config || viewport.zoom < Number(config.minZoom)) {
+      continue;
+    }
+
+    const currentCount = counts.get(category) ?? 0;
+    if (currentCount >= Number(config.maxCount)) {
+      continue;
+    }
+
+    const lat = Number(element.lat ?? element.center?.lat);
+    const lng = Number(element.lon ?? element.center?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      continue;
+    }
+
+    const name = typeof tags.name === 'string' ? tags.name : undefined;
+    const id = `${category}:${Number(element.id || 0)}:${lat.toFixed(5)}:${lng.toFixed(5)}`;
+    if (seen.has(id)) {
+      continue;
+    }
+
+    seen.add(id);
+    counts.set(category, currentCount + 1);
+    markers.push({
+      id,
+      category,
+      iconKey: config.iconKey,
+      latitude: lat,
+      longitude: lng,
+      name,
+      priority: Number(config.priority),
+    });
+  }
+
+  markers.sort((left, right) => {
+    if (right.priority !== left.priority) {
+      return right.priority - left.priority;
+    }
+    const center = viewport.center;
+    if (!center) {
+      return left.id.localeCompare(right.id);
+    }
+    return (
+      haversineMeters(center.lat, center.lng, left.latitude, left.longitude) -
+      haversineMeters(center.lat, center.lng, right.latitude, right.longitude)
+    );
+  });
+
+  const cappedMarkers = markers.slice(0, viewport.zoom >= 17.2 ? 52 : 34);
+  poiViewportCache = { key, fetchedAt: Date.now(), markers: cappedMarkers };
+  return cappedMarkers;
+}
+
+async function snapPointToOsrm(
+  lat: number,
+  lng: number,
+  maxDistanceMeters: number,
+): Promise<RouteSnapInfo | null> {
+  try {
+    const params = new URLSearchParams({
+      number: '1',
+    });
+    const data = await fetchJson<any>(
+      `https://router.project-osrm.org/nearest/v1/driving/${lng},${lat}?${params.toString()}`,
+      { headers: { Accept: 'application/json' } },
+    );
+    const waypoint = data.waypoints?.[0];
+    const location = waypoint?.location;
+    const distanceMeters = Number(waypoint?.distance);
+
+    if (!Array.isArray(location) || !Number.isFinite(distanceMeters)) {
+      return null;
+    }
+
+    const snapped = { lat: Number(location[1]), lng: Number(location[0]) };
+    if (!Number.isFinite(snapped.lat) || !Number.isFinite(snapped.lng)) {
+      return null;
+    }
+
+    return {
+      original: { lat, lng },
+      snapped,
+      distanceMeters,
+      accepted: distanceMeters <= maxDistanceMeters,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function buildRoutableOptions(
+  originLat: number,
+  originLng: number,
+  destLat: number,
+  destLng: number,
+): Promise<RouteRequestOptions> {
+  const [originSnap, destinationSnap] = await Promise.all([
+    snapPointToOsrm(originLat, originLng, 140),
+    snapPointToOsrm(destLat, destLng, 500),
+  ]);
+
+  const acceptedOrigin = originSnap?.accepted ? originSnap.snapped : { lat: originLat, lng: originLng };
+  const acceptedDestination = destinationSnap?.accepted ? destinationSnap.snapped : { lat: destLat, lng: destLng };
+
+  return {
+    originLat: acceptedOrigin.lat,
+    originLng: acceptedOrigin.lng,
+    destLat: acceptedDestination.lat,
+    destLng: acceptedDestination.lng,
+    originalOriginLat: originLat,
+    originalOriginLng: originLng,
+    originalDestLat: destLat,
+    originalDestLng: destLng,
+    snapInfo: {
+      origin: originSnap,
+      destination: destinationSnap,
+    },
+  };
+}
+
+function routeSignature(route: RouteData): string {
+  const coordinates = route.geometry;
+  const first = coordinates[0];
+  const middle = coordinates[Math.floor(coordinates.length / 2)];
+  const last = coordinates[coordinates.length - 1];
+  return [first, middle, last]
+    .filter(Boolean)
+    .map((point) => `${point[0].toFixed(3)},${point[1].toFixed(3)}`)
+    .join('|');
+}
+
+function dedupeRoutes(routes: RouteData[]): RouteData[] {
+  const seen = new Set<string>();
+  const deduped: RouteData[] = [];
+
+  for (const route of routes) {
+    if (!route.geometry?.length || !Number.isFinite(route.distance) || !Number.isFinite(route.duration)) {
+      continue;
+    }
+
+    const signature = routeSignature(route);
+    const bucket = `${route.provider}:${Math.round(route.distance / 40)}:${signature}`;
+    if (seen.has(bucket)) {
+      continue;
+    }
+
+    seen.add(bucket);
+    deduped.push(route);
+  }
+
+  return deduped;
+}
+
+function scoreRoute(route: RouteData, straightLineMeters: number): number {
+  const distance = Math.max(1, route.distance);
+  const duration = Math.max(1, route.duration);
+  const detourRatio = straightLineMeters > 50 ? distance / straightLineMeters : 1;
+  const isShortUrban = straightLineMeters < 9000;
+  const durationWeight = isShortUrban ? 1.4 : 4.2;
+  const distanceWeight = isShortUrban ? 1.0 : 0.62;
+  const providerPenalty = route.provider === 'openrouteservice' ? 80 : 120;
+
+  return distance * distanceWeight + duration * durationWeight + Math.max(0, detourRatio - 1.7) * 700 + providerPenalty;
+}
+
+function rankRouteCandidates(routes: RouteData[], options: RouteRequestOptions): RouteChoice[] {
+  const finalized = dedupeRoutes(routes.map(finalizeRoute));
+  if (!finalized.length) {
+    return [];
+  }
+
+  const straightLineMeters = haversineMeters(
+    options.originalOriginLat ?? options.originLat,
+    options.originalOriginLng ?? options.originLng,
+    options.originalDestLat ?? options.destLat,
+    options.originalDestLng ?? options.destLng,
+  );
+  const bestDistance = Math.min(...finalized.map((route) => route.distance));
+  const bestDuration = Math.min(...finalized.map((route) => route.duration));
+  const saneRoutes = finalized.filter((route) => {
+    const distance = route.distance;
+    const duration = route.duration;
+    const detourRatio = straightLineMeters > 50 ? distance / straightLineMeters : 1;
+    const bigDetour = distance > bestDistance * 1.35 || detourRatio > 3.4;
+    const materiallyFaster = duration < bestDuration * 0.88;
+    return !bigDetour || materiallyFaster;
+  });
+
+  const ranked = (saneRoutes.length ? saneRoutes : finalized)
+    .map((route) => ({
+      ...route,
+      score: scoreRoute(route, straightLineMeters),
+    }))
+    .sort((left, right) => {
+      if ((left.score ?? 0) !== (right.score ?? 0)) {
+        return (left.score ?? 0) - (right.score ?? 0);
+      }
+      return left.distance - right.distance;
+    })
+    .slice(0, 3);
+
+  const minDistance = Math.min(...ranked.map((route) => route.distance));
+  const minDuration = Math.min(...ranked.map((route) => route.duration));
+
+  return ranked.map((route, index) => {
+    const id = `${route.provider || 'route'}:${index}:${Math.round(route.distance)}:${Math.round(route.duration)}`;
+    const isShortest = route.distance <= minDistance + 35;
+    const isFastest = route.duration <= minDuration + 20;
+    const label =
+      index === 0
+        ? 'Best'
+        : isShortest
+          ? 'Shortest'
+          : isFastest
+            ? 'Fastest'
+            : `Alt ${index + 1}`;
+
+    return {
+      ...route,
+      id,
+      label,
+      score: route.score ?? scoreRoute(route, straightLineMeters),
+    };
+  });
+}
+
+export async function getRoutes(originLat: number, originLng: number, destLat: number, destLng: number): Promise<RouteChoice[]> {
+  const options = await buildRoutableOptions(originLat, originLng, destLat, destLng);
+
+  const routeJobs: Array<Promise<RouteData[]>> = [routeWithOsrmAlternatives(options)];
+  if (OPENROUTESERVICE_API_KEY) {
+    routeJobs.unshift(routeWithOpenRouteServiceAlternatives(options));
+  }
+
+  const settled = await Promise.allSettled(routeJobs);
+  const candidates = settled.flatMap((result) => (result.status === 'fulfilled' ? result.value : []));
+  const ranked = rankRouteCandidates(candidates, options);
+
+  if (!ranked.length) {
+    if (OPENROUTESERVICE_API_KEY) {
+      try {
+        return rankRouteCandidates([await routeWithOpenRouteService(options)], options);
+      } catch (error) {
+        console.warn('OpenRouteService routing failed, falling back to OSRM', error);
+      }
+    }
+    return rankRouteCandidates([await routeWithOsrm(options)], options);
+  }
+
+  return ranked;
+}
+
 export async function getRoute(originLat: number, originLng: number, destLat: number, destLng: number) {
   const options = {
     originLat,
@@ -1265,16 +1773,12 @@ export async function getRoute(originLat: number, originLng: number, destLat: nu
     destLng,
   };
 
-  if (!OPENROUTESERVICE_API_KEY) {
-    return finalizeRoute(await routeWithOsrm(options));
+  const routes = await getRoutes(options.originLat, options.originLng, options.destLat, options.destLng);
+  if (routes[0]) {
+    return routes[0];
   }
 
-  try {
-    return finalizeRoute(await routeWithOpenRouteService(options));
-  } catch (error) {
-    console.warn('OpenRouteService routing failed, falling back to OSRM', error);
-    return finalizeRoute(await routeWithOsrm(options));
-  }
+  return finalizeRoute(await routeWithOsrm(options));
 }
 
 export async function getSpeedLimits(

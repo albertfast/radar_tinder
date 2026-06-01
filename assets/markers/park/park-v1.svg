@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#00e676" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="trunkGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5d4037"/>
+      <stop offset="100%" stop-color="#795548"/>
+    </linearGradient>
+    <radialGradient id="foliageGrad" cx="50%" cy="40%">
+      <stop offset="0%" stop-color="#69f0ae"/>
+      <stop offset="100%" stop-color="#00c853"/>
+    </radialGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Tree trunk -->
+    <rect x="24" y="34" width="6" height="18" rx="1" fill="url(#trunkGrad)"/>
+    <!-- Tree foliage -->
+    <circle cx="27" cy="22" r="14" fill="url(#foliageGrad)" stroke="#00e676" stroke-width="1"/>
+    <!-- Foliage highlights -->
+    <circle cx="22" cy="18" r="4" fill="#b9f6ca" opacity="0.25"/>
+    <circle cx="32" cy="24" r="3" fill="#b9f6ca" opacity="0.2"/>
+    <!-- Bench -->
+    <rect x="38" y="42" width="16" height="2.5" rx="1" fill="#00e676"/>
+    <rect x="39" y="44.5" width="2" height="6" rx="0.5" fill="#00c853"/>
+    <rect x="51" y="44.5" width="2" height="6" rx="0.5" fill="#00c853"/>
+    <rect x="37" y="40" width="1.5" height="4" rx="0.5" fill="#00c853"/>
+    <rect x="53.5" y="40" width="1.5" height="4" rx="0.5" fill="#00c853"/>
+    <rect x="36" y="39" width="20" height="2" rx="1" fill="#00e676"/>
+  </g>
+</svg>

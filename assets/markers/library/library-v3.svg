@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="amberGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#FFAB00" flood-opacity="0.8" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="circGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD740"/>
+      <stop offset="100%" stop-color="#E65100"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="28" fill="url(#circGrad)" filter="url(#amberGlow)"/>
+  <!-- White reading lamp icon -->
+  <!-- Lamp base -->
+  <ellipse cx="30" cy="50" rx="12" ry="3" fill="#FFFFFF"/>
+  <!-- Lamp stand -->
+  <rect x="28" y="28" width="4" height="22" rx="1" fill="#FFFFFF"/>
+  <!-- Lamp shade (trapezoid/cone) -->
+  <path d="M16 28 L22 14 L38 14 L44 28 Z" fill="#FFFFFF"/>
+  <!-- Light rays -->
+  <line x1="22" y1="30" x2="16" y2="40" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+  <line x1="30" y1="30" x2="30" y2="42" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+  <line x1="38" y1="30" x2="44" y2="40" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+  <!-- Bulb glow -->
+  <circle cx="30" cy="22" r="4" fill="#FFF9C4" opacity="0.5"/>
+  <!-- Book under lamp -->
+  <rect x="22" y="42" width="16" height="6" rx="1" fill="#FFFFFF" opacity="0.7"/>
+</svg>

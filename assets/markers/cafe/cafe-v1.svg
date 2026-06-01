@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="cupGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D4883C"/>
+      <stop offset="100%" stop-color="#8B4513"/>
+    </linearGradient>
+    <linearGradient id="steamGrad" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#D4883C" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#D4883C" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Coffee cup body -->
+    <path d="M14 26 L14 48 Q14 54 24 54 L32 54 Q42 54 42 48 L42 26 Z" fill="url(#cupGrad)"/>
+    <!-- Cup rim highlight -->
+    <rect x="14" y="24" width="28" height="4" rx="2" fill="#E8A855"/>
+    <!-- Cup handle -->
+    <path d="M42 30 Q52 30 52 38 Q52 46 42 46" fill="none" stroke="#D4883C" stroke-width="4" stroke-linecap="round"/>
+    <!-- Saucer -->
+    <ellipse cx="28" cy="56" rx="22" ry="4" fill="#8B4513"/>
+  </g>
+  <!-- Steam wisps -->
+  <g filter="url(#glow)" opacity="0.9">
+    <path d="M22 22 Q20 16 22 10 Q24 6 22 2" fill="none" stroke="#D4883C" stroke-width="2" stroke-linecap="round" opacity="0.7">
+      <animate attributeName="opacity" values="0.7;0.3;0.7" dur="2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M28 20 Q26 14 28 8 Q30 4 28 0" fill="none" stroke="#D4883C" stroke-width="2" stroke-linecap="round" opacity="0.8">
+      <animate attributeName="opacity" values="0.8;0.4;0.8" dur="2.5s" repeatCount="indefinite"/>
+    </path>
+    <path d="M34 22 Q32 16 34 10 Q36 6 34 2" fill="none" stroke="#D4883C" stroke-width="2" stroke-linecap="round" opacity="0.6">
+      <animate attributeName="opacity" values="0.6;0.2;0.6" dur="3s" repeatCount="indefinite"/>
+    </path>
+  </g>
+</svg>

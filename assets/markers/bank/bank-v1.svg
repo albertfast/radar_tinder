@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="buildingGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4488FF"/>
+      <stop offset="100%" stop-color="#2255CC"/>
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Bank building body -->
+    <rect x="12" y="28" width="40" height="26" rx="2" fill="url(#buildingGrad)"/>
+    <!-- Pediment/roof triangle -->
+    <path d="M6 28 L32 10 L58 28 Z" fill="url(#buildingGrad)"/>
+    <!-- Pediment line -->
+    <line x1="10" y1="28" x2="54" y2="28" stroke="#88BBFF" stroke-width="2" opacity="0.5"/>
+    <!-- Columns -->
+    <rect x="18" y="28" width="4" height="22" rx="1" fill="#88BBFF" opacity="0.6"/>
+    <rect x="28" y="28" width="4" height="22" rx="1" fill="#88BBFF" opacity="0.6"/>
+    <rect x="38" y="28" width="4" height="22" rx="1" fill="#88BBFF" opacity="0.6"/>
+    <rect x="48" y="28" width="4" height="22" rx="1" fill="#88BBFF" opacity="0.6"/>
+    <!-- Door -->
+    <rect x="26" y="40" width="12" height="14" rx="2" fill="#1A44AA"/>
+    <!-- Base step -->
+    <rect x="8" y="54" width="48" height="4" rx="1" fill="url(#buildingGrad)"/>
+  </g>
+</svg>

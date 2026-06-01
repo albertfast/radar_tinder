@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="tealGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#1DE9B6" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1DE9B6"/>
+      <stop offset="100%" stop-color="#00BFA5"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="8" ry="8" fill="url(#bgGrad)" filter="url(#tealGlow)"/>
+  <!-- Stethoscope icon -->
+  <path d="M20 28 Q20 16 32 16 Q44 16 44 28 L44 36 Q44 42 38 42 L36 42" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <!-- Ear pieces -->
+  <circle cx="20" cy="30" r="3" fill="#FFFFFF"/>
+  <!-- Chest piece -->
+  <circle cx="36" cy="44" r="5" fill="#FFFFFF"/>
+  <circle cx="36" cy="44" r="3" fill="#00BFA5"/>
+</svg>

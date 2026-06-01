@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="tealGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feFlood flood-color="#00e5ff" flood-opacity="0.5" result="color" />
+      <feComposite in="color" in2="blur" operator="in" result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <linearGradient id="tealGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#18ffff" />
+      <stop offset="50%" stop-color="#00e5ff" />
+      <stop offset="100%" stop-color="#00b8d4" />
+    </linearGradient>
+  </defs>
+  <!-- Outer glow ring -->
+  <circle cx="32" cy="32" r="28" fill="none" stroke="#00e5ff" stroke-width="1.5" opacity="0.3" />
+  <!-- Main circle -->
+  <g filter="url(#tealGlow)">
+    <circle cx="32" cy="32" r="24" fill="url(#tealGrad)" stroke="#84ffff" stroke-width="1.5" />
+  </g>
+  <!-- Inner circle border -->
+  <circle cx="32" cy="32" r="20" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.2" />
+  <!-- White checkmark -->
+  <polyline points="22,32 29,39 43,24"
+            fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Subtle highlight -->
+  <ellipse cx="26" cy="24" rx="10" ry="8" fill="#ffffff" opacity="0.1" />
+</svg>

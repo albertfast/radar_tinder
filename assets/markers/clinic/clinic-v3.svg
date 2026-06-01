@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="tealGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#1DE9B6" flood-opacity="0.8" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="circGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1DE9B6"/>
+      <stop offset="100%" stop-color="#00796B"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="28" fill="url(#circGrad)" filter="url(#tealGlow)"/>
+  <!-- White medical bag icon -->
+  <rect x="16" y="24" width="32" height="24" rx="4" fill="#FFFFFF"/>
+  <!-- Bag handle -->
+  <path d="M24 24 L24 20 Q24 16 28 16 L36 16 Q40 16 40 20 L40 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+  <!-- Cross on bag -->
+  <rect x="29" y="28" width="6" height="16" rx="1" fill="#00BFA5"/>
+  <rect x="24" y="33" width="16" height="6" rx="1" fill="#00BFA5"/>
+</svg>

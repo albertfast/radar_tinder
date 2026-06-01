@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#FFB300" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Amber binoculars -->
+  <g filter="url(#glow)">
+    <circle cx="22" cy="30" r="10" fill="#FF8F00"/>
+    <circle cx="42" cy="30" r="10" fill="#FF8F00"/>
+    <rect x="26" y="26" width="12" height="8" rx="2" fill="#FFB300"/>
+  </g>
+  <!-- Lenses -->
+  <circle cx="22" cy="30" r="6" fill="#E65100" opacity="0.6"/>
+  <circle cx="42" cy="30" r="6" fill="#E65100" opacity="0.6"/>
+  <circle cx="22" cy="30" r="3" fill="#FFE0B2" opacity="0.5"/>
+  <circle cx="42" cy="30" r="3" fill="#FFE0B2" opacity="0.5"/>
+  <!-- Eyepieces -->
+  <rect x="18" y="38" width="8" height="6" rx="2" fill="#F57F17"/>
+  <rect x="38" y="38" width="8" height="6" rx="2" fill="#F57F17"/>
+  <!-- Bridge -->
+  <rect x="28" y="28" width="8" height="4" rx="1" fill="#F57F17"/>
+  <!-- Mountain in bg -->
+  <path d="M8 56 L22 40 L36 56 Z" fill="#FFB300" opacity="0.3"/>
+  <path d="M28 56 L42 38 L56 56 Z" fill="#FF8F00" opacity="0.3"/>
+</svg>

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="innerGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Outer glow -->
+  <circle cx="32" cy="32" r="28" fill="#1B5E20" opacity="0.15" filter="url(#glow)"/>
+  <!-- Badge circle -->
+  <circle cx="32" cy="32" r="24" fill="#2E7D32" stroke="#66BB6A" stroke-width="2" filter="url(#glow)"/>
+  <!-- Inner circle -->
+  <circle cx="32" cy="32" r="20" fill="#388E3C" stroke="#4CAF50" stroke-width="1"/>
+  <!-- Fuel pump silhouette (white) -->
+  <g filter="url(#innerGlow)">
+    <!-- Pump body -->
+    <rect x="24" y="18" width="14" height="24" rx="2" fill="#FFFFFF" opacity="0.95"/>
+    <!-- Pump display -->
+    <rect x="26" y="20" width="10" height="7" rx="1" fill="#2E7D32"/>
+    <!-- Display text simulation -->
+    <rect x="27.5" y="22" width="7" height="3" rx="0.5" fill="#69F0AE" opacity="0.8"/>
+    <!-- Nozzle -->
+    <path d="M38,24 L42,24 L43,20 L46,20 L46,23 L44,23 L42,27 L38,27"
+          fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+    <circle cx="46" cy="21.5" r="1" fill="#FFFFFF" opacity="0.9"/>
+    <!-- Base -->
+    <rect x="25" y="40" width="12" height="3" rx="1" fill="#FFFFFF" opacity="0.85"/>
+  </g>
+</svg>

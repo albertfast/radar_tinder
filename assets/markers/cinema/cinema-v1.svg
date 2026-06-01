@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#F44336" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Red clapperboard -->
+  <g filter="url(#glow)">
+    <rect x="10" y="18" width="44" height="36" rx="3" fill="#D32F2F"/>
+    <rect x="10" y="18" width="44" height="14" rx="3" fill="#B71C1C"/>
+    <!-- Clapper stripes -->
+    <path d="M10 18 L20 32 L10 32 Z" fill="#F44336"/>
+    <path d="M20 18 L30 32 L20 32 Z" fill="#D32F2F"/>
+    <path d="M30 18 L40 32 L30 32 Z" fill="#F44336"/>
+    <path d="M40 18 L50 32 L40 32 Z" fill="#D32F2F"/>
+    <path d="M50 18 L54 24 L54 32 L50 32 Z" fill="#F44336"/>
+  </g>
+  <!-- Play button -->
+  <polygon points="28,36 28,48 40,42" fill="#FFCDD2" opacity="0.9"/>
+  <!-- Screen area -->
+  <rect x="14" y="34" width="36" height="16" rx="1" fill="#B71C1C" opacity="0.3"/>
+</svg>

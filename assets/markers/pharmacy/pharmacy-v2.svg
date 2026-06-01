@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="greenGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#00E676" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="mortarGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00E676"/>
+      <stop offset="100%" stop-color="#00C853"/>
+    </linearGradient>
+  </defs>
+  <!-- Mortar (bowl) -->
+  <path d="M14 34 Q14 50 32 50 Q50 50 50 34 L46 34 Q46 46 32 46 Q18 46 18 34 Z" fill="url(#mortarGrad)" filter="url(#greenGlow)"/>
+  <ellipse cx="32" cy="34" rx="18" ry="5" fill="url(#mortarGrad)" filter="url(#greenGlow)"/>
+  <!-- Pestle -->
+  <path d="M30 16 Q28 24 26 30 L38 30 Q36 24 34 16 Z" fill="#69F0AE" filter="url(#greenGlow)"/>
+  <ellipse cx="32" cy="15" rx="4" ry="3" fill="#69F0AE"/>
+  <!-- Rim highlight -->
+  <ellipse cx="32" cy="34" rx="16" ry="3.5" fill="#FFFFFF" opacity="0.15"/>
+</svg>

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="goldGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feFlood flood-color="#ffc107" flood-opacity="0.55" result="color" />
+      <feComposite in="color" in2="blur" operator="in" result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffe57f" />
+      <stop offset="40%" stop-color="#ffc107" />
+      <stop offset="100%" stop-color="#ff8f00" />
+    </linearGradient>
+  </defs>
+  <!-- Arrow-car hybrid shape -->
+  <g filter="url(#goldGlow)">
+    <!-- Main arrow body (car profile shape) -->
+    <path d="M32 4 L44 24 L40 24 L40 50 C40 54 37 58 32 58 C27 58 24 54 24 50 L24 24 L20 24 Z"
+          fill="url(#goldGrad)" stroke="#ffe082" stroke-width="1" />
+  </g>
+  <!-- Car roof/cabin area -->
+  <path d="M28 18 L28 24 L36 24 L36 18 C36 15 34 13 32 13 C30 13 28 15 28 18 Z"
+        fill="#5d4037" stroke="#ffc107" stroke-width="0.5" opacity="0.7" />
+  <!-- Windshield -->
+  <path d="M28 14 L26 18 L38 18 L36 14 Z" fill="#1a237e" stroke="#ffe082" stroke-width="0.3" opacity="0.6" />
+  <!-- Side accent lines -->
+  <line x1="26" y1="28" x2="26" y2="46" stroke="#ffe082" stroke-width="0.8" opacity="0.5" />
+  <line x1="38" y1="28" x2="38" y2="46" stroke="#ffe082" stroke-width="0.8" opacity="0.5" />
+  <!-- Wheels (side profile) -->
+  <ellipse cx="28" cy="50" rx="4" ry="3" fill="#4e342e" stroke="#ffc107" stroke-width="0.8" />
+  <ellipse cx="36" cy="50" rx="4" ry="3" fill="#4e342e" stroke="#ffc107" stroke-width="0.8" />
+  <!-- Wheel hubs -->
+  <ellipse cx="28" cy="50" rx="1.5" ry="1.2" fill="#ffc107" opacity="0.6" />
+  <ellipse cx="36" cy="50" rx="1.5" ry="1.2" fill="#ffc107" opacity="0.6" />
+  <!-- Headlight -->
+  <ellipse cx="32" cy="7" rx="2" ry="1.5" fill="#ffffff" opacity="0.8" />
+  <!-- Speed lines -->
+  <line x1="14" y1="30" x2="22" y2="30" stroke="#ffc107" stroke-width="1" opacity="0.4" stroke-linecap="round" />
+  <line x1="16" y1="36" x2="22" y2="36" stroke="#ffc107" stroke-width="1" opacity="0.3" stroke-linecap="round" />
+  <line x1="14" y1="42" x2="22" y2="42" stroke="#ffc107" stroke-width="1" opacity="0.4" stroke-linecap="round" />
+</svg>

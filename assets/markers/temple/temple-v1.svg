@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#FF6D00" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Orange temple/pagoda -->
+  <g filter="url(#glow)">
+    <!-- Tier 1 (top) -->
+    <path d="M28 8 L32 4 L36 8 L36 12 L28 12 Z" fill="#FF6D00"/>
+    <!-- Tier 2 -->
+    <path d="M24 12 L32 8 L40 12 L40 20 L24 20 Z" fill="#FF9100"/>
+    <!-- Tier 3 -->
+    <path d="M20 20 L32 14 L44 20 L44 30 L20 30 Z" fill="#FFAB00"/>
+    <!-- Tier 4 -->
+    <path d="M16 30 L32 22 L48 30 L48 42 L16 42 Z" fill="#FF6D00"/>
+  </g>
+  <!-- Base -->
+  <rect x="14" y="42" width="36" height="6" rx="1" fill="#E65100"/>
+  <rect x="12" y="48" width="40" height="4" rx="1" fill="#BF360C"/>
+  <!-- Door -->
+  <rect x="28" y="42" width="8" height="6" rx="4" fill="#BF360C"/>
+</svg>

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="purpleGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#D500F9" flood-opacity="0.8" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="circGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E040FB"/>
+      <stop offset="100%" stop-color="#4A148C"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="28" fill="url(#circGrad)" filter="url(#purpleGlow)"/>
+  <!-- White scroll/diploma icon -->
+  <!-- Scroll body (rolled paper) -->
+  <rect x="16" y="16" width="32" height="24" rx="3" fill="#FFFFFF"/>
+  <!-- Rolled edges -->
+  <ellipse cx="16" cy="28" rx="4" ry="12" fill="#FFFFFF"/>
+  <ellipse cx="48" cy="28" rx="4" ry="12" fill="#FFFFFF"/>
+  <!-- Scroll lines -->
+  <line x1="22" y1="22" x2="42" y2="22" stroke="#7B1FA2" stroke-width="1.5" opacity="0.5"/>
+  <line x1="22" y1="27" x2="42" y2="27" stroke="#7B1FA2" stroke-width="1.5" opacity="0.5"/>
+  <line x1="22" y1="32" x2="42" y2="32" stroke="#7B1FA2" stroke-width="1.5" opacity="0.5"/>
+  <!-- Ribbon/seal -->
+  <circle cx="32" cy="44" r="5" fill="#FFD600"/>
+  <path d="M28 48 L26 56 L30 53 L32 58 L34 53 L38 56 L36 48" fill="#FFD600"/>
+</svg>

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="whiteGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feFlood flood-color="#ffffff" flood-opacity="0.45" result="color" />
+      <feComposite in="color" in2="blur" operator="in" result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="1" dy="2" stdDeviation="1.2" flood-color="#000" flood-opacity="0.35" />
+    </filter>
+  </defs>
+  <!-- Pole -->
+  <rect x="10" y="6" width="3" height="52" rx="1.5" fill="#d0d0d0" filter="url(#shadow)" />
+  <!-- Waving checkered flag shape -->
+  <g filter="url(#whiteGlow)">
+    <path d="M13 8 C13 8 20 6 30 8 C40 10 47 6 50 8 L50 8 C47 10 40 14 30 12 C20 10 13 14 13 14 Z"
+          fill="#ffffff" stroke="#cccccc" stroke-width="0.5" />
+    <path d="M13 14 C13 14 20 12 30 14 C40 16 47 12 50 14 L50 14 C47 16 40 20 30 18 C20 16 13 20 13 20 Z"
+          fill="#1a1a1a" stroke="#cccccc" stroke-width="0.5" />
+    <path d="M13 20 C13 20 20 18 30 20 C40 22 47 18 50 20 L50 20 C47 22 40 26 30 24 C20 22 13 26 13 26 Z"
+          fill="#ffffff" stroke="#cccccc" stroke-width="0.5" />
+    <path d="M13 26 C13 26 20 24 30 26 C40 28 47 24 50 26 L50 26 C47 28 40 32 30 30 C20 28 13 32 13 32 Z"
+          fill="#1a1a1a" stroke="#cccccc" stroke-width="0.5" />
+    <path d="M13 32 C13 32 20 30 30 32 C40 34 47 30 50 32 L50 32 C47 34 40 38 30 36 C20 34 13 38 13 38 Z"
+          fill="#ffffff" stroke="#cccccc" stroke-width="0.5" />
+  </g>
+  <!-- Pole cap -->
+  <circle cx="11.5" cy="58" r="3" fill="#d0d0d0" stroke="#aaa" stroke-width="0.5" />
+  <!-- Top ornament -->
+  <circle cx="11.5" cy="6" r="2.5" fill="#e0e0e0" stroke="#bbb" stroke-width="0.5" />
+</svg>

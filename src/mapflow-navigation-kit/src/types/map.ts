@@ -51,6 +51,9 @@ export interface RouteStep {
 }
 
 export interface RouteData {
+  id?: string;
+  label?: string;
+  score?: number;
   geometry: [number, number][];
   distance: number;
   duration: number;
@@ -58,6 +61,33 @@ export interface RouteData {
   durationSource?: 'provider' | 'adjusted';
   steps: RouteStep[];
   provider?: string;
+  snapInfo?: {
+    origin?: RouteSnapInfo | null;
+    destination?: RouteSnapInfo | null;
+  };
+}
+
+export interface RouteSnapInfo {
+  original: LatLng;
+  snapped: LatLng;
+  distanceMeters: number;
+  accepted: boolean;
+}
+
+export interface RouteChoice extends RouteData {
+  id: string;
+  label: string;
+  score: number;
+}
+
+export interface MapPoiMarker {
+  id: string;
+  category: string;
+  iconKey: string;
+  latitude: number;
+  longitude: number;
+  name?: string;
+  priority: number;
 }
 
 export interface LocationData {

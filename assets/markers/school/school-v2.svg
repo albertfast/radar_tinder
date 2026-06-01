@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="orangeGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#FF9100" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="circGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF9100"/>
+      <stop offset="100%" stop-color="#E65100"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="28" fill="url(#circGrad)" filter="url(#orangeGlow)"/>
+  <!-- White graduation cap -->
+  <!-- Cap top (diamond/mortarboard) -->
+  <polygon points="32,14 52,26 32,38 12,26" fill="#FFFFFF"/>
+  <!-- Cap button -->
+  <circle cx="32" cy="26" r="2.5" fill="#E65100"/>
+  <!-- Tassel line -->
+  <line x1="52" y1="26" x2="52" y2="42" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+  <!-- Tassel end -->
+  <rect x="49" y="42" width="6" height="8" rx="1" fill="#FFFFFF"/>
+  <!-- Cap brim/base -->
+  <path d="M20 30 L20 38 Q20 42 32 42 Q44 42 44 38 L44 30 Q44 34 32 34 Q20 34 20 30 Z" fill="#FFFFFF" opacity="0.85"/>
+</svg>

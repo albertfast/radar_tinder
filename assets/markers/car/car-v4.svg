@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="blueGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feFlood flood-color="#448aff" flood-opacity="0.55" result="color" />
+      <feComposite in="color" in2="blur" operator="in" result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <radialGradient id="blueDotGrad" cx="40%" cy="35%">
+      <stop offset="0%" stop-color="#82b1ff" />
+      <stop offset="50%" stop-color="#448aff" />
+      <stop offset="100%" stop-color="#2962ff" />
+    </radialGradient>
+    <filter id="innerShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1" result="blur" />
+      <feOffset dx="0" dy="1" />
+      <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" />
+      <feFlood flood-color="#0d47a1" flood-opacity="0.3" />
+      <feComposite in2="blur" operator="in" />
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Outer pulse ring -->
+  <circle cx="32" cy="32" r="28" fill="none" stroke="#448aff" stroke-width="1.5" opacity="0.25">
+    <animate attributeName="r" values="28;31;28" dur="1.8s" repeatCount="indefinite" />
+    <animate attributeName="stroke-opacity" values="0.25;0;0.25" dur="1.8s" repeatCount="indefinite" />
+  </circle>
+  <!-- Blue navigation dot -->
+  <g filter="url(#blueGlow)">
+    <circle cx="32" cy="32" r="22" fill="url(#blueDotGrad)" stroke="#82b1ff" stroke-width="1.5" />
+  </g>
+  <!-- Inner ring -->
+  <circle cx="32" cy="32" r="18" fill="none" stroke="#ffffff" stroke-width="0.8" opacity="0.2" />
+  <!-- White car icon inside -->
+  <g transform="translate(32,32)">
+    <!-- Car body top-down -->
+    <path d="M0,-12 C-4,-12 -7,-9 -7,-6 L-7,-2 L-9,0 L-9,8 L-7,9 L-7,12 C-7,14 -4,16 0,16 C4,16 7,14 7,12 L7,9 L9,8 L9,0 L7,-2 L7,-6 C7,-9 4,-12 0,-12 Z"
+          fill="#ffffff" opacity="0.95" />
+    <!-- Windshield -->
+    <path d="M-4,-8 L-4,-2 L4,-2 L4,-8 C4,-6 2,-5 0,-5 C-2,-5 -4,-6 -4,-8 Z"
+          fill="#2962ff" opacity="0.7" />
+    <!-- Rear window -->
+    <path d="M-4,9 L-4,12 C-4,13 -2,14 0,14 C2,14 4,13 4,12 L4,9 Z"
+          fill="#2962ff" opacity="0.7" />
+  </g>
+  <!-- Direction indicator (heading) -->
+  <circle cx="32" cy="8" r="2.5" fill="#ffffff" opacity="0.7" />
+</svg>

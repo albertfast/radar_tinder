@@ -3,11 +3,12 @@ import {
   Alert,
   Dimensions,
   Platform,
+  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,7 +52,9 @@ const TrialOfferScreen = () => {
   const { signInAnonymously, signInAsGuest, normalizeAccessState } = useAuthStore();
   const [loadingAction, setLoadingAction] = useState<'subscribe' | 'ads' | 'location' | null>(null);
   const [locationEnabled, setLocationEnabled] = useState(false);
+  const insets = useSafeAreaInsets();
   const heroTitle = isCompactDevice ? 'Premium drive, zero clutter' : 'Premium driving, built for the road';
+  const bottomSafePadding = Math.max(insets.bottom, Platform.OS === 'android' ? 34 : 18);
 
   const ensureAnonymousSession = async () => {
     try {
@@ -169,7 +172,12 @@ const TrialOfferScreen = () => {
           </View>
         </Animated.View>
 
-        <View style={styles.main}>
+        <ScrollView
+          style={styles.mainScroll}
+          contentContainerStyle={[styles.mainContent, { paddingBottom: bottomSafePadding }]}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
           <Animated.View entering={allowLayoutAnimations ? FadeInDown.delay(140) : undefined} style={styles.heroPanel}>
             <View style={styles.heroTopRow}>
               <View style={styles.heroTextColumn}>
@@ -300,7 +308,7 @@ const TrialOfferScreen = () => {
               <Text style={styles.restoreText}>Restore Purchase</Text>
             </TouchableOpacity>
           </Animated.View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -373,11 +381,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.4,
   },
-  main: {
+  mainScroll: {
     flex: 1,
+  },
+  mainContent: {
+    flexGrow: 1,
     paddingTop: isCompactDevice ? 10 : 16,
-    paddingBottom: 10,
-    justifyContent: 'space-between',
+    gap: 10,
   },
   heroPanel: {
     borderRadius: 28,

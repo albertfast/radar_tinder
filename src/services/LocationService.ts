@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 const TARGET_LOCATION_ACCURACY_METERS = 120;
 const MAX_STARTUP_LOCATION_ACCURACY_METERS = 180;
 const MAX_FALLBACK_LOCATION_ACCURACY_METERS = 260;
+const MAX_RELAXED_LAST_KNOWN_AGE_MS = 120000;
 const LOCATION_RETRY_DELAY_MS = 900;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -81,13 +82,29 @@ export class LocationService {
         }
       }
 
+      if (!bestFix) {
+        const relaxedLastKnown = await Location.getLastKnownPositionAsync({
+          maxAge: MAX_RELAXED_LAST_KNOWN_AGE_MS,
+        }).catch(() => null);
+        if (relaxedLastKnown) {
+          bestFix = this.toLocationSnapshot(relaxedLastKnown);
+        }
+      }
+
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.BestForNavigation,
+          accuracy: attempt === 0 ? Location.Accuracy.BestForNavigation : Location.Accuracy.High,
           mayShowUserSettingsDialog: true,
           distanceInterval: 0,
           timeInterval: 0,
-        });
+        }).catch(() => null);
+
+        if (!location) {
+          if (attempt < 2) {
+            await sleep(LOCATION_RETRY_DELAY_MS);
+          }
+          continue;
+        }
 
         const candidate = this.toLocationSnapshot(location);
         const candidateAccuracy = candidate.accuracy ?? Number.POSITIVE_INFINITY;
@@ -111,10 +128,17 @@ export class LocationService {
       if (bestFix && this.isAccurateEnough(bestFix.accuracy, MAX_FALLBACK_LOCATION_ACCURACY_METERS)) {
         return bestFix;
       }
+      if (bestFix) {
+        console.warn(
+          '[LocationService] Falling back to a low-accuracy location fix.',
+          bestFix.accuracy
+        );
+        return bestFix;
+      }
 
       throw new Error('Unable to acquire an accurate location fix.');
     } catch (error) {
-      console.error('Error getting current location:', error);
+      console.warn('Error getting current location:', error);
       throw error;
     }
   }

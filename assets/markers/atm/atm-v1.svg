@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="billGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#44DD66"/>
+      <stop offset="100%" stop-color="#22AA44"/>
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Dollar bill -->
+    <rect x="6" y="18" width="52" height="28" rx="4" fill="url(#billGrad)"/>
+    <!-- Bill border detail -->
+    <rect x="10" y="22" width="44" height="20" rx="2" fill="none" stroke="#88FFAA" stroke-width="1" opacity="0.4"/>
+    <!-- Dollar sign -->
+    <text x="32" y="38" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#FFFFFF" text-anchor="middle">$</text>
+    <!-- Corner circles -->
+    <circle cx="14" cy="26" r="2" fill="#88FFAA" opacity="0.4"/>
+    <circle cx="50" cy="26" r="2" fill="#88FFAA" opacity="0.4"/>
+    <circle cx="14" cy="38" r="2" fill="#88FFAA" opacity="0.4"/>
+    <circle cx="50" cy="38" r="2" fill="#88FFAA" opacity="0.4"/>
+  </g>
+</svg>

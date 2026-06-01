@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="badgeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD700"/>
+      <stop offset="100%" stop-color="#E89010"/>
+    </linearGradient>
+  </defs>
+  <!-- Yellow badge circle -->
+  <circle cx="32" cy="32" r="28" fill="url(#badgeGrad)" filter="url(#glow)"/>
+  <circle cx="32" cy="32" r="25" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.3"/>
+  <!-- White pizza slice -->
+  <g fill="#FFFFFF">
+    <!-- Pizza triangle -->
+    <path d="M32 10 L18 50 L46 50 Z"/>
+    <!-- Crust edge -->
+    <path d="M32 10 Q30 10 28 12 L18 50 L46 50 L36 12 Q34 10 32 10 Z" fill="none" stroke="#E89010" stroke-width="3"/>
+    <!-- Pizza toppings (pepperoni) -->
+    <circle cx="32" cy="36" r="3.5" fill="#E89010"/>
+    <circle cx="26" cy="42" r="3" fill="#E89010"/>
+    <circle cx="38" cy="42" r="3" fill="#E89010"/>
+  </g>
+</svg>
