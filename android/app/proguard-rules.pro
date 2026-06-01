@@ -11,10 +11,12 @@
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
 
-# ONNX Runtime - preserve for JNI calls
--keep class com.microsoft.onnxruntime.** { *; }
--keepclasseswithmembernames class * {
-    native <methods>;
-}
-
 # Add any project specific keep options here:
+
+# ONNX Runtime - required for Android release / AAB / R8 builds.
+# Native ORT JNI looks up ai.onnxruntime classes and methods by name.
+-keep class ai.onnxruntime.** { *; }
+-keep class ai.onnxruntime.reactnative.** { *; }
+
+-keepattributes Signature,*Annotation*,InnerClasses,EnclosingMethod
+-dontwarn ai.onnxruntime.**

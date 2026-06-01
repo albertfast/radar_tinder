@@ -262,25 +262,39 @@ export function RadarBasicTab({
         </LinearGradient>
       ) : null}
 
-      {/* Floating Speedometer Container - Sleek & Unboxed */}
-      <View style={styles.speedometerContainer}>
-        <SpeedometerAnimation
-          speed={currentSpeedValue}
-          unitSystem={displayUnitSystem}
-          speedLimit={limitDisplay}
-          style={styles.speedometer3d}
-        />
-        
-        {/* Absolute Centered Speed Limit Pill Overlay inside gauge */}
-        <View style={styles.limitOverlay}>
+      <LinearGradient
+        colors={['rgba(8,13,28,0.98)', 'rgba(2,6,23,0.98)']}
+        style={styles.speedModule}
+      >
+        <View style={styles.speedometerContainer}>
+          <SpeedometerAnimation
+            speed={currentSpeedValue}
+            unitSystem={displayUnitSystem}
+            speedLimit={limitDisplay}
+            size={282}
+            style={styles.speedometer3d}
+          />
+
+          <View style={styles.speedReadout}>
+            <Text style={[styles.speedValue, { color: speedTone }]}>
+              {currentSpeedValue}
+            </Text>
+            <Text style={styles.speedUnit}>{currentSpeedUnit}</Text>
+          </View>
+        </View>
+
+        <View style={styles.limitStatusRow}>
           <View style={styles.limitPill}>
             <Text style={styles.limitLabel}>LIMIT</Text>
             <Text style={[styles.limitValue, { color: speedTone }]}>
               {limitDisplay ?? '--'}
             </Text>
           </View>
+          <Text style={styles.limitSubtitle} numberOfLines={1}>
+            {speedLimitSubtitle}
+          </Text>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* Modern Dashboard Pill Row */}
       <View style={styles.pillRow}>
@@ -356,8 +370,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#020617',
   },
   content: {
-    paddingHorizontal: 16,
-    gap: 16,
+    paddingHorizontal: 14,
+    gap: 14,
   },
   navCard: {
     borderRadius: 18,
@@ -424,28 +438,65 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(251,113,133,0.22)',
   },
-  speedometerContainer: {
+  speedModule: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 4,
+    paddingTop: 6,
+    paddingBottom: 14,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  speedometerContainer: {
+    width: 282,
+    height: 282,
+    alignItems: 'center',
+    justifyContent: 'center',
     position: 'relative',
-    alignSelf: 'center',
-    width: 320,
-    height: 320,
   },
   speedometer3d: {
-    width: 320,
-    height: 320,
-    borderRadius: 160,
+    borderRadius: 18,
     backgroundColor: 'transparent',
   },
-  limitOverlay: {
+  speedReadout: {
     position: 'absolute',
-    bottom: 32,
-    left: 0,
-    right: 0,
+    bottom: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 104,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(2, 6, 23, 0.82)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.16)',
+  },
+  speedValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    lineHeight: 27,
+    fontFamily: 'System',
+  },
+  speedUnit: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginTop: 1,
+  },
+  limitStatusRow: {
+    width: '100%',
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
   limitPill: {
     flexDirection: 'row',
@@ -474,12 +525,18 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontFamily: 'System',
   },
+  limitSubtitle: {
+    flexShrink: 1,
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   pillRow: {
     flexDirection: 'row',
     gap: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: -8,
+    marginTop: -2,
     marginBottom: 8,
   },
   metaPill: {

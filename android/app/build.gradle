@@ -91,31 +91,6 @@ def resolveDynamicVersionCode = {
         }
     }
 
-    // Try reading a persistent version code from android_version_code.txt at project root.
-    try {
-        def versionFile = new File(projectRoot, 'android_version_code.txt')
-        if (versionFile.exists()) {
-            def text = versionFile.text?.trim()
-            if (text) {
-                try {
-                    def parsed = Long.parseLong(text)
-                    def intVal = parsed as int
-                    // Attempt to increment the file for the next build. Ignore failures.
-                    try {
-                        versionFile.text = String.valueOf(parsed + 1L)
-                    } catch (writeErr) {
-                        println "Warning: failed to increment android_version_code.txt: ${writeErr}"
-                    }
-                    return intVal
-                } catch (parseErr) {
-                    println "Invalid android_version_code.txt content='${text}', falling back to timestamp."
-                }
-            }
-        }
-    } catch (err) {
-        println "Could not read android_version_code.txt: ${err}"
-    }
-
     long nowSeconds = System.currentTimeMillis() / 1000L
     long candidate = nowSeconds + 300000000L
     long maxAllowed = Integer.MAX_VALUE - 1L
@@ -146,20 +121,10 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode resolveDynamicVersionCode()
-        versionName "1.0.5"
+        versionName "1.0.8"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = '17'
-    }
-
     signingConfigs {
         debug {
             storeFile file('debug.keystore')

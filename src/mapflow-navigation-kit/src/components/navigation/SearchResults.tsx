@@ -57,7 +57,6 @@ interface SearchResultsProps {
   onSelect: (result: SearchResult) => void;
   onToggleSaved: (result: SearchResult) => void;
   onClearRecents?: () => void;
-  onClearSaved?: () => void;
   hideHeaders?: boolean;
   unitSystem: 'metric' | 'imperial';
   footerText?: string;
@@ -68,7 +67,6 @@ export default memo(function SearchResults({
   onSelect,
   onToggleSaved,
   onClearRecents,
-  onClearSaved,
   hideHeaders = false,
   unitSystem,
   footerText,
@@ -106,11 +104,6 @@ export default memo(function SearchResults({
                 <Text style={styles.sectionTitle}>{section.title}</Text>
                 {section.key === 'recent' && onClearRecents && (
                   <TouchableOpacity onPress={onClearRecents} style={styles.clearAllBtn} activeOpacity={0.7} hitSlop={8}>
-                    <Text style={styles.clearAllText}>Clear All</Text>
-                  </TouchableOpacity>
-                )}
-                {section.key === 'saved' && onClearSaved && (
-                  <TouchableOpacity onPress={onClearSaved} style={styles.clearAllBtn} activeOpacity={0.7} hitSlop={8}>
                     <Text style={styles.clearAllText}>Clear All</Text>
                   </TouchableOpacity>
                 )}

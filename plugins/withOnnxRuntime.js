@@ -14,6 +14,39 @@ const resolveOrtAndroidVersion = () => {
   return raw || DEFAULT_ORT_ANDROID_VERSION;
 };
 
+const ORT_PROGUARD_MARKER = '# ONNX Runtime - required for Android release / AAB / R8 builds.';
+const ORT_PROGUARD_RULES = `${ORT_PROGUARD_MARKER}
+# Native ORT JNI looks up ai.onnxruntime classes and methods by name.
+-keep class ai.onnxruntime.** { *; }
+-keep class ai.onnxruntime.reactnative.** { *; }
+
+-keepattributes Signature,*Annotation*,InnerClasses,EnclosingMethod
+-dontwarn ai.onnxruntime.**`;
+
+const ensureOnnxRuntimeProguardRules = (projectRoot) => {
+  const proguardPath = path.join(projectRoot, 'android', 'app', 'proguard-rules.pro');
+  if (!fs.existsSync(proguardPath)) {
+    console.warn('[withOnnxRuntime] android/app/proguard-rules.pro not found, skipping ONNX R8 keep rules.');
+    return;
+  }
+
+  const original = fs.readFileSync(proguardPath, 'utf8');
+  let patched = original.replace(
+    /\n?# ONNX Runtime - preserve for JNI calls\n-keep class com\.microsoft\.onnxruntime\.\*\* \{ \*; \}\n?/g,
+    '\n'
+  );
+
+  if (!patched.includes(ORT_PROGUARD_MARKER)) {
+    const separator = patched.endsWith('\n') ? '\n' : '\n\n';
+    patched = `${patched}${separator}${ORT_PROGUARD_RULES}\n`;
+  }
+
+  if (patched !== original) {
+    fs.writeFileSync(proguardPath, patched);
+    console.log('[withOnnxRuntime] Ensured Android ONNX Runtime R8 keep rules.');
+  }
+};
+
 const pinOnnxRuntimeAndroidBuildGradle = (projectRoot, ortVersion) => {
   const ortBuildGradlePath = path.join(
     projectRoot,
@@ -150,6 +183,7 @@ module.exports = function withOnnxRuntime(config) {
   config = withDangerousMod(config, [
     'android',
     async (config) => {
+      ensureOnnxRuntimeProguardRules(config.modRequest.projectRoot);
       pinOnnxRuntimeAndroidBuildGradle(config.modRequest.projectRoot, ortVersion);
       return config;
     },

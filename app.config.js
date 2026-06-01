@@ -28,16 +28,21 @@ const BUILD_FINGERPRINT = (
 
 const getAndroidVersionCode = () => {
   try {
+    const explicitVersionCode = process.env.ANDROID_VERSION_CODE;
+    if (explicitVersionCode && explicitVersionCode.trim()) {
+      const parsed = parseInt(explicitVersionCode.trim(), 10);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+      console.warn(`Invalid ANDROID_VERSION_CODE='${explicitVersionCode}', falling back to version file.`);
+    }
+
     const versionFile = path.join(__dirname, 'android_version_code.txt');
     let versionCode = 2000000043; // Starting point higher than current
 
     if (fs.existsSync(versionFile)) {
       versionCode = parseInt(fs.readFileSync(versionFile, 'utf8').trim(), 10);
     }
-
-    // Increment for next build
-    const nextVersionCode = versionCode + 1;
-    fs.writeFileSync(versionFile, nextVersionCode.toString());
 
     return versionCode;
   } catch (e) {
@@ -55,7 +60,7 @@ const getIosBuildNumber = () => {
   return Date.now().toString();
 };
 
-const APP_VERSION = "1.0.7";
+const APP_VERSION = "1.0.8";
 const RUNTIME_VERSION = process.env.EXPO_RUNTIME_VERSION || APP_VERSION;
 
 module.exports = {
@@ -203,6 +208,7 @@ module.exports = {
       "./plugins/withSettingsGradleFix.js",
       "./plugins/withAndroidReleaseSigning.js",
       "./plugins/withOnnxRuntime.js",
+      "./plugins/withAndroidCustomNative.js",
       "./plugins/withIosGoogleMapsInitFix.js"
     ],
     extra: {
