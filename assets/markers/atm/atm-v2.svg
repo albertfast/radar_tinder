@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="circleGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#44DD66"/>
+      <stop offset="100%" stop-color="#228844"/>
+    </radialGradient>
+  </defs>
+  <!-- Green circle background -->
+  <circle cx="32" cy="32" r="28" fill="url(#circleGrad)" filter="url(#glow)"/>
+  <!-- White card -->
+  <g fill="#FFFFFF">
+    <rect x="10" y="16" width="28" height="20" rx="3"/>
+    <!-- Card chip -->
+    <rect x="14" y="22" width="8" height="6" rx="1" fill="#228844" opacity="0.4"/>
+    <!-- Card lines -->
+    <rect x="14" y="30" width="16" height="2" rx="1" fill="#228844" opacity="0.3"/>
+  </g>
+  <!-- White money/bills -->
+  <g fill="#FFFFFF">
+    <rect x="30" y="28" width="24" height="18" rx="3"/>
+    <!-- Money circle -->
+    <circle cx="42" cy="37" r="5" fill="none" stroke="#228844" stroke-width="1.5" opacity="0.5"/>
+  </g>
+</svg>

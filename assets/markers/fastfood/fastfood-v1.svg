@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="bunTopGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFB833"/>
+      <stop offset="100%" stop-color="#E89010"/>
+    </linearGradient>
+    <linearGradient id="bunBotGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E89010"/>
+      <stop offset="100%" stop-color="#CC7700"/>
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Top bun -->
+    <path d="M10 32 Q10 16 32 14 Q54 16 54 32 Z" fill="url(#bunTopGrad)"/>
+    <!-- Sesame seeds -->
+    <ellipse cx="24" cy="24" rx="2" ry="1.5" fill="#FFF5D0" transform="rotate(-20,24,24)"/>
+    <ellipse cx="32" cy="20" rx="2" ry="1.5" fill="#FFF5D0"/>
+    <ellipse cx="40" cy="24" rx="2" ry="1.5" fill="#FFF5D0" transform="rotate(20,40,24)"/>
+    <ellipse cx="28" cy="28" rx="2" ry="1.5" fill="#FFF5D0" transform="rotate(-10,28,28)"/>
+    <!-- Lettuce -->
+    <path d="M8 32 Q14 28 20 32 Q26 28 32 32 Q38 28 44 32 Q50 28 56 32 L56 36 L8 36 Z" fill="#44CC44"/>
+    <!-- Patty -->
+    <rect x="10" y="36" width="44" height="8" rx="2" fill="#8B4513"/>
+    <!-- Cheese -->
+    <path d="M8 36 L56 36 L54 40 L10 40 Z" fill="#FFD700"/>
+    <!-- Bottom bun -->
+    <path d="M10 44 L54 44 Q54 44 54 46 Q54 52 32 52 Q10 52 10 46 Z" fill="url(#bunBotGrad)"/>
+  </g>
+</svg>

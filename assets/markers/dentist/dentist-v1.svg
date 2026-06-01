@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="blueGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#448AFF" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#448AFF"/>
+      <stop offset="100%" stop-color="#2962FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="8" ry="8" fill="url(#bgGrad)" filter="url(#blueGlow)"/>
+  <!-- White tooth icon -->
+  <path d="M22 14 Q16 14 16 22 Q16 28 20 36 Q22 42 24 46 Q26 50 28 50 Q30 50 30 44 L30 38 Q30 34 32 34 Q34 34 34 38 L34 44 Q34 50 36 50 Q38 50 40 46 Q42 42 44 36 Q48 28 48 22 Q48 14 42 14 Q38 14 36 18 Q34 20 32 20 Q30 20 28 18 Q26 14 22 14 Z" fill="#FFFFFF"/>
+  <!-- Tooth shine -->
+  <path d="M22 18 Q20 18 20 22 Q20 24 22 24 Q22 22 24 20 Z" fill="#FFFFFF" opacity="0.3"/>
+</svg>

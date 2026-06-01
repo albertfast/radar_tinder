@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#ff1744" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="barGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#b71c1c"/>
+      <stop offset="30%" stop-color="#ff1744"/>
+      <stop offset="70%" stop-color="#ff1744"/>
+      <stop offset="100%" stop-color="#b71c1c"/>
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Left weight plate -->
+    <rect x="8" y="22" width="10" height="20" rx="3" fill="#ff1744" stroke="#d50000" stroke-width="1"/>
+    <rect x="10" y="25" width="6" height="14" rx="2" fill="#b71c1c" opacity="0.5"/>
+    <!-- Right weight plate -->
+    <rect x="46" y="22" width="10" height="20" rx="3" fill="#ff1744" stroke="#d50000" stroke-width="1"/>
+    <rect x="48" y="25" width="6" height="14" rx="2" fill="#b71c1c" opacity="0.5"/>
+    <!-- Inner plates left -->
+    <rect x="18" y="25" width="6" height="14" rx="2" fill="#ff5252" stroke="#d50000" stroke-width="0.8"/>
+    <!-- Inner plates right -->
+    <rect x="40" y="25" width="6" height="14" rx="2" fill="#ff5252" stroke="#d50000" stroke-width="0.8"/>
+    <!-- Bar -->
+    <rect x="6" y="30" width="52" height="4" rx="2" fill="url(#barGrad)"/>
+    <!-- Bar highlight -->
+    <rect x="6" y="30" width="52" height="1.5" rx="0.75" fill="#ffffff" opacity="0.2"/>
+  </g>
+</svg>

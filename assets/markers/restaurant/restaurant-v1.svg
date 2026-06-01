@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="forkGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FF4444"/>
+      <stop offset="100%" stop-color="#CC1111"/>
+    </linearGradient>
+    <linearGradient id="knifeGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FF6666"/>
+      <stop offset="100%" stop-color="#DD2222"/>
+    </linearGradient>
+  </defs>
+  <!-- Fork - left side -->
+  <g filter="url(#glow)">
+    <!-- Fork handle -->
+    <rect x="19" y="28" width="4" height="26" rx="2" fill="url(#forkGrad)"/>
+    <!-- Fork prongs -->
+    <rect x="15" y="8" width="3" height="22" rx="1.5" fill="url(#forkGrad)"/>
+    <rect x="21" y="8" width="3" height="22" rx="1.5" fill="url(#forkGrad)"/>
+    <!-- Fork connector -->
+    <rect x="17" y="26" width="8" height="4" rx="1" fill="url(#forkGrad)"/>
+  </g>
+  <!-- Knife - right side, crossed -->
+  <g filter="url(#glow)" transform="rotate(-15, 38, 32)">
+    <!-- Knife blade -->
+    <path d="M36 8 Q44 8 44 28 L40 28 L40 8 Z" fill="url(#knifeGrad)"/>
+    <!-- Knife handle -->
+    <rect x="38" y="28" width="4" height="26" rx="2" fill="url(#knifeGrad)"/>
+  </g>
+</svg>

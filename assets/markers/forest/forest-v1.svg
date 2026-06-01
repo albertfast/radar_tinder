@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#00e676" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="trunkGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4e342e"/>
+      <stop offset="100%" stop-color="#6d4c41"/>
+    </linearGradient>
+    <radialGradient id="pine1" cx="50%" cy="30%">
+      <stop offset="0%" stop-color="#69f0ae"/>
+      <stop offset="100%" stop-color="#00c853"/>
+    </radialGradient>
+    <radialGradient id="pine2" cx="50%" cy="30%">
+      <stop offset="0%" stop-color="#00e676"/>
+      <stop offset="100%" stop-color="#1b5e20"/>
+    </radialGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Left pine tree -->
+    <rect x="12" y="40" width="4" height="14" rx="1" fill="url(#trunkGrad1)"/>
+    <polygon points="14,10 4,28 24,28" fill="url(#pine1)"/>
+    <polygon points="14,18 6,32 22,32" fill="url(#pine1)" opacity="0.85"/>
+    <polygon points="14,26 7,38 21,38" fill="url(#pine1)" opacity="0.7"/>
+
+    <!-- Center pine tree (tallest) -->
+    <rect x="29" y="36" width="5" height="18" rx="1" fill="url(#trunkGrad1)"/>
+    <polygon points="31.5,6 19,26 44,26" fill="url(#pine2)"/>
+    <polygon points="31.5,16 21,34 42,34" fill="url(#pine2)" opacity="0.85"/>
+    <polygon points="31.5,26 23,40 40,40" fill="url(#pine2)" opacity="0.7"/>
+
+    <!-- Right pine tree -->
+    <rect x="47" y="42" width="4" height="12" rx="1" fill="url(#trunkGrad1)"/>
+    <polygon points="49,14 40,30 58,30" fill="url(#pine1)"/>
+    <polygon points="49,22 42,34 56,34" fill="url(#pine1)" opacity="0.85"/>
+    <polygon points="49,28 43,38 55,38" fill="url(#pine1)" opacity="0.7"/>
+
+    <!-- Ground -->
+    <rect x="2" y="54" width="60" height="4" rx="2" fill="#00c853" opacity="0.4"/>
+  </g>
+</svg>

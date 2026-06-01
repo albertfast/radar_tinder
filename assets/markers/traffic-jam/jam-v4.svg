@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="carGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background glow -->
+  <rect x="4" y="8" width="56" height="48" rx="4" fill="#BF360C" opacity="0.12" filter="url(#glow)"/>
+  <!-- Zigzag road -->
+  <path d="M8,40 L20,40 L20,24 L36,24 L36,40 L52,40 L52,24 L58,24"
+        fill="none" stroke="#FF6D00" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <!-- Road center dashes -->
+  <path d="M8,40 L20,40 L20,24 L36,24 L36,40 L52,40 L52,24 L58,24"
+        fill="none" stroke="#FFE0B2" stroke-width="1" stroke-dasharray="4,4" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+  <!-- Road edges (subtle) -->
+  <path d="M8,37 L20,37 L20,21 L36,21 L36,37 L52,37 L52,21 L58,21"
+        fill="none" stroke="#FF8F00" stroke-width="0.5" opacity="0.4"/>
+  <path d="M8,43 L20,43 L20,27 L36,27 L36,43 L52,43 L52,27 L58,27"
+        fill="none" stroke="#FF8F00" stroke-width="0.5" opacity="0.4"/>
+  <!-- Car 1 (at start) -->
+  <g filter="url(#carGlow)">
+    <rect x="4" y="35" width="10" height="7" rx="2.5" fill="#FF1744" stroke="#FF5252" stroke-width="0.8"/>
+    <rect x="5.5" y="36.5" width="3" height="2.5" rx="0.8" fill="#FFCDD2" opacity="0.5"/>
+  </g>
+  <!-- Car 2 (mid) -->
+  <g filter="url(#carGlow)">
+    <rect x="22" y="19" width="10" height="7" rx="2.5" fill="#FF5722" stroke="#FF8A65" stroke-width="0.8"/>
+    <rect x="23.5" y="20.5" width="3" height="2.5" rx="0.8" fill="#FFCDD2" opacity="0.5"/>
+  </g>
+  <!-- Car 3 (mid-lower) -->
+  <g filter="url(#carGlow)">
+    <rect x="22" y="35" width="10" height="7" rx="2.5" fill="#FF5722" stroke="#FF8A65" stroke-width="0.8"/>
+    <rect x="23.5" y="36.5" width="3" height="2.5" rx="0.8" fill="#FFCDD2" opacity="0.5"/>
+  </g>
+  <!-- Stop/go arrows -->
+  <polygon points="56,22 60,24 56,26" fill="#FF6D00" opacity="0.8"/>
+</svg>

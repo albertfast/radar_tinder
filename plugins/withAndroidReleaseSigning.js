@@ -6,6 +6,7 @@ const RELEASE_SIGNING_BLOCK = `        release {
             keyAlias '50bfc63f638af988fe807ff1eb2cd296'
             keyPassword '933b393230dc1659891255937bea56dc'
         }`;
+const RELEASE_SIGNING_PATTERN = /^[ \t]*release\s*\{[\s\S]*?^[ \t]*\}/m;
 
 const DYNAMIC_VERSION_CODE_BLOCK = `def resolveDynamicVersionCode = {
     def explicitVersionCode = findProperty('android.versionCode') ?: System.getenv('ANDROID_VERSION_CODE')
@@ -57,25 +58,52 @@ function findBlockRange(contents, blockName) {
   return null;
 }
 
+function upsertDynamicVersionCodeBlock(contents) {
+  const dynamicVersionCodePattern = /def resolveDynamicVersionCode = \{[\s\S]*?\n\}/m;
+
+  if (dynamicVersionCodePattern.test(contents)) {
+    return contents.replace(dynamicVersionCodePattern, DYNAMIC_VERSION_CODE_BLOCK);
+  }
+
+  if (contents.includes("def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'")) {
+    return contents.replace(
+      "def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'",
+      `def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'\n\n${DYNAMIC_VERSION_CODE_BLOCK}`
+    );
+  }
+
+  if (contents.includes('android {')) {
+    return contents.replace('android {', `${DYNAMIC_VERSION_CODE_BLOCK}\n\nandroid {`);
+  }
+
+  return contents;
+}
+
+function useDynamicVersionCode(contents) {
+  const defaultConfigRange = findBlockRange(contents, 'defaultConfig');
+  if (!defaultConfigRange) {
+    return contents;
+  }
+
+  const defaultConfigBlock = contents.slice(defaultConfigRange.start, defaultConfigRange.end);
+  const patchedDefaultConfig = defaultConfigBlock.replace(
+    /^(\s*)versionCode\s+.*$/m,
+    '$1versionCode resolveDynamicVersionCode()'
+  );
+
+  return (
+    contents.slice(0, defaultConfigRange.start) +
+    patchedDefaultConfig +
+    contents.slice(defaultConfigRange.end)
+  );
+}
+
 function withAndroidReleaseSigning(config) {
   return withAppBuildGradle(config, (config) => {
     let contents = config.modResults.contents;
 
-    if (!contents.includes('def resolveDynamicVersionCode = {')) {
-      if (contents.includes("def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'")) {
-        contents = contents.replace(
-          "def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'",
-          `def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'\n\n${DYNAMIC_VERSION_CODE_BLOCK}`
-        );
-      } else if (contents.includes('android {')) {
-        contents = contents.replace('android {', `${DYNAMIC_VERSION_CODE_BLOCK}\n\nandroid {`);
-      }
-    }
-
-    contents = contents.replace(
-      /(targetSdkVersion[^\n]*\n)\s*versionCode[^\n]*\n/g,
-      '$1        versionCode resolveDynamicVersionCode()\n'
-    );
+    contents = upsertDynamicVersionCodeBlock(contents);
+    contents = useDynamicVersionCode(contents);
     contents = enforceReleaseOptimizationDefaults(contents);
 
     const signingConfigsRange = findBlockRange(contents, 'signingConfigs');
@@ -83,9 +111,9 @@ function withAndroidReleaseSigning(config) {
       const signingConfigsBlock = contents.slice(signingConfigsRange.start, signingConfigsRange.end);
       let patchedSigningConfigs = signingConfigsBlock;
 
-      if (/release\s*\{[\s\S]*?\}/m.test(signingConfigsBlock)) {
+      if (RELEASE_SIGNING_PATTERN.test(signingConfigsBlock)) {
         patchedSigningConfigs = signingConfigsBlock.replace(
-          /release\s*\{[\s\S]*?\}/m,
+          RELEASE_SIGNING_PATTERN,
           RELEASE_SIGNING_BLOCK
         );
       } else if (/debug\s*\{[\s\S]*?\}/m.test(signingConfigsBlock)) {

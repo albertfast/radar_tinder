@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feFlood flood-color="#FFD700" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <pattern id="hazard" patternUnits="userSpaceOnUse" width="8" height="8">
+      <rect width="4" height="8" fill="#FFD700"/>
+      <rect x="4" width="4" height="8" fill="#222222"/>
+    </pattern>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Barrier posts -->
+    <rect x="10" y="20" width="5" height="32" rx="1" fill="#888888" stroke="#AAAAAA" stroke-width="0.5"/>
+    <rect x="49" y="20" width="5" height="32" rx="1" fill="#888888" stroke="#AAAAAA" stroke-width="0.5"/>
+    <!-- Post caps -->
+    <rect x="9" y="18" width="7" height="4" rx="1" fill="#FF6600"/>
+    <rect x="48" y="18" width="7" height="4" rx="1" fill="#FF6600"/>
+    <!-- Hazard stripe barrier -->
+    <rect x="8" y="28" width="48" height="12" rx="2" fill="url(#hazard)" stroke="#FFD700" stroke-width="1"/>
+    <!-- Barrier border lines -->
+    <line x1="8" y1="28" x2="56" y2="28" stroke="#FFEE00" stroke-width="1.5"/>
+    <line x1="8" y1="40" x2="56" y2="40" stroke="#FFEE00" stroke-width="1.5"/>
+  </g>
+  <!-- Shovel icon -->
+  <g transform="translate(26, 6)" filter="url(#glow)">
+    <!-- Handle -->
+    <rect x="5" y="8" width="2.5" height="16" rx="1" fill="#AAAAAA" stroke="#CCCCCC" stroke-width="0.3" transform="rotate(-20, 6.25, 16)"/>
+    <!-- Blade -->
+    <path d="M0,2 Q0,-1 6,-1 Q12,-1 12,2 L12,8 Q12,11 6,11 Q0,11 0,8 Z" fill="#BBBBBB" stroke="#DDDDDD" stroke-width="0.5" transform="rotate(-20, 6, 5)"/>
+  </g>
+</svg>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
+      <feFlood flood-color="#FFFFFF" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <defs>
+    <filter id="glow2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#FFFFFF" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- White church with cross -->
+  <g filter="url(#glow)">
+    <rect x="16" y="24" width="32" height="32" rx="1" fill="#E0E0E0"/>
+    <path d="M12 24 L32 8 L52 24 Z" fill="#F5F5F5"/>
+  </g>
+  <!-- Cross -->
+  <rect x="30" y="2" width="4" height="10" rx="0.5" fill="white" filter="url(#glow2)"/>
+  <rect x="26" y="5" width="12" height="4" rx="0.5" fill="white" filter="url(#glow2)"/>
+  <!-- Door -->
+  <path d="M27 40 Q27 34 32 34 Q37 34 37 40 L37 56 L27 56 Z" fill="#9E9E9E"/>
+  <!-- Windows -->
+  <rect x="19" y="28" width="6" height="8" rx="3" fill="#B0BEC5" opacity="0.8"/>
+  <rect x="39" y="28" width="6" height="8" rx="3" fill="#B0BEC5" opacity="0.8"/>
+  <!-- Steeple -->
+  <rect x="30" y="10" width="4" height="4" fill="#F5F5F5"/>
+</svg>

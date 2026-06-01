@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <!-- Teal glow filter -->
+    <filter id="tealGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#00e5cc" flood-opacity="0.55" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Pin gradient -->
+    <linearGradient id="pinGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00ffe5"/>
+      <stop offset="100%" stop-color="#00b8a8"/>
+    </linearGradient>
+    <!-- Shadow -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Map pin/marker -->
+  <g filter="url(#tealGlow)">
+    <g filter="url(#shadow)">
+      <!-- Pin body -->
+      <path d="M32,6 C20,6 12,16 12,26 C12,38 32,58 32,58 C32,58 52,38 52,26 C52,16 44,6 32,6 Z" fill="url(#pinGrad)"/>
+      <!-- Pin highlight -->
+      <path d="M32,8 C22,8 14,16 14,25 C14,26 14,26.5 14.2,27 L24,18 C26,15 30,13 32,13 C34,13 36,13.5 38,15 L32,8 Z" fill="#ffffff" opacity="0.2"/>
+      <!-- Pin inner circle (cutout effect) -->
+      <circle cx="32" cy="24" r="12" fill="#009e8e" opacity="0.6"/>
+      <circle cx="32" cy="24" r="11" fill="#00887a" opacity="0.4"/>
+    </g>
+
+    <!-- Camera icon inside pin -->
+    <!-- Camera body -->
+    <rect x="25" y="21" width="14" height="10" rx="2" fill="#ffffff"/>
+    <!-- Camera top bump (viewfinder) -->
+    <rect x="29" y="18.5" width="6" height="3.5" rx="1" fill="#ffffff"/>
+    <!-- Lens -->
+    <circle cx="32" cy="26" r="3" fill="#00887a"/>
+    <!-- Lens highlight -->
+    <circle cx="31" cy="25" r="1" fill="#ffffff" opacity="0.7"/>
+  </g>
+</svg>

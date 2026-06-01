@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="boltGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background glow -->
+  <rect x="8" y="8" width="48" height="48" rx="8" fill="#1B5E20" opacity="0.15" filter="url(#glow)"/>
+  <!-- Charging station body -->
+  <rect x="14" y="16" width="24" height="36" rx="4" fill="#4CAF50" stroke="#81C784" stroke-width="1.5" filter="url(#glow)"/>
+  <!-- Station display -->
+  <rect x="17" y="19" width="18" height="10" rx="2" fill="#1B5E20" stroke="#66BB6A" stroke-width="0.5"/>
+  <!-- Display content -->
+  <rect x="19" y="21" width="5" height="2" rx="0.5" fill="#69F0AE" opacity="0.7"/>
+  <rect x="19" y="25" width="14" height="2" rx="0.5" fill="#69F0AE" opacity="0.5"/>
+  <!-- Charging port -->
+  <circle cx="26" cy="40" r="5" fill="#2E7D32" stroke="#66BB6A" stroke-width="1"/>
+  <circle cx="26" cy="40" r="3" fill="#1B5E20"/>
+  <circle cx="26" cy="40" r="1.5" fill="#69F0AE" opacity="0.8"/>
+  <!-- Cable -->
+  <path d="M38,28 Q44,28 48,32 Q52,36 50,42 Q48,46 44,46"
+        fill="none" stroke="#66BB6A" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- EV plug -->
+  <rect x="42" y="44" width="6" height="8" rx="2" fill="#4CAF50" stroke="#81C784" stroke-width="1"/>
+  <!-- Plug pins -->
+  <rect x="43.5" y="50" width="1.5" height="4" rx="0.5" fill="#A5D6A7"/>
+  <rect x="46.5" y="50" width="1.5" height="4" rx="0.5" fill="#A5D6A7"/>
+  <!-- Lightning bolt -->
+  <polygon points="26,4 22,22 28,18 24,36 32,16 26,20"
+           fill="#69F0AE" filter="url(#boltGlow)" opacity="0.9"/>
+</svg>

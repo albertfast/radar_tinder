@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="circleGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#44DD66"/>
+      <stop offset="100%" stop-color="#228844"/>
+    </radialGradient>
+  </defs>
+  <!-- Green circle background -->
+  <circle cx="32" cy="32" r="28" fill="url(#circleGrad)" filter="url(#glow)"/>
+  <!-- White shopping cart -->
+  <g fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1">
+    <!-- Cart body -->
+    <path d="M12 20 L18 20 L22 40 L48 40 L52 24 L22 24" fill="none" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- Cart wheels -->
+    <circle cx="26" cy="48" r="4" fill="none" stroke-width="2.5"/>
+    <circle cx="44" cy="48" r="4" fill="none" stroke-width="2.5"/>
+    <!-- Cart handle -->
+    <line x1="8" y1="16" x2="12" y2="20" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

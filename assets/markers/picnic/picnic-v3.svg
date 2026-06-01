@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#ffab00" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="badgeGrad" cx="40%" cy="30%">
+      <stop offset="0%" stop-color="#ffb300"/>
+      <stop offset="100%" stop-color="#e65100"/>
+    </radialGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Badge circle -->
+    <circle cx="32" cy="32" r="28" fill="url(#badgeGrad)" stroke="#ffab00" stroke-width="2"/>
+    <circle cx="32" cy="32" r="25" fill="none" stroke="#ffffff" stroke-width="0.8" opacity="0.3"/>
+    <!-- Tree (small) on left -->
+    <!-- Trunk -->
+    <rect x="16" y="30" width="3" height="14" rx="0.5" fill="#ffffff"/>
+    <!-- Foliage -->
+    <circle cx="17.5" cy="24" r="7" fill="none" stroke="#ffffff" stroke-width="2"/>
+    <circle cx="13" cy="28" r="4" fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.6"/>
+    <!-- Picnic table -->
+    <!-- Table top -->
+    <rect x="28" y="36" width="22" height="3" rx="0.8" fill="#ffffff"/>
+    <!-- Left leg -->
+    <rect x="30" y="39" width="2" height="8" rx="0.5" fill="#ffffff" opacity="0.8"/>
+    <!-- Right leg -->
+    <rect x="46" y="39" width="2" height="8" rx="0.5" fill="#ffffff" opacity="0.8"/>
+    <!-- Left bench -->
+    <rect x="26" y="43" width="8" height="2" rx="0.5" fill="#ffffff" opacity="0.6"/>
+    <!-- Right bench -->
+    <rect x="44" y="43" width="8" height="2" rx="0.5" fill="#ffffff" opacity="0.6"/>
+  </g>
+</svg>

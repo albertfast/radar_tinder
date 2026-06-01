@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#E040FB" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="32" cy="32" r="28" fill="#7B1FA2" filter="url(#glow)"/>
+  <circle cx="32" cy="32" r="25" fill="#8E24AA" stroke="#EA80FC" stroke-width="1.5"/>
+  <!-- White cocktail glass -->
+  <path d="M22 22 L32 36 L42 22 Z" fill="white"/>
+  <rect x="30" y="36" width="4" height="10" fill="white"/>
+  <rect x="26" y="46" width="12" height="3" rx="1" fill="white"/>
+  <!-- Olive/stirrer -->
+  <line x1="26" y1="22" x2="38" y2="30" stroke="white" stroke-width="1.5"/>
+  <circle cx="27" cy="22" r="2" fill="white"/>
+  <!-- Dance figure -->
+  <circle cx="22" cy="38" r="2.5" fill="white"/>
+  <line x1="22" y1="40" x2="22" y2="48" stroke="white" stroke-width="1.5"/>
+  <line x1="22" y1="42" x2="18" y2="45" stroke="white" stroke-width="1.5"/>
+  <line x1="22" y1="42" x2="26" y2="38" stroke="white" stroke-width="1.5"/>
+  <line x1="22" y1="48" x2="19" y2="54" stroke="white" stroke-width="1.5"/>
+  <line x1="22" y1="48" x2="25" y2="54" stroke="white" stroke-width="1.5"/>
+</svg>

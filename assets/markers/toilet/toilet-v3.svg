@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#009688" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="32" cy="32" r="28" fill="#004D40" filter="url(#glow)"/>
+  <circle cx="32" cy="32" r="25" fill="#00695C" stroke="#4DB6AC" stroke-width="1.5"/>
+  <!-- White restroom icon -->
+  <rect x="16" y="14" width="32" height="36" rx="3" fill="white"/>
+  <rect x="18" y="16" width="28" height="32" rx="2" fill="#00695C"/>
+  <!-- Simplified male figure -->
+  <circle cx="28" cy="22" r="3" fill="white"/>
+  <path d="M26 26 L26 36 M28 26 L28 36 M24 30 L32 30 M26 36 L23 44 M30 36 L33 44" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <!-- Simplified female figure -->
+  <circle cx="38" cy="22" r="3" fill="white"/>
+  <path d="M36 26 L36 32 L34 38 L36 38 L38 38 L40 38 L42 32 L42 26 M36 38 L34 44 L36 44 L38 44 L40 44 L42 38" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="badgeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFB347"/>
+      <stop offset="100%" stop-color="#E88020"/>
+    </linearGradient>
+  </defs>
+  <!-- Orange badge circle -->
+  <circle cx="32" cy="32" r="28" fill="url(#badgeGrad)" filter="url(#glow)"/>
+  <circle cx="32" cy="32" r="25" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.3"/>
+  <!-- White bread loaf -->
+  <g fill="#FFFFFF">
+    <!-- Loaf body -->
+    <path d="M16 36 Q16 20 32 18 Q48 20 48 36 Z"/>
+    <!-- Loaf base -->
+    <rect x="16" y="36" width="32" height="10" rx="2"/>
+    <!-- Score lines on top -->
+    <path d="M24 28 Q28 24 32 28" fill="none" stroke="#E88020" stroke-width="1.5" opacity="0.5"/>
+    <path d="M32 28 Q36 24 40 28" fill="none" stroke="#E88020" stroke-width="1.5" opacity="0.5"/>
+  </g>
+</svg>

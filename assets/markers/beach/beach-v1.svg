@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#00e5ff" flood-opacity="0.5" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="sandGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffeb3b"/>
+      <stop offset="100%" stop-color="#f9a825"/>
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Sand/ground -->
+    <path d="M4,44 Q16,40 32,44 Q48,48 60,44 L60,60 L4,60 Z" fill="url(#sandGrad)"/>
+    <!-- Sand texture -->
+    <circle cx="16" cy="50" r="0.8" fill="#f9a825" opacity="0.5"/>
+    <circle cx="28" cy="52" r="0.8" fill="#f9a825" opacity="0.5"/>
+    <circle cx="42" cy="48" r="0.8" fill="#f9a825" opacity="0.5"/>
+    <circle cx="50" cy="54" r="0.8" fill="#f9a825" opacity="0.5"/>
+    <!-- Beach umbrella pole -->
+    <line x1="30" y1="12" x2="30" y2="44" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Beach umbrella canopy -->
+    <path d="M12,16 Q30,4 48,16" fill="#00e5ff" stroke="#00bcd4" stroke-width="1.5"/>
+    <path d="M12,16 L48,16 L30,16 Z" fill="none"/>
+    <!-- Umbrella panels -->
+    <path d="M12,16 Q16,10 22,16" fill="#00bcd4" opacity="0.6"/>
+    <path d="M22,16 Q26,8 30,16" fill="#00e5ff" opacity="0.6"/>
+    <path d="M30,16 Q34,8 38,16" fill="#00bcd4" opacity="0.6"/>
+    <path d="M38,16 Q42,10 48,16" fill="#00e5ff" opacity="0.6"/>
+    <!-- Umbrella scalloped edge -->
+    <path d="M12,16 Q14,20 18,16 Q22,20 26,16 Q30,20 34,16 Q38,20 42,16 Q46,20 48,16" fill="none" stroke="#00e5ff" stroke-width="1.5"/>
+    <!-- Small waves -->
+    <path d="M4,44 Q8,42 12,44 Q16,46 20,44" fill="none" stroke="#00e5ff" stroke-width="1.2" opacity="0.5"/>
+    <path d="M44,44 Q48,42 52,44 Q56,46 60,44" fill="none" stroke="#00e5ff" stroke-width="1.2" opacity="0.5"/>
+  </g>
+</svg>

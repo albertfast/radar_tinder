@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="pinGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#2196F3" flood-opacity="0.4" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Shadow -->
+  <ellipse cx="32" cy="58" rx="12" ry="3" fill="#0D47A1" opacity="0.3"/>
+  <!-- Map pin -->
+  <path d="M32,4 Q48,4 48,22 Q48,36 32,56 Q16,36 16,22 Q16,4 32,4 Z"
+        fill="#1565C0" stroke="#42A5F5" stroke-width="1.5" filter="url(#pinGlow)"/>
+  <!-- Pin inner -->
+  <path d="M32,8 Q44,8 44,22 Q44,34 32,50 Q20,34 20,22 Q20,8 32,8 Z"
+        fill="#1976D2" stroke="none"/>
+  <!-- Pin head circle -->
+  <circle cx="32" cy="22" r="11" fill="#1565C0" stroke="#42A5F5" stroke-width="1"/>
+  <circle cx="32" cy="22" r="9" fill="#1976D2" stroke="none"/>
+  <!-- P letter as path inside pin -->
+  <g filter="url(#textGlow)">
+    <!-- P stem -->
+    <rect x="26" y="16" width="3.5" height="16" rx="0.5" fill="#FFFFFF"/>
+    <!-- P bowl -->
+    <path d="M29.5,16 L35,16 Q40,16 40,20 Q40,24 35,24 L29.5,24 Z" fill="#FFFFFF"/>
+    <!-- P inner cutout -->
+    <path d="M29.5,19 L34,19 Q36.5,19 36.5,20 Q36.5,21 34,21 L29.5,21 Z" fill="#1976D2"/>
+  </g>
+</svg>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="amberGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feFlood flood-color="#ffab00" flood-opacity="0.55" result="color" />
+      <feComposite in="color" in2="blur" operator="in" result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <linearGradient id="pinGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffd740" />
+      <stop offset="50%" stop-color="#ffab00" />
+      <stop offset="100%" stop-color="#ff8f00" />
+    </linearGradient>
+  </defs>
+  <!-- Pin body with glow -->
+  <g filter="url(#amberGlow)">
+    <!-- Pin drop shape -->
+    <path d="M32 6 C22 6 15 13.5 15 22 C15 34 32 54 32 54 C32 54 49 34 49 22 C49 13.5 42 6 32 6 Z"
+          fill="url(#pinGrad)" stroke="#ffe082" stroke-width="1" />
+  </g>
+  <!-- White star inside -->
+  <polygon points="32,13 34.5,20 42,20 36,24.5 38,32 32,27.5 26,32 28,24.5 22,20 29.5,20"
+           fill="#ffffff" opacity="0.95" />
+  <!-- Inner highlight -->
+  <ellipse cx="28" cy="17" rx="4" ry="5" fill="#ffffff" opacity="0.15" />
+</svg>

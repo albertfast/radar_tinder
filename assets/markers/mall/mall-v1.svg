@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="bagGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF66AA"/>
+      <stop offset="100%" stop-color="#DD2288"/>
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Shopping bag body -->
+    <rect x="14" y="22" width="36" height="34" rx="4" fill="url(#bagGrad)"/>
+    <!-- Bag top fold -->
+    <path d="M14 22 Q14 18 18 18 L46 18 Q50 18 50 22 Z" fill="#FF88BB"/>
+    <!-- Bag handles -->
+    <path d="M22 18 Q22 8 32 8 Q42 8 42 18" fill="none" stroke="#FF88BB" stroke-width="3" stroke-linecap="round"/>
+    <!-- Bag detail - center stripe -->
+    <rect x="28" y="24" width="8" height="20" rx="2" fill="#DD2288" opacity="0.4"/>
+    <!-- Star/logo on bag -->
+    <path d="M32 28 L34 34 L40 34 L35 38 L37 44 L32 40 L27 44 L29 38 L24 34 L30 34 Z" fill="#FFDDFF" opacity="0.6"/>
+  </g>
+</svg>

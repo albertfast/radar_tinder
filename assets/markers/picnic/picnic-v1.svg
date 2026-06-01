@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#ffab00" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="tableGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffc107"/>
+      <stop offset="100%" stop-color="#ff8f00"/>
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Picnic table top -->
+    <rect x="10" y="24" width="44" height="5" rx="1" fill="url(#tableGrad)" stroke="#ffab00" stroke-width="0.8"/>
+    <!-- Table top highlight -->
+    <rect x="10" y="24" width="44" height="2" rx="1" fill="#ffffff" opacity="0.15"/>
+    <!-- Left leg -->
+    <rect x="14" y="29" width="3" height="16" rx="0.5" fill="#ff8f00"/>
+    <!-- Right leg -->
+    <rect x="47" y="29" width="3" height="16" rx="0.5" fill="#ff8f00"/>
+    <!-- Left seat -->
+    <rect x="6" y="38" width="16" height="3" rx="1" fill="#ffab00" stroke="#ff8f00" stroke-width="0.5"/>
+    <!-- Right seat -->
+    <rect x="42" y="38" width="16" height="3" rx="1" fill="#ffab00" stroke="#ff8f00" stroke-width="0.5"/>
+    <!-- Seat supports left -->
+    <line x1="14" y1="33" x2="10" y2="38" stroke="#ff8f00" stroke-width="2"/>
+    <line x1="14" y1="33" x2="18" y2="38" stroke="#ff8f00" stroke-width="2"/>
+    <!-- Seat supports right -->
+    <line x1="50" y1="33" x2="46" y2="38" stroke="#ff8f00" stroke-width="2"/>
+    <line x1="50" y1="33" x2="54" y2="38" stroke="#ff8f00" stroke-width="2"/>
+    <!-- Cross brace -->
+    <line x1="15.5" y1="42" x2="48.5" y2="42" stroke="#ff8f00" stroke-width="1.5" opacity="0.5"/>
+  </g>
+</svg>

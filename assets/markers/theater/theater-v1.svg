@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#9C27B0" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Purple drama masks -->
+  <g filter="url(#glow)">
+    <!-- Comedy mask (left) -->
+    <path d="M12 20 Q12 10 24 10 Q36 10 36 20 Q36 30 24 38 Q12 30 12 20 Z" fill="#AB47BC"/>
+    <ellipse cx="19" cy="20" rx="3" ry="4" fill="#4A148C"/>
+    <ellipse cx="29" cy="20" rx="3" ry="4" fill="#4A148C"/>
+    <path d="M18 28 Q24 34 30 28" fill="none" stroke="#4A148C" stroke-width="2"/>
+    <!-- Tragedy mask (right) -->
+    <path d="M28 24 Q28 14 40 14 Q52 14 52 24 Q52 34 40 42 Q28 34 28 24 Z" fill="#8E24AA"/>
+    <ellipse cx="35" cy="24" rx="3" ry="4" fill="#4A148C"/>
+    <ellipse cx="45" cy="24" rx="3" ry="4" fill="#4A148C"/>
+    <path d="M34 34 Q40 30 46 34" fill="none" stroke="#4A148C" stroke-width="2"/>
+  </g>
+</svg>

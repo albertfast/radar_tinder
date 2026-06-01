@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#4CAF50" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Green hiking boot -->
+  <g filter="url(#glow)">
+    <path d="M16 38 L16 26 Q16 20 24 20 L36 20 Q40 20 40 26 L40 34 L50 34 Q54 34 54 38 L54 46 Q54 50 50 50 L20 50 Q16 50 16 46 Z" fill="#4CAF50"/>
+    <rect x="24" y="16" width="12" height="6" rx="2" fill="#66BB6A"/>
+  </g>
+  <!-- Laces -->
+  <line x1="26" y1="22" x2="34" y2="22" stroke="#C8E6C9" stroke-width="1.5"/>
+  <line x1="28" y1="24" x2="32" y2="24" stroke="#C8E6C9" stroke-width="1.5"/>
+  <!-- Sole -->
+  <rect x="14" y="48" width="42" height="4" rx="2" fill="#2E7D32"/>
+  <!-- Treads -->
+  <line x1="20" y1="48" x2="20" y2="52" stroke="#1B5E20" stroke-width="1.5"/>
+  <line x1="28" y1="48" x2="28" y2="52" stroke="#1B5E20" stroke-width="1.5"/>
+  <line x1="36" y1="48" x2="36" y2="52" stroke="#1B5E20" stroke-width="1.5"/>
+  <line x1="44" y1="48" x2="44" y2="52" stroke="#1B5E20" stroke-width="1.5"/>
+</svg>

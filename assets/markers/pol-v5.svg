@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="irisGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Outer glow -->
+  <ellipse cx="32" cy="32" rx="22" ry="14" fill="#1565C0" opacity="0.2" filter="url(#glow)"/>
+  <!-- Eye outer shape (almond/eye shape) -->
+  <path d="M6,32 Q32,12 58,32 Q32,52 6,32 Z"
+        fill="#1976D2" stroke="#42A5F5" stroke-width="1.5" filter="url(#glow)"/>
+  <!-- Eye inner white -->
+  <path d="M10,32 Q32,16 54,32 Q32,48 10,32 Z"
+        fill="#E3F2FD" stroke="none"/>
+  <!-- Iris -->
+  <circle cx="32" cy="32" r="10" fill="#1E88E5" filter="url(#irisGlow)"/>
+  <!-- Iris detail rings -->
+  <circle cx="32" cy="32" r="8" fill="none" stroke="#42A5F5" stroke-width="0.5" opacity="0.5"/>
+  <circle cx="32" cy="32" r="6" fill="none" stroke="#64B5F6" stroke-width="0.5" opacity="0.4"/>
+  <!-- Pupil -->
+  <circle cx="32" cy="32" r="4.5" fill="#0D47A1"/>
+  <!-- Highlight -->
+  <circle cx="29" cy="29" r="2" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="34" cy="34" r="1" fill="#FFFFFF" opacity="0.4"/>
+  <!-- Upper eyelid line -->
+  <path d="M6,32 Q32,12 58,32" fill="none" stroke="#0D47A1" stroke-width="2" opacity="0.5"/>
+</svg>

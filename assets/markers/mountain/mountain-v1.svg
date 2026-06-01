@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
+      <feFlood flood-color="#FFFFFF" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- White/gray mountain peaks -->
+  <g filter="url(#glow)">
+    <path d="M4 52 L24 12 L44 52 Z" fill="#ECEFF1"/>
+    <path d="M28 52 L44 18 L60 52 Z" fill="#CFD8DC"/>
+  </g>
+  <!-- Snow caps -->
+  <path d="M18 22 L24 12 L30 22 Z" fill="white"/>
+  <path d="M38 28 L44 18 L50 28 Z" fill="white" opacity="0.9"/>
+  <!-- Ridges -->
+  <path d="M24 12 L28 24 L20 24 Z" fill="#B0BEC5" opacity="0.5"/>
+  <path d="M44 18 L48 28 L40 28 Z" fill="#90A4AE" opacity="0.5"/>
+  <!-- Ground -->
+  <rect x="0" y="52" width="64" height="8" rx="2" fill="#78909C" opacity="0.4"/>
+</svg>

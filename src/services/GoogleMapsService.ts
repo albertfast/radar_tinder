@@ -4,6 +4,9 @@ import { AddressSuggestion } from '../types';
 
 const KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 const BASE_URL = 'https://maps.googleapis.com/maps/api';
+const PAID_GOOGLE_MAPS_ENABLED = String(process.env.EXPO_PUBLIC_ENABLE_PAID_GOOGLE_MAPS || '')
+  .trim()
+  .toLowerCase() === 'true';
 
 // --- Helpers ---
 
@@ -48,7 +51,7 @@ async function getFallback(oLat: number, oLng: number, dest: string) {
 }
 
 async function searchNearbyPlaces(lat: number, lng: number, radius = 5000, keyword = 'speed_camera|traffic_enforcement') {
-  if (!KEY) return [];
+  if (!PAID_GOOGLE_MAPS_ENABLED || !KEY) return [];
   try {
     const res = await fetch(`${BASE_URL}/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&keyword=${encodeURIComponent(keyword)}&key=${KEY}`).then(r => r.json());
     return res.status === 'OK' ? res.results : [];
@@ -59,7 +62,7 @@ async function searchNearbyPlaces(lat: number, lng: number, radius = 5000, keywo
 }
 
 async function getSpeedLimit(placeId: string) {
-  if (!KEY) return null;
+  if (!PAID_GOOGLE_MAPS_ENABLED || !KEY) return null;
   const res = await fetch(`https://roads.googleapis.com/v1/speedLimits?placeId=${placeId}&key=${KEY}`).then(r => r.json());
   return res.speedLimits?.[0] || null;
 }
@@ -79,13 +82,13 @@ async function getDistance(oLat: number, oLng: number, dLat: number, dLng: numbe
     if (osrm) return { distance: { text: `${(osrm.distance / 1000).toFixed(1)} km`, value: osrm.distance }, duration: { text: `${Math.round(osrm.duration / 60)} min`, value: osrm.duration } };
   } catch {}
 
-  if (!KEY) return null;
+  if (!PAID_GOOGLE_MAPS_ENABLED || !KEY) return null;
   const res = await fetch(`${BASE_URL}/distancematrix/json?origins=${oLat},${oLng}&destinations=${dLat},${dLng}&key=${KEY}`).then(r => r.json());
   return (res.status === 'OK' && res.rows[0].elements[0].status === 'OK') ? res.rows[0].elements[0] : null;
 }
 
 async function getDirections(oLat: number, oLng: number, dest: string, opts?: { alternatives?: boolean; prefer?: string }): Promise<any> {
-  if (!KEY) return getFallback(oLat, oLng, dest);
+  if (!PAID_GOOGLE_MAPS_ENABLED || !KEY) return getFallback(oLat, oLng, dest);
 
   const url = `${BASE_URL}/directions/json?origin=${oLat},${oLng}&destination=${encodeURIComponent(dest)}&mode=driving${opts?.alternatives ? '&alternatives=true' : ''}&key=${KEY}`;
   const data = await fetch(url).then(r => r.json());
@@ -113,7 +116,7 @@ async function recalculateRoute(lat: number, lng: number, dest: string, oldRoute
 }
 
 async function getReverseGeocoding(lat: number, lng: number) {
-  if (!KEY) return null;
+  if (!PAID_GOOGLE_MAPS_ENABLED || !KEY) return null;
   const res = await fetch(`${BASE_URL}/geocode/json?latlng=${lat},${lng}&key=${KEY}`).then(r => r.json());
   return res.results?.[0]?.formatted_address || null;
 }
@@ -126,7 +129,7 @@ async function getGeocodeSuggestions(q: string, opts?: { countryCode?: string; f
   if (nom.length) return nom;
 
   // Fallback Google
-  if (!KEY) return [];
+  if (!PAID_GOOGLE_MAPS_ENABLED || !KEY) return [];
   const params = new URLSearchParams({ address: q, key: KEY });
   if (opts?.countryCode) params.append('region', opts.countryCode);
   

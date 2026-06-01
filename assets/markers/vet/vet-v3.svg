@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="greenGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#76FF03" flood-opacity="0.8" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="circGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#76FF03"/>
+      <stop offset="100%" stop-color="#1B5E20"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="28" fill="url(#circGrad)" filter="url(#greenGlow)"/>
+  <!-- Cat silhouette (left) -->
+  <path d="M10 48 L10 30 Q10 26 14 24 L14 18 L18 24 Q20 22 22 22 L22 18 L26 24 Q28 26 28 30 L28 48 Z" fill="#FFFFFF"/>
+  <!-- Cat ears -->
+  <path d="M12 24 L14 18 L16 24" fill="#FFFFFF"/>
+  <path d="M22 24 L24 18 L26 24" fill="#FFFFFF"/>
+  <!-- Dog silhouette (right) -->
+  <path d="M36 48 L36 32 Q36 26 40 24 L38 18 L44 24 Q48 26 48 30 L48 48 Z" fill="#FFFFFF"/>
+  <!-- Dog ear -->
+  <path d="M38 24 L36 16 L42 22" fill="#FFFFFF"/>
+  <!-- Dog nose -->
+  <ellipse cx="46" cy="28" rx="2" ry="1.5" fill="#33691E"/>
+</svg>

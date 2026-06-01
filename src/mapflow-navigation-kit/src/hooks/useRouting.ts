@@ -1,13 +1,13 @@
 import { useCallback } from 'react';
-import { getRoute } from '../services/api';
+import { getRoutes } from '../services/api';
 import { useNavigationStore } from '../stores/navigationStore';
-import { RouteData } from '../types/map';
 
 export function useRouting() {
   const {
     userLocation,
     destination,
     setRoute,
+    setRouteAlternatives,
     setIsRouting,
     setRemainingDistance,
     setRemainingDuration,
@@ -23,14 +23,20 @@ export function useRouting() {
 
     setIsRouting(true);
     try {
-      const data: RouteData = await getRoute(
+      const routes = await getRoutes(
         userLocation.lat,
         userLocation.lng,
         destination.lat,
         destination.lng,
       );
+      const data = routes[0];
+
+      if (!data) {
+        throw new Error('No route found');
+      }
 
       setRoute(data);
+      setRouteAlternatives(routes);
       setRemainingDistance(data.distance);
       setRemainingDuration(data.duration);
       setEta(new Date(Date.now() + data.duration * 1000));
@@ -40,6 +46,7 @@ export function useRouting() {
     } catch (e) {
       console.error('Routing error:', e);
       setRoute(null);
+      setRouteAlternatives([]);
       setCurrentStepIndex(0);
       setRemainingDistance(0);
       setRemainingDuration(0);
@@ -50,7 +57,7 @@ export function useRouting() {
     } finally {
       setIsRouting(false);
     }
-  }, [userLocation, destination, setRoute, setIsRouting, setRemainingDistance, setRemainingDuration, setEta, setCurrentStepIndex, setIsOffRoute, setHasArrived, setSpeedLimit]);
+  }, [userLocation, destination, setRoute, setRouteAlternatives, setIsRouting, setRemainingDistance, setRemainingDuration, setEta, setCurrentStepIndex, setIsOffRoute, setHasArrived, setSpeedLimit]);
 
   return { calculateRoute };
 }

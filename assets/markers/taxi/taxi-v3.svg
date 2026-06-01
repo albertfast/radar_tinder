@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#FFD600" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="32" cy="32" r="28" fill="#E65100" filter="url(#glow)"/>
+  <circle cx="32" cy="32" r="25" fill="#F57F17" stroke="#FFD600" stroke-width="1.5"/>
+  <!-- White checkered taxi -->
+  <rect x="16" y="30" width="32" height="12" rx="4" fill="white"/>
+  <path d="M20 30 L24 22 L40 22 L44 30 Z" fill="white"/>
+  <!-- Checkerboard -->
+  <rect x="18" y="32" width="3" height="3" fill="#F57F17"/>
+  <rect x="24" y="32" width="3" height="3" fill="#F57F17"/>
+  <rect x="30" y="32" width="3" height="3" fill="#F57F17"/>
+  <rect x="36" y="32" width="3" height="3" fill="#F57F17"/>
+  <rect x="42" y="32" width="3" height="3" fill="#F57F17"/>
+  <rect x="21" y="35" width="3" height="3" fill="#F57F17"/>
+  <rect x="27" y="35" width="3" height="3" fill="#F57F17"/>
+  <rect x="33" y="35" width="3" height="3" fill="#F57F17"/>
+  <rect x="39" y="35" width="3" height="3" fill="#F57F17"/>
+  <circle cx="22" cy="44" r="2" fill="white"/>
+  <circle cx="42" cy="44" r="2" fill="white"/>
+</svg>

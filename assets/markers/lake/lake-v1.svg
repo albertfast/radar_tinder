@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#448aff" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="waterGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#42a5f5"/>
+      <stop offset="100%" stop-color="#1565c0"/>
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Water body -->
+    <ellipse cx="32" cy="38" rx="26" ry="16" fill="url(#waterGrad)" stroke="#448aff" stroke-width="1"/>
+    <!-- Wave line 1 -->
+    <path d="M8,34 Q14,30 20,34 Q26,38 32,34 Q38,30 44,34 Q50,38 56,34" fill="none" stroke="#82b1ff" stroke-width="2" opacity="0.8"/>
+    <!-- Wave line 2 -->
+    <path d="M10,40 Q16,36 22,40 Q28,44 34,40 Q40,36 46,40 Q52,44 56,40" fill="none" stroke="#82b1ff" stroke-width="1.5" opacity="0.5"/>
+    <!-- Wave line 3 -->
+    <path d="M14,46 Q20,42 26,46 Q32,50 38,46 Q44,42 50,46" fill="none" stroke="#82b1ff" stroke-width="1" opacity="0.3"/>
+    <!-- Reflection shimmer -->
+    <line x1="24" y1="36" x2="28" y2="36" stroke="#ffffff" stroke-width="1.5" opacity="0.3" stroke-linecap="round"/>
+    <line x1="36" y1="42" x2="40" y2="42" stroke="#ffffff" stroke-width="1.5" opacity="0.2" stroke-linecap="round"/>
+    <!-- Mountain/tree silhouette on shore -->
+    <polygon points="6,28 12,14 18,28" fill="#1a237e" opacity="0.5"/>
+    <polygon points="14,28 20,10 26,28" fill="#1a237e" opacity="0.6"/>
+  </g>
+</svg>

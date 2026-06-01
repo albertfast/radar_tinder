@@ -51,6 +51,23 @@ const resolveDriveMode = (value?: string | null): DriveMode =>
 const calculateDisplaySpeed = (speedMetersPerSecond: number, unitSystem: 'imperial' | 'metric') =>
   Math.max(0, speedMetersPerSecond * (unitSystem === 'imperial' ? 2.23694 : 3.6));
 
+const isVisibleSpeedCamera = (radar: any) => {
+  const type = String(radar?.type || '').toLowerCase();
+  const markerKind = String(radar?.markerKind || '').toLowerCase();
+  return type === 'speed_camera' || type === 'fixed' || markerKind === 'camera';
+};
+
+const isVisibleRedLightCamera = (radar: any) => {
+  const type = String(radar?.type || '').toLowerCase();
+  const markerKind = String(radar?.markerKind || '').toLowerCase();
+  return type === 'red_light' || markerKind === 'red_light';
+};
+
+const getRadarDistanceKm = (radar: any) => {
+  const distance = Number(radar?.distance);
+  return Number.isFinite(distance) ? distance : Number.POSITIVE_INFINITY;
+};
+
 const DriveScreen = ({ navigation, route }: any) => {
   // Unified, persistent background synchronization for Driving tabs
   useLocation();
@@ -367,9 +384,16 @@ const DriveScreen = ({ navigation, route }: any) => {
           })
         : nearby;
 
-    setNearbyRadars(filtered);
+    const visibleSpeedCameras = filtered.filter(isVisibleSpeedCamera);
+    const visibleRedLightCameras = filtered
+      .filter(isVisibleRedLightCamera)
+      .filter((radar) => getRadarDistanceKm(radar) <= (hasRoutePreview ? 4 : 2))
+      .slice(0, hasRoutePreview ? 12 : 6);
+    const visibleMapRadars = [...visibleSpeedCameras.slice(0, 64), ...visibleRedLightCameras];
+
+    setNearbyRadars(visibleSpeedCameras);
     setOverlayMarkers(
-      filtered.slice(0, 48).map((radar) => ({
+      visibleMapRadars.map((radar) => ({
         id: radar.id,
         latitude: radar.latitude,
         longitude: radar.longitude,

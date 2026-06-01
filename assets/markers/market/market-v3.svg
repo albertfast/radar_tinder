@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="badgeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#44DD66"/>
+      <stop offset="100%" stop-color="#228844"/>
+    </linearGradient>
+  </defs>
+  <!-- Green badge circle -->
+  <circle cx="32" cy="32" r="28" fill="url(#badgeGrad)" filter="url(#glow)"/>
+  <circle cx="32" cy="32" r="25" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.3"/>
+  <!-- White vegetables/fruit -->
+  <g fill="#FFFFFF">
+    <!-- Apple -->
+    <circle cx="26" cy="30" r="9"/>
+    <!-- Apple leaf -->
+    <path d="M26 21 Q30 16 32 20 Q28 22 26 21" fill="#FFFFFF"/>
+    <!-- Carrot -->
+    <path d="M38 24 L48 40 L38 36 Z"/>
+    <!-- Carrot top -->
+    <path d="M38 24 Q34 18 36 14" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+    <path d="M38 24 Q40 16 42 14" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+    <!-- Carrot lines -->
+    <line x1="40" y1="28" x2="46" y2="34" stroke="#228844" stroke-width="1" opacity="0.4"/>
+    <line x1="39" y1="32" x2="44" y2="38" stroke="#228844" stroke-width="1" opacity="0.4"/>
+  </g>
+</svg>

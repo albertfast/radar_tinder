@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feFlood flood-color="#FF6600" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="stripeGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1" result="blur"/>
+      <feFlood flood-color="#FFFFFF" flood-opacity="0.3" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Cone base -->
+    <ellipse cx="32" cy="54" rx="16" ry="4" fill="#CC5500"/>
+    <!-- Cone body -->
+    <polygon points="22,54 42,54 36,16 28,16" fill="#FF7700" stroke="#FF9933" stroke-width="0.5"/>
+    <!-- White reflective stripe 1 -->
+    <g filter="url(#stripeGlow)">
+      <polygon points="24.5,46 39.5,46 38.5,40 25.5,40" fill="#FFFFFF" opacity="0.9"/>
+      <!-- White reflective stripe 2 -->
+      <polygon points="27,34 37,34 36,28 28,28" fill="#FFFFFF" opacity="0.9"/>
+    </g>
+    <!-- Cone top highlight -->
+    <polygon points="29,16 35,16 34.5,20 29.5,20" fill="#FFAA44" opacity="0.6"/>
+    <!-- Top point -->
+    <circle cx="32" cy="15" r="2" fill="#FF9933"/>
+  </g>
+</svg>

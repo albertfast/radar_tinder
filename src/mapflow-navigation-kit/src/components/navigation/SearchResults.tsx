@@ -56,7 +56,6 @@ interface SearchResultsProps {
   sections: SearchResultsSection[];
   onSelect: (result: SearchResult) => void;
   onToggleSaved: (result: SearchResult) => void;
-  onClearRecents?: () => void;
   hideHeaders?: boolean;
   unitSystem: 'metric' | 'imperial';
   footerText?: string;
@@ -66,7 +65,6 @@ export default memo(function SearchResults({
   sections,
   onSelect,
   onToggleSaved,
-  onClearRecents,
   hideHeaders = false,
   unitSystem,
   footerText,
@@ -100,14 +98,7 @@ export default memo(function SearchResults({
           if (hideHeaders) return null;
           return (
             <View style={styles.sectionHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Text style={styles.sectionTitle}>{section.title}</Text>
-                {section.key === 'recent' && onClearRecents && (
-                  <TouchableOpacity onPress={onClearRecents} style={styles.clearAllBtn} activeOpacity={0.7} hitSlop={8}>
-                    <Text style={styles.clearAllText}>Clear All</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
               <Text style={styles.sectionCount}>{section.data.length}</Text>
             </View>
           );
@@ -304,20 +295,6 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 10,
     color: COLORS.textMuted,
-    fontFamily: 'System',
-  },
-  clearAllBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(239, 68, 68, 0.24)',
-  },
-  clearAllText: {
-    fontSize: 10,
-    color: '#EF4444',
-    fontWeight: '600',
     fontFamily: 'System',
   },
   emptyContainer: {

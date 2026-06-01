@@ -11,6 +11,7 @@ interface SpeedometerAnimationProps extends ViewProps {
   unitSystem?: UnitSystem;
   speedLimit?: number | null;
   maxSpeed?: number;
+  showDigitalReadout?: boolean;
   onReady?: () => void;
 }
 
@@ -24,11 +25,13 @@ const buildSpeedometerHtml = ({
   initialSpeed,
   initialLimit,
   unitLabel,
+  showDigitalReadout,
 }: {
   maxSpeed: number;
   initialSpeed: number;
   initialLimit: number | null;
   unitLabel: string;
+  showDigitalReadout: boolean;
 }) => `
 <!doctype html>
 <html>
@@ -50,9 +53,10 @@ const buildSpeedometerHtml = ({
       inset: 0;
       overflow: hidden;
       background:
-        radial-gradient(circle at 50% 68%, rgba(34,211,238,.20), transparent 28%),
-        radial-gradient(circle at 75% 20%, rgba(255,45,123,.14), transparent 28%),
-        linear-gradient(180deg, #020617 0%, #040816 48%, #07051b 100%);
+        radial-gradient(circle at 50% 64%, rgba(34,211,238,.34), transparent 30%),
+        radial-gradient(circle at 75% 18%, rgba(255,45,123,.20), transparent 30%),
+        radial-gradient(circle at 22% 26%, rgba(139,92,246,.15), transparent 32%),
+        linear-gradient(180deg, #030712 0%, #050a1d 48%, #08051d 100%);
     }
     #fallback {
       position: fixed;
@@ -76,6 +80,7 @@ const buildSpeedometerHtml = ({
       transform: translateX(-50%);
       text-align: center;
       pointer-events: none;
+      display: ${showDigitalReadout ? 'block' : 'none'};
     }
     #speed-value {
       color: #22d3ee;
@@ -88,7 +93,7 @@ const buildSpeedometerHtml = ({
     }
     #speed-unit {
       margin-top: 6px;
-      color: rgba(103,232,249,.62);
+      color: rgba(103,232,249,.74);
       font-size: 10px;
       font-weight: 800;
       letter-spacing: 5px;
@@ -131,7 +136,7 @@ const buildSpeedometerHtml = ({
       inset: 0;
       z-index: 6;
       pointer-events: none;
-      opacity: .28;
+      opacity: .2;
       background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,.14) 4px);
       mix-blend-mode: multiply;
     }
@@ -186,15 +191,15 @@ const buildSpeedometerHtml = ({
       var scene = new THREE.Scene();
       scene.fog = new THREE.FogExp2(0x020617, 0.036);
 
-      var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 500);
-      camera.position.set(0, 5.55, 7.65);
-      camera.lookAt(0, 0.08, 0);
+      var camera = new THREE.PerspectiveCamera(54, window.innerWidth / window.innerHeight, 0.1, 500);
+      camera.position.set(0, 6.25, 8.65);
+      camera.lookAt(0, 0.02, 0);
 
       var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.08;
+      renderer.toneMappingExposure = 1.18;
       stage.appendChild(renderer.domElement);
 
       var COLORS = {
@@ -238,20 +243,21 @@ const buildSpeedometerHtml = ({
         limitPillEl.style.borderColor = 'rgba(78,205,196,.28)';
       }
 
-      scene.add(new THREE.AmbientLight(0x172554, 0.56));
-      var coreGlow = new THREE.PointLight(COLORS.teal, 2.1, 12);
+      scene.add(new THREE.AmbientLight(0x1e3a8a, 0.68));
+      var coreGlow = new THREE.PointLight(COLORS.teal, 2.8, 13);
       coreGlow.position.set(0, 0.1, 0.5);
       scene.add(coreGlow);
       var dangerLight = new THREE.PointLight(COLORS.red, 0, 8);
       dangerLight.position.set(0, 0.1, 0.5);
       scene.add(dangerLight);
-      var rimLight = new THREE.PointLight(COLORS.purple, 1.1, 14);
+      var rimLight = new THREE.PointLight(COLORS.purple, 1.45, 15);
       rimLight.position.set(0, 3, -4);
       scene.add(rimLight);
 
       var gaugeGroup = new THREE.Group();
       gaugeGroup.rotation.x = -Math.PI * 0.34;
-      gaugeGroup.position.y = -0.24;
+      gaugeGroup.position.y = -0.32;
+      gaugeGroup.scale.set(0.92, 0.92, 0.92);
       scene.add(gaugeGroup);
 
       var disc = new THREE.Mesh(
@@ -281,7 +287,7 @@ const buildSpeedometerHtml = ({
 
       var innerRing = new THREE.Mesh(
         new THREE.TorusGeometry(3.58, 0.025, 8, 144),
-        new THREE.MeshBasicMaterial({ color: COLORS.teal, transparent: true, opacity: 0.18 })
+        new THREE.MeshBasicMaterial({ color: COLORS.teal, transparent: true, opacity: 0.34 })
       );
       gaugeGroup.add(innerRing);
 
@@ -320,7 +326,7 @@ const buildSpeedometerHtml = ({
         ];
         tickGroup.add(new THREE.Line(
           new THREE.BufferGeometry().setFromPoints(points),
-          new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: isMajor ? 0.82 : 0.34 })
+          new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: isMajor ? 0.96 : 0.46 })
         ));
         if (isMajor) {
           var labelR = innerR - 0.36;
@@ -350,7 +356,7 @@ const buildSpeedometerHtml = ({
         var segmentColor = colorHexForSpeed(speedAtSegment);
         var segment = new THREE.Line(
           new THREE.BufferGeometry().setFromPoints(segmentPoints),
-          new THREE.LineBasicMaterial({ color: segmentColor, transparent: true, opacity: 0.12 })
+          new THREE.LineBasicMaterial({ color: segmentColor, transparent: true, opacity: 0.16 })
         );
         segment.userData = { index: i, speedAtSegment: speedAtSegment };
         arcSegments.push(segment);
@@ -474,6 +480,17 @@ const buildSpeedometerHtml = ({
       warningOverlay.position.z = 0.05;
       gaugeGroup.add(warningOverlay);
 
+      var sweepMat = new THREE.MeshBasicMaterial({
+        color: COLORS.teal,
+        transparent: true,
+        opacity: 0.18,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending
+      });
+      var sweepOverlay = new THREE.Mesh(new THREE.RingGeometry(2.45, 4.05, 96, 1, 0, Math.PI * 0.16), sweepMat);
+      sweepOverlay.position.z = 0.17;
+      gaugeGroup.add(sweepOverlay);
+
       updateLimitPill();
       rebuildLimitMarker();
 
@@ -551,11 +568,14 @@ const buildSpeedometerHtml = ({
         });
 
         coreGlow.color.setHex(activeColor);
-        coreGlow.intensity = 1.4 + speedFraction * 2.8;
+        coreGlow.intensity = 2.0 + speedFraction * 3.1;
         dangerLight.color.setHex(activeColor);
         dangerLight.intensity = isRed ? 2.1 : isAmber ? 0.9 : 0;
         warningMat.color.setHex(activeColor);
         warningMat.opacity = isRed ? 0.05 + Math.sin(now * 0.008) * 0.035 : isAmber ? 0.02 : 0;
+        sweepMat.color.setHex(activeColor);
+        sweepMat.opacity = 0.14 + speedFraction * 0.12 + (Math.sin(now * 0.004) + 1) * 0.035;
+        sweepOverlay.rotation.z -= 0.012 + speedFraction * 0.01;
         bezelMat.emissive.setHex(isRed || isAmber ? activeColor : 0x0a0f28);
         bezelMat.emissiveIntensity = isRed ? 0.52 + Math.sin(now * 0.008) * 0.18 : isAmber ? 0.42 : 0.32;
 
@@ -572,7 +592,8 @@ const buildSpeedometerHtml = ({
         gaugeGroup.rotation.y = Math.sin(elapsed * 0.32) * 0.045;
         innerRing.rotation.z += 0.002 + speedFraction * 0.004;
         starsGroup.rotation.y += 0.0001;
-        camera.position.y = 5.55 + Math.sin(elapsed * 0.4) * 0.12;
+        camera.position.y = 6.25 + Math.sin(elapsed * 0.4) * 0.12;
+        camera.lookAt(0, 0.02, 0);
 
         speedValueEl.textContent = String(Math.round(currentSpeed));
         speedValueEl.style.color = activeCssColor;
@@ -600,6 +621,7 @@ export function SpeedometerAnimation({
   unitSystem = 'metric',
   speedLimit = null,
   maxSpeed,
+  showDigitalReadout = true,
   onReady,
   style,
   ...viewProps
@@ -619,14 +641,20 @@ export function SpeedometerAnimation({
     speed: displaySpeed,
     speedLimit: displayLimit,
     unitLabel,
+    showDigitalReadout,
   });
 
-  if (bootStateRef.current.maxSpeed !== resolvedMaxSpeed || bootStateRef.current.unitLabel !== unitLabel) {
+  if (
+    bootStateRef.current.maxSpeed !== resolvedMaxSpeed ||
+    bootStateRef.current.unitLabel !== unitLabel ||
+    bootStateRef.current.showDigitalReadout !== showDigitalReadout
+  ) {
     bootStateRef.current = {
       maxSpeed: resolvedMaxSpeed,
       speed: displaySpeed,
       speedLimit: displayLimit,
       unitLabel,
+      showDigitalReadout,
     };
   }
 
@@ -638,9 +666,10 @@ export function SpeedometerAnimation({
         initialSpeed: bootState.speed,
         initialLimit: bootState.speedLimit,
         unitLabel: bootState.unitLabel,
+        showDigitalReadout: bootState.showDigitalReadout,
       });
     },
-    [resolvedMaxSpeed, unitLabel],
+    [resolvedMaxSpeed, showDigitalReadout, unitLabel],
   );
 
   const injectState = useCallback(() => {

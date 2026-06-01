@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#FF2200" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="pulseGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feFlood flood-color="#FF0000" flood-opacity="0.35" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Outer pulse ring -->
+  <g filter="url(#pulseGlow)">
+    <circle cx="32" cy="32" r="28" fill="none" stroke="#FF3333" stroke-width="1.5" opacity="0.4"/>
+    <circle cx="32" cy="32" r="24" fill="none" stroke="#FF3333" stroke-width="1" opacity="0.3"/>
+  </g>
+  <!-- Main circle -->
+  <g filter="url(#glow)">
+    <circle cx="32" cy="32" r="20" fill="#FF2200" stroke="#FF4444" stroke-width="2"/>
+    <circle cx="32" cy="32" r="18" fill="none" stroke="#FF5555" stroke-width="0.5" opacity="0.5"/>
+  </g>
+  <!-- Exclamation mark -->
+  <g>
+    <rect x="29" y="18" width="6" height="20" rx="3" fill="#FFFFFF"/>
+    <circle cx="32" cy="45" r="3.5" fill="#FFFFFF"/>
+  </g>
+</svg>

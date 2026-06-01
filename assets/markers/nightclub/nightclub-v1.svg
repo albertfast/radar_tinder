@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#E040FB" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Magenta DJ headphones -->
+  <g filter="url(#glow)">
+    <path d="M16 36 Q16 16 32 16 Q48 16 48 36" fill="none" stroke="#E040FB" stroke-width="4" stroke-linecap="round"/>
+    <rect x="10" y="32" width="10" height="14" rx="4" fill="#E040FB"/>
+    <rect x="44" y="32" width="10" height="14" rx="4" fill="#E040FB"/>
+    <rect x="12" y="34" width="6" height="10" rx="3" fill="#CE93D8"/>
+    <rect x="46" y="34" width="6" height="10" rx="3" fill="#CE93D8"/>
+  </g>
+  <!-- Sound waves -->
+  <path d="M8 38 Q4 38 4 34" fill="none" stroke="#E040FB" stroke-width="1.5" opacity="0.5"/>
+  <path d="M56 38 Q60 38 60 34" fill="none" stroke="#E040FB" stroke-width="1.5" opacity="0.5"/>
+</svg>

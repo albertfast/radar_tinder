@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="tealGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#1DE9B6" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="heartGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1DE9B6"/>
+      <stop offset="100%" stop-color="#00BFA5"/>
+    </linearGradient>
+  </defs>
+  <!-- Heart shape -->
+  <path d="M32 52 Q8 36 8 22 Q8 12 18 12 Q26 12 32 20 Q38 12 46 12 Q56 12 56 22 Q56 36 32 52 Z" fill="url(#heartGrad)" filter="url(#tealGlow)"/>
+  <!-- Pulse/ECG line through heart -->
+  <polyline points="8,32 18,32 22,24 26,40 30,28 34,36 38,32 56,32" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+</svg>

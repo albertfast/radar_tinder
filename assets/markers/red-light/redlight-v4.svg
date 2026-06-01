@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <!-- Red glow for hand -->
+    <filter id="handGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur"/>
+      <feFlood flood-color="#ff2222" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Shadow -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Octagonal stop sign background (subtle) -->
+  <g filter="url(#shadow)">
+    <polygon points="20,6 44,6 58,20 58,44 44,58 20,58 6,44 6,20" fill="#cc1111" stroke="#ff3333" stroke-width="2"/>
+    <!-- Inner darkening for depth -->
+    <polygon points="22,9 42,9 55,22 55,42 42,55 22,55 9,42 9,22" fill="#aa0e0e" opacity="0.4"/>
+  </g>
+
+  <!-- Stop hand -->
+  <g filter="url(#handGlow)">
+    <!-- Palm -->
+    <path d="
+      M22,42
+      L22,24
+      C22,22 24,20 26,20
+      C28,20 28,22 28,24
+      L28,18
+      C28,16 30,14 32,14
+      C34,14 36,16 36,18
+      L36,16
+      C36,14 38,12 40,12
+      C42,12 44,14 44,16
+      L44,18
+      C44,16 46,14 48,14
+      C50,14 52,16 52,18
+      L52,38
+      C52,46 46,52 38,52
+      L30,52
+      C24,52 22,46 22,42
+      Z
+    " fill="#ffffff" stroke="#ffcccc" stroke-width="0.5"/>
+    
+    <!-- Palm detail lines -->
+    <path d="M26,36 Q32,34 38,36" fill="none" stroke="#ff3333" stroke-width="1" opacity="0.5"/>
+    <path d="M26,40 Q34,38 42,40" fill="none" stroke="#ff3333" stroke-width="1" opacity="0.4"/>
+
+    <!-- Finger separation lines -->
+    <line x1="28" y1="24" x2="28" y2="32" stroke="#ff8888" stroke-width="0.8" opacity="0.5"/>
+    <line x1="36" y1="18" x2="36" y2="34" stroke="#ff8888" stroke-width="0.8" opacity="0.5"/>
+    <line x1="44" y1="18" x2="44" y2="34" stroke="#ff8888" stroke-width="0.8" opacity="0.5"/>
+  </g>
+</svg>

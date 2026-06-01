@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="circleGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#FF66AA"/>
+      <stop offset="100%" stop-color="#DD2288"/>
+    </radialGradient>
+  </defs>
+  <!-- Pink circle background -->
+  <circle cx="32" cy="32" r="28" fill="url(#circleGrad)" filter="url(#glow)"/>
+  <!-- White shopping bag -->
+  <g fill="#FFFFFF">
+    <!-- Bag body -->
+    <rect x="18" y="24" width="28" height="26" rx="3"/>
+    <!-- Bag handle -->
+    <path d="M24 24 Q24 14 32 14 Q40 14 40 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+    <!-- Bag detail line -->
+    <rect x="28" y="30" width="8" height="2" rx="1" fill="#DD2288" opacity="0.4"/>
+  </g>
+</svg>

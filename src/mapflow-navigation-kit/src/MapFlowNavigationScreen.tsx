@@ -23,24 +23,22 @@ import { useRouting } from './hooks/useRouting';
 import { useNavigation } from './hooks/useNavigation';
 
 import { useNavigationStore } from './stores/navigationStore';
-import { MapOverlayMarker, SearchResult, StoredDestination } from './types/map';
+import { MapOverlayMarker, MapPoiMarker, RouteChoice, SearchResult, StoredDestination } from './types/map';
 import type { MapViewport } from './types/viewport';
 import { useSettingsStore } from '../../store/settingsStore';
 import { COLORS } from './utils/colors';
-import { reverseGeocode } from './services/api';
+import { getMapPoiMarkers, reverseGeocode } from './services/api';
 import {
   loadDestinationCollections,
-  recordRecentDestination,
   toggleSavedDestination,
-  clearRecentDestinations,
   savePresetAddress,
 } from './services/destinationStorage';
 import {
-  buildBrowseSections,
   buildQuerySections,
   isSameSearchResult,
   toSearchResult,
 } from './utils/searchResults';
+import { formatDistance, formatDuration } from './utils/units';
 
 type MapFlowNavigationScreenProps = {
   overlayMarkers?: MapOverlayMarker[];
@@ -62,11 +60,14 @@ export default function MapFlowNavigationScreen({
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showSavedList, setShowSavedList] = useState(false);
   const [savedDestinations, setSavedDestinations] = useState<StoredDestination[]>([]);
-  const [recentDestinations, setRecentDestinations] = useState<StoredDestination[]>([]);
   const [selectedDestinationResult, setSelectedDestinationResult] = useState<SearchResult | null>(null);
+  const [mapViewport, setMapViewport] = useState<MapViewport | null>(null);
+  const [mapLoadError, setMapLoadError] = useState<string | null>(null);
+  const [mapReloadToken, setMapReloadToken] = useState(0);
 
   const hasCenteredInitialLocation = useRef(false);
   const lastDestinationKey = useRef<string | null>(null);
+  const lastPoiFetchKeyRef = useRef<string | null>(null);
   const rerouteAtRef = useRef(0);
   const committedSearchQueryRef = useRef<string | null>(null);
   const suppressSearchUntilEditRef = useRef(false);
@@ -82,6 +83,7 @@ export default function MapFlowNavigationScreen({
     routeHeading,
     searchQuery,
     searchResults,
+    routeAlternatives,
     destination,
     destinationName,
     unitSystem,
@@ -90,6 +92,7 @@ export default function MapFlowNavigationScreen({
     setSearchQuery,
     setSearchResults,
     setIsOffRoute,
+    selectRouteAlternative,
   } = useNavigationStore();
 
   const handleToggleSavedList = useCallback(() => {
@@ -144,16 +147,9 @@ export default function MapFlowNavigationScreen({
     () => savedDestinations.map((item) => toSearchResult(item, 'saved', true)),
     [savedDestinations],
   );
-  const recentSearchResults = useMemo(
-    () =>
-      recentDestinations
-        .filter((recentItem) => !savedDestinations.some((savedItem) => isSameSearchResult(savedItem, recentItem)))
-        .map((item) => toSearchResult(item, 'recent', false)),
-    [recentDestinations, savedDestinations],
-  );
   const localSearchResults = useMemo(
-    () => [...savedSearchResults, ...recentSearchResults],
-    [recentSearchResults, savedSearchResults],
+    () => savedSearchResults,
+    [savedSearchResults],
   );
   const { debouncedSearch, cancelSearch } = useGeocoding(localSearchResults);
   const sanitizedOverlayMarkers = useMemo(
@@ -192,7 +188,6 @@ export default function MapFlowNavigationScreen({
           return;
         }
 
-        setRecentDestinations(collections.recentDestinations);
         setSavedDestinations(collections.savedDestinations);
       })
       .catch(() => {});
@@ -236,18 +231,33 @@ export default function MapFlowNavigationScreen({
       setShowSavedList(false);
       Keyboard.dismiss();
       navigateTo(result.lat, result.lng, result.name);
-      recordRecentDestination(result)
-        .then((nextRecents) => {
-          setRecentDestinations(nextRecents);
-        })
-        .catch(() => {});
     },
     [navigateTo, setSearchQuery, setSearchResults],
   );
 
   const handleMapReady = useCallback(() => {
     setMapReady(true);
+    setMapLoadError(null);
   }, []);
+
+  const handleMapError = useCallback((message: string) => {
+    setMapLoadError(message);
+  }, []);
+
+  const handleRetryMapLoad = useCallback(() => {
+    setMapLoadError(null);
+    setMapReady(false);
+    hasCenteredInitialLocation.current = false;
+    setMapReloadToken((current) => current + 1);
+  }, []);
+
+  const handleViewportChange = useCallback(
+    (viewport: MapViewport) => {
+      setMapViewport(viewport);
+      onViewportChange?.(viewport);
+    },
+    [onViewportChange],
+  );
 
   const handleMapClick = useCallback(
     async (lat: number, lng: number) => {
@@ -353,13 +363,16 @@ export default function MapFlowNavigationScreen({
 
     if (route?.geometry) {
       sendToMap({
-        type: 'updateRoute',
-        payload: { geometry: route.geometry },
+        type: 'updateRoutes',
+        payload: {
+          selectedRouteId: route.id,
+          routes: routeAlternatives.length > 0 ? routeAlternatives : [route],
+        },
       });
     } else {
       sendToMap({ type: 'clearRoute' });
     }
-  }, [mapReady, route, sendToMap]);
+  }, [mapReady, route, routeAlternatives, sendToMap]);
 
   useEffect(() => {
     if (!mapReady) {
@@ -377,6 +390,53 @@ export default function MapFlowNavigationScreen({
   }, [mapReady, sanitizedOverlayMarkers, sendToMap]);
 
   useEffect(() => {
+    if (!mapReady || !mapViewport) {
+      return undefined;
+    }
+
+    if (mapViewport.zoom < 14.2) {
+      lastPoiFetchKeyRef.current = null;
+      sendToMap({ type: 'updatePoiMarkers', payload: { markers: [] } });
+      return undefined;
+    }
+
+    const fetchKey = [
+      Math.floor(mapViewport.zoom * 2) / 2,
+      mapViewport.bounds.north.toFixed(3),
+      mapViewport.bounds.south.toFixed(3),
+      mapViewport.bounds.east.toFixed(3),
+      mapViewport.bounds.west.toFixed(3),
+    ].join(':');
+
+    if (lastPoiFetchKeyRef.current === fetchKey) {
+      return undefined;
+    }
+
+    let active = true;
+    const timer = setTimeout(() => {
+      getMapPoiMarkers(mapViewport)
+        .then((markers: MapPoiMarker[]) => {
+          if (!active) {
+            return;
+          }
+          lastPoiFetchKeyRef.current = fetchKey;
+          sendToMap({ type: 'updatePoiMarkers', payload: { markers } });
+        })
+        .catch(() => {
+          if (!active) {
+            return;
+          }
+          sendToMap({ type: 'updatePoiMarkers', payload: { markers: [] } });
+        });
+    }, 450);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [mapReady, mapViewport, sendToMap]);
+
+  useEffect(() => {
     if (!destination || !userLocation) {
       lastDestinationKey.current = null;
       return;
@@ -390,6 +450,18 @@ export default function MapFlowNavigationScreen({
     lastDestinationKey.current = destinationKey;
     calculateRoute();
   }, [calculateRoute, destination, userLocation]);
+
+  useEffect(() => {
+    if (mapReady || mapLoadError || !userLocation) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      setMapLoadError('Map is taking too long to load.');
+    }, 15000);
+
+    return () => clearTimeout(timer);
+  }, [mapLoadError, mapReady, userLocation]);
 
   useEffect(() => {
     if (destination) {
@@ -526,11 +598,6 @@ export default function MapFlowNavigationScreen({
     setShowSavedList(false);
   }, [setSearchQuery, setSearchResults]);
 
-  const handleClearRecents = useCallback(async () => {
-    const updated = await clearRecentDestinations();
-    setRecentDestinations(updated);
-  }, []);
-
   const activeDestinationResult = useMemo(() => {
     if (selectedDestinationResult) {
       return selectedDestinationResult;
@@ -585,7 +652,7 @@ export default function MapFlowNavigationScreen({
 
     const query = searchQuery.trim();
     if (!query) {
-      return buildBrowseSections([], recentSearchResults);
+      return [];
     }
 
     if (query.length < 2) {
@@ -597,7 +664,6 @@ export default function MapFlowNavigationScreen({
     isNavigating,
     isSearchFocused,
     showSavedList,
-    recentSearchResults,
     savedSearchResults,
     searchQuery,
     searchResults,
@@ -613,6 +679,13 @@ export default function MapFlowNavigationScreen({
       overlayPressHandlersRef.current[markerId]?.(marker);
     },
     [sanitizedOverlayMarkers],
+  );
+
+  const handleSelectRoute = useCallback(
+    (routeId: string) => {
+      selectRouteAlternative(routeId);
+    },
+    [selectRouteAlternative],
   );
 
   if (!userLocation) {
@@ -631,10 +704,13 @@ export default function MapFlowNavigationScreen({
       <MapView
         webViewRef={webViewRef}
         onMapReady={handleMapReady}
+        onMapError={handleMapError}
         onMapClick={handleMapClick}
         onOverlayMarkerPress={handleOverlayMarkerPress}
-        onViewportChange={onViewportChange}
+        onRouteSelect={handleSelectRoute}
+        onViewportChange={handleViewportChange}
         initialLocation={userLocation}
+        reloadToken={mapReloadToken}
       />
 
       <View style={styles.overlay}>
@@ -659,7 +735,6 @@ export default function MapFlowNavigationScreen({
               sections={searchSections}
               onSelect={handleSelectPlace}
               onToggleSaved={handleToggleSaved}
-              onClearRecents={handleClearRecents}
               hideHeaders={false}
               unitSystem={unitSystem}
               footerText={showProviderFooter ? 'Live search via free provider fallbacks' : undefined}
@@ -697,6 +772,29 @@ export default function MapFlowNavigationScreen({
 
         <SpeedIndicator />
 
+        {route && !isNavigating && routeAlternatives.length > 1 && (
+          <View style={[styles.routeChoicesWrap, { bottom: insets.bottom + 176 }]}>
+            {routeAlternatives.map((candidate: RouteChoice) => {
+              const active = candidate.id === route.id;
+              return (
+                <TouchableOpacity
+                  key={candidate.id}
+                  activeOpacity={0.86}
+                  onPress={() => handleSelectRoute(candidate.id)}
+                  style={[styles.routeChoicePill, active && styles.routeChoicePillActive]}
+                >
+                  <Text style={[styles.routeChoiceLabel, active && styles.routeChoiceLabelActive]} numberOfLines={1}>
+                    {candidate.label}
+                  </Text>
+                  <Text style={styles.routeChoiceMeta} numberOfLines={1}>
+                    {formatDistance(candidate.distance, unitSystem)} · {formatDuration(candidate.duration)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
         <NavigationPanel
           onStartNavigation={handleStartNavigation}
           onStopNavigation={handleStopNavigation}
@@ -711,9 +809,26 @@ export default function MapFlowNavigationScreen({
           </View>
         )}
 
-        {!mapReady && (
-          <View style={styles.welcome}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+        {!mapReady && !mapLoadError && (
+          <View pointerEvents="none" style={styles.loadingOverlay}>
+            <View style={styles.loadingChip}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.loadingText}>Loading map…</Text>
+            </View>
+          </View>
+        )}
+
+        {mapLoadError && (
+          <View pointerEvents="box-none" style={styles.errorOverlay}>
+            <View style={styles.errorCard}>
+              <Text style={styles.errorTitle}>Map could not load</Text>
+              <Text style={styles.errorText} numberOfLines={3}>
+                {mapLoadError}
+              </Text>
+              <TouchableOpacity onPress={handleRetryMapLoad} style={styles.retryButton}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -825,6 +940,43 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
+  routeChoicesWrap: {
+    position: 'absolute',
+    left: 14,
+    right: 78,
+    zIndex: 32,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  routeChoicePill: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(15, 23, 42, 0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.22)',
+    justifyContent: 'center',
+  },
+  routeChoicePillActive: {
+    backgroundColor: 'rgba(8, 47, 73, 0.94)',
+    borderColor: 'rgba(45, 212, 191, 0.58)',
+  },
+  routeChoiceLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#CBD5E1',
+  },
+  routeChoiceLabelActive: {
+    color: '#5EEAD4',
+  },
+  routeChoiceMeta: {
+    marginTop: 3,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
   fabColumn: {
     position: 'absolute',
     right: 16,
@@ -842,6 +994,75 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 50,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 118,
+    zIndex: 49,
+  },
+  loadingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(15, 23, 42, 0.82)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  loadingText: {
+    color: '#E2E8F0',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  errorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingTop: 120,
+    zIndex: 50,
+  },
+  errorCard: {
+    width: '86%',
+    maxWidth: 360,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 146, 60, 0.35)',
+    shadowColor: '#000',
+    shadowOpacity: 0.26,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  errorTitle: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  errorText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: '#F97316',
+  },
+  retryButtonText: {
+    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '800',
   },
   welcome: {
     ...StyleSheet.absoluteFillObject,

@@ -267,11 +267,13 @@ export function RadarBasicTab({
         style={styles.speedModule}
       >
         <View style={styles.speedometerContainer}>
+          <View style={[styles.speedAura, { borderColor: `${speedTone}22` }]} />
           <SpeedometerAnimation
             speed={currentSpeedValue}
             unitSystem={displayUnitSystem}
             speedLimit={limitDisplay}
-            size={282}
+            size={286}
+            showDigitalReadout={false}
             style={styles.speedometer3d}
           />
 
@@ -441,11 +443,11 @@ const styles = StyleSheet.create({
   speedModule: {
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.14)',
+    borderColor: 'rgba(56,189,248,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 6,
-    paddingBottom: 14,
+    paddingTop: 8,
+    paddingBottom: 16,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -454,19 +456,32 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   speedometerContainer: {
-    width: 282,
-    height: 282,
+    width: 292,
+    height: 292,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
+  speedAura: {
+    position: 'absolute',
+    width: 268,
+    height: 268,
+    borderRadius: 22,
+    borderWidth: 1,
+    backgroundColor: 'rgba(8, 13, 28, 0.36)',
+    shadowColor: '#22D3EE',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 3,
+  },
   speedometer3d: {
-    borderRadius: 18,
+    borderRadius: 22,
     backgroundColor: 'transparent',
   },
   speedReadout: {
     position: 'absolute',
-    bottom: 22,
+    bottom: 30,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 104,

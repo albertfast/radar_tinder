@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#009688" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Teal motel sign -->
+  <rect x="12" y="18" width="40" height="28" rx="3" fill="#009688" filter="url(#glow)"/>
+  <rect x="14" y="20" width="36" height="24" rx="2" fill="#00796B"/>
+  <rect x="16" y="22" width="32" height="20" rx="1" fill="#004D40"/>
+  <!-- Sign text area -->
+  <rect x="18" y="24" width="28" height="8" rx="1" fill="#009688" opacity="0.6"/>
+  <rect x="20" y="34" width="24" height="6" rx="1" fill="#26A69A" opacity="0.5"/>
+  <!-- Sign post -->
+  <rect x="30" y="46" width="4" height="12" rx="1" fill="#00897B"/>
+  <rect x="26" y="56" width="12" height="3" rx="1" fill="#009688"/>
+  <!-- Neon dots -->
+  <circle cx="22" cy="28" r="1" fill="#80CBC4" opacity="0.8"/>
+  <circle cx="42" cy="28" r="1" fill="#80CBC4" opacity="0.8"/>
+</svg>

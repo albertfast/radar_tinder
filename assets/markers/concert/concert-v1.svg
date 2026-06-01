@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#E91E63" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Pink music note -->
+  <g filter="url(#glow)">
+    <ellipse cx="22" cy="48" rx="6" ry="4.5" fill="#E91E63" transform="rotate(-20,22,48)"/>
+    <rect x="26" y="14" width="3" height="34" rx="1" fill="#E91E63"/>
+    <path d="M29 14 Q40 10 44 18 L44 24 Q40 16 29 20 Z" fill="#E91E63"/>
+    <ellipse cx="44" cy="42" rx="6" ry="4.5" fill="#E91E63" transform="rotate(-20,44,42)"/>
+    <rect x="48" y="10" width="3" height="32" rx="1" fill="#E91E63"/>
+  </g>
+</svg>

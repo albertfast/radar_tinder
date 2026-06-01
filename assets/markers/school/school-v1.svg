@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="yellowGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#FFD600" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="buildGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD600"/>
+      <stop offset="100%" stop-color="#FFAB00"/>
+    </linearGradient>
+    <linearGradient id="roofGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF6D00"/>
+      <stop offset="100%" stop-color="#E65100"/>
+    </linearGradient>
+  </defs>
+  <!-- School building -->
+  <rect x="10" y="28" width="44" height="26" rx="2" fill="url(#buildGrad)" filter="url(#yellowGlow)"/>
+  <!-- Roof -->
+  <polygon points="6,28 32,10 58,28" fill="url(#roofGrad)" filter="url(#yellowGlow)"/>
+  <!-- Clock tower -->
+  <rect x="27" y="10" width="10" height="18" fill="#FF8F00"/>
+  <circle cx="32" cy="18" r="5" fill="#FFFFFF"/>
+  <!-- Clock hands -->
+  <line x1="32" y1="18" x2="32" y2="14" stroke="#333" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="32" y1="18" x2="35" y2="18" stroke="#333" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Door -->
+  <rect x="27" y="40" width="10" height="14" rx="5" fill="#5D4037"/>
+  <!-- Windows -->
+  <rect x="14" y="34" width="6" height="6" rx="1" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="44" y="34" width="6" height="6" rx="1" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="14" y="44" width="6" height="6" rx="1" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="44" y="44" width="6" height="6" rx="1" fill="#FFFFFF" opacity="0.9"/>
+</svg>

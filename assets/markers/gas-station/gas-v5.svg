@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="pinGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#4CAF50" flood-opacity="0.4" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Shadow -->
+  <ellipse cx="32" cy="58" rx="12" ry="3" fill="#1B5E20" opacity="0.3"/>
+  <!-- Map pin -->
+  <path d="M32,4 Q48,4 48,22 Q48,36 32,56 Q16,36 16,22 Q16,4 32,4 Z"
+        fill="#4CAF50" stroke="#81C784" stroke-width="1.5" filter="url(#pinGlow)"/>
+  <!-- Pin inner -->
+  <path d="M32,8 Q44,8 44,22 Q44,34 32,50 Q20,34 20,22 Q20,8 32,8 Z"
+        fill="#388E3C" stroke="none"/>
+  <!-- Pin head circle -->
+  <circle cx="32" cy="22" r="11" fill="#2E7D32" stroke="#66BB6A" stroke-width="1"/>
+  <circle cx="32" cy="22" r="9" fill="#43A047" stroke="none"/>
+  <!-- Fuel droplet (white) inside pin -->
+  <path d="M32,13 Q32,13 38,21 Q38,27 32,29 Q26,27 26,21 Q26,13 32,13 Z"
+        fill="#FFFFFF" opacity="0.95"/>
+  <!-- Droplet inner detail -->
+  <path d="M32,16 Q35,20 35,23 Q35,26 32,27 Q29,26 29,23 Q29,20 32,16 Z"
+        fill="#C8E6C9" opacity="0.5"/>
+  <!-- Nozzle hint on droplet -->
+  <path d="M35,18 L38,16 L39,18"
+        fill="none" stroke="#FFFFFF" stroke-width="1" stroke-linecap="round" opacity="0.8"/>
+</svg>

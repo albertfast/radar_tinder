@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#009688" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Teal mosque dome + minaret -->
+  <g filter="url(#glow)">
+    <rect x="8" y="28" width="48" height="24" rx="2" fill="#009688"/>
+    <path d="M16 28 Q16 12 32 12 Q48 12 48 28 Z" fill="#26A69A"/>
+    <rect x="48" y="16" width="6" height="36" rx="1" fill="#009688"/>
+    <path d="M48 16 Q51 10 54 16 Z" fill="#26A69A"/>
+  </g>
+  <!-- Crescent -->
+  <path d="M29 16 A4 4 0 1 1 35 16 A3 3 0 1 0 29 16 Z" fill="#FFF9C4"/>
+  <!-- Door -->
+  <path d="M28 38 Q28 32 32 32 Q36 32 36 38 L36 52 L28 52 Z" fill="#004D40"/>
+  <!-- Windows -->
+  <rect x="18" y="34" width="4" height="6" rx="2" fill="#B2DFDB" opacity="0.7"/>
+  <rect x="42" y="34" width="4" height="6" rx="2" fill="#B2DFDB" opacity="0.7"/>
+</svg>

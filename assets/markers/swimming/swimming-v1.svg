@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#00e5ff" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow)">
+    <!-- Swimmer head -->
+    <circle cx="22" cy="24" r="5" fill="#00e5ff"/>
+    <!-- Swimmer body (torso) -->
+    <path d="M27,24 Q32,22 38,26" stroke="#00e5ff" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <!-- Arm extended forward -->
+    <line x1="16" y1="26" x2="10" y2="22" stroke="#00e5ff" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Arm in water -->
+    <line x1="27" y1="26" x2="34" y2="30" stroke="#00e5ff" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Legs/kick -->
+    <line x1="38" y1="26" x2="44" y2="28" stroke="#00e5ff" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="44" y1="28" x2="48" y2="25" stroke="#00e5ff" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Wave 1 -->
+    <path d="M6,34 Q12,30 18,34 Q24,38 30,34 Q36,30 42,34 Q48,38 54,34 Q60,30 62,34" fill="none" stroke="#00e5ff" stroke-width="2.2" opacity="0.9"/>
+    <!-- Wave 2 -->
+    <path d="M4,40 Q10,36 16,40 Q22,44 28,40 Q34,36 40,40 Q46,44 52,40 Q58,36 62,40" fill="none" stroke="#00e5ff" stroke-width="1.8" opacity="0.6"/>
+    <!-- Wave 3 -->
+    <path d="M6,46 Q12,42 18,46 Q24,50 30,46 Q36,42 42,46 Q48,50 54,46 Q60,42 62,46" fill="none" stroke="#00e5ff" stroke-width="1.4" opacity="0.35"/>
+  </g>
+</svg>

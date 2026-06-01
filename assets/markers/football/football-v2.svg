@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#00e676" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="colorBlur"/>
+      <feMerge>
+        <feMergeNode in="colorBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="bgGrad" cx="40%" cy="35%">
+      <stop offset="0%" stop-color="#43a047"/>
+      <stop offset="100%" stop-color="#1b5e20"/>
+    </radialGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <circle cx="32" cy="32" r="26" fill="url(#bgGrad)"/>
+    <circle cx="32" cy="32" r="24" fill="none" stroke="#00e676" stroke-width="1" opacity="0.5"/>
+    <!-- Minimal soccer ball -->
+    <circle cx="32" cy="30" r="12" fill="none" stroke="#ffffff" stroke-width="2"/>
+    <!-- Pentagon hint -->
+    <polygon points="32,20 27,25 29,30 35,30 37,25" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+    <!-- Bottom lines -->
+    <line x1="29" y1="30" x2="26" y2="38" stroke="#ffffff" stroke-width="1.5"/>
+    <line x1="35" y1="30" x2="38" y2="38" stroke="#ffffff" stroke-width="1.5"/>
+    <line x1="32" y1="30" x2="32" y2="38" stroke="#ffffff" stroke-width="1.2"/>
+  </g>
+</svg>

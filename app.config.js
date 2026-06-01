@@ -156,7 +156,7 @@ module.exports = {
       lang: "en",
       scope: "./",
       themeColor: "#FF6B35",
-      favicon: "./assets/favicon.png"
+      favicon: "./assets/icon.png"
     },
     plugins: [
       "expo-localization",

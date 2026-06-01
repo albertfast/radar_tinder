@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#00E5FF" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Cyan wifi signal arcs -->
+  <g filter="url(#glow)">
+    <circle cx="32" cy="50" r="4" fill="#00E5FF"/>
+    <path d="M22 42 Q27 36 32 42 Q37 36 42 42" fill="none" stroke="#00E5FF" stroke-width="3" stroke-linecap="round"/>
+    <path d="M14 34 Q23 24 32 34 Q41 24 50 34" fill="none" stroke="#00BCD4" stroke-width="3" stroke-linecap="round"/>
+    <path d="M6 26 Q19 12 32 26 Q45 12 58 26" fill="none" stroke="#0097A7" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

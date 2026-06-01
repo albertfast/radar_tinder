@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="starGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Shield glow background -->
+  <ellipse cx="32" cy="34" rx="22" ry="26" fill="#1565C0" opacity="0.25" filter="url(#glow)"/>
+  <!-- Shield shape -->
+  <path d="M32,6 L54,16 L54,34 Q54,52 32,58 Q10,52 10,34 L10,16 Z"
+        fill="#1976D2" stroke="#42A5F5" stroke-width="2" filter="url(#glow)"/>
+  <!-- Shield inner highlight -->
+  <path d="M32,10 L50,18.5 L50,33.5 Q50,49 32,54 Q14,49 14,33.5 L14,18.5 Z"
+        fill="#2196F3" stroke="none"/>
+  <!-- White star in center -->
+  <polygon
+    points="32,18 35.2,27.2 45,27.2 37.2,33 40,42 32,36.8 24,42 26.8,33 19,27.2 28.8,27.2"
+    fill="#FFFFFF" filter="url(#starGlow)" opacity="0.95"/>
+</svg>

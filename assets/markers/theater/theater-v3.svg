@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#9C27B0" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="32" cy="32" r="28" fill="#4A148C" filter="url(#glow)"/>
+  <circle cx="32" cy="32" r="25" fill="#6A1B9A" stroke="#BA68C8" stroke-width="1.5"/>
+  <!-- White curtain -->
+  <path d="M12 16 Q16 16 16 50 L12 50 Z" fill="white" opacity="0.9"/>
+  <path d="M52 16 Q48 16 48 50 L52 50 Z" fill="white" opacity="0.9"/>
+  <path d="M16 16 Q18 20 16 24 Q14 28 16 32 Q18 36 16 40 Q14 44 16 50" fill="none" stroke="white" stroke-width="1" opacity="0.5"/>
+  <path d="M48 16 Q46 20 48 24 Q50 28 48 32 Q46 36 48 40 Q50 44 48 50" fill="none" stroke="white" stroke-width="1" opacity="0.5"/>
+  <!-- Curtain top bar -->
+  <rect x="10" y="14" width="44" height="4" rx="1" fill="white"/>
+  <!-- Curtain tie -->
+  <path d="M16 28 Q24 24 32 28 Q40 24 48 28" fill="none" stroke="white" stroke-width="2" opacity="0.7"/>
+  <!-- Stage -->
+  <rect x="16" y="48" width="32" height="3" rx="1" fill="white" opacity="0.6"/>
+</svg>

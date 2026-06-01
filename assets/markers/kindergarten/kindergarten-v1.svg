@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="pinkGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#FF4081" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="buildGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF80AB"/>
+      <stop offset="100%" stop-color="#FF4081"/>
+    </linearGradient>
+    <linearGradient id="roofGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F50057"/>
+      <stop offset="100%" stop-color="#C51162"/>
+    </linearGradient>
+  </defs>
+  <!-- Kindergarten building -->
+  <rect x="8" y="26" width="48" height="28" rx="4" fill="url(#buildGrad)" filter="url(#pinkGlow)"/>
+  <!-- Roof -->
+  <path d="M4,26 L32,10 L60,26 Z" fill="url(#roofGrad)" filter="url(#pinkGlow)"/>
+  <!-- Door -->
+  <rect x="26" y="38" width="12" height="16" rx="6" fill="#FFFFFF" opacity="0.9"/>
+  <!-- Windows -->
+  <circle cx="16" cy="36" r="5" fill="#FFFFFF" opacity="0.9"/>
+  <circle cx="48" cy="36" r="5" fill="#FFFFFF" opacity="0.9"/>
+  <!-- Kids/hands silhouette -->
+  <!-- Raised hand left -->
+  <path d="M14 44 L14 38 M12 42 L16 42 M14 38 L12 36 M14 38 L16 36" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+  <!-- Raised hand right -->
+  <path d="M50 44 L50 38 M48 42 L52 42 M50 38 L48 36 M50 38 L52 36" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+  <!-- Heart on building -->
+  <path d="M30 30 Q28 28 30 26 Q32 24 32 28 Q32 24 34 26 Q36 28 34 30 L32 33 Z" fill="#FFFFFF" opacity="0.8"/>
+</svg>
