@@ -26,6 +26,18 @@ const DYNAMIC_VERSION_CODE_BLOCK = `def resolveDynamicVersionCode = {
     return candidate as int
 }`;
 
+function enforceReleaseOptimizationDefaults(contents) {
+  return contents
+    .replace(
+      /def enableMinifyInReleaseBuilds = \(findProperty\('android\.enableMinifyInReleaseBuilds'\) \?: (true|false)\)\.toBoolean\(\)/,
+      "def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBuilds') ?: true).toBoolean()"
+    )
+    .replace(
+      /def enableShrinkResources = findProperty\('android\.enableShrinkResourcesInReleaseBuilds'\) \?: '(true|false)'/,
+      "def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'true'"
+    );
+}
+
 function findBlockRange(contents, blockName) {
   const blockStart = contents.indexOf(`${blockName} {`);
   if (blockStart === -1) return null;
@@ -64,6 +76,7 @@ function withAndroidReleaseSigning(config) {
       /(targetSdkVersion[^\n]*\n)\s*versionCode[^\n]*\n/g,
       '$1        versionCode resolveDynamicVersionCode()\n'
     );
+    contents = enforceReleaseOptimizationDefaults(contents);
 
     const signingConfigsRange = findBlockRange(contents, 'signingConfigs');
     if (signingConfigsRange) {

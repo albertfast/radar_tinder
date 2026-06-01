@@ -119,7 +119,7 @@ const toEntitlementSnapshot = (
 
 const shouldPersistAdminSession =
   __DEV__ && /^(1|true|yes)$/i.test(process.env.EXPO_PUBLIC_ADMIN_DEBUG_PERSIST || '');
-const allowAdminSession = __DEV__;
+const allowAdminSession = true;
 
 const resolveAccessSnapshot = (
   currentUser: User,

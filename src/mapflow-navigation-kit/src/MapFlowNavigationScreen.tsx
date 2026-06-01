@@ -33,9 +33,7 @@ import {
   recordRecentDestination,
   toggleSavedDestination,
   clearRecentDestinations,
-  clearSavedDestinations,
   savePresetAddress,
-  deletePresetAddress,
 } from './services/destinationStorage';
 import {
   buildBrowseSections,
@@ -533,11 +531,6 @@ export default function MapFlowNavigationScreen({
     setRecentDestinations(updated);
   }, []);
 
-  const handleClearSaved = useCallback(async () => {
-    const updated = await clearSavedDestinations();
-    setSavedDestinations(updated);
-  }, []);
-
   const activeDestinationResult = useMemo(() => {
     if (selectedDestinationResult) {
       return selectedDestinationResult;
@@ -592,7 +585,7 @@ export default function MapFlowNavigationScreen({
 
     const query = searchQuery.trim();
     if (!query) {
-      return buildBrowseSections(savedSearchResults, recentSearchResults);
+      return buildBrowseSections([], recentSearchResults);
     }
 
     if (query.length < 2) {
@@ -667,8 +660,7 @@ export default function MapFlowNavigationScreen({
               onSelect={handleSelectPlace}
               onToggleSaved={handleToggleSaved}
               onClearRecents={handleClearRecents}
-              onClearSaved={handleClearSaved}
-              hideHeaders={showSavedList}
+              hideHeaders={false}
               unitSystem={unitSystem}
               footerText={showProviderFooter ? 'Live search via free provider fallbacks' : undefined}
             />
