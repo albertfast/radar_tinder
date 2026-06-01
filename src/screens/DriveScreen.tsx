@@ -440,7 +440,7 @@ const DriveScreen = ({ navigation, route }: any) => {
             drivingStartTime={driveStartTime}
             currentSpeed={currentSpeedDisplay}
             unitSystem={unitSystem}
-            topOverlayInset={chromeTopOffset + 8}
+            topOverlayInset={chromeTopOffset}
             onUpgrade={handleOpenSubscription}
           />
         </View>
@@ -459,7 +459,6 @@ const DriveScreen = ({ navigation, route }: any) => {
 
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>DRIVING MODE</Text>
-            <Text style={styles.headerSubtitle}>{renderMode.toUpperCase()}</Text>
           </View>
 
           <TouchableOpacity onPress={handleOpenSettings} style={styles.headerButton}>
@@ -518,12 +517,6 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     fontWeight: '900',
     fontSize: 16,
-  },
-  headerSubtitle: {
-    color: '#4ECDC4',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
   },
   tabBarWrap: {
     paddingHorizontal: 20,

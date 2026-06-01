@@ -50,7 +50,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   topOverlayInset = 0,
   onUpgrade,
 }) => {
-  const heroTopInset = Math.max(6, topOverlayInset - 104);
+  const heroTopInset = Math.max(16, topOverlayInset + 10);
   const { user } = useAuthStore();
   const canUse = hasProAccess(user);
   const activeAlerts = useRadarStore((state) => state.activeAlerts);
