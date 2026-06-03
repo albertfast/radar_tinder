@@ -23,6 +23,7 @@ interface RadarGraphicViewProps {
   drivingStartTime: Date | null;
   currentSpeed: number;
   unitSystem: 'metric' | 'imperial';
+  routeRadars?: any[];
   topOverlayInset?: number;
   onUpgrade?: () => void;
 }
@@ -47,6 +48,7 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   drivingStartTime,
   currentSpeed,
   unitSystem,
+  routeRadars = [],
   topOverlayInset = 0,
   onUpgrade,
 }) => {
@@ -260,6 +262,38 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
     return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
   };
 
+  const routeRadarAlerts = useMemo(
+    () =>
+      (Array.isArray(routeRadars) ? routeRadars : [])
+        .filter((radar) => Number.isFinite(Number(radar?.distance)))
+        .map((radar) => {
+          const etaSeconds = Number.isFinite(Number(radar?.etaSeconds)) ? Number(radar.etaSeconds) : undefined;
+          return {
+            id: `route-radar-${radar.id}`,
+            radarId: String(radar.id),
+            userId: user?.id || 'local',
+            type: radar.type,
+            countryCode: radar.countryCode,
+            speedLimit: radar.speedLimit,
+            distance: Number(radar.distance),
+            estimatedTime: etaSeconds ? etaSeconds / 60 : 0,
+            severity: Number(radar.distance) <= 0.35 ? 'high' : Number(radar.distance) <= 1.2 ? 'medium' : 'low',
+            locationLabel: radar.locationLabel || radar.locationHint,
+            routeMatched: true,
+            corridorDistanceMeters: radar.corridorDistanceMeters,
+            etaSeconds,
+            etaConfidence: radar.etaConfidence,
+            approachLabel: radar.approachLabel,
+            markerKind: radar.markerKind,
+            headingDeltaDeg: radar.headingDeltaDeg,
+            acknowledged: false,
+            createdAt: new Date(),
+          };
+        })
+        .sort((a, b) => Number(a.distance || 0) - Number(b.distance || 0)),
+    [routeRadars, user?.id]
+  );
+
   useEffect(() => {
     if (!canUse) return;
     loadRecentActivity();
@@ -326,25 +360,31 @@ export const RadarGraphicView: React.FC<RadarGraphicViewProps> = ({
   const displayDistance = formatDistance(weeklyStats.totalDistance);
   const displayAvgSpeed = `${weeklyStats.avgSpeed} ${unitSystem === 'imperial' ? 'MPH' : 'KM/H'}`;
   const heroSignalLevel = useMemo(
-    () => Math.max(0.32, Math.min(1, (nearbyAlertIntensity(activeAlerts.length) + currentSpeed / 120) * 0.7)),
-    [activeAlerts.length, currentSpeed]
+    () => Math.max(0.32, Math.min(1, (nearbyAlertIntensity(Math.max(routeRadarAlerts.length, activeAlerts.length)) + currentSpeed / 120) * 0.7)),
+    [activeAlerts.length, currentSpeed, routeRadarAlerts.length]
   );
   const heroDangerLevel = useMemo(
-    () => Math.max(0.1, Math.min(0.82, activeAlerts.length > 0 ? 0.3 + activeAlerts.length * 0.08 : 0.18)),
-    [activeAlerts.length]
+    () => {
+      const alertCount = Math.max(routeRadarAlerts.length, activeAlerts.length);
+      return Math.max(0.1, Math.min(0.82, alertCount > 0 ? 0.3 + alertCount * 0.08 : 0.18));
+    },
+    [activeAlerts.length, routeRadarAlerts.length]
   );
   const heroNearestLabel = useMemo(() => {
-    const nearest = activeAlerts.find(isRouteSpeedCameraAlert);
+    const nearest = routeRadarAlerts[0] || activeAlerts.find(isRouteSpeedCameraAlert);
     if (!nearest || typeof nearest.distance !== 'number' || !Number.isFinite(nearest.distance)) {
       return 'Live scan';
     }
     return `${formatDistance(nearest.distance)} ahead`;
-  }, [activeAlerts, unitSystem]);
+  }, [activeAlerts, routeRadarAlerts, unitSystem]);
   const heroRouteAlert = useMemo(() => {
+    if (routeRadarAlerts[0]) {
+      return routeRadarAlerts[0];
+    }
     return [...activeAlerts]
       .filter(isRouteSpeedCameraAlert)
       .sort((a, b) => Number(a.distance || 0) - Number(b.distance || 0))[0] || null;
-  }, [activeAlerts]);
+  }, [activeAlerts, routeRadarAlerts]);
   const routeRemainingKm = useMemo(() => {
     if (!navigationState.isNavigating || !Number.isFinite(navigationState.remainingDistance)) {
       return null;

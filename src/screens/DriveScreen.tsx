@@ -31,18 +31,36 @@ const DRIVE_MODES = ['Basic', 'Map', 'Graphic'] as const;
 
 type DriveMode = (typeof DRIVE_MODES)[number];
 
+const normalizeRouteCoordinate = (point: [number, number] | null | undefined) => {
+  const first = Number(point?.[0]);
+  const second = Number(point?.[1]);
+  if (!Number.isFinite(first) || !Number.isFinite(second)) {
+    return null;
+  }
+
+  if (Math.abs(first) > 90 && Math.abs(second) <= 90) {
+    return { latitude: second, longitude: first };
+  }
+
+  if (Math.abs(second) > 90 && Math.abs(first) <= 90) {
+    return { latitude: first, longitude: second };
+  }
+
+  return { latitude: second, longitude: first };
+};
+
 const toRouteCoordinates = (geometry: [number, number][] | null | undefined) =>
   Array.isArray(geometry)
     ? geometry
-        .map((point) => {
-          const longitude = Number(point?.[0]);
-          const latitude = Number(point?.[1]);
-          if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-            return null;
-          }
-          return { latitude, longitude };
-        })
-        .filter((point): point is { latitude: number; longitude: number } => point !== null)
+        .map(normalizeRouteCoordinate)
+        .filter(
+          (point): point is { latitude: number; longitude: number } =>
+            point !== null &&
+            point.latitude >= -90 &&
+            point.latitude <= 90 &&
+            point.longitude >= -180 &&
+            point.longitude <= 180,
+        )
     : [];
 
 const resolveDriveMode = (value?: string | null): DriveMode =>
@@ -66,6 +84,25 @@ const isVisibleRedLightCamera = (radar: any) => {
 const getRadarDistanceKm = (radar: any) => {
   const distance = Number(radar?.distance);
   return Number.isFinite(distance) ? distance : Number.POSITIVE_INFINITY;
+};
+
+const mergeRadarCandidates = <T extends { id?: string | number; latitude?: number; longitude?: number }>(
+  candidates: T[]
+): T[] => {
+  const seen = new Set<string>();
+  const merged: T[] = [];
+
+  candidates.forEach((candidate) => {
+    const id =
+      candidate?.id != null
+        ? String(candidate.id)
+        : `${Number(candidate?.latitude).toFixed(6)}:${Number(candidate?.longitude).toFixed(6)}`;
+    if (seen.has(id)) return;
+    seen.add(id);
+    merged.push(candidate);
+  });
+
+  return merged;
 };
 
 const DriveScreen = ({ navigation, route }: any) => {
@@ -98,6 +135,7 @@ const DriveScreen = ({ navigation, route }: any) => {
   });
   const [overlayMarkers, setOverlayMarkers] = useState<MapOverlayMarker[]>([]);
   const [nearbyRadars, setNearbyRadars] = useState<any[]>([]);
+  const [routeRadars, setRouteRadars] = useState<any[]>([]);
   const [driveStartTime, setDriveStartTime] = useState<Date | null>(null);
   const [tripDistanceKm, setTripDistanceKm] = useState(0);
   const [speedSamples, setSpeedSamples] = useState<Array<{ speedKph: number; at: number }>>([]);
@@ -359,6 +397,7 @@ const DriveScreen = ({ navigation, route }: any) => {
     if (!userLocation) {
       setOverlayMarkers([]);
       setNearbyRadars([]);
+      setRouteRadars([]);
       return;
     }
 
@@ -367,31 +406,57 @@ const DriveScreen = ({ navigation, route }: any) => {
       userLocation.lng,
       canUsePro ? 10 : 5
     );
-    const filtered =
+    const currentLocation = {
+      latitude: userLocation.lat,
+      longitude: userLocation.lng,
+      heading: Number.isFinite(userHeading) ? userHeading : null,
+    };
+    const speedKph = Math.max(10, userSpeed * 3.6);
+    const nearbySpeedCameras = nearby
+      .filter(isVisibleSpeedCamera)
+      .filter((radar) => getRadarDistanceKm(radar) <= (hasRoutePreview ? 7.5 : 5));
+    const routeSpeedCameras =
       hasRoutePreview && routeCoordinates.length > 1
-        ? RadarService.filterRouteRelevantRadars(nearby, {
-            currentLocation: {
-              latitude: userLocation.lat,
-              longitude: userLocation.lng,
-              heading: Number.isFinite(userHeading) ? userHeading : null,
-            },
+        ? RadarService.filterRouteRelevantRadars(nearbySpeedCameras, {
+            currentLocation,
             routeCoords: routeCoordinates,
-            speedKph: Math.max(10, userSpeed * 3.6),
-            maxCorridorMeters: 180,
-            maxHeadingDeltaDeg: 75,
+            speedKph,
+            maxCorridorMeters: 90,
+            maxHeadingDeltaDeg: 180,
             etaSecondsWindow: [0, 3600],
             requireEtaWindow: false,
           })
-        : nearby;
+        : [];
+    const immediateThreatCameras =
+      hasRoutePreview && routeCoordinates.length > 1
+        ? RadarService.filterImmediateThreatRadars(
+            nearbySpeedCameras,
+            {
+              currentLocation,
+              speedKph,
+              maxDistanceKm: 2.2,
+              maxHeadingDeltaDeg: 90,
+              etaSecondsWindow: [0, 420],
+            }
+          )
+        : [];
+    const routePanelRadars = hasRoutePreview
+      ? routeSpeedCameras
+      : nearbySpeedCameras.slice(0, 14);
+    const mapRadarCandidates = hasRoutePreview
+      ? mergeRadarCandidates([
+          ...routeSpeedCameras,
+          ...immediateThreatCameras,
+          ...nearbySpeedCameras.filter((radar) => getRadarDistanceKm(radar) <= 2.5).slice(0, 32),
+        ])
+      : nearbySpeedCameras.slice(0, 64);
 
-    const visibleSpeedCameras = filtered.filter(isVisibleSpeedCamera);
-    const visibleRedLightCameras = filtered
-      .filter(isVisibleRedLightCamera)
-      .filter((radar) => getRadarDistanceKm(radar) <= (hasRoutePreview ? 4 : 2))
-      .slice(0, hasRoutePreview ? 12 : 6);
+    const visibleSpeedCameras = mapRadarCandidates.filter(isVisibleSpeedCamera);
+    const visibleRedLightCameras: typeof mapRadarCandidates = [];
     const visibleMapRadars = [...visibleSpeedCameras.slice(0, 64), ...visibleRedLightCameras];
 
-    setNearbyRadars(visibleSpeedCameras);
+    setNearbyRadars(routePanelRadars);
+    setRouteRadars(routePanelRadars);
     setOverlayMarkers(
       visibleMapRadars.map((radar) => ({
         id: radar.id,
@@ -464,6 +529,7 @@ const DriveScreen = ({ navigation, route }: any) => {
             drivingStartTime={driveStartTime}
             currentSpeed={currentSpeedDisplay}
             unitSystem={unitSystem}
+            routeRadars={routeRadars}
             topOverlayInset={chromeTopOffset}
             onUpgrade={handleOpenSubscription}
           />

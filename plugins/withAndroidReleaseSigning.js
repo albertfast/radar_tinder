@@ -7,6 +7,7 @@ const RELEASE_SIGNING_BLOCK = `        release {
             keyPassword '933b393230dc1659891255937bea56dc'
         }`;
 const RELEASE_SIGNING_PATTERN = /^[ \t]*release\s*\{[\s\S]*?^[ \t]*\}/m;
+const EXPECTED_PLAY_UPLOAD_SHA1 = '12:76:27:57:E2:93:B7:72:DA:A5:76:E1:6B:1C:51:20:94:3C:B9:43';
 
 const DYNAMIC_VERSION_CODE_BLOCK = `def resolveDynamicVersionCode = {
     def explicitVersionCode = findProperty('android.versionCode') ?: System.getenv('ANDROID_VERSION_CODE')
@@ -25,6 +26,39 @@ const DYNAMIC_VERSION_CODE_BLOCK = `def resolveDynamicVersionCode = {
         return maxAllowed as int
     }
     return candidate as int
+}`;
+
+const RELEASE_UPLOAD_CERT_VERIFICATION_BLOCK = `def expectedPlayUploadCertSha1 = "${EXPECTED_PLAY_UPLOAD_SHA1}"
+
+tasks.register("verifyReleaseUploadCertificate") {
+    doLast {
+        def releaseSigning = android.signingConfigs.release
+        def keystoreFile = releaseSigning.storeFile
+        if (keystoreFile == null || !keystoreFile.exists()) {
+            throw new GradleException("Release keystore is missing. Expected Play upload SHA1: \${expectedPlayUploadCertSha1}")
+        }
+
+        def stdout = new ByteArrayOutputStream()
+        exec {
+            commandLine "keytool", "-list", "-v", "-keystore", keystoreFile.absolutePath, "-storepass", releaseSigning.storePassword, "-alias", releaseSigning.keyAlias
+            standardOutput = stdout
+            errorOutput = new ByteArrayOutputStream()
+        }
+
+        def matcher = stdout.toString("UTF-8") =~ /SHA1:\\s*([A-F0-9:]+)/
+        if (!matcher.find()) {
+            throw new GradleException("Could not read release upload certificate SHA1.")
+        }
+
+        def actualSha1 = matcher.group(1).toUpperCase()
+        if (actualSha1 != expectedPlayUploadCertSha1) {
+            throw new GradleException("Wrong release upload certificate. Expected \${expectedPlayUploadCertSha1}, got \${actualSha1}. Find the original Play upload keystore or request a Play upload key reset before building release.")
+        }
+    }
+}
+
+tasks.matching { task -> task.name in ["bundleRelease", "assembleRelease"] }.configureEach {
+    dependsOn("verifyReleaseUploadCertificate")
 }`;
 
 function enforceReleaseOptimizationDefaults(contents) {
@@ -98,6 +132,26 @@ function useDynamicVersionCode(contents) {
   );
 }
 
+function upsertReleaseUploadCertVerification(contents) {
+  const verificationPattern =
+    /\ndef expectedPlayUploadCertSha1 = "[^"]+"[\s\S]*?tasks\.matching \{ task -> task\.name in \["bundleRelease", "assembleRelease"\] \}\.configureEach \{\n    dependsOn\("verifyReleaseUploadCertificate"\)\n\}\n?/m;
+
+  if (verificationPattern.test(contents)) {
+    return contents.replace(verificationPattern, `\n${RELEASE_UPLOAD_CERT_VERIFICATION_BLOCK}\n`);
+  }
+
+  const androidRange = findBlockRange(contents, 'android');
+  if (!androidRange) {
+    return `${contents.trimEnd()}\n\n${RELEASE_UPLOAD_CERT_VERIFICATION_BLOCK}\n`;
+  }
+
+  return (
+    contents.slice(0, androidRange.end) +
+    `\n\n${RELEASE_UPLOAD_CERT_VERIFICATION_BLOCK}` +
+    contents.slice(androidRange.end)
+  );
+}
+
 function withAndroidReleaseSigning(config) {
   return withAppBuildGradle(config, (config) => {
     let contents = config.modResults.contents;
@@ -142,6 +196,8 @@ function withAndroidReleaseSigning(config) {
         patchedBuildTypes +
         contents.slice(buildTypesRange.end);
     }
+
+    contents = upsertReleaseUploadCertVerification(contents);
 
     config.modResults.contents = contents;
     return config;
