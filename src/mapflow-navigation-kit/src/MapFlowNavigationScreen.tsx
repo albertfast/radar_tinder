@@ -308,6 +308,7 @@ export default function MapFlowNavigationScreen({
         lng: userLocation.lng,
         heading: userHeading,
         routeHeading,
+        navigation: isNavigating,
         vehicleMarkerId,
       },
     });
@@ -458,7 +459,7 @@ export default function MapFlowNavigationScreen({
 
     const timer = setTimeout(() => {
       setMapLoadError('Map is taking too long to load.');
-    }, 15000);
+    }, 20000);
 
     return () => clearTimeout(timer);
   }, [mapLoadError, mapReady, userLocation]);
@@ -479,7 +480,7 @@ export default function MapFlowNavigationScreen({
     }
 
     const now = Date.now();
-    if (now - rerouteAtRef.current < 8000) {
+    if (now - rerouteAtRef.current < 3000) {
       return;
     }
 
@@ -746,18 +747,14 @@ export default function MapFlowNavigationScreen({
         <View style={[styles.customMapControls, { bottom: isNavigating ? 130 : 96 }]}>
           <TouchableOpacity
             style={styles.controlButton}
-            onPress={() => {
-              webViewRef.current?.injectJavaScript("if (typeof map !== 'undefined') { map.zoomIn(); } true;");
-            }}
+            onPress={() => sendToMap({ type: 'zoomBy', payload: { delta: 1 } })}
           >
             <MaterialCommunityIcons name="plus" size={24} color="#F8FAFC" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.controlButton}
-            onPress={() => {
-              webViewRef.current?.injectJavaScript("if (typeof map !== 'undefined') { map.zoomOut(); } true;");
-            }}
+            onPress={() => sendToMap({ type: 'zoomBy', payload: { delta: -1 } })}
           >
             <MaterialCommunityIcons name="minus" size={24} color="#F8FAFC" />
           </TouchableOpacity>

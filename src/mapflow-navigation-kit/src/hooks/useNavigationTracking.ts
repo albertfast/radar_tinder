@@ -97,6 +97,61 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function headingDelta(a: number, b: number): number {
+  return Math.abs(((a - b + 540) % 360) - 180);
+}
+
+function buildCumulativeDistances(geometry: [number, number][]): number[] {
+  const cumulative = [0];
+  for (let index = 0; index < geometry.length - 1; index += 1) {
+    const [startLng, startLat] = geometry[index];
+    const [endLng, endLat] = geometry[index + 1];
+    cumulative.push(
+      cumulative[index] + haversineDistance(startLat, startLng, endLat, endLng)
+    );
+  }
+  return cumulative;
+}
+
+function projectProgressOnRoute(
+  lat: number,
+  lng: number,
+  geometry: [number, number][],
+  cumulativeDistances: number[],
+): { progressMeters: number; distanceMeters: number; segmentIndex: number; t: number } {
+  let closestIndex = 0;
+  let closestProjectionT = 0;
+  let minimumDistance = Number.MAX_SAFE_INTEGER;
+
+  for (let index = 0; index < geometry.length - 1; index += 1) {
+    const [startLng, startLat] = geometry[index];
+    const [endLng, endLat] = geometry[index + 1];
+    const projection = projectPointToSegmentMeters(lat, lng, startLat, startLng, endLat, endLng);
+
+    if (projection.distanceMeters < minimumDistance) {
+      minimumDistance = projection.distanceMeters;
+      closestIndex = index;
+      closestProjectionT = projection.t;
+    }
+  }
+
+  const [closestStartLng, closestStartLat] = geometry[closestIndex];
+  const [closestEndLng, closestEndLat] = geometry[closestIndex + 1];
+  const closestSegmentDistance = haversineDistance(
+    closestStartLat,
+    closestStartLng,
+    closestEndLat,
+    closestEndLng,
+  );
+
+  return {
+    progressMeters: cumulativeDistances[closestIndex] + closestSegmentDistance * closestProjectionT,
+    distanceMeters: minimumDistance,
+    segmentIndex: closestIndex,
+    t: closestProjectionT,
+  };
+}
+
 export function useNavigationTracking() {
   const offRouteCounterRef = useRef(0);
   const navStartedAtRef = useRef<number | null>(null);
@@ -106,6 +161,8 @@ export function useNavigationTracking() {
     route,
     userLocation,
     userSpeed,
+    userHeading,
+    accuracy,
     setRemainingDistance,
     setRemainingStepDistance,
     setRemainingDuration,
@@ -132,26 +189,17 @@ export function useNavigationTracking() {
 
     try {
       const geometry = route.geometry;
-      const userLat = userLocation.lat;
-      const userLng = userLocation.lng;
-
-      let closestIndex = 0;
-      let closestProjectionT = 0;
-      let minimumDistance = Number.MAX_SAFE_INTEGER;
-
-      for (let index = 0; index < geometry.length - 1; index += 1) {
-        const [startLng, startLat] = geometry[index];
-        const [endLng, endLat] = geometry[index + 1];
-        const projection = projectPointToSegmentMeters(userLat, userLng, startLat, startLng, endLat, endLng);
-
-        if (projection.distanceMeters < minimumDistance) {
-          minimumDistance = projection.distanceMeters;
-          closestIndex = index;
-          closestProjectionT = projection.t;
-        }
+      if (!Array.isArray(geometry) || geometry.length < 2) {
+        return;
       }
 
-      let remainingDistance = 0;
+      const userLat = userLocation.lat;
+      const userLng = userLocation.lng;
+      const cumulativeDistances = buildCumulativeDistances(geometry);
+      const routeProgress = projectProgressOnRoute(userLat, userLng, geometry, cumulativeDistances);
+      const closestIndex = routeProgress.segmentIndex;
+      const closestProjectionT = routeProgress.t;
+      const minimumDistance = routeProgress.distanceMeters;
       const [closestStartLng, closestStartLat] = geometry[closestIndex];
       const [closestEndLng, closestEndLat] = geometry[closestIndex + 1];
       const closestSegmentDistance = haversineDistance(
@@ -160,8 +208,7 @@ export function useNavigationTracking() {
         closestEndLat,
         closestEndLng,
       );
-
-      remainingDistance += closestSegmentDistance * (1 - closestProjectionT);
+      let remainingDistance = closestSegmentDistance * (1 - closestProjectionT);
 
       for (let index = closestIndex + 1; index < geometry.length - 1; index += 1) {
         const [startLng, startLat] = geometry[index];
@@ -184,22 +231,33 @@ export function useNavigationTracking() {
         }
 
         const travelledDistance = Math.max(0, totalDistance - remainingDistance);
-        let accumulatedDistance = 0;
-        let resolvedStep = false;
+        if (route.steps.length > 0) {
+          const passedTolerance = clamp(18 + userSpeed * 2.6, 22, 48);
+          let selectedStepIndex = Math.max(0, route.steps.length - 1);
+          let selectedStepDistance = 0;
 
-        for (let index = 0; index < route.steps.length; index += 1) {
-          accumulatedDistance += route.steps[index].distance;
-          if (travelledDistance <= accumulatedDistance) {
-            setCurrentStepIndex(index);
-            setRemainingStepDistance(Math.max(0, accumulatedDistance - travelledDistance));
-            resolvedStep = true;
-            break;
+          for (let index = 0; index < route.steps.length; index += 1) {
+            const location = route.steps[index]?.maneuver?.location;
+            if (!Array.isArray(location) || location.length < 2) {
+              continue;
+            }
+
+            const stepProgress = projectProgressOnRoute(
+              Number(location[1]),
+              Number(location[0]),
+              geometry,
+              cumulativeDistances,
+            ).progressMeters;
+
+            if (stepProgress >= routeProgress.progressMeters - passedTolerance) {
+              selectedStepIndex = index;
+              selectedStepDistance = Math.max(0, stepProgress - routeProgress.progressMeters);
+              break;
+            }
           }
-        }
 
-        if (!resolvedStep) {
-          setCurrentStepIndex(Math.max(0, route.steps.length - 1));
-          setRemainingStepDistance(0);
+          setCurrentStepIndex(selectedStepIndex);
+          setRemainingStepDistance(selectedStepDistance);
         }
 
         const arrivalThreshold = clamp(totalDistance * 0.0025, 18, 45);
@@ -248,13 +306,27 @@ export function useNavigationTracking() {
         setRemainingDuration(Math.max(0, remainingDuration));
         setEta(new Date(Date.now() + Math.max(0, remainingDuration) * 1000));
 
-        if (minimumDistance > 45) {
+        const accuracyMeters = Number.isFinite(accuracy) ? Math.max(0, accuracy) : 0;
+        const offRouteDistanceThreshold = clamp(
+          30 + Math.min(20, accuracyMeters * 0.2) + Math.min(14, userSpeed * 1.4),
+          32,
+          64,
+        );
+        const routeHeadingDelta =
+          routeHeading !== null && userHeading > 0 ? headingDelta(userHeading, routeHeading) : null;
+        const headingMismatch =
+          userSpeed > 3 &&
+          minimumDistance > 24 &&
+          routeHeadingDelta !== null &&
+          routeHeadingDelta > 82;
+
+        if (minimumDistance > offRouteDistanceThreshold || headingMismatch) {
           offRouteCounterRef.current += 1;
         } else {
           offRouteCounterRef.current = 0;
         }
 
-        setIsOffRoute(offRouteCounterRef.current >= 3);
+        setIsOffRoute(offRouteCounterRef.current >= 2);
       } else {
         offRouteCounterRef.current = 0;
         navStartedAtRef.current = null;
@@ -270,6 +342,8 @@ export function useNavigationTracking() {
     route,
     userLocation,
     userSpeed,
+    userHeading,
+    accuracy,
     setCurrentStepIndex,
     setDistanceToRoute,
     setEta,

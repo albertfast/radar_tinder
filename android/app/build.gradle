@@ -166,6 +166,39 @@ android {
     }
 }
 
+def expectedPlayUploadCertSha1 = "12:76:27:57:E2:93:B7:72:DA:A5:76:E1:6B:1C:51:20:94:3C:B9:43"
+
+tasks.register("verifyReleaseUploadCertificate") {
+    doLast {
+        def releaseSigning = android.signingConfigs.release
+        def keystoreFile = releaseSigning.storeFile
+        if (keystoreFile == null || !keystoreFile.exists()) {
+            throw new GradleException("Release keystore is missing. Expected Play upload SHA1: ${expectedPlayUploadCertSha1}")
+        }
+
+        def stdout = new ByteArrayOutputStream()
+        exec {
+            commandLine "keytool", "-list", "-v", "-keystore", keystoreFile.absolutePath, "-storepass", releaseSigning.storePassword, "-alias", releaseSigning.keyAlias
+            standardOutput = stdout
+            errorOutput = new ByteArrayOutputStream()
+        }
+
+        def matcher = stdout.toString("UTF-8") =~ /SHA1:\s*([A-F0-9:]+)/
+        if (!matcher.find()) {
+            throw new GradleException("Could not read release upload certificate SHA1.")
+        }
+
+        def actualSha1 = matcher.group(1).toUpperCase()
+        if (actualSha1 != expectedPlayUploadCertSha1) {
+            throw new GradleException("Wrong release upload certificate. Expected ${expectedPlayUploadCertSha1}, got ${actualSha1}. Find the original Play upload keystore or request a Play upload key reset before building release.")
+        }
+    }
+}
+
+tasks.matching { task -> task.name in ["bundleRelease", "assembleRelease"] }.configureEach {
+    dependsOn("verifyReleaseUploadCertificate")
+}
+
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
 // Accepts values in comma delimited lists, example:
 // android.packagingOptions.pickFirsts=/LICENSE,**/picasa.ini

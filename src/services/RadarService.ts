@@ -384,6 +384,39 @@ export class RadarService {
     return filterRouteRelevantRadarsInternal(radars, params);
   }
 
+  static filterImmediateThreatRadars(
+    radars: NearbyRadar[],
+    params: {
+      currentLocation: { latitude: number; longitude: number; heading?: number | null };
+      speedKph: number;
+      maxDistanceKm?: number;
+      maxHeadingDeltaDeg?: number;
+      etaSecondsWindow?: [number, number];
+    }
+  ): Array<NearbyRadar & RouteRelevanceResult & { immediateThreat: true }> {
+    const maxDistanceKm = params.maxDistanceKm ?? 1.2;
+    return radars
+      .filter((radar) => radar.distance <= maxDistanceKm)
+      .map((radar) => {
+        const relevance = evaluateRouteRelevanceInternal({
+          radar,
+          currentLocation: params.currentLocation,
+          routeCoords: [],
+          speedKph: params.speedKph,
+          maxHeadingDeltaDeg: params.maxHeadingDeltaDeg ?? 82,
+          etaSecondsWindow: params.etaSecondsWindow ?? [0, 260],
+        });
+
+        return {
+          ...radar,
+          ...relevance,
+          immediateThreat: true as const,
+        };
+      })
+      .filter((radar) => radar.isRelevant)
+      .sort((a, b) => a.distance - b.distance);
+  }
+
   static trackMarkerRenderStats(payload: {
     inputCount: number;
     visibleCount: number;

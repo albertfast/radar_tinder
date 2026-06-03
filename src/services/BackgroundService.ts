@@ -21,6 +21,9 @@ const BACKGROUND_LOCATION_TASK = 'background-location-task';
 const MAX_STARTUP_LOCATION_ACCURACY_METERS = 180;
 const MAX_RUNTIME_LOCATION_ACCURACY_METERS = 260;
 
+const isSpeedCameraRadar = (radar: Pick<RadarLocation, 'type' | 'markerKind'>) =>
+  radar.type === 'speed_camera' || radar.type === 'fixed' || radar.markerKind === 'camera';
+
 export class BackgroundService {
   private static locationSubscription: any = null;
   private static appStateSubscription: any = null;
@@ -722,6 +725,24 @@ export class BackgroundService {
         if (radar?.id) radarById.set(radar.id, radar);
       }
       const etaConfidence = speedFromSensorKph != null ? 'high' : inferredSpeedKph != null ? 'medium' : 'low';
+      const immediateThreatIds = new Set(
+        routeMode
+          ? RadarService.filterImmediateThreatRadars(
+              nearbyRadars.filter(isSpeedCameraRadar),
+              {
+                currentLocation: {
+                  latitude: normalizedLocation.latitude,
+                  longitude: normalizedLocation.longitude,
+                  heading: normalizedHeading,
+                },
+                speedKph: hasReliableSpeed ? speedKph : 5,
+                maxDistanceKm: Math.max(baseThreshold, 1.35),
+                maxHeadingDeltaDeg: 82,
+                etaSecondsWindow: hasReliableSpeed ? [0, 260] : [0, Number.MAX_SAFE_INTEGER],
+              }
+            ).map((radar) => radar.id)
+          : []
+      );
 
       const alertCandidates = nearbyRadars;
 
@@ -755,8 +776,9 @@ export class BackgroundService {
 
         const headingMatched =
           relevance.headingDeltaDeg == null || relevance.headingDeltaDeg <= (routeMode ? 35 : 75);
+        const immediateThreatMatched = radar.id ? immediateThreatIds.has(radar.id) : false;
         const relevanceMatched = routeMode
-          ? relevance.isRelevant
+          ? relevance.isRelevant || immediateThreatMatched
           : headingMatched && (hasReliableSpeed ? relevance.etaSeconds <= 220 : true);
 
         if (distance < threshold && relevanceMatched) {

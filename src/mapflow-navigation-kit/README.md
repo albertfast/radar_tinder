@@ -6,7 +6,7 @@ This package is a **drop-in source module** for an **Expo React Native app**.
 
 It gives you:
 
-- a dark MapLibre-based map inside a `WebView`
+- a dark native `react-native-maps` map surface
 - address search with nearby-biased suggestions
 - route preview and turn-by-turn navigation UI
 - speed display and speed-limit lookup
@@ -28,7 +28,8 @@ Use this in:
 This is the easiest and safest method because the module already depends on:
 
 - `expo-location`
-- `react-native-webview`
+- `react-native-maps`
+- `react-native-svg`
 - `react-native-safe-area-context`
 - `@expo/vector-icons`
 - `zustand`
@@ -61,7 +62,7 @@ Recommended destination:
 Run these commands inside the target app:
 
 ```bash
-npx expo install expo-location react-native-webview react-native-safe-area-context @expo/vector-icons
+npx expo install expo-location react-native-maps react-native-svg react-native-safe-area-context @expo/vector-icons
 npm install zustand
 ```
 
@@ -167,14 +168,14 @@ export default function RootNavigator() {
 
 ## What You May Want To Customize
 
-- map colors in `src/utils/mapHtml.ts`
+- map colors in `src/components/map/MapView.native.tsx`
 - navigation card layout in `src/components/navigation/NavigationPanel.tsx`
 - search UI in `src/components/navigation/SearchBar.tsx`
 - result ranking and provider behavior in `src/services/api.ts`
 
 ## Current Technical Notes
 
-- The map surface is a `WebView` that runs MapLibre GL JS.
+- The map surface is native `react-native-maps`; routing/search still use free-provider fallbacks.
 - Search uses multiple providers with fallback logic.
 - Speed-limit data depends on public OSM / Overpass data and may sometimes be missing.
 - ETA is updated during navigation using route progress and observed movement, but it is not the same as Google live traffic ETA.

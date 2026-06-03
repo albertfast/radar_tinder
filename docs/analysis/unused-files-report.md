@@ -6,6 +6,7 @@ Generated with `scripts/analyze-unused-files.mjs` (import + dynamic import + req
 - `2026-02-19` pre-cleanup: `149` source files, `68` potential unreferenced, `15` cleanup candidates.
 - `2026-02-19` post-cleanup: `135` source files, `54` potential unreferenced, `0` cleanup candidates, `54` hold entries.
 - `2026-06-01` expanded audit: `180` source files, `65` potential unreferenced, `12` raw cleanup candidates, `53` hold entries.
+- `2026-06-03` hotfix cleanup: `175` source files, `59` potential unreferenced, `6` raw cleanup candidates, `53` hold entries.
 
 ## Deleted In Phase 2
 - `src/components/Glassmorphism.tsx`
@@ -22,6 +23,21 @@ Generated with `scripts/analyze-unused-files.mjs` (import + dynamic import + req
 - `src/services/SoundService.ts`
 - `src/services/UserReportService.ts`
 - `src/utils/SpatialIndex.ts`
+
+## Deleted In 2026-06-03 Hotfix Cleanup
+- `scripts/embed-marker-asset.js`
+- `scripts/embed-maplibre-source.mjs`
+- `src/components/AccessBootstrapView.tsx`
+- `src/components/nebula-core-3d-animation.html`
+- `src/components/speedometer-3d-animation.html`
+- `src/constants/visualTokens.ts`
+- `src/mapflow-navigation-kit/src/components/navigation/PresetSelector.tsx`
+- `src/mapflow-navigation-kit/src/components/navigation/SavePresetModal.tsx`
+- `src/mapflow-navigation-kit/src/components/navigation/SpeedLimitSign.tsx`
+- `src/mapflow-navigation-kit/src/utils/mapHtml.ts`
+- `src/mapflow-navigation-kit/src/utils/mapMarkerAssets.ts`
+- `src/mapflow-navigation-kit/src/utils/maplibreSource.generated.ts`
+- `src/services/AddressSuggestionService.ts`
 
 ## Hold / Keep Set
 - `src/components/ui/**`
@@ -49,36 +65,20 @@ The analyzer is intentionally conservative, but it still has known blind spots:
 - Type declaration files can be necessary even when nothing imports them directly.
 - Native React view wrappers can be unused from JS while their Android managers still exist; verify before deleting native bridge code.
 
-### Raw Analyzer Cleanup Output
+### Current Raw Analyzer Cleanup Output
 
-Do not delete this whole list blindly; it includes false positives and manual-review items.
+Do not delete this list blindly; these are false positives or manual-review items after the 2026-06-03 cleanup.
 
-- `src/components/AccessBootstrapView.tsx`
 - `src/components/GraphicRadarPanelView.tsx`
 - `src/components/RadarMap.tsx`
-- `src/constants/visualTokens.ts`
-- `src/mapflow-navigation-kit/src/components/navigation/PresetSelector.tsx`
-- `src/mapflow-navigation-kit/src/components/navigation/SavePresetModal.tsx`
-- `src/mapflow-navigation-kit/src/components/navigation/SpeedLimitSign.tsx`
 - `src/mapflow-navigation-kit/src/index.ts`
-- `src/mapflow-navigation-kit/src/utils/mapMarkerAssets.ts`
-- `src/services/AddressSuggestionService.ts`
+- `src/native/SpeedCameraMarker.ts`
 - `src/types/expo-keep-awake.d.ts`
 - `src/types/svg.d.ts`
 
 ### Likely Deletion Candidates
 
-These had no app references in the expanded text search. Delete in a small batch, then run `pnpm exec tsc --noEmit --pretty false`.
-
-- `src/components/AccessBootstrapView.tsx`
-- `src/constants/visualTokens.ts`
-- `src/mapflow-navigation-kit/src/components/navigation/PresetSelector.tsx`
-- `src/mapflow-navigation-kit/src/components/navigation/SavePresetModal.tsx`
-- `src/mapflow-navigation-kit/src/components/navigation/SpeedLimitSign.tsx`
-- `src/mapflow-navigation-kit/src/utils/mapMarkerAssets.ts`
-- `src/services/AddressSuggestionService.ts`
-- `src/components/nebula-core-3d-animation.html`
-- `src/components/speedometer-3d-animation.html`
+The 2026-06-03 hotfix cleanup removed the safe subset from this list after text-search verification. No additional deletion candidates should be removed without another `node scripts/analyze-unused-files.mjs` run and a TypeScript check.
 
 ### Manual Review / Keep For Now
 
@@ -89,6 +89,7 @@ These had no app references in the expanded text search. Delete in a small batch
 - `src/lib/db.ts`: keep with the web app hold set unless `src/app/**` is removed.
 - `src/components/GraphicRadarPanelView.tsx`: JS wrapper is not imported by the current app, but native Android manager/source still exists and animation-porting docs reference it.
 - `src/components/RadarMap.tsx`: no direct app import found, but it is a large legacy map component; delete only in a separate batch after a runtime smoke test of the Map tab.
+- `src/native/SpeedCameraMarker.ts`: JS wrapper is not used directly, but Android native marker bridge code still exists.
 
 ## Notes
 - Legacy screens were intentionally reconnected through navigation/drawer and are not cleanup targets.
