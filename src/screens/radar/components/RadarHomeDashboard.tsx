@@ -32,6 +32,7 @@ type RadarHomeDashboardProps = {
   insetsTop: number;
   tabBarInset: number;
   width: number;
+  height: number;
   proSliderRef: React.RefObject<FlatList | null>;
   proSliderIndex: number;
   proFeatures: ProFeature[];
@@ -129,6 +130,7 @@ export function RadarHomeDashboard({
   insetsTop,
   tabBarInset,
   width,
+  height,
   proSliderRef,
   proSliderIndex,
   proFeatures,
@@ -178,16 +180,18 @@ export function RadarHomeDashboard({
 
   const homeBottomInset = tabBarInset + Math.max(28, Math.round(width * 0.08));
   const isCompactWidth = width <= 420;
-  const heroVerticalPadding = isCompactWidth ? 10 : 14;
+  const isCompactHeight = height < 780;
+  const isDenseHome = isCompactWidth || isCompactHeight;
+  const heroVerticalPadding = isDenseHome ? 8 : 14;
   const heroTopMargin = isCompactWidth ? 2 : 6;
-  const buttonBottomSpacing = isCompactWidth ? getResponsiveHeight(8) : getResponsiveHeight(10);
+  const buttonBottomSpacing = isDenseHome ? getResponsiveHeight(6) : getResponsiveHeight(10);
   const contentBottomPadding = Math.max(
     homeBottomInset,
     getResponsiveHeight(52)
   );
   const quickPanelMinHeight = Math.max(
-    getResponsiveHeight(118),
-    Math.round(tabBarInset * 0.86)
+    isDenseHome ? getResponsiveHeight(94) : getResponsiveHeight(118),
+    Math.round(tabBarInset * (isDenseHome ? 0.68 : 0.86))
   );
 
   return (
@@ -313,7 +317,7 @@ export function RadarHomeDashboard({
             </View>
           </View>
 
-          <View style={styles.radarShell}>
+          <View style={[styles.radarShell, isDenseHome ? localStyles.radarShellDense : null]}>
             <RadarAnimation
               size={radarAnimationSize}
               rendererMode="life3d"
@@ -337,7 +341,7 @@ export function RadarHomeDashboard({
             </View>
           </View>
 
-          <View style={styles.statRow}>
+          <View style={[styles.statRow, isDenseHome ? localStyles.statRowDense : null]}>
             <StatPill styles={styles} icon="map-marker-distance" label="Nearest radar" value={nearestRadarSummary} accent="#4ECDC4" />
             <StatPill styles={styles} icon="speedometer" label="Speed" value={formatSpeed(currentSpeed, unitSystem)} accent="#FF5252" />
             <StatPill
@@ -375,7 +379,7 @@ export function RadarHomeDashboard({
             </LinearGradient>
           </TouchableOpacity>
 
-          <View style={[styles.homeQuickPanel, { minHeight: quickPanelMinHeight }]}>
+          <View style={[styles.homeQuickPanel, isDenseHome ? localStyles.homeQuickPanelDense : null, { minHeight: quickPanelMinHeight }]}>
             <View style={styles.homeQuickRow}>
               <TouchableOpacity
                 style={[styles.homeQuickButton, styles.homeQuickButtonPrimary]}
@@ -406,3 +410,17 @@ export function RadarHomeDashboard({
     </View>
   );
 }
+
+const localStyles = StyleSheet.create({
+  radarShellDense: {
+    marginTop: -14,
+    marginBottom: -6,
+  },
+  statRowDense: {
+    marginTop: -2,
+  },
+  homeQuickPanelDense: {
+    paddingVertical: 8,
+    gap: 8,
+  },
+});

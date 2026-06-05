@@ -24,8 +24,12 @@ import {
   type PlanKey,
   type PlanPricing,
 } from '../utils/subscriptionPricing';
-import { mapOfferingPackages } from '../utils/subscriptionPackages';
-import type { PurchasesPackage } from 'react-native-purchases';
+import {
+  findStoreProductForPlan,
+  getStoreProductIdsForPlan,
+  mapOfferingPackages,
+} from '../utils/subscriptionPackages';
+import type { PurchasesPackage, PurchasesStoreProduct } from 'react-native-purchases';
 
 const FEATURES: Array<{ icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; key: string; color: string }> = [
   { icon: 'radar', key: 'realtimeAlerts', color: '#4ECDC4' },
@@ -33,6 +37,11 @@ const FEATURES: Array<{ icon: React.ComponentProps<typeof MaterialCommunityIcons
   { icon: 'car-cog', key: 'aiDiagnosis', color: '#FF8A65' },
   { icon: 'chart-line', key: 'driveAnalytics', color: '#7CE8DF' },
 ];
+
+type PurchaseTarget = PurchasesPackage | PurchasesStoreProduct;
+
+const isRevenueCatPackage = (target: PurchaseTarget): target is PurchasesPackage =>
+  Boolean((target as PurchasesPackage)?.product);
 
 const SubscriptionScreen = ({ navigation }: { navigation: { goBack: () => void; navigate: (name: string) => void } }) => {
   const { t } = useTranslation();
@@ -44,7 +53,7 @@ const SubscriptionScreen = ({ navigation }: { navigation: { goBack: () => void; 
   const [isTrialEnabled, setIsTrialEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const [pricingLoading, setPricingLoading] = useState(true);
-  const [packagesByPlan, setPackagesByPlan] = useState<Record<PlanKey, PurchasesPackage | null>>({
+  const [packagesByPlan, setPackagesByPlan] = useState<Record<PlanKey, PurchaseTarget | null>>({
     weekly: null,
     yearly: null,
     adfree: null,
@@ -67,11 +76,25 @@ const SubscriptionScreen = ({ navigation }: { navigation: { goBack: () => void; 
       const offering = await SubscriptionService.getOfferings();
       const availablePackages = offering?.availablePackages || [];
       const mapped = mapOfferingPackages(availablePackages, offering);
-      setPackagesByPlan(mapped);
+      const missingSubscriptionProductIds = (['weekly', 'yearly'] as PlanKey[])
+        .filter((plan) => !mapped[plan])
+        .flatMap((plan) => getStoreProductIdsForPlan(plan));
+      const missingAdfreeProductIds = mapped.adfree ? [] : getStoreProductIdsForPlan('adfree');
+      const [subscriptionProducts, oneTimeProducts] = await Promise.all([
+        SubscriptionService.getStoreProducts(missingSubscriptionProductIds, 'subscription'),
+        SubscriptionService.getStoreProducts(missingAdfreeProductIds, 'non_subscription'),
+      ]);
+      const storeProducts = [...subscriptionProducts, ...oneTimeProducts];
+      const targets: Record<PlanKey, PurchaseTarget | null> = {
+        weekly: mapped.weekly || findStoreProductForPlan(storeProducts, 'weekly'),
+        yearly: mapped.yearly || findStoreProductForPlan(storeProducts, 'yearly'),
+        adfree: mapped.adfree || findStoreProductForPlan(storeProducts, 'adfree'),
+      };
+      setPackagesByPlan(targets);
       setPricingByPlan({
-        weekly: formatPlanPricing(mapped.weekly, 'weekly'),
-        yearly: formatPlanPricing(mapped.yearly, 'yearly'),
-        adfree: formatPlanPricing(mapped.adfree, 'adfree'),
+        weekly: formatPlanPricing(targets.weekly, 'weekly'),
+        yearly: formatPlanPricing(targets.yearly, 'yearly'),
+        adfree: formatPlanPricing(targets.adfree, 'adfree'),
       });
     } catch {
       setPricingByPlan({});
@@ -95,12 +118,14 @@ const SubscriptionScreen = ({ navigation }: { navigation: { goBack: () => void; 
       const planToPurchase = trialActive ? 'yearly' : selectedPlan;
       const targetPackage = packagesByPlan[planToPurchase];
       if (!targetPackage) {
-        Alert.alert('Package Missing', t('subscription.priceUnavailable'));
+        Alert.alert('Store Product Unavailable', t('subscription.priceUnavailable'));
         return;
       }
 
       await AnalyticsService.trackEvent('subscription_attempt', { plan: planToPurchase, trial: trialActive });
-      const purchased = await SubscriptionService.purchasePackage(targetPackage);
+      const purchased = isRevenueCatPackage(targetPackage)
+        ? await SubscriptionService.purchasePackage(targetPackage)
+        : await SubscriptionService.purchaseStoreProduct(targetPackage);
       if (!purchased) {
         Alert.alert('Payment Failed', 'Purchase could not be completed.');
         return;

@@ -1,5 +1,5 @@
 import { NativeModules, Platform } from 'react-native';
-import type { PurchasesPackage, CustomerInfo } from 'react-native-purchases';
+import type { PurchasesPackage, PurchasesStoreProduct, CustomerInfo } from 'react-native-purchases';
 import { useAuthStore } from '../store/authStore';
 import { AnalyticsService } from './AnalyticsService';
 import { AdService } from './AdService';
@@ -429,6 +429,34 @@ export class SubscriptionService {
     }
   }
 
+  static async getStoreProducts(
+    productIds: string[],
+    category: 'subscription' | 'non_subscription' = 'subscription'
+  ): Promise<PurchasesStoreProduct[]> {
+    const uniqueProductIds = [...new Set(productIds.filter(Boolean))];
+    if (uniqueProductIds.length === 0) return [];
+    if (this.invalidCredentialsDisabled) return [];
+    if (!this.isInitialized) {
+      await this.init();
+    }
+    if (!this.hasValidConfig() || !this.isInitialized) return [];
+    try {
+      const bindings = getPurchasesBindings();
+      if (!bindings?.Purchases || typeof bindings.Purchases.getProducts !== 'function') return [];
+
+      await this.ensureRevenueCatUserIdentity();
+      const productCategory =
+        category === 'non_subscription'
+          ? bindings.Purchases.PRODUCT_CATEGORY?.NON_SUBSCRIPTION
+          : bindings.Purchases.PRODUCT_CATEGORY?.SUBSCRIPTION;
+      const products = await bindings.Purchases.getProducts(uniqueProductIds, productCategory);
+      return Array.isArray(products) ? products : [];
+    } catch (error) {
+      console.error('Error getting store products:', error);
+      return [];
+    }
+  }
+
   static async purchasePackage(pack: PurchasesPackage): Promise<boolean> {
     try {
       if (this.invalidCredentialsDisabled) return false;
@@ -462,6 +490,47 @@ export class SubscriptionService {
       if (!error.userCancelled) {
         console.error('Error purchasing package:', error);
         await AnalyticsService.trackError(error, { context: 'purchase' });
+      }
+      return false;
+    }
+  }
+
+  static async purchaseStoreProduct(product: PurchasesStoreProduct): Promise<boolean> {
+    try {
+      if (this.invalidCredentialsDisabled) return false;
+      if (!this.isInitialized) {
+        await this.init();
+      }
+      if (this.invalidCredentialsDisabled) return false;
+      if (!this.hasValidConfig()) {
+        console.warn('RevenueCat purchase skipped: missing SDK key configuration.');
+        return false;
+      }
+      const bindings = getPurchasesBindings();
+      if (!bindings?.Purchases || typeof bindings.Purchases.purchaseStoreProduct !== 'function') {
+        return false;
+      }
+
+      await this.ensureRevenueCatUserIdentity();
+      const { customerInfo } = await bindings.Purchases.purchaseStoreProduct(product);
+      await this.updateUserSubscriptionStatus(customerInfo, 'purchase_store_product');
+      AdService.suppressAppOpenFor(90_000);
+
+      await AnalyticsService.trackEvent('purchase_success', {
+        package_id: product.identifier,
+        price: product.price,
+        source: 'store_product',
+      });
+
+      return true;
+    } catch (error: any) {
+      if (this.isInvalidCredentialsError(error)) {
+        this.markInvalidCredentials(error, 'purchase_store_product');
+        return false;
+      }
+      if (!error.userCancelled) {
+        console.error('Error purchasing store product:', error);
+        await AnalyticsService.trackError(error, { context: 'purchase_store_product' });
       }
       return false;
     }

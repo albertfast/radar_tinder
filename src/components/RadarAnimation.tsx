@@ -64,7 +64,7 @@ export const RadarAnimation = ({
     if (shouldUseLife3D) {
       logInfo('Life3D radar renderer active');
     } else if (selectedMode === 'life3d' && !canUseLife3D) {
-      logInfo('Life3D requested but native view unavailable, using legacy 2D fallback');
+      logInfo('Life3D requested but native view unavailable, using canvas 3D fallback');
     }
   }, [canUseLife3D, selectedMode, shouldUseLife3D]);
 

@@ -86,6 +86,23 @@ const getRadarDistanceKm = (radar: any) => {
   return Number.isFinite(distance) ? distance : Number.POSITIVE_INFINITY;
 };
 
+const getRouteSignature = (
+  routeCoords: Array<{ latitude: number; longitude: number }>,
+  routeDistance?: number | null
+) => {
+  const first = routeCoords[0];
+  const last = routeCoords[routeCoords.length - 1];
+  if (!first || !last) return '';
+  return [
+    routeCoords.length,
+    Math.round(Number(routeDistance || 0)),
+    first.latitude.toFixed(5),
+    first.longitude.toFixed(5),
+    last.latitude.toFixed(5),
+    last.longitude.toFixed(5),
+  ].join(':');
+};
+
 const mergeRadarCandidates = <T extends { id?: string | number; latitude?: number; longitude?: number }>(
   candidates: T[]
 ): T[] => {
@@ -160,7 +177,16 @@ const DriveScreen = ({ navigation, route }: any) => {
     endLatitude: null as number | null,
     endLongitude: null as number | null,
   });
+  const routeRadarSourceRef = useRef<{
+    signature: string;
+    fetchedAt: number;
+    radars: any[];
+  }>({ signature: '', fetchedAt: 0, radars: [] });
   const routeCoordinates = useMemo(() => toRouteCoordinates(routeState?.geometry), [routeState?.geometry]);
+  const routeSignature = useMemo(
+    () => getRouteSignature(routeCoordinates, routeState?.distance),
+    [routeCoordinates, routeState?.distance]
+  );
   const hasRoutePreview = routeCoordinates.length > 1;
   const hasActiveRoute = isNavigating && hasRoutePreview;
   const chromeTopOffset = insets.top + 108;
@@ -415,6 +441,39 @@ const DriveScreen = ({ navigation, route }: any) => {
     const nearbySpeedCameras = nearby
       .filter(isVisibleSpeedCamera)
       .filter((radar) => getRadarDistanceKm(radar) <= (hasRoutePreview ? 7.5 : 5));
+    let routeSourceSpeedCameras: typeof nearbySpeedCameras = [];
+    if (hasRoutePreview && routeCoordinates.length > 1 && routeSignature) {
+      const now = Date.now();
+      const cached = routeRadarSourceRef.current;
+      const shouldRefreshRouteSource =
+        cached.signature !== routeSignature || now - cached.fetchedAt > 120_000;
+      const routeSourceRadars = shouldRefreshRouteSource
+        ? await RadarService.getRadarsAlongRoute(routeCoordinates).catch((error) => {
+            console.warn('[DriveScreen] Route radar source fetch failed:', error);
+            return cached.signature === routeSignature ? cached.radars : [];
+          })
+        : cached.radars;
+
+      if (shouldRefreshRouteSource) {
+        routeRadarSourceRef.current = {
+          signature: routeSignature,
+          fetchedAt: now,
+          radars: routeSourceRadars,
+        };
+      }
+
+      routeSourceSpeedCameras = routeSourceRadars
+        .filter(isVisibleSpeedCamera)
+        .map((radar) => ({
+          ...radar,
+          distance: LocationService.calculateDistanceSync(
+            currentLocation.latitude,
+            currentLocation.longitude,
+            radar.latitude,
+            radar.longitude
+          ),
+        }));
+    }
     const routeSpeedCameras =
       hasRoutePreview && routeCoordinates.length > 1
         ? RadarService.filterRouteRelevantRadars(nearbySpeedCameras, {
@@ -424,6 +483,18 @@ const DriveScreen = ({ navigation, route }: any) => {
             maxCorridorMeters: 90,
             maxHeadingDeltaDeg: 180,
             etaSecondsWindow: [0, 3600],
+            requireEtaWindow: false,
+          })
+        : [];
+    const routeWideSpeedCameras =
+      hasRoutePreview && routeCoordinates.length > 1
+        ? RadarService.filterRouteRelevantRadars(routeSourceSpeedCameras, {
+            currentLocation,
+            routeCoords: routeCoordinates,
+            speedKph,
+            maxCorridorMeters: 140,
+            maxHeadingDeltaDeg: 180,
+            etaSecondsWindow: [0, 7200],
             requireEtaWindow: false,
           })
         : [];
@@ -441,10 +512,15 @@ const DriveScreen = ({ navigation, route }: any) => {
           )
         : [];
     const routePanelRadars = hasRoutePreview
-      ? routeSpeedCameras
+      ? mergeRadarCandidates([
+          ...routeWideSpeedCameras,
+          ...routeSpeedCameras,
+          ...immediateThreatCameras,
+        ]).slice(0, 24)
       : nearbySpeedCameras.slice(0, 14);
     const mapRadarCandidates = hasRoutePreview
       ? mergeRadarCandidates([
+          ...routeWideSpeedCameras,
           ...routeSpeedCameras,
           ...immediateThreatCameras,
           ...nearbySpeedCameras.filter((radar) => getRadarDistanceKm(radar) <= 2.5).slice(0, 32),
@@ -467,7 +543,7 @@ const DriveScreen = ({ navigation, route }: any) => {
         speedLimit: radar.speedLimit,
       }))
     );
-  }, [canUsePro, hasRoutePreview, routeCoordinates, userHeading, userLocation, userSpeed]);
+  }, [canUsePro, hasRoutePreview, routeCoordinates, routeSignature, userHeading, userLocation, userSpeed]);
 
   useEffect(() => {
     if (!isFocused) return undefined;
@@ -515,6 +591,7 @@ const DriveScreen = ({ navigation, route }: any) => {
       <View style={[styles.tabContent, renderMode !== 'Basic' && styles.hiddenContent]}>
         <RadarBasicTab
           nearbyRadars={nearbyRadars}
+          routeRadars={routeRadars}
           topContentInset={chromeTopOffset}
           bottomContentInset={Math.max(insets.bottom, 16)}
           unitSystem={unitSystem}

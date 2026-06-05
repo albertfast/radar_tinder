@@ -42,7 +42,7 @@ const RadarScreen = ({ navigation }: any) => {
   const manualPanModeRef = useRef(false);
   const currentLocationRef = useRef<any>(null);
 
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isScreenFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const [currentLocation, setCurrentLocation] = useState<any>(null);
@@ -96,6 +96,16 @@ const RadarScreen = ({ navigation }: any) => {
 
   const bottomSafe = Math.max(insets.bottom, 10);
   const tabBarInset = TAB_BAR_HEIGHT + bottomSafe + 16;
+  const availableHomeHeight = Math.max(520, height - insets.top - tabBarInset);
+  const isCompactHomeHeight = availableHomeHeight < 720;
+  const radarAnimationSize = Math.max(
+    isCompactHomeHeight ? 164 : 176,
+    Math.min(
+      Math.round(width * (isCompactHomeHeight ? 0.5 : 0.58)),
+      isCompactHomeHeight ? 226 : 290,
+      Math.round(availableHomeHeight * (isCompactHomeHeight ? 0.29 : 0.32))
+    )
+  );
   const nearestRadarSummary = dataSync.closestRadar
     ? dataSync.closestRadarHint
       ? `${formatDistance(dataSync.closestRadar.distance, unitSystem)} at ${dataSync.closestRadarHint}`
@@ -144,11 +154,12 @@ const RadarScreen = ({ navigation }: any) => {
       insetsTop={insets.top}
       tabBarInset={tabBarInset}
       width={width}
+      height={height}
       proSliderRef={proSliderRef}
       proSliderIndex={proSliderIndex}
       proFeatures={PRO_FEATURES}
-      radarAuraSize={Math.round(Math.max(176, Math.min(Math.round(width * 0.58), 290)) * 0.78)}
-      radarAnimationSize={Math.max(176, Math.min(Math.round(width * 0.58), 290))}
+      radarAuraSize={Math.round(radarAnimationSize * 0.78)}
+      radarAnimationSize={radarAnimationSize}
       closestRadar={dataSync.closestRadar}
       nearestRadarSummary={nearestRadarSummary}
       currentSpeed={dataSync.currentSpeed}

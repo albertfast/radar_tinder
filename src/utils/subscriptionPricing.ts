@@ -1,4 +1,5 @@
 import type { PurchasesPackage } from 'react-native-purchases';
+import type { PurchasesStoreProduct } from 'react-native-purchases';
 
 export type PlanKey = 'weekly' | 'yearly' | 'adfree';
 
@@ -11,9 +12,17 @@ export type PlanPricing = {
   monthlyEquivalent?: string;
 };
 
-const readIntroTrial = (pkg: PurchasesPackage | null): boolean => {
-  if (!pkg?.product) return false;
-  const product = pkg.product as unknown as Record<string, unknown>;
+type PricingSource = PurchasesPackage | PurchasesStoreProduct | null;
+
+const readProduct = (source: PricingSource): (PurchasesStoreProduct & Record<string, unknown>) | null => {
+  if (!source) return null;
+  const maybePackage = source as PurchasesPackage;
+  return ((maybePackage.product || source) as PurchasesStoreProduct & Record<string, unknown>) || null;
+};
+
+const readIntroTrial = (source: PricingSource): boolean => {
+  const product = readProduct(source);
+  if (!product) return false;
   const intro = product.introPrice as { price?: number; period?: string } | undefined;
   if (intro && typeof intro.price === 'number') return true;
   const options = product.subscriptionOptions as Array<{ introPhase?: unknown }> | undefined;
@@ -21,14 +30,15 @@ const readIntroTrial = (pkg: PurchasesPackage | null): boolean => {
 };
 
 export const formatPlanPricing = (
-  pkg: PurchasesPackage | null,
+  source: PricingSource,
   plan: PlanKey
 ): PlanPricing | null => {
-  if (!pkg?.product?.priceString) return null;
+  const product = readProduct(source);
+  if (!product?.priceString) return null;
 
-  const priceString = pkg.product.priceString;
-  const currencyCode = pkg.product.currencyCode;
-  const hasIntroTrial = plan === 'yearly' && readIntroTrial(pkg);
+  const priceString = product.priceString;
+  const currencyCode = product.currencyCode;
+  const hasIntroTrial = plan === 'yearly' && readIntroTrial(source);
 
   if (plan === 'adfree') {
     return {
@@ -48,7 +58,7 @@ export const formatPlanPricing = (
     };
   }
 
-  const price = Number(pkg.product.price);
+  const price = Number(product.price);
   const monthlyEquivalent =
     Number.isFinite(price) && price > 0
       ? new Intl.NumberFormat(undefined, {

@@ -16,6 +16,7 @@ import {
 
 type RadarBasicTabProps = {
   nearbyRadars: any[];
+  routeRadars?: any[];
   topContentInset: number;
   bottomContentInset: number;
   unitSystem: 'metric' | 'imperial';
@@ -57,6 +58,7 @@ const getTurnIcon = (type?: string, modifier?: string) => {
 
 export function RadarBasicTab({
   nearbyRadars,
+  routeRadars = [],
   topContentInset,
   bottomContentInset,
   unitSystem,
@@ -81,11 +83,12 @@ export function RadarBasicTab({
 
   // Lazy reverse-geocoding for radars without labels
   useEffect(() => {
-    if (!nearbyRadars || nearbyRadars.length === 0) return;
+    const candidateRadars = [...nearbyRadars, ...routeRadars];
+    if (candidateRadars.length === 0) return;
 
     const resolveVisible = async () => {
       // Prioritize closest 5 radars that don't have a label yet
-      const targets = nearbyRadars
+      const targets = candidateRadars
         .filter((r) => !r.locationLabel && !resolvedLabels[r.id])
         .slice(0, 5);
 
@@ -117,14 +120,25 @@ export function RadarBasicTab({
     };
 
     resolveVisible();
-  }, [nearbyRadars, resolvedLabels]);
+  }, [nearbyRadars, resolvedLabels, routeRadars]);
 
   const sortedRadars = useMemo(
-    () =>
-      [...(Array.isArray(nearbyRadars) ? nearbyRadars : [])].sort(
+    () => {
+      const seen = new Set<string>();
+      const merged = [...(Array.isArray(routeRadars) ? routeRadars : []), ...(Array.isArray(nearbyRadars) ? nearbyRadars : [])]
+        .filter((radar) => {
+          const key = radar?.id != null
+            ? String(radar.id)
+            : `${Number(radar?.latitude).toFixed(6)}:${Number(radar?.longitude).toFixed(6)}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      return merged.sort(
         (left, right) => Number(left?.distance || 9999) - Number(right?.distance || 9999),
-      ),
-    [nearbyRadars],
+      );
+    },
+    [nearbyRadars, routeRadars],
   );
   const closestRadar = sortedRadars[0] || null;
   const displayRadars = sortedRadars.slice(0, 14);
@@ -258,6 +272,28 @@ export function RadarBasicTab({
                 <Text style={styles.navActionPrimaryText}>GO</Text>
               </TouchableOpacity>
             )}
+          </View>
+        </LinearGradient>
+      ) : null}
+
+      {closestRadar ? (
+        <LinearGradient
+          colors={['rgba(69,18,24,0.98)', 'rgba(15,23,42,0.98)']}
+          style={[styles.routeCameraAlert, { borderColor: `${riskColor}55` }]}
+        >
+          <View style={[styles.routeCameraIcon, { backgroundColor: `${riskColor}20` }]}>
+            <MaterialCommunityIcons name="camera-outline" size={22} color={riskColor} />
+          </View>
+          <View style={styles.routeCameraCopy}>
+            <Text style={styles.routeCameraTitle}>Speed camera on your route</Text>
+            <Text style={styles.routeCameraSubtitle} numberOfLines={2}>
+              {getRadarSubtitle(closestRadar)}
+            </Text>
+          </View>
+          <View style={[styles.routeCameraDistance, { backgroundColor: `${riskColor}18` }]}>
+            <Text style={[styles.routeCameraDistanceText, { color: riskColor }]}>
+              {formatRadarDistanceAdaptive(Number(closestRadar.distance || 0), displayUnitSystem)}
+            </Text>
           </View>
         </LinearGradient>
       ) : null}
@@ -439,6 +475,50 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(127,29,29,0.18)',
     borderWidth: 1,
     borderColor: 'rgba(251,113,133,0.22)',
+  },
+  routeCameraAlert: {
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#FF5252',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  routeCameraIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routeCameraCopy: {
+    flex: 1,
+  },
+  routeCameraTitle: {
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  routeCameraSubtitle: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  routeCameraDistance: {
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  routeCameraDistanceText: {
+    fontSize: 12,
+    fontWeight: '900',
   },
   speedModule: {
     borderRadius: 22,

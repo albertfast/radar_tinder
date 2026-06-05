@@ -1,11 +1,12 @@
+import { Platform } from 'react-native';
 import type { PurchasesPackage } from 'react-native-purchases';
+import type { PurchasesStoreProduct } from 'react-native-purchases';
 import type { PlanKey } from './subscriptionPricing';
 
 const PLAN_IDS: Record<PlanKey, string> = {
-  weekly: 'pro_subscription_weekly',
-  yearly: 'pro_subscription_yearly',
-  adfree: 'remove_ads',
-  adfree: 'remove_ads_1',
+  weekly: Platform.OS === 'ios' ? 'weekly2' : 'pro_subscription:weekly',
+  yearly: Platform.OS === 'ios' ? 'yearly2' : 'pro_subscription:yearly',
+  adfree: Platform.OS === 'ios' ? 'remove_ads_1' : 'remove_ads',
 };
 
 const getProductHints = (plan: PlanKey): string[] => {
@@ -24,7 +25,10 @@ const getProductHints = (plan: PlanKey): string[] => {
       '$rc_weekly',
       'rc_weekly',
       'pro_subscription:weekly',
+      'pro_subscription_weekly',
+      'pro_subscription_weekly_2',
       'pro_subscription_weekly2',
+      'weekly2',
       'weekly',
     ],
     yearly: [
@@ -33,7 +37,10 @@ const getProductHints = (plan: PlanKey): string[] => {
       '$rc_yearly',
       'rc_yearly',
       'pro_subscription:yearly',
+      'pro_subscription_yearly',
+      'pro_subscription_yearly_2',
       'pro_subscription_yearly2',
+      'yearly2',
       'yearly',
       'annual',
     ],
@@ -44,6 +51,11 @@ const getProductHints = (plan: PlanKey): string[] => {
     .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
     .map((v) => v.toLowerCase());
 };
+
+export const getStoreProductIdsForPlan = (plan: PlanKey): string[] =>
+  [...new Set(getProductHints(plan))]
+    .filter((id) => !id.startsWith('$rc_') && !id.startsWith('rc_'))
+    .filter((id) => id.length > 1);
 
 const packageTypeMatchesPlan = (pkg: PurchasesPackage, plan: PlanKey): boolean => {
   const packageType = String((pkg as { packageType?: string })?.packageType || '').toUpperCase();
@@ -67,6 +79,15 @@ const packageMatchesPlan = (pkg: PurchasesPackage, plan: PlanKey) => {
   }
   return /lifetime|one[_-]?time|remove[_-]?ads|ad[_-]?free/.test(id) ||
     /lifetime|one[_-]?time|remove[_-]?ads|ad[_-]?free/.test(productId);
+};
+
+const storeProductMatchesPlan = (product: PurchasesStoreProduct, plan: PlanKey) => {
+  const productId = String(product?.identifier || '').toLowerCase();
+  const hints = getProductHints(plan);
+  if (hints.some((hint) => productId === hint || productId.includes(hint))) return true;
+  if (plan === 'yearly') return /annual|year|yearly/.test(productId);
+  if (plan === 'weekly') return /week|weekly/.test(productId);
+  return /lifetime|one[_-]?time|remove[_-]?ads|ad[_-]?free/.test(productId);
 };
 
 export const findPackageForPlan = (
@@ -96,3 +117,9 @@ export const mapOfferingPackages = (
   yearly: findPackageForPlan(availablePackages, 'yearly', offering),
   adfree: findPackageForPlan(availablePackages, 'adfree', offering),
 });
+
+export const findStoreProductForPlan = (
+  products: PurchasesStoreProduct[],
+  plan: PlanKey
+): PurchasesStoreProduct | null =>
+  products.find((product) => storeProductMatchesPlan(product, plan)) || null;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +27,8 @@ export const SubscriptionLegalBlock = ({
   const { t } = useTranslation();
   const yearlyPrice = pricingByPlan.yearly?.priceString || '—';
   const weeklyPrice = pricingByPlan.weekly?.priceString || '—';
+  const storeIcon = Platform.OS === 'ios' ? 'apple' : 'google-play';
+  const cancelHowKey = Platform.OS === 'ios' ? 'subscription.cancelHowIos' : 'subscription.cancelHowAndroid';
 
   const legalBody =
     selectedPlan === 'yearly' && trialActive
@@ -42,10 +44,10 @@ export const SubscriptionLegalBlock = ({
         <Text style={styles.termsEyebrow}>{t('subscription.offerTerms')}</Text>
       </View>
       <Text style={styles.legalText}>{legalBody}</Text>
-      <Text style={styles.legalText}>{t('subscription.cancelHow')}</Text>
+      <Text style={styles.legalText}>{t(cancelHowKey)}</Text>
 
       <TouchableOpacity style={styles.manageButton} onPress={() => openManageSubscriptions()}>
-        <MaterialCommunityIcons name="google-play" size={16} color="#7CE8DF" />
+        <MaterialCommunityIcons name={storeIcon} size={16} color="#7CE8DF" />
         <Text style={styles.manageText}>{t('subscription.manageSubscription')}</Text>
       </TouchableOpacity>
 
