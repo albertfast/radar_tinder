@@ -1,5 +1,5 @@
 import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import RNMapView, {
   LatLng,
   MapPressEvent,
@@ -39,9 +39,22 @@ interface MapViewProps {
 }
 
 const INITIAL_DELTA = 0.024;
-const ROUTE_COLOR = '#2DD4BF';
-const ROUTE_SHADOW = 'rgba(20, 184, 166, 0.34)';
-const ALT_ROUTE_COLOR = 'rgba(148, 163, 184, 0.58)';
+const ROUTE_VISUALS = Platform.select({
+  ios: {
+    activeColor: '#2DD4BF',
+    shadowColor: '#14B8A655', // 0.34 opacity
+    altColor: '#94A3B894',    // 0.58 opacity
+  },
+  default: {
+    activeColor: '#2DD4BF',
+    shadowColor: '#14B8A655',
+    altColor: '#94A3B894',
+  },
+})!;
+const ROUTE_COLOR = ROUTE_VISUALS.activeColor;
+const ROUTE_SHADOW = ROUTE_VISUALS.shadowColor;
+const ALT_ROUTE_COLOR = ROUTE_VISUALS.altColor;
+
 
 const DARK_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#08111f' }] },
@@ -109,7 +122,7 @@ function destinationPoint(lat: number, lng: number, bearing: number, meters: num
   const lambda1 = (lng * Math.PI) / 180;
   const phi2 = Math.asin(
     Math.sin(phi1) * Math.cos(angularDistance) +
-      Math.cos(phi1) * Math.sin(angularDistance) * Math.cos(theta)
+    Math.cos(phi1) * Math.sin(angularDistance) * Math.cos(theta)
   );
   const lambda2 =
     lambda1 +
@@ -566,6 +579,8 @@ export default function MapView({
     const coordinates = routeCoordinates(route);
     if (coordinates.length < 2) return null;
     const routeId = route.id ?? `route-${index}`;
+    const color = active ? ROUTE_COLOR : ALT_ROUTE_COLOR;
+    console.log('[MapView] renderRoute', { routeId, active, color, coords: coordinates.length });
 
     return (
       <React.Fragment key={routeId}>
@@ -581,7 +596,7 @@ export default function MapView({
         ) : null}
         <Polyline
           coordinates={coordinates}
-          strokeColor={active ? ROUTE_COLOR : ALT_ROUTE_COLOR}
+          strokeColor={color}
           strokeWidth={active ? 7 : 4}
           lineCap="round"
           lineJoin="round"
@@ -619,7 +634,13 @@ export default function MapView({
         onPress={handlePress}
         onRegionChangeComplete={handleRegionChangeComplete}
       >
-        {routes.map((route, index) => renderRoute(route, route === selectedRoute, index))}
+        {routes.map((route, index) => {
+          // Compare by ID to avoid reference equality issues across state updates
+          const isActive = selectedRoute != null && (
+            (route.id != null && route.id === selectedRoute.id) || route === selectedRoute
+          );
+          return renderRoute(route, isActive, index);
+        })}
 
         {destination ? (
           <Marker

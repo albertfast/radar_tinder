@@ -70,60 +70,6 @@ target 'RadarTinder' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
-    # Disable script sandboxing for app target shell phases. CocoaPods resource
-    # scripts write temporary file lists under ios/Pods and can be blocked.
-    installer.aggregate_targets.each do |aggregate_target|
-      user_project = aggregate_target.user_project
-      next unless user_project
-
-      user_project.native_targets.each do |native_target|
-        native_target.build_configurations.each do |build_config|
-          build_config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
-        end
-      end
-
-      user_project.save
-    end
-
-    # Workaround: Xcode 26 strict modular header checks in static framework pods
-    installer.pods_project.targets.each do |target|
-      target.build_configurations.each do |build_config|
-        # Some pods (RNFirebase, etc.) import React headers and fail under framework modular checks.
-        build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-        build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
-        if build_config.name == 'Release'
-          # Ensure Release archives emit dSYMs so App Store symbol upload succeeds.
-          build_config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
-          build_config.build_settings['GCC_GENERATE_DEBUGGING_SYMBOLS'] = 'YES'
-          build_config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
-        end
-      end
-
-      # Xcode 26.x + fmt 11.x can fail with consteval/C++20 format-string checks.
-      # Keep fmt on C++17 so only that pod sidesteps the stricter compiler path.
-      if target.name == 'fmt'
-        target.build_configurations.each do |build_config|
-          build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
-        end
-      end
-
-      if ['react-native-google-maps', 'react-native-maps'].include?(target.name)
-        target.build_configurations.each do |build_config|
-          # Keep modules enabled for Google Maps related headers used by this target.
-          build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
-          build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
-        end
-      end
-
-      if ['Google-Maps-iOS-Utils', 'GoogleMapsUtils'].include?(target.name)
-        target.build_configurations.each do |build_config|
-          # Keep modules enabled for @import GoogleMaps used by Google-Maps-iOS-Utils.
-          build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
-          build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
-        end
-      end
-    end
-
     # @radar-tinder begin hermes-dsym
     hermes_dsym_script = <<-'SCRIPT'
 #!/usr/bin/env bash
@@ -190,6 +136,63 @@ SCRIPT
       user_project.save
     end
     # @radar-tinder end hermes-dsym
+
+    # Disable script sandboxing for app target shell phases. CocoaPods resource
+    # scripts write temporary file lists under ios/Pods and can be blocked.
+    installer.aggregate_targets.each do |aggregate_target|
+      user_project = aggregate_target.user_project
+      next unless user_project
+
+      user_project.native_targets.each do |native_target|
+        native_target.build_configurations.each do |build_config|
+          build_config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+        end
+      end
+
+      user_project.save
+    end
+
+    # Workaround: Xcode 26 strict modular header checks in static framework pods
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        # Some pods (RNFirebase, etc.) import React headers and fail under framework modular checks.
+        build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
+        if build_config.name == 'Release'
+          # Ensure Release archives emit dSYMs so App Store symbol upload succeeds.
+          build_config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
+          build_config.build_settings['GCC_GENERATE_DEBUGGING_SYMBOLS'] = 'YES'
+          build_config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
+        end
+      end
+
+      if ['react-native-google-maps', 'react-native-maps'].include?(target.name)
+        target.build_configurations.each do |build_config|
+          # Keep modules enabled for Google Maps related headers used by this target.
+          build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
+          build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
+        end
+      end
+
+      if ['Google-Maps-iOS-Utils', 'GoogleMapsUtils'].include?(target.name)
+        target.build_configurations.each do |build_config|
+          # Keep modules enabled for @import GoogleMaps used by Google-Maps-iOS-Utils.
+          build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
+          build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
+        end
+      end
+    end
+
+    # Workaround for consteval error in fmt::basic_format_string on newer Xcode compilers
+    fmt_base_header = File.join(installer.sandbox.root.to_s, 'fmt', 'include', 'fmt', 'base.h')
+    if File.exist?(fmt_base_header)
+      fmt_base_content = File.read(fmt_base_header)
+      fmt_patched = fmt_base_content.gsub('#  define FMT_CONSTEVAL consteval', '#  define FMT_CONSTEVAL')
+      if fmt_patched != fmt_base_content
+        File.chmod(0644, fmt_base_header)
+        File.write(fmt_base_header, fmt_patched)
+      end
+    end
 
     # Safety patch: avoid @import failure if a future config disables modules.
     gmu_header = File.join(

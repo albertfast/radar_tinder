@@ -99,11 +99,11 @@ const RadarScreen = ({ navigation }: any) => {
   const availableHomeHeight = Math.max(520, height - insets.top - tabBarInset);
   const isCompactHomeHeight = availableHomeHeight < 720;
   const radarAnimationSize = Math.max(
-    isCompactHomeHeight ? 164 : 176,
+    isCompactHomeHeight ? 200 : 220,
     Math.min(
-      Math.round(width * (isCompactHomeHeight ? 0.5 : 0.58)),
-      isCompactHomeHeight ? 226 : 290,
-      Math.round(availableHomeHeight * (isCompactHomeHeight ? 0.29 : 0.32))
+      Math.round(width * (isCompactHomeHeight ? 0.62 : 0.70)),
+      Math.round(availableHomeHeight * (isCompactHomeHeight ? 0.38 : 0.42)),
+      isCompactHomeHeight ? 280 : 340
     )
   );
   const nearestRadarSummary = dataSync.closestRadar

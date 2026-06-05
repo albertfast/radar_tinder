@@ -413,8 +413,8 @@ export function RadarHomeDashboard({
 
 const localStyles = StyleSheet.create({
   radarShellDense: {
-    marginTop: -14,
-    marginBottom: -6,
+    marginTop: -6,
+    marginBottom: 2,
   },
   statRowDense: {
     marginTop: -2,

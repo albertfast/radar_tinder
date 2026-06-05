@@ -17,7 +17,7 @@ export const radarScreenStyles = StyleSheet.create({
   heroTitle: { color: '#F8FAFC', fontSize: 22, fontWeight: '900', letterSpacing: 0.4, marginTop: 2 },
   heroBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#4ECDC4', paddingHorizontal: 11, paddingVertical: 7, borderRadius: 14, gap: 6, shadowColor: '#4ECDC4', shadowOpacity: 0.4, shadowRadius: 10, elevation: 4 },
   heroBadgeText: { color: '#0B1424', fontWeight: '900', letterSpacing: 0.5 },
-  radarShell: { alignItems: 'center', justifyContent: 'center', marginTop: -8, marginBottom: 0 },
+  radarShell: { alignItems: 'center', justifyContent: 'center', marginTop: -4, marginBottom: 4, alignSelf: 'center' },
   radarAura: { position: 'absolute', backgroundColor: 'rgba(78,205,196,0.05)' },
   radarChip: { position: 'absolute', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 14, backgroundColor: 'rgba(2,6,23,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   radarChipLeft: { top: 12, left: 14 },

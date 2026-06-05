@@ -43,8 +43,8 @@ export const RadarAnimation = ({
   pulseEnabled = true,
   paused = false,
 }: RadarAnimationProps) => {
-  const { width } = useWindowDimensions();
-  const resolvedSize = size || Math.max(220, Math.min(Math.round(width * 0.8), 360));
+  const { width, height } = useWindowDimensions();
+  const resolvedSize = size || Math.max(220, Math.min(Math.round(Math.min(width, height) * 0.82), 380));
   const dynamicStyles = useMemo(() => createDynamicStyles(resolvedSize), [resolvedSize]);
 
   const selectedMode = rendererMode || ENV_RENDERER_MODE;
@@ -103,12 +103,14 @@ const buildRadarLifeHtml = ({
   rotationSpeed,
   pulseEnabled,
   paused,
+  canvasSize,
 }: {
   signalLevel: number;
   dangerLevel: number;
   rotationSpeed: number;
   pulseEnabled: boolean;
   paused: boolean;
+  canvasSize: number;
 }) => `
 <!doctype html>
 <html>
@@ -116,8 +118,8 @@ const buildRadarLifeHtml = ({
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0" />
   <style>
-    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
-    canvas { display: block; width: 100vw; height: 100vh; }
+    html, body { width: ${canvasSize}px; height: ${canvasSize}px; margin: 0; overflow: hidden; background: transparent; }
+    canvas { display: block; width: ${canvasSize}px; height: ${canvasSize}px; }
   </style>
 </head>
 <body>
@@ -134,11 +136,12 @@ const buildRadarLifeHtml = ({
       var phase = 0;
       var particles = [];
       var cells = [];
+      var canvasSize = ${canvasSize};
 
       function resize() {
         var ratio = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = Math.max(1, Math.floor(window.innerWidth * ratio));
-        canvas.height = Math.max(1, Math.floor(window.innerHeight * ratio));
+        canvas.width = Math.max(1, Math.floor(canvasSize * ratio));
+        canvas.height = Math.max(1, Math.floor(canvasSize * ratio));
         ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       }
 
@@ -180,8 +183,8 @@ const buildRadarLifeHtml = ({
       }
 
       function draw() {
-        var w = window.innerWidth;
-        var h = window.innerHeight;
+        var w = canvasSize;
+        var h = canvasSize;
         var cx = w / 2;
         var cy = h / 2 + h * 0.02;
         var size = Math.min(w, h) * 0.86;
@@ -310,8 +313,8 @@ const RadarLifeWebFallback = ({
 }) => {
   const [webFailed, setWebFailed] = useState(false);
   const html = useMemo(
-    () => buildRadarLifeHtml({ signalLevel, dangerLevel, rotationSpeed, pulseEnabled, paused }),
-    [dangerLevel, paused, pulseEnabled, rotationSpeed, signalLevel]
+    () => buildRadarLifeHtml({ signalLevel, dangerLevel, rotationSpeed, pulseEnabled, paused, canvasSize: fallbackSize }),
+    [dangerLevel, paused, pulseEnabled, rotationSpeed, signalLevel, fallbackSize]
   );
 
   if (webFailed) {
@@ -319,7 +322,7 @@ const RadarLifeWebFallback = ({
   }
 
   return (
-    <View style={[style, styles.webLifeContainer]} pointerEvents="none">
+    <View style={[style, styles.webLifeContainer, { width: fallbackSize, height: fallbackSize }]} pointerEvents="none">
       <WebView
         source={{ html }}
         originWhitelist={['*']}
@@ -334,8 +337,8 @@ const RadarLifeWebFallback = ({
         setSupportMultipleWindows={false}
         onError={() => setWebFailed(true)}
         onHttpError={() => setWebFailed(true)}
-        style={styles.webLifeView}
-        containerStyle={styles.webLifeViewContainer}
+        style={[styles.webLifeView, { width: fallbackSize, height: fallbackSize }]}
+        containerStyle={[styles.webLifeViewContainer, { width: fallbackSize, height: fallbackSize }]}
       />
     </View>
   );
@@ -392,9 +395,9 @@ const RadarFallback = ({
         : `rgba(78, 205, 196, ${alpha.toFixed(3)})`;
 
       result.push({
-        id: i,
+        id: `p-${i}`,
         x: x3d * radius * 0.95,
-        y: y3d * radius * 0.56 + z3d * radius * 0.16,
+        y: y3d * radius * 0.95 + z3d * radius * 0.16,
         depth,
         size: particleSize,
         color,
@@ -533,8 +536,8 @@ const RadarFallback = ({
 };
 
 const createDynamicStyles = (size: number) => {
-  const disk = size * 0.9;
-  const globe = disk * 0.82;
+  const disk = size * 0.94;
+  const globe = disk * 0.86;
 
   return StyleSheet.create({
     container: {
@@ -564,8 +567,8 @@ const createDynamicStyles = (size: number) => {
     },
     horizonGlow: {
       width: globe * 1.06,
-      height: globe * 0.42,
-      borderRadius: globe * 0.22,
+      height: globe * 1.06,
+      borderRadius: (globe * 1.06) / 2,
     },
     radarBase: {
       width: disk * 0.96,
@@ -680,21 +683,22 @@ const styles = StyleSheet.create({
   },
   ellipseRing: {
     position: 'absolute',
-    borderWidth: 1,
-    borderColor: 'rgba(78, 205, 196, 0.34)',
-    transform: [{ scaleY: 0.56 }],
+    borderWidth: 2,
+    borderColor: 'rgba(78, 205, 196, 0.45)',
+    borderStyle: 'solid',
+    transform: [{ scaleY: 0.95 }, { scaleX: 0.95 }],
   },
   meridianArc: {
     position: 'absolute',
     borderWidth: 1,
     borderColor: 'rgba(78, 205, 196, 0.16)',
-    transform: [{ scaleX: 0.32 }],
+    transform: [{ scaleX: 0.95 }],
   },
   meridianArcTilted: {
-    transform: [{ scaleX: 0.32 }, { rotate: '22deg' }],
+    transform: [{ scaleX: 0.95 }, { rotate: '22deg' }],
   },
   meridianArcTight: {
-    transform: [{ scaleX: 0.24 }, { rotate: '-18deg' }],
+    transform: [{ scaleX: 0.95 }, { rotate: '-18deg' }],
   },
   pulseRing: {
     position: 'absolute',
