@@ -209,7 +209,8 @@ module.exports = {
       "./plugins/withAndroidReleaseSigning.js",
       "./plugins/withOnnxRuntime.js",
       "./plugins/withAndroidCustomNative.js",
-      "./plugins/withIosGoogleMapsInitFix.js"
+      "./plugins/withIosGoogleMapsInitFix.js",
+      "./plugins/withIosHermesDsym.js"
     ],
     extra: {
       buildFingerprint: BUILD_FINGERPRINT,
