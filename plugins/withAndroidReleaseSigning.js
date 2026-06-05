@@ -7,7 +7,7 @@ const RELEASE_SIGNING_BLOCK = `        release {
             keyPassword '933b393230dc1659891255937bea56dc'
         }`;
 const RELEASE_SIGNING_PATTERN = /^[ \t]*release\s*\{[\s\S]*?^[ \t]*\}/m;
-const EXPECTED_PLAY_UPLOAD_SHA1 = '12:76:27:57:E2:93:B7:72:DA:A5:76:E1:6B:1C:51:20:94:3C:B9:43';
+const EXPECTED_PLAY_UPLOAD_SHA1 = '8E:91:95:0F:1F:BB:64:06:37:15:E4:2B:8B:82:13:66:BA:03:28:C2';
 
 const DYNAMIC_VERSION_CODE_BLOCK = `def resolveDynamicVersionCode = {
     def explicitVersionCode = findProperty('android.versionCode') ?: System.getenv('ANDROID_VERSION_CODE')

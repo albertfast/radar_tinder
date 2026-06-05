@@ -15,13 +15,14 @@ fi
 
 echo "==> Keystore SHA1 (must match Play Console upload key):"
 keytool -list -v -keystore "$ROOT/@albertfast__radar-tinder.jks" \
-  -storepass '60e1270716eb0e15a2d03cf92e6e12ae' 2>/dev/null | grep 'SHA1:' | head -1
+  -storepass '60e1270716eb0e15a2d03cf92e6e12ae' \
+  -alias '50bfc63f638af988fe807ff1eb2cd296' 2>/dev/null | grep 'SHA1:' | head -1
 
-echo "==> Cleaning old Android bundle outputs..."
-cd "$ROOT/android"
-./gradlew clean
+echo "==> Removing previous release AAB only (skip ./gradlew clean — breaks RN codegen)..."
+rm -f "$ROOT/android/app/build/outputs/bundle/release/app-release.aab"
 
 echo "==> bundleRelease (runs expo export:embed for current JS)..."
+cd "$ROOT/android"
 ./gradlew bundleRelease
 
 AAB="$ROOT/android/app/build/outputs/bundle/release/app-release.aab"
@@ -31,6 +32,12 @@ if [[ ! -f "$AAB" ]]; then
 fi
 
 echo ""
-echo "==> Done. Upload THIS file to Play Console:"
-echo "$AAB"
-ls -lh "$AAB"
+echo "==> Verifying AAB upload certificate..."
+node "$ROOT/scripts/verify-android-upload-cert.mjs" --aab "$AAB"
+
+echo ""
+bash "$ROOT/scripts/package-play-aab.sh"
+
+echo ""
+echo "==> Upload the file from dist/play-upload/ to Play Console (not an old app-release.aab)."
+keytool -printcert -jarfile "$AAB" 2>/dev/null | grep 'SHA1:' | head -1

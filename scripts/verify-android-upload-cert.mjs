@@ -4,7 +4,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const EXPECTED_SHA1 = '12:76:27:57:E2:93:B7:72:DA:A5:76:E1:6B:1C:51:20:94:3C:B9:43';
+const EXPECTED_SHA1 = '8E:91:95:0F:1F:BB:64:06:37:15:E4:2B:8B:82:13:66:BA:03:28:C2';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 const buildGradlePath = path.join(projectRoot, 'android', 'app', 'build.gradle');
