@@ -5,6 +5,7 @@ const PLAN_IDS: Record<PlanKey, string> = {
   weekly: 'pro_subscription_weekly',
   yearly: 'pro_subscription_yearly',
   adfree: 'remove_ads',
+  adfree: 'remove_ads_1',
 };
 
 const getProductHints = (plan: PlanKey): string[] => {
@@ -23,7 +24,7 @@ const getProductHints = (plan: PlanKey): string[] => {
       '$rc_weekly',
       'rc_weekly',
       'pro_subscription:weekly',
-      'pro_subscription_weekly',
+      'pro_subscription_weekly2',
       'weekly',
     ],
     yearly: [
@@ -32,11 +33,11 @@ const getProductHints = (plan: PlanKey): string[] => {
       '$rc_yearly',
       'rc_yearly',
       'pro_subscription:yearly',
-      'pro_subscription_yearly',
+      'pro_subscription_yearly2',
       'yearly',
       'annual',
     ],
-    adfree: ['$rc_lifetime', 'rc_lifetime', 'remove_ads', 'adfree', 'lifetime'],
+    adfree: ['$rc_lifetime', 'rc_lifetime', 'remove_ads', 'remove_ads_1', 'adfree', 'lifetime'],
   };
 
   return [fromEnv, fromPackageEnv, PLAN_IDS[plan], ...aliases[plan]]

@@ -99,6 +99,14 @@ target 'RadarTinder' do
         end
       end
 
+      # Xcode 26.x + fmt 11.x can fail with consteval/C++20 format-string checks.
+      # Keep fmt on C++17 so only that pod sidesteps the stricter compiler path.
+      if target.name == 'fmt'
+        target.build_configurations.each do |build_config|
+          build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+        end
+      end
+
       if ['react-native-google-maps', 'react-native-maps'].include?(target.name)
         target.build_configurations.each do |build_config|
           # Keep modules enabled for Google Maps related headers used by this target.
@@ -150,5 +158,6 @@ target 'RadarTinder' do
       )
       File.write(rn_maps_marker_header, marker_patched) if marker_patched != marker_content
     end
+
   end
 end

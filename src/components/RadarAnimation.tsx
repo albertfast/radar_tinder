@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, UIManager, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { WebView } from 'react-native-webview';
 import { logInfo } from '../utils/logger';
 import { ROTATION_TIMING, PULSE_TIMING, EASING_FUNCTIONS } from '../utils/animationConstants';
 import RadarLife3DView, { RadarLifeThemeVariant } from './RadarLife3DView';
@@ -57,6 +58,7 @@ export const RadarAnimation = ({
     if (selectedMode === 'auto') return canUseLife3D;
     return canUseLife3D;
   }, [canUseLife3D, preferFallback, selectedMode]);
+  const shouldUseWebLife3D = !preferFallback && selectedMode === 'life3d' && !canUseLife3D;
 
   useEffect(() => {
     if (shouldUseLife3D) {
@@ -78,9 +80,263 @@ export const RadarAnimation = ({
           themeVariant={artPreset}
           paused={paused}
         />
+      ) : shouldUseWebLife3D ? (
+        <RadarLifeWebFallback
+          style={dynamicStyles.glView}
+          signalLevel={signalLevel}
+          dangerLevel={dangerLevel}
+          rotationSpeed={rotationSpeed}
+          pulseEnabled={pulseEnabled}
+          paused={paused}
+          fallbackSize={resolvedSize}
+        />
       ) : (
         <RadarFallback size={resolvedSize} signalLevel={signalLevel} dangerLevel={dangerLevel} />
       )}
+    </View>
+  );
+};
+
+const buildRadarLifeHtml = ({
+  signalLevel,
+  dangerLevel,
+  rotationSpeed,
+  pulseEnabled,
+  paused,
+}: {
+  signalLevel: number;
+  dangerLevel: number;
+  rotationSpeed: number;
+  pulseEnabled: boolean;
+  paused: boolean;
+}) => `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0" />
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="radar"></canvas>
+  <script>
+    (function () {
+      var canvas = document.getElementById('radar');
+      var ctx = canvas.getContext('2d');
+      var signal = ${clamp01(signalLevel).toFixed(3)};
+      var danger = ${clamp01(dangerLevel).toFixed(3)};
+      var speed = ${Math.max(0.15, rotationSpeed).toFixed(3)};
+      var pulseEnabled = ${pulseEnabled ? 'true' : 'false'};
+      var paused = ${paused ? 'true' : 'false'};
+      var phase = 0;
+      var particles = [];
+      var cells = [];
+
+      function resize() {
+        var ratio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.max(1, Math.floor(window.innerWidth * ratio));
+        canvas.height = Math.max(1, Math.floor(window.innerHeight * ratio));
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+
+      function seed() {
+        particles = [];
+        cells = [];
+        var particleCount = 68 + Math.round(signal * 46);
+        for (var i = 0; i < particleCount; i++) {
+          particles.push({
+            a: Math.random() * Math.PI * 2,
+            r: 0.10 + Math.random() * 0.86,
+            y: -0.28 + Math.random() * 0.76,
+            s: 0.18 + Math.random() * 0.34,
+            threat: Math.random() > 0.76
+          });
+        }
+        for (var j = 0; j < 76; j++) {
+          cells.push({
+            x: -0.74 + Math.random() * 1.48,
+            z: -0.74 + Math.random() * 1.48,
+            e: Math.random(),
+            p: Math.random() * Math.PI * 2
+          });
+        }
+      }
+
+      function color(base, alpha) {
+        if (base === 'danger') return 'rgba(255,82,82,' + alpha + ')';
+        if (base === 'blue') return 'rgba(56,189,248,' + alpha + ')';
+        return 'rgba(78,205,196,' + alpha + ')';
+      }
+
+      function ellipse(cx, cy, rx, ry, stroke, width) {
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = width || 1;
+        ctx.stroke();
+      }
+
+      function draw() {
+        var w = window.innerWidth;
+        var h = window.innerHeight;
+        var cx = w / 2;
+        var cy = h / 2 + h * 0.02;
+        var size = Math.min(w, h) * 0.86;
+        var radius = size * 0.43;
+        if (!paused) phase += 0.010 * speed;
+
+        ctx.clearRect(0, 0, w, h);
+        var bg = ctx.createRadialGradient(cx, cy, radius * 0.08, cx, cy, radius * 1.08);
+        bg.addColorStop(0, 'rgba(78,205,196,0.28)');
+        bg.addColorStop(0.48, 'rgba(14,116,144,0.15)');
+        bg.addColorStop(1, 'rgba(2,6,23,0)');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        var shellPulse = pulseEnabled ? 0.04 * Math.sin(phase * 3.2) : 0;
+        ellipse(0, -radius * 0.04, radius * (0.98 + shellPulse), radius * 0.72, color('blue', 0.18), 1.2);
+        for (var s = 0; s < 5; s++) {
+          ellipse(0, (s - 2) * radius * 0.19, radius * (0.82 - s * 0.035), radius * (0.15 + s * 0.012), color('teal', 0.12 + s * 0.025), 1);
+        }
+        for (var m = 0; m < 4; m++) {
+          ctx.save();
+          ctx.rotate(phase * 0.7 + m * Math.PI / 4);
+          ellipse(0, 0, radius * (0.30 + m * 0.08), radius * 0.72, color('blue', 0.08 + m * 0.018), 1);
+          ctx.restore();
+        }
+
+        ctx.save();
+        ctx.scale(1, 0.34);
+        var disk = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 1.02);
+        disk.addColorStop(0, 'rgba(78,205,196,0.20)');
+        disk.addColorStop(0.62, 'rgba(6,78,90,0.18)');
+        disk.addColorStop(1, 'rgba(3,7,18,0.76)');
+        ctx.fillStyle = disk;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 1.02, 0, Math.PI * 2);
+        ctx.fill();
+        for (var r = 0.18; r <= 0.88; r += 0.14) ellipse(0, 0, radius * r, radius * r, color('teal', 0.14), 1);
+        ctx.restore();
+
+        var sweep = phase * 2.4;
+        ctx.save();
+        ctx.scale(1, 0.34);
+        ctx.rotate(sweep);
+        var cone = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+        cone.addColorStop(0, 'rgba(78,205,196,0.26)');
+        cone.addColorStop(1, 'rgba(78,205,196,0)');
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, radius * 0.98, -0.34, 0.34);
+        ctx.closePath();
+        ctx.fillStyle = cone;
+        ctx.fill();
+        ctx.restore();
+
+        particles.forEach(function (p, i) {
+          var a = p.a + phase * (0.8 + p.s);
+          var x = Math.cos(a) * radius * p.r;
+          var z = Math.sin(a) * radius * p.r;
+          var y = p.y * radius * 0.34 + z * 0.16;
+          var depth = (Math.sin(a) + 1) / 2;
+          var threat = p.threat && danger > 0.18;
+          var alpha = 0.22 + depth * 0.52 + (threat ? danger * 0.24 : 0);
+          ctx.beginPath();
+          ctx.fillStyle = color(threat ? 'danger' : (i % 5 === 0 ? 'blue' : 'teal'), alpha);
+          ctx.shadowColor = threat ? '#ff5252' : '#4ecdc4';
+          ctx.shadowBlur = 8 + depth * 8;
+          ctx.arc(x, y, 1.4 + depth * 2.8, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+
+        cells.forEach(function (c) {
+          var dist = Math.sqrt(c.x * c.x + c.z * c.z);
+          if (dist > 0.86) return;
+          var energy = Math.max(0, Math.sin(phase * 5 + c.p) * 0.5 + c.e);
+          if (energy < 0.38) return;
+          var x = c.x * radius;
+          var y = c.z * radius * 0.34;
+          ctx.fillStyle = color(energy > 1.05 && danger > 0.28 ? 'danger' : 'teal', Math.min(0.62, energy * 0.36));
+          ctx.fillRect(x - 1.2, y - 1.2, 2.4 + energy * 2.2, 2.4 + energy * 2.2);
+        });
+
+        var corePulse = pulseEnabled ? 1 + Math.sin(phase * 4.4) * 0.18 : 1;
+        var core = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 0.18 * corePulse);
+        core.addColorStop(0, 'rgba(255,255,255,0.86)');
+        core.addColorStop(0.34, 'rgba(78,205,196,0.58)');
+        core.addColorStop(1, 'rgba(78,205,196,0)');
+        ctx.fillStyle = core;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.18 * corePulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+        requestAnimationFrame(draw);
+      }
+
+      window.addEventListener('resize', resize);
+      resize();
+      seed();
+      draw();
+    })();
+  </script>
+</body>
+</html>
+`;
+
+const RadarLifeWebFallback = ({
+  style,
+  signalLevel,
+  dangerLevel,
+  rotationSpeed,
+  pulseEnabled,
+  paused,
+  fallbackSize,
+}: {
+  style: any;
+  signalLevel: number;
+  dangerLevel: number;
+  rotationSpeed: number;
+  pulseEnabled: boolean;
+  paused: boolean;
+  fallbackSize: number;
+}) => {
+  const [webFailed, setWebFailed] = useState(false);
+  const html = useMemo(
+    () => buildRadarLifeHtml({ signalLevel, dangerLevel, rotationSpeed, pulseEnabled, paused }),
+    [dangerLevel, paused, pulseEnabled, rotationSpeed, signalLevel]
+  );
+
+  if (webFailed) {
+    return <RadarFallback size={fallbackSize} signalLevel={signalLevel} dangerLevel={dangerLevel} />;
+  }
+
+  return (
+    <View style={[style, styles.webLifeContainer]} pointerEvents="none">
+      <WebView
+        source={{ html }}
+        originWhitelist={['*']}
+        javaScriptEnabled
+        domStorageEnabled={false}
+        scrollEnabled={false}
+        bounces={false}
+        overScrollMode="never"
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        allowsInlineMediaPlayback
+        setSupportMultipleWindows={false}
+        onError={() => setWebFailed(true)}
+        onHttpError={() => setWebFailed(true)}
+        style={styles.webLifeView}
+        containerStyle={styles.webLifeViewContainer}
+      />
     </View>
   );
 };
@@ -479,5 +735,16 @@ const styles = StyleSheet.create({
   },
   vignette: {
     position: 'absolute',
+  },
+  webLifeContainer: {
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+  webLifeView: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  webLifeViewContainer: {
+    backgroundColor: 'transparent',
   },
 });

@@ -98,7 +98,7 @@ const PillTabBar = React.memo(({ state, descriptors, navigation }: BottomTabBarP
       pointerEvents={tabBarHidden ? 'none' : 'auto'}
     >
       <LinearGradient
-        colors={['rgba(15,23,42,0.95)', 'rgba(2,6,23,0.9)']}
+        colors={['rgba(5,46,44,0.96)', 'rgba(6,78,59,0.94)', 'rgba(2,44,48,0.96)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
@@ -149,7 +149,7 @@ const PillTabBar = React.memo(({ state, descriptors, navigation }: BottomTabBarP
                 <MaterialCommunityIcons
                   name={iconName}
                   size={isCenter ? Math.round(iconShellSize * 0.54) : isFocused ? Math.round(iconShellSize * 0.5) : Math.round(iconShellSize * 0.42)}
-                  color={isFocused ? '#FF6B6B' : '#94A3B8'}
+                  color={isFocused ? '#4ECDC4' : '#D7FFFB'}
                 />
               </View>
             </TouchableOpacity>
@@ -229,13 +229,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderRadius: 30,
     borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.2)',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
-    backgroundColor: 'rgba(15,23,42,0.95)',
+    borderColor: 'rgba(78,205,196,0.36)',
+    shadowColor: '#4ECDC4',
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+    backgroundColor: 'rgba(5,46,44,0.96)',
   },
   tabItem: {
     flex: 1,
@@ -254,7 +254,9 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -2 }],
   },
   iconShellActive: {
-    backgroundColor: 'rgba(255,107,107,0.12)',
+    backgroundColor: 'rgba(78,205,196,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(103,232,249,0.42)',
   },
 });
 
