@@ -166,7 +166,7 @@ android {
     }
 }
 
-def expectedPlayUploadCertSha1 = "12:76:27:57:E2:93:B7:72:DA:A5:76:E1:6B:1C:51:20:94:3C:B9:43"
+def expectedPlayUploadCertSha1 = "8E:91:95:0F:1F:BB:64:06:37:15:E4:2B:8B:82:13:66:BA:03:28:C2"
 
 tasks.register("verifyReleaseUploadCertificate") {
     doLast {
@@ -197,6 +197,39 @@ tasks.register("verifyReleaseUploadCertificate") {
 
 tasks.matching { task -> task.name in ["bundleRelease", "assembleRelease"] }.configureEach {
     dependsOn("verifyReleaseUploadCertificate")
+}
+
+tasks.register("verifyReleaseBundleCertificate") {
+    doLast {
+        def bundleFile = file("${buildDir}/outputs/bundle/release/app-release.aab")
+        if (!bundleFile.exists()) {
+            throw new GradleException("Release AAB missing at ${bundleFile}. Run bundleRelease first.")
+        }
+
+        def stdout = new ByteArrayOutputStream()
+        exec {
+            commandLine "keytool", "-printcert", "-jarfile", bundleFile.absolutePath
+            standardOutput = stdout
+            errorOutput = new ByteArrayOutputStream()
+        }
+
+        def matcher = stdout.toString("UTF-8") =~ /SHA1:\s*([A-F0-9:]+)/
+        if (!matcher.find()) {
+            throw new GradleException("Could not read SHA1 from release AAB: ${bundleFile}")
+        }
+
+        def actualSha1 = matcher.group(1).toUpperCase()
+        if (actualSha1 != expectedPlayUploadCertSha1) {
+            throw new GradleException("Release AAB is signed with wrong certificate. Expected ${expectedPlayUploadCertSha1}, got ${actualSha1}. Delete android/app/build/outputs/bundle/release/ and rerun bundleRelease --rerun-tasks.")
+        }
+
+        println "Release AAB upload certificate OK: ${actualSha1}"
+        println "Upload this file: ${bundleFile.absolutePath}"
+    }
+}
+
+tasks.matching { task -> task.name == "bundleRelease" }.configureEach {
+    finalizedBy("verifyReleaseBundleCertificate")
 }
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
