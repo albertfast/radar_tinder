@@ -11,9 +11,9 @@ interface SpeedIndicatorProps {
 
 export default memo(function SpeedIndicator({ bottomOffset = 0 }: SpeedIndicatorProps) {
   const insets = useSafeAreaInsets();
-  const { userSpeed, speedLimit, isNavigating, unitSystem } = useNavigationStore();
+  const { userSpeed, speedLimit, isNavigating, isDrivingSession, unitSystem } = useNavigationStore();
 
-  if (!isNavigating) return null;
+  if (!isNavigating && !isDrivingSession) return null;
 
   const displaySpeed = convertSpeed(userSpeed, unitSystem);
   const displayLimit = speedLimit

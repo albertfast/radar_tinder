@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text, Platform, Keyboard } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { AdService, getGoogleMobileAdsModule } from '../services/AdService';
+import { ADMOB_PRODUCTION_UNITS } from '../config/admobUnits';
 
 interface AdBannerProps {
   size?: any;
@@ -45,10 +46,14 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId, suppressAds = false }
     Platform.OS === 'ios'
       ? 'ca-app-pub-3940256099942544/2934735716'
       : 'ca-app-pub-3940256099942544/6300978111';
+  const productionBannerFallback =
+    Platform.OS === 'ios'
+      ? ADMOB_PRODUCTION_UNITS.ios.banner
+      : ADMOB_PRODUCTION_UNITS.android.banner;
   const defaultBannerUnitId =
     platformBannerUnitId ||
     process.env.EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID ||
-    fallbackTestBannerUnitId;
+    productionBannerFallback;
   const productionBannerUnitId = unitId || defaultBannerUnitId;
   const isUsingTestUnit = shouldForceTestAdUnits();
 

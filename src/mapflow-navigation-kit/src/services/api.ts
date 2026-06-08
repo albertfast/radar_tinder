@@ -1781,6 +1781,35 @@ export async function getRoute(originLat: number, originLng: number, destLat: nu
   return finalizeRoute(await routeWithOsrm(options));
 }
 
+function defaultSpeedForHighway(
+  highway: string,
+  countryCode?: string | null,
+): { value: number; unit: string } | null {
+  const isUs = String(countryCode || '').trim().toUpperCase() === 'US';
+  switch (highway) {
+    case 'motorway':
+      return { value: isUs ? 65 : 120, unit: isUs ? 'mph' : 'km/h' };
+    case 'motorway_link':
+      return { value: isUs ? 55 : 80, unit: isUs ? 'mph' : 'km/h' };
+    case 'trunk':
+    case 'trunk_link':
+      return { value: isUs ? 55 : 90, unit: isUs ? 'mph' : 'km/h' };
+    case 'primary':
+    case 'primary_link':
+      return { value: isUs ? 45 : 70, unit: isUs ? 'mph' : 'km/h' };
+    case 'secondary':
+    case 'secondary_link':
+      return { value: isUs ? 35 : 50, unit: isUs ? 'mph' : 'km/h' };
+    case 'tertiary':
+      return { value: isUs ? 30 : 40, unit: isUs ? 'mph' : 'km/h' };
+    case 'residential':
+    case 'living_street':
+      return { value: isUs ? 25 : 30, unit: isUs ? 'mph' : 'km/h' };
+    default:
+      return null;
+  }
+}
+
 export async function getSpeedLimits(
   lat: number,
   lng: number,
@@ -1794,9 +1823,10 @@ export async function getSpeedLimits(
 
   try {
     const overpassQuery = `
-      [out:json][timeout:10];
+      [out:json][timeout:12];
       (
         way["highway"]["maxspeed"](around:${radius},${lat},${lng});
+        way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|residential|living_street)$"](around:${radius},${lat},${lng});
       );
       out body;
       >;
@@ -1841,8 +1871,13 @@ export async function getSpeedLimits(
     }
 
     for (const element of data.elements ?? []) {
-      if (element.type === 'way' && element.tags?.maxspeed) {
-        const maxspeed = parseMaxspeed(element.tags.maxspeed, normalizedCountryCode);
+      if (element.type === 'way' && element.tags?.highway) {
+        const taggedMaxspeed = element.tags?.maxspeed
+          ? parseMaxspeed(element.tags.maxspeed, normalizedCountryCode)
+          : null;
+        const maxspeed =
+          taggedMaxspeed ||
+          defaultSpeedForHighway(String(element.tags.highway), normalizedCountryCode);
         if (!maxspeed || maxspeed.value <= 0) {
           continue;
         }

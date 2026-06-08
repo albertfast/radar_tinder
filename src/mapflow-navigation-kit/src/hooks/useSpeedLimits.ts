@@ -19,6 +19,7 @@ export function useSpeedLimits() {
   const {
     userLocation,
     isNavigating,
+    isDrivingSession,
     userHeading,
     routeHeading,
     countryCode,
@@ -31,12 +32,12 @@ export function useSpeedLimits() {
   const failureCountRef = useRef(0);
 
   useEffect(() => {
-    if (!isNavigating || !userLocation) {
+    if ((!isNavigating && !isDrivingSession) || !userLocation) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-      if (!isNavigating) setSpeedLimit(null);
+      if (!isNavigating && !isDrivingSession) setSpeedLimit(null);
       return;
     }
 
@@ -46,9 +47,9 @@ export function useSpeedLimits() {
       const lastLookup = lastLookupRef.current;
       if (lastLookup) {
         const movedMeters = haversineMeters(lastLookup.lat, lastLookup.lng, userLocation.lat, userLocation.lng);
-        const waitMs = failureCountRef.current >= 2 ? 45000 : 15000;
+        const waitMs = failureCountRef.current >= 2 ? 25000 : 10000;
 
-        if (movedMeters < 35 && Date.now() - lastLookup.at < waitMs) {
+        if (movedMeters < 25 && Date.now() - lastLookup.at < waitMs) {
           return;
         }
       }
@@ -63,7 +64,7 @@ export function useSpeedLimits() {
         const data = await getSpeedLimits(
           userLocation.lat,
           userLocation.lng,
-          40,
+          failureCountRef.current >= 1 ? 90 : 60,
           userHeading > 0 ? userHeading : null,
           routeHeading,
           countryCode || (unitSystem === 'imperial' ? 'US' : null),
@@ -90,7 +91,7 @@ export function useSpeedLimits() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [countryCode, isNavigating, routeHeading, setSpeedLimit, speedLimit, unitSystem, userHeading, userLocation]);
+  }, [countryCode, isDrivingSession, isNavigating, routeHeading, setSpeedLimit, speedLimit, unitSystem, userHeading, userLocation]);
 
   return { speedLimit };
 }

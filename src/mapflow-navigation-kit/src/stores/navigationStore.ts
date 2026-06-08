@@ -39,6 +39,9 @@ interface NavigationStore {
   // Speed limits
   speedLimit: number | null; // km/h internal
 
+  // Driving session (DriveScreen without active turn-by-turn route)
+  isDrivingSession: boolean;
+
   // Actions
   setUserLocation: (loc: { lat: number; lng: number; accuracy: number; speed: number | null; heading: number | null }) => void;
   setUnitSystem: (system: UnitSystem, code: string | null) => void;
@@ -62,6 +65,7 @@ interface NavigationStore {
   setIsOffRoute: (value: boolean) => void;
   setHasArrived: (value: boolean) => void;
   setSpeedLimit: (v: number | null) => void;
+  setDrivingSession: (active: boolean) => void;
 }
 
 export const useNavigationStore = create<NavigationStore>((set) => ({
@@ -90,6 +94,7 @@ export const useNavigationStore = create<NavigationStore>((set) => ({
   isOffRoute: false,
   hasArrived: false,
   speedLimit: null,
+  isDrivingSession: false,
 
   setUserLocation: (loc) =>
     set({
@@ -162,4 +167,5 @@ export const useNavigationStore = create<NavigationStore>((set) => ({
   setIsOffRoute: (value) => set({ isOffRoute: value }),
   setHasArrived: (value) => set({ hasArrived: value }),
   setSpeedLimit: (v) => set({ speedLimit: v }),
+  setDrivingSession: (active) => set({ isDrivingSession: active }),
 }));

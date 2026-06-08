@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import AdBanner from './AdBanner';
+import { ADMOB_PRODUCTION_UNITS } from '../config/admobUnits';
 
 interface ProGateProps {
   title?: string;
@@ -28,7 +29,9 @@ const ProGate: React.FC<ProGateProps> = ({
   const featureGateAdUnitId =
     adUnitId ||
     process.env.EXPO_PUBLIC_ADMOB_LOCKED_FEATURE_UNIT_ID ||
-    'ca-app-pub-9670547831022880/5261007755';
+    (Platform.OS === 'ios'
+      ? ADMOB_PRODUCTION_UNITS.ios.adaptiveFlex
+      : ADMOB_PRODUCTION_UNITS.android.adaptiveFlex);
 
   return (
     <View style={styles.container}>

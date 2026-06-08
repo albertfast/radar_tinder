@@ -44,12 +44,14 @@ type MapFlowNavigationScreenProps = {
   overlayMarkers?: MapOverlayMarker[];
   topOverlayOffset?: number;
   onViewportChange?: (viewport: MapViewport) => void;
+  followUserWhileDriving?: boolean;
 };
 
 export default function MapFlowNavigationScreen({
   overlayMarkers = [],
   topOverlayOffset,
   onViewportChange,
+  followUserWhileDriving = false,
 }: MapFlowNavigationScreenProps) {
   const vehicleMarkerId = useSettingsStore((state) => state.vehicleMarkerId);
   const insets = useSafeAreaInsets();
@@ -69,6 +71,7 @@ export default function MapFlowNavigationScreen({
   const lastDestinationKey = useRef<string | null>(null);
   const lastPoiFetchKeyRef = useRef<string | null>(null);
   const rerouteAtRef = useRef(0);
+  const lastFollowUserAtRef = useRef(0);
   const committedSearchQueryRef = useRef<string | null>(null);
   const suppressSearchUntilEditRef = useRef(false);
   const overlayPressHandlersRef = useRef<Record<string, ((marker: MapOverlayMarker) => void) | undefined>>({});
@@ -308,12 +311,18 @@ export default function MapFlowNavigationScreen({
         lng: userLocation.lng,
         heading: userHeading,
         routeHeading,
-        navigation: isNavigating,
+        navigation: isNavigating || followUserWhileDriving,
         vehicleMarkerId,
       },
     });
 
-    if (isNavigating) {
+    if (isNavigating || followUserWhileDriving) {
+      const now = Date.now();
+      const followIntervalMs = userSpeed >= 15 ? 420 : 650;
+      if (now - lastFollowUserAtRef.current < followIntervalMs) {
+        return;
+      }
+      lastFollowUserAtRef.current = now;
       sendToMap({
         type: 'followUser',
         payload: {
@@ -323,11 +332,11 @@ export default function MapFlowNavigationScreen({
           routeHeading,
           speed: userSpeed,
           pitch: 0,
-          navigation: true,
+          navigation: isNavigating || followUserWhileDriving,
         },
       });
     }
-  }, [isNavigating, mapReady, routeHeading, sendToMap, userHeading, userLocation, userSpeed, vehicleMarkerId]);
+  }, [followUserWhileDriving, isNavigating, mapReady, routeHeading, sendToMap, userHeading, userLocation, userSpeed, vehicleMarkerId]);
 
   useEffect(() => {
     if (!mapReady || !userLocation || hasCenteredInitialLocation.current) {

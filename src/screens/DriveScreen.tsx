@@ -25,8 +25,11 @@ import { AdService } from '../services/AdService';
 import { hasProAccess } from '../utils/access';
 import { RadarGraphicView } from './components/RadarGraphicView';
 import { RadarBasicTab } from './radar/components/driving/RadarBasicTab';
+import { DrivingRadarAlertBanner } from '../components/DrivingRadarAlertBanner';
+import { useDrivingRadarAlertBanner } from '../hooks/useDrivingRadarAlertBanner';
 
 const RADAR_REFRESH_MS = 15000;
+const RADAR_REFRESH_MOVING_MS = 5000;
 const DRIVE_MODES = ['Basic', 'Map', 'Graphic'] as const;
 
 type DriveMode = (typeof DRIVE_MODES)[number];
@@ -121,6 +124,7 @@ const DriveScreen = ({ navigation, route }: any) => {
   const isNavigating = useNavigationStore((state) => state.isNavigating);
   const navCountryCode = useNavigationStore((state) => state.countryCode);
   const setNavUnitSystem = useNavigationStore((state) => state.setUnitSystem);
+  const setDrivingSession = useNavigationStore((state) => state.setDrivingSession);
   const setRouteGuidanceActive = useRadarStore((state) => state.setRouteGuidanceActive);
   const setRouteGuidancePath = useRadarStore((state) => state.setRouteGuidancePath);
   const keepAwakeWhileDriving = useSettingsStore((state) => state.keepAwakeWhileDriving);
@@ -170,6 +174,7 @@ const DriveScreen = ({ navigation, route }: any) => {
   );
   const currentSpeedKph = useMemo(() => Math.max(0, userSpeed * 3.6), [userSpeed]);
   const renderMode = activeMode === 'Graphic' && !canUsePro ? 'Map' : activeMode;
+  const nearestRadarAlert = useDrivingRadarAlertBanner();
 
   const tripTelemetry = useMemo(() => {
     const sampleCount = speedSamples.length;
@@ -283,12 +288,14 @@ const DriveScreen = ({ navigation, route }: any) => {
   useFocusEffect(
     useCallback(() => {
       hideTabBar('drive_screen');
+      setDrivingSession(true);
       resetTripSession();
       return () => {
+        setDrivingSession(false);
         void persistTripSnapshot();
         showTabBar('drive_screen');
       };
-    }, [hideTabBar, persistTripSnapshot, resetTripSession, showTabBar])
+    }, [hideTabBar, persistTripSnapshot, resetTripSession, setDrivingSession, showTabBar])
   );
 
   useEffect(() => {
@@ -473,14 +480,15 @@ const DriveScreen = ({ navigation, route }: any) => {
     if (!isFocused) return undefined;
 
     refreshOverlayMarkers().catch(() => {});
+    const refreshMs = currentSpeedKph >= 25 ? RADAR_REFRESH_MOVING_MS : RADAR_REFRESH_MS;
     const intervalId = setInterval(() => {
       refreshOverlayMarkers().catch(() => {});
-    }, RADAR_REFRESH_MS);
+    }, refreshMs);
 
     return () => {
       clearInterval(intervalId);
     };
-  }, [isFocused, refreshOverlayMarkers]);
+  }, [currentSpeedKph, isFocused, refreshOverlayMarkers]);
 
   const handleNavigateHome = useCallback(() => {
     navigation.navigate('Home');
@@ -508,6 +516,7 @@ const DriveScreen = ({ navigation, route }: any) => {
         <MapFlowNavigationScreen
           overlayMarkers={overlayMarkers}
           topOverlayOffset={chromeTopOffset}
+          followUserWhileDriving
         />
       </View>
 
@@ -571,6 +580,12 @@ const DriveScreen = ({ navigation, route }: any) => {
             ))}
           </View>
         </View>
+
+        <DrivingRadarAlertBanner
+          alert={nearestRadarAlert}
+          unitSystem={unitSystem}
+          topOffset={chromeTopOffset + 8}
+        />
       </View>
     </View>
   );

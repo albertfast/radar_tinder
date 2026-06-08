@@ -16,6 +16,7 @@ import { RadarLocation } from '../types';
 import { hasProAccess } from '../utils/access';
 import { readBooleanFlag } from '../utils/flags';
 import { describeRadarApproachByDistance } from '../utils/radarAlerts';
+import { RadarAlertFeedbackService } from './RadarAlertFeedbackService';
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
 const MAX_STARTUP_LOCATION_ACCURACY_METERS = 180;
@@ -744,7 +745,12 @@ export class BackgroundService {
           : []
       );
 
-      const alertCandidates = nearbyRadars;
+      const alertCandidates = nearbyRadars.filter(
+        (radar) =>
+          isSpeedCameraRadar(radar) ||
+          radar.type === 'red_light' ||
+          radar.markerKind === 'red_light'
+      );
 
       const alerts = [];
       for (const radar of alertCandidates) {
@@ -758,12 +764,12 @@ export class BackgroundService {
             },
             routeCoords: routeMode ? routeGuidancePath : [],
             speedKph: hasReliableSpeed ? speedKph : 5,
-            maxCorridorMeters: routeMode ? 55 : 240,
-            maxHeadingDeltaDeg: routeMode ? 35 : 75,
+            maxCorridorMeters: routeMode ? 110 : 260,
+            maxHeadingDeltaDeg: routeMode ? 50 : 90,
             etaSecondsWindow: hasReliableSpeed
               ? routeMode
-                ? [5, 240]
-                : [8, 220]
+                ? [3, 300]
+                : [0, 240]
               : [0, Number.MAX_SAFE_INTEGER],
           });
 
@@ -775,11 +781,11 @@ export class BackgroundService {
         }
 
         const headingMatched =
-          relevance.headingDeltaDeg == null || relevance.headingDeltaDeg <= (routeMode ? 35 : 75);
+          relevance.headingDeltaDeg == null || relevance.headingDeltaDeg <= (routeMode ? 50 : 90);
         const immediateThreatMatched = radar.id ? immediateThreatIds.has(radar.id) : false;
         const relevanceMatched = routeMode
           ? relevance.isRelevant || immediateThreatMatched
-          : headingMatched && (hasReliableSpeed ? relevance.etaSeconds <= 220 : true);
+          : headingMatched && (hasReliableSpeed ? relevance.etaSeconds <= 240 : true);
 
         if (distance < threshold && relevanceMatched) {
           const distanceScore = 1 - Math.min(distance / Math.max(threshold, 0.1), 1);
@@ -851,9 +857,10 @@ export class BackgroundService {
             nowMs - lastNotificationByKey > this.NOTIFICATION_DEDUPE_MS) ||
           allowUrgencyUpgrade
         ) {
-          await NotificationService.sendRadarAlert(alert as any, alert.locationLabel, {
+          await RadarAlertFeedbackService.deliver(alert as any, alert.locationLabel, {
             playSound,
             vibrate,
+            dedupeKey,
           });
           this.lastRadarNotificationSent[alert.radarId] = nowMs;
           this.lastRadarNotificationByKey[dedupeKey] = nowMs;

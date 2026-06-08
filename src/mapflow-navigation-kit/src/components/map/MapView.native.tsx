@@ -404,7 +404,7 @@ export default function MapView({
         pitch: 0,
         zoom,
       },
-      { duration: followMode ? 700 : 850 }
+      { duration: followMode ? 480 : 850 }
     );
   }, [routeDisplayPoint]);
 

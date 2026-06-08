@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 import { isAdminUser, shouldShowHomeAds } from '../utils/access';
 import { AnalyticsService } from './AnalyticsService';
+import { ADMOB_PRODUCTION_UNITS } from '../config/admobUnits';
 
 export type AdPlacement =
   | 'onboarding_location_granted'
@@ -221,12 +222,21 @@ export class AdService {
       googleMobileAds?.TestIds?.INTERSTITIAL || 'ca-app-pub-3940256099942544/1033173712';
     if (shouldForceTestAdUnits()) return defaultTestId;
 
+    const productionFallback =
+      key === 'start_driving'
+        ? Platform.OS === 'ios'
+          ? ADMOB_PRODUCTION_UNITS.ios.interstitialStartDriving
+          : ADMOB_PRODUCTION_UNITS.android.interstitialStartDriving
+        : Platform.OS === 'ios'
+          ? ADMOB_PRODUCTION_UNITS.ios.interstitialGeneral
+          : ADMOB_PRODUCTION_UNITS.android.interstitialGeneral;
+
     if (key === 'start_driving') {
       return (
         resolvePlatformEnv(
           'EXPO_PUBLIC_ADMOB_INTERSTITIAL_START_DRIVING_UNIT_ID_ANDROID',
           'EXPO_PUBLIC_ADMOB_INTERSTITIAL_START_DRIVING_UNIT_ID_IOS'
-        ) || defaultTestId
+        ) || productionFallback
       );
     }
 
@@ -234,7 +244,7 @@ export class AdService {
       resolvePlatformEnv(
         'EXPO_PUBLIC_ADMOB_INTERSTITIAL_GENERAL_UNIT_ID_ANDROID',
         'EXPO_PUBLIC_ADMOB_INTERSTITIAL_GENERAL_UNIT_ID_IOS'
-      ) || defaultTestId
+      ) || productionFallback
     );
   }
 
@@ -244,11 +254,16 @@ export class AdService {
       googleMobileAds?.TestIds?.APP_OPEN || 'ca-app-pub-3940256099942544/9257395921';
     if (shouldForceTestAdUnits()) return defaultTestId;
 
+    const productionFallback =
+      Platform.OS === 'ios'
+        ? ADMOB_PRODUCTION_UNITS.ios.appOpen
+        : ADMOB_PRODUCTION_UNITS.android.appOpen;
+
     return (
       resolvePlatformEnv(
         'EXPO_PUBLIC_ADMOB_APP_OPEN_UNIT_ID_ANDROID',
         'EXPO_PUBLIC_ADMOB_APP_OPEN_UNIT_ID_IOS'
-      ) || defaultTestId
+      ) || productionFallback
     );
   }
 
