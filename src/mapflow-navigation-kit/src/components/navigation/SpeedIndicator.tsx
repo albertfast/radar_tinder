@@ -11,9 +11,16 @@ interface SpeedIndicatorProps {
 
 export default memo(function SpeedIndicator({ bottomOffset = 0 }: SpeedIndicatorProps) {
   const insets = useSafeAreaInsets();
-  const { userSpeed, speedLimit, isNavigating, isDrivingSession, unitSystem } = useNavigationStore();
+  const { userSpeed, speedLimit, isNavigating, isDrivingSession, route, unitSystem } = useNavigationStore();
 
-  if (!isNavigating && !isDrivingSession) return null;
+  // Route preview ("Start Navigation") owns the bottom-left area — hide to avoid overlap.
+  if (route && !isNavigating) {
+    return null;
+  }
+
+  if (!isNavigating && !isDrivingSession) {
+    return null;
+  }
 
   const displaySpeed = convertSpeed(userSpeed, unitSystem);
   const displayLimit = speedLimit
@@ -24,7 +31,7 @@ export default memo(function SpeedIndicator({ bottomOffset = 0 }: SpeedIndicator
 
   const warning = getSpeedWarning(displaySpeed, displayLimit);
   const unit = getUnitLabel(unitSystem);
-  const bottom = Math.max(152, insets.bottom + 118) + bottomOffset;
+  const bottom = (isNavigating ? Math.max(118, insets.bottom + 86) : Math.max(152, insets.bottom + 118)) + bottomOffset;
 
   return (
     <View style={[styles.container, { bottom }]} pointerEvents="none">

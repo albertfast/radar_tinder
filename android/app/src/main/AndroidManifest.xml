@@ -47,6 +47,7 @@
         <data android:scheme="exp+radar-tinder"/>
       </intent-filter>
     </activity>
+    <service android:name="expo.modules.location.services.LocationTaskService" android:exported="false" android:foregroundServiceType="location"/>
     <uses-library android:name="org.apache.http.legacy" android:required="false"/>
   </application>
 </manifest>

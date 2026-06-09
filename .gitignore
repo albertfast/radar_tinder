@@ -12,6 +12,8 @@ yarn-error.log*
 .env.production.local
 .DS_Store
 *.jks
+*.jks*
+keystore.b64
 *.p8
 *.p12
 *.key

@@ -162,7 +162,18 @@ module.exports = {
       "expo-localization",
       "expo-asset",
       "expo-font",
-      "expo-location",
+      [
+        "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission:
+            "This app needs background location access to provide continuous radar detection even when the app is not active.",
+          locationWhenInUsePermission:
+            "This app needs access to location to detect nearby radars and provide accurate alerts.",
+          isIosBackgroundLocationEnabled: true,
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true,
+        },
+      ],
       "expo-notifications",
       "expo-task-manager",
       "expo-secure-store",
@@ -207,6 +218,7 @@ module.exports = {
       "./plugins/withPodfileFix.js",
       "./plugins/withSettingsGradleFix.js",
       "./plugins/withAndroidReleaseSigning.js",
+      "./plugins/withAndroidLocationForegroundService.js",
       "./plugins/withOnnxRuntime.js",
       "./plugins/withAndroidCustomNative.js",
       "./plugins/withIosGoogleMapsInitFix.js"
