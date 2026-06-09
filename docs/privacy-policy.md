@@ -67,4 +67,4 @@ This policy may be updated periodically. Changes will be reflected on this page.
 
 ## 8. Contact
 **Aether Labs**  
-Email: pictolabap@gmail.com
+Email: aetherlabapps@gmail.com

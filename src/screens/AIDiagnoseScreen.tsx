@@ -18,9 +18,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { useAuthStore } from '../store/authStore';
-import { hasProAccess } from '../utils/access';
-import ProGate from '../components/ProGate';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { AdService } from '../services/AdService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AIService, AIModelErrorCode } from '../services/AIService';
 
@@ -53,8 +52,15 @@ type DiagnosisOutput = {
 
 const AIDiagnoseScreen = ({ navigation }: any) => {
   const { user, normalizeAccessState } = useAuthStore();
-  const canUse = hasProAccess(user);
+  const canUse = true; // Unlocked for free users
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    // Show interstitial ad for free users when screen mounts
+    AdService.showInterstitial('open_ai_diagnose').catch((err) => {
+      console.warn('[AIDiagnose] Interstitial ad failed/skipped:', err);
+    });
+  }, []);
   const { width } = useWindowDimensions();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [diagnosis, setDiagnosis] = useState<DiagnosisOutput | null>(null);
@@ -340,22 +346,7 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
     }
   };
 
-  if (!canUse) {
-    return (
-      <ProGate
-        title="AI Diagnostics"
-        subtitle="Weekly and yearly subscribers get full AI dashboard analysis."
-        onUpgrade={async () => {
-          await SubscriptionService.syncAccessState().catch(() => {});
-          await normalizeAccessState().catch(() => {});
-          if (hasProAccess(useAuthStore.getState().user)) {
-            return;
-          }
-          navigation.navigate('Home', { screen: 'Subscription' });
-        }}
-      />
-    );
-  }
+
 
   return (
     <ErrorBoundary>

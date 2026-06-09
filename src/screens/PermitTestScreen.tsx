@@ -16,8 +16,7 @@ import {
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
 import { useAuthStore } from '../store/authStore';
-import { hasProAccess } from '../utils/access';
-import ProGate from '../components/ProGate';
+import { AdService } from '../services/AdService';
 import {
   PermitAnswerKey,
   PermitCategory,
@@ -124,8 +123,15 @@ const calculateResult = (
 
 const PermitTestScreen = ({ navigation }: any) => {
   const { user } = useAuthStore();
-  const canUse = hasProAccess(user);
+  const canUse = true; // Unlocked for free users
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
+
+  useEffect(() => {
+    // Show interstitial ad for free users when screen mounts
+    AdService.showInterstitial('open_permit_test').catch((err) => {
+      console.warn('[PermitTest] Interstitial ad failed/skipped:', err);
+    });
+  }, []);
 
   const [states, setStates] = useState<PermitState[]>([]);
   const [categories, setCategories] = useState<PermitCategory[]>([]);
@@ -353,15 +359,7 @@ const PermitTestScreen = ({ navigation }: any) => {
     }
   }, [selectedCategory, startQuiz]);
 
-  if (!canUse) {
-    return (
-      <ProGate
-        title="Permit Test"
-        subtitle="Upgrade to Pro to practice real DMV permit questions by state and vehicle type."
-        onUpgrade={() => navigation.navigate('Subscription')}
-      />
-    );
-  }
+
 
   const renderHeader = (title: string, subtitle: string, onBack: () => void) => (
     <View style={styles.header}>

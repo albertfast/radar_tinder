@@ -4,9 +4,9 @@ import type { PurchasesStoreProduct } from 'react-native-purchases';
 import type { PlanKey } from './subscriptionPricing';
 
 const PLAN_IDS: Record<PlanKey, string> = {
-  weekly: Platform.OS === 'ios' ? 'weekly2' : 'pro_subscription:weekly',
-  yearly: Platform.OS === 'ios' ? 'yearly2' : 'pro_subscription:yearly',
-  adfree: Platform.OS === 'ios' ? 'remove_ads_1' : 'remove_ads',
+  weekly: Platform.OS === 'ios' ? 'radar_weekly' : 'pro_subscription:weekly',
+  yearly: Platform.OS === 'ios' ? 'radar_yearly' : 'pro_subscription:yearly',
+  adfree: Platform.OS === 'ios' ? 'radar_remove_ads' : 'remove_ads',
 };
 
 const getProductHints = (plan: PlanKey): string[] => {
@@ -25,10 +25,8 @@ const getProductHints = (plan: PlanKey): string[] => {
       '$rc_weekly',
       'rc_weekly',
       'pro_subscription:weekly',
-      'pro_subscription_weekly',
-      'pro_subscription_weekly_2',
-      'pro_subscription_weekly2',
-      'weekly2',
+      'pro_subscription_radar_weekly',
+      'radar_weekly',
       'weekly',
     ],
     yearly: [
@@ -38,13 +36,11 @@ const getProductHints = (plan: PlanKey): string[] => {
       'rc_yearly',
       'pro_subscription:yearly',
       'pro_subscription_yearly',
-      'pro_subscription_yearly_2',
-      'pro_subscription_yearly2',
-      'yearly2',
+      'pro_subscription_radar_yearly',
       'yearly',
       'annual',
     ],
-    adfree: ['$rc_lifetime', 'rc_lifetime', 'remove_ads', 'remove_ads_1', 'adfree', 'lifetime'],
+    adfree: ['$rc_lifetime', 'rc_lifetime', 'remove_ads', 'radar_remove_ads', 'adfree', 'lifetime'],
   };
 
   return [fromEnv, fromPackageEnv, PLAN_IDS[plan], ...aliases[plan]]

@@ -41,9 +41,9 @@ Bu liste, production gönderimi öncesi hızlı ve güvenli final kontroldür.
 - [ ] TestFlight satın alımlarının Apple sandbox olduğunu doğrula (gerçek karttan çekim yapılmaz).
 - [ ] Gerçek ücretlendirme yalnızca App Store production yayında gerçekleşir.
 - [ ] RevenueCat Dashboard'da iOS ürün ID’lerinin app içi planlarla eşleştiğini doğrula:
-	- Weekly: `pro_subscription_weekly` / `pro_subscription:weekly`
-	- Yearly: `pro_subscription_yearly` / `pro_subscription:yearly`
-	- Remove Ads: `remove_ads`
+	- Weekly: `pro_subscription_radar_weekly` / `pro_subscription:weekly`
+	- Yearly: `pro_subscription_radar_yearly` / `pro_subscription:yearly`
+	- Remove All Advertisements: `radar_remove_ads`
 
 ## E) iOS Release Akışı
 

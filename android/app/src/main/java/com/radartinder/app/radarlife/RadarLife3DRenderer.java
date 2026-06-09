@@ -267,7 +267,7 @@ public class RadarLife3DRenderer implements GLSurfaceView.Renderer {
             float y = latitudes[i] * SCENE_SPHERE_RADIUS;
             float rs = SCENE_SPHERE_RADIUS * (1.0f - Math.abs(latitudes[i]) * 0.52f);
             float alpha = 0.10f + i * 0.02f;
-            drawRingScaled(0f, y, 0f, rs, rs * 0.26f, new float[] { shellGlow[0], shellGlow[1], shellGlow[2], alpha });
+            drawRingScaled(0f, y, 0f, rs, rs * 0.85f, new float[] { shellGlow[0], shellGlow[1], shellGlow[2], alpha });
         }
         for (int i = 0; i < 4; i++) {
             Matrix.setIdentityM(modelMatrix, 0);
@@ -286,20 +286,20 @@ public class RadarLife3DRenderer implements GLSurfaceView.Renderer {
 
     private void drawRadarDisk(float[] primary) {
         float pulse = pulseEnabled ? 0.18f + 0.05f * (float) Math.sin(worldPhase * 3.1f) : 0.14f;
-        drawDiskScaled(0f, RADAR_PLANE_Y, 0f, RADAR_RADIUS, 0.34f, RADAR_RADIUS * 0.38f, new float[] { 0.03f, 0.10f, 0.20f, 0.72f });
-        drawDiskScaled(0f, RADAR_PLANE_Y, 0f, RADAR_RADIUS * 0.88f, 0.26f, RADAR_RADIUS * 0.32f, new float[] { primary[0] * 0.18f, primary[1] * 0.18f, primary[2] * 0.18f, pulse });
-        drawDiskScaled(0f, RADAR_PLANE_Y + 0.008f, 0f, RADAR_RADIUS * 0.80f, 0.12f, RADAR_RADIUS * 0.30f, new float[] { primary[0], primary[1], primary[2], 0.055f + signalLevel * 0.03f });
+        drawDiskScaled(0f, RADAR_PLANE_Y, 0f, RADAR_RADIUS, 0.85f, RADAR_RADIUS * 0.85f, new float[] { 0.03f, 0.10f, 0.20f, 0.72f });
+        drawDiskScaled(0f, RADAR_PLANE_Y, 0f, RADAR_RADIUS * 0.88f, 0.85f, RADAR_RADIUS * 0.85f * 0.88f, new float[] { primary[0] * 0.18f, primary[1] * 0.18f, primary[2] * 0.18f, pulse });
+        drawDiskScaled(0f, RADAR_PLANE_Y + 0.008f, 0f, RADAR_RADIUS * 0.80f, 0.85f, RADAR_RADIUS * 0.85f * 0.80f, new float[] { primary[0], primary[1], primary[2], 0.055f + signalLevel * 0.03f });
     }
 
     private void drawRings(float[] secondary) {
         for (int i = 0; i < RING_RADII.length; i++) {
             float radius = RING_RADII[i] * RADAR_RADIUS;
-            drawRingScaled(0f, RADAR_PLANE_Y + 0.003f * i, 0f, radius, radius * 0.38f, new float[] { secondary[0], secondary[1], secondary[2], 0.11f + i * 0.018f });
+            drawRingScaled(0f, RADAR_PLANE_Y + 0.003f * i, 0f, radius, radius * 0.85f, new float[] { secondary[0], secondary[1], secondary[2], 0.11f + i * 0.018f });
         }
         for (int i = 0; i < 8; i++) {
             Matrix.setIdentityM(modelMatrix, 0); Matrix.translateM(modelMatrix, 0, 0f, RADAR_PLANE_Y + 0.001f, 0f);
             Matrix.rotateM(modelMatrix, 0, i * 22.5f + worldPhase * 1.8f, 0f, 1f, 0f);
-            Matrix.scaleM(modelMatrix, 0, RADAR_RADIUS * 0.94f, 1f, RADAR_RADIUS * 0.32f);
+            Matrix.scaleM(modelMatrix, 0, RADAR_RADIUS * 0.94f, 1f, RADAR_RADIUS * 0.85f * 0.94f);
             drawLineSegment(modelMatrix, new float[] { secondary[0], secondary[1], secondary[2], 0.02f });
         }
     }
@@ -372,12 +372,12 @@ public class RadarLife3DRenderer implements GLSurfaceView.Renderer {
     private void drawSweep(float[] primary, float[] secondary) {
         Matrix.setIdentityM(modelMatrix, 0); Matrix.translateM(modelMatrix, 0, 0f, RADAR_PLANE_Y + 0.006f, 0f);
         Matrix.rotateM(modelMatrix, 0, sweepAngleDeg, 0f, 1f, 0f);
-        Matrix.scaleM(modelMatrix, 0, RADAR_RADIUS * 0.98f, 1f, RADAR_RADIUS * 0.36f);
+        Matrix.scaleM(modelMatrix, 0, RADAR_RADIUS * 0.98f, 1f, RADAR_RADIUS * 0.85f * 0.98f);
         drawTriangleFan(modelMatrix, sweepVertexBuf, sweepVertexCount, new float[]{primary[0] * 0.95f + secondary[0] * 0.05f, primary[1] * 0.95f + secondary[1] * 0.05f, primary[2] * 0.95f + secondary[2] * 0.05f, 0.22f + signalLevel * 0.10f});
 
         Matrix.setIdentityM(modelMatrix, 0); Matrix.translateM(modelMatrix, 0, 0f, RADAR_PLANE_Y + 0.004f, 0f);
         Matrix.rotateM(modelMatrix, 0, sweepAngleDeg + 48f, 0f, 1f, 0f);
-        Matrix.scaleM(modelMatrix, 0, RADAR_RADIUS * 0.92f, 1f, RADAR_RADIUS * 0.30f);
+        Matrix.scaleM(modelMatrix, 0, RADAR_RADIUS * 0.92f, 1f, RADAR_RADIUS * 0.85f * 0.92f);
         drawTriangleFan(modelMatrix, sweepVertexBuf, sweepVertexCount, new float[]{secondary[0], secondary[1], secondary[2], 0.10f + signalLevel * 0.05f});
     }
 
@@ -386,7 +386,7 @@ public class RadarLife3DRenderer implements GLSurfaceView.Renderer {
         float glow = 0.10f + pulse * 0.04f;
         drawDiskScaled(0f, RADAR_PLANE_Y + 0.016f, 0f, glow * 2.2f, glow * 2.2f, glow * 2.2f, new float[]{secondary[0], secondary[1], secondary[2], 0.12f + pulse * 0.14f});
         drawDiskScaled(0f, RADAR_PLANE_Y + 0.02f, 0f, 0.05f + signalLevel * 0.018f, 0.05f + signalLevel * 0.018f, 0.05f + signalLevel * 0.018f, new float[]{0.96f, 0.99f, 1f, 0.82f});
-        drawRingScaled(0f, RADAR_PLANE_Y + 0.02f, 0f, 0.18f + signalLevel * 0.05f, 0.18f * 0.42f + signalLevel * 0.02f, new float[]{secondary[0], secondary[1], secondary[2], 0.22f + pulse * 0.18f});
+        drawRingScaled(0f, RADAR_PLANE_Y + 0.02f, 0f, 0.18f + signalLevel * 0.05f, (0.18f + signalLevel * 0.05f) * 0.85f, new float[]{secondary[0], secondary[1], secondary[2], 0.22f + pulse * 0.18f});
     }
 
     private void drawDiskScaled(float tx, float ty, float tz, float sx, float sy, float sz, float[] color) {

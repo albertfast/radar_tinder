@@ -13,6 +13,7 @@ type Props = {
   pricingByPlan: Partial<Record<PlanKey, PlanPricing | null>>;
   onTermsPress: () => void;
   onPrivacyPress: () => void;
+  onRestorePress: () => void;
   compact?: boolean;
 };
 
@@ -22,6 +23,7 @@ export const SubscriptionLegalBlock = ({
   pricingByPlan,
   onTermsPress,
   onPrivacyPress,
+  onRestorePress,
   compact = false,
 }: Props) => {
   const { t } = useTranslation();
@@ -58,6 +60,10 @@ export const SubscriptionLegalBlock = ({
         {' · '}
         <Text style={styles.link} onPress={onPrivacyPress}>
           {t('subscription.privacy')}
+        </Text>
+        {' · '}
+        <Text style={styles.link} onPress={onRestorePress}>
+          {t('subscription.restorePurchases')}
         </Text>
       </Text>
       <Text style={styles.cancelHint}>{t('subscription.cancelAnytime')}</Text>

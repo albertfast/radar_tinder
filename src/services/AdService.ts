@@ -11,7 +11,9 @@ export type AdPlacement =
   | 'start_driving_basic'
   | 'end_ride'
   | 'open_settings'
-  | 'open_leaderboard';
+  | 'open_leaderboard'
+  | 'open_permit_test'
+  | 'open_ai_diagnose';
 
 export type AdShowResult =
   | 'shown'

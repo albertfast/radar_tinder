@@ -203,19 +203,29 @@ const buildRadarLifeHtml = ({
         ctx.translate(cx, cy);
 
         var shellPulse = pulseEnabled ? 0.04 * Math.sin(phase * 3.2) : 0;
-        ellipse(0, -radius * 0.04, radius * (0.98 + shellPulse), radius * 0.72, color('blue', 0.18), 1.2);
+        var R = radius * (0.98 + shellPulse);
+        
+        // Draw main spherical shell outline (perfect circle boundaries representing the sphere)
+        ellipse(0, 0, R, R, color('blue', 0.18), 1.2);
+        
+        // Draw latitude circles with 3D projection tilt
         for (var s = 0; s < 5; s++) {
-          ellipse(0, (s - 2) * radius * 0.19, radius * (0.82 - s * 0.035), radius * (0.15 + s * 0.012), color('teal', 0.12 + s * 0.025), 1);
+          var y_factor = (s - 2) * 0.24;
+          var y = y_factor * R;
+          var r_slice = Math.sqrt(Math.max(0.1, 1 - y_factor * y_factor)) * R;
+          ellipse(0, y - R * 0.02, r_slice, r_slice * 0.35, color('teal', 0.12 + s * 0.025), 1);
         }
+        
+        // Draw rotating vertical meridian circles to form the 3D globe grid
         for (var m = 0; m < 4; m++) {
           ctx.save();
           ctx.rotate(phase * 0.7 + m * Math.PI / 4);
-          ellipse(0, 0, radius * (0.30 + m * 0.08), radius * 0.72, color('blue', 0.08 + m * 0.018), 1);
+          ellipse(0, 0, R * 0.42, R, color('blue', 0.08 + m * 0.018), 1);
           ctx.restore();
         }
 
         ctx.save();
-        ctx.scale(1, 0.34);
+        ctx.scale(1, 0.85);
         var disk = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 1.02);
         disk.addColorStop(0, 'rgba(78,205,196,0.20)');
         disk.addColorStop(0.62, 'rgba(6,78,90,0.18)');
@@ -229,7 +239,7 @@ const buildRadarLifeHtml = ({
 
         var sweep = phase * 2.4;
         ctx.save();
-        ctx.scale(1, 0.34);
+        ctx.scale(1, 0.85);
         ctx.rotate(sweep);
         var cone = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
         cone.addColorStop(0, 'rgba(78,205,196,0.26)');
@@ -246,7 +256,7 @@ const buildRadarLifeHtml = ({
           var a = p.a + phase * (0.8 + p.s);
           var x = Math.cos(a) * radius * p.r;
           var z = Math.sin(a) * radius * p.r;
-          var y = p.y * radius * 0.34 + z * 0.16;
+          var y = p.y * radius * 0.85 + z * 0.35;
           var depth = (Math.sin(a) + 1) / 2;
           var threat = p.threat && danger > 0.18;
           var alpha = 0.22 + depth * 0.52 + (threat ? danger * 0.24 : 0);
@@ -265,7 +275,7 @@ const buildRadarLifeHtml = ({
           var energy = Math.max(0, Math.sin(phase * 5 + c.p) * 0.5 + c.e);
           if (energy < 0.38) return;
           var x = c.x * radius;
-          var y = c.z * radius * 0.34;
+          var y = c.z * radius * 0.85;
           ctx.fillStyle = color(energy > 1.05 && danger > 0.28 ? 'danger' : 'teal', Math.min(0.62, energy * 0.36));
           ctx.fillRect(x - 1.2, y - 1.2, 2.4 + energy * 2.2, 2.4 + energy * 2.2);
         });
@@ -354,7 +364,7 @@ const RadarFallback = ({
   dangerLevel: number;
 }) => {
   type Particle = {
-    id: number;
+    id: string;
     x: number;
     y: number;
     size: number;

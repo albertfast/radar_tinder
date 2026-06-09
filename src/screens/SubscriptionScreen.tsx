@@ -7,6 +7,7 @@ import {
   Alert,
   useWindowDimensions,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -278,27 +279,21 @@ const SubscriptionScreen = ({ navigation }: { navigation: { goBack: () => void; 
           )}
         </TouchableOpacity>
 
-        {selectedPlan === 'yearly' && (
-          <TouchableOpacity
-            style={styles.trialRow}
-            onPress={() => setIsTrialEnabled(!isTrialEnabled)}
-            activeOpacity={0.9}
-          >
-            <MaterialCommunityIcons
-              name={trialActive ? 'checkbox-marked' : 'checkbox-blank-outline'}
-              size={22}
-              color={trialActive ? '#F5C842' : '#475569'}
-            />
-            <Text style={styles.trialLabel}>{t('subscription.enableTrial')}</Text>
-          </TouchableOpacity>
-        )}
-
         <SubscriptionLegalBlock
           selectedPlan={selectedPlan}
           trialActive={trialActive}
           pricingByPlan={pricingByPlan}
-          onTermsPress={() => navigation.navigate('Terms')}
-          onPrivacyPress={() => navigation.navigate('Privacy')}
+          onTermsPress={() => {
+            Linking.openURL('https://albertfast.github.io/radar_tinder/terms-and-conditions').catch((err) =>
+              console.warn('Failed to open Terms URL:', err)
+            );
+          }}
+          onPrivacyPress={() => {
+            Linking.openURL('https://albertfast.github.io/radar_tinder/privacy-policy').catch((err) =>
+              console.warn('Failed to open Privacy URL:', err)
+            );
+          }}
+          onRestorePress={handleRestore}
           compact
         />
 
