@@ -23,7 +23,7 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 
 prepare_react_native_project!
 
-target 'RadarTinder' do
+target 'RadarFlow' do
   use_expo_modules!
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
@@ -180,17 +180,6 @@ SCRIPT
           build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
           build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
         end
-      end
-    end
-
-    # Workaround for consteval error in fmt::basic_format_string on newer Xcode compilers
-    fmt_base_header = File.join(installer.sandbox.root.to_s, 'fmt', 'include', 'fmt', 'base.h')
-    if File.exist?(fmt_base_header)
-      fmt_base_content = File.read(fmt_base_header)
-      fmt_patched = fmt_base_content.gsub('#  define FMT_CONSTEVAL consteval', '#  define FMT_CONSTEVAL')
-      if fmt_patched != fmt_base_content
-        File.chmod(0644, fmt_base_header)
-        File.write(fmt_base_header, fmt_patched)
       end
     end
 
