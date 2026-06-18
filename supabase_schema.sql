@@ -1,4 +1,4 @@
--- Radar Tinder: core schema + leaderboard points (safe to re-run)
+-- Radar Flow: core schema + leaderboard points (safe to re-run)
 
 create extension if not exists postgis;
 create extension if not exists pgcrypto;

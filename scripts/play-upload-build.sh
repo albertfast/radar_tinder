@@ -18,7 +18,7 @@ if [[ "$SHA1" != "$EXPECTED" ]]; then
   exit 1
 fi
 
-DEST="/tmp/RadarTinder-play-${SHA256:0:16}.aab"
+DEST="/tmp/RadarFlow-play-${SHA256:0:16}.aab"
 cp "$AAB" "$DEST"
 
 echo ""

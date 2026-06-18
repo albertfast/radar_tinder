@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 AAB="${1:-$ROOT/android/app/build/outputs/bundle/release/app-release.aab}"
 
-echo "=== Radar Tinder Play signing diagnostic ==="
+echo "=== Radar Flow Play signing diagnostic ==="
 echo "Package (from bundletool): com.radartinder.app"
 echo ""
 

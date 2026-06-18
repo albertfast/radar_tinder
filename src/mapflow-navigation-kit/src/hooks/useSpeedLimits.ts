@@ -18,6 +18,7 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 export function useSpeedLimits() {
   const {
     userLocation,
+    userSpeed,
     isNavigating,
     userHeading,
     routeHeading,
@@ -28,6 +29,7 @@ export function useSpeedLimits() {
   } = useNavigationStore();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastLookupRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
+  const lastGoodLimitRef = useRef<{ value: number; lat: number; lng: number; at: number } | null>(null);
   const failureCountRef = useRef(0);
 
   useEffect(() => {
@@ -36,13 +38,20 @@ export function useSpeedLimits() {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-      if (!isNavigating) setSpeedLimit(null);
+      if (!isNavigating) {
+        lastLookupRef.current = null;
+        lastGoodLimitRef.current = null;
+        failureCountRef.current = 0;
+        setSpeedLimit(null);
+      }
       return;
     }
 
     const fetch = async () => {
       if (!userLocation) return;
 
+      const speedKph = Math.max(0, userSpeed * 3.6);
+      const lookupRadius = speedKph >= 90 ? 170 : speedKph >= 55 ? 130 : 85;
       const lastLookup = lastLookupRef.current;
       if (lastLookup) {
         const movedMeters = haversineMeters(lastLookup.lat, lastLookup.lng, userLocation.lat, userLocation.lng);
@@ -59,28 +68,53 @@ export function useSpeedLimits() {
         at: Date.now(),
       };
 
+      const keepLastGoodLimit = () => {
+        const lastGood = lastGoodLimitRef.current;
+        if (!lastGood) {
+          return false;
+        }
+
+        const ageMs = Date.now() - lastGood.at;
+        const movedMeters = haversineMeters(lastGood.lat, lastGood.lng, userLocation.lat, userLocation.lng);
+        if (ageMs <= 120000 && movedMeters <= Math.max(1000, lookupRadius * 8)) {
+          setSpeedLimit(lastGood.value);
+          return true;
+        }
+
+        return false;
+      };
+
       try {
         const data = await getSpeedLimits(
           userLocation.lat,
           userLocation.lng,
-          40,
+          lookupRadius,
           userHeading > 0 ? userHeading : null,
           routeHeading,
           countryCode || (unitSystem === 'imperial' ? 'US' : null),
         );
-        if (data.speedLimit?.value) {
+        if (data.speedLimit && data.speedLimit.value > 0) {
           let val = data.speedLimit.value;
           if (data.speedLimit.unit === 'mph') val = Math.round(val * 1.60934);
           setSpeedLimit(val);
+          lastGoodLimitRef.current = {
+            value: val,
+            lat: userLocation.lat,
+            lng: userLocation.lng,
+            at: Date.now(),
+          };
           failureCountRef.current = 0;
         } else {
           failureCountRef.current += 1;
-          if (speedLimit === null) {
+          if (!keepLastGoodLimit() && speedLimit === null) {
             setSpeedLimit(null);
           }
         }
       } catch {
         failureCountRef.current += 1;
+        if (!keepLastGoodLimit() && speedLimit === null) {
+          setSpeedLimit(null);
+        }
       }
     };
 
@@ -90,7 +124,7 @@ export function useSpeedLimits() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [countryCode, isNavigating, routeHeading, setSpeedLimit, speedLimit, unitSystem, userHeading, userLocation]);
+  }, [countryCode, isNavigating, routeHeading, setSpeedLimit, speedLimit, unitSystem, userHeading, userLocation, userSpeed]);
 
   return { speedLimit };
 }

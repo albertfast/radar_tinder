@@ -1,41 +1,41 @@
 export const modernMapStyle = [
-  // Base – deep space navy (not black, has depth)
-  { elementType: 'geometry', stylers: [{ color: '#0a1628' }] },
+  // Base - charcoal petrol, tuned to avoid the heavy navy look.
+  { elementType: 'geometry', stylers: [{ color: '#071016' }] },
 
   // Labels
   { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#ddeeff' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#060e1a' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#D7E4E9' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#061015' }] },
 
   // Admin borders
   {
     featureType: 'administrative',
     elementType: 'geometry.stroke',
-    stylers: [{ color: '#1a3660' }],
+    stylers: [{ color: '#28404B' }],
   },
 
-  // Landscape fill – richer midnight blue
+  // Landscape fill
   {
     featureType: 'landscape',
     elementType: 'geometry',
-    stylers: [{ color: '#0c1a2e' }],
+    stylers: [{ color: '#0A151A' }],
   },
   {
     featureType: 'landscape.man_made',
     elementType: 'geometry',
-    stylers: [{ color: '#0e1f38' }],
+    stylers: [{ color: '#0B171D' }],
   },
 
-  // Parks – vivid jungle green
+  // Parks
   {
     featureType: 'poi.park',
     elementType: 'geometry',
-    stylers: [{ color: '#0b3d28' }],
+    stylers: [{ color: '#145136' }],
   },
   {
     featureType: 'poi.park',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#22c77a' }],
+    stylers: [{ color: '#97E8BE' }],
   },
 
   // Hide noisy POIs
@@ -44,91 +44,91 @@ export const modernMapStyle = [
   { featureType: 'poi.place_of_worship', stylers: [{ visibility: 'off' }] },
   { featureType: 'poi.school', stylers: [{ visibility: 'off' }] },
 
-  // Local roads – visible slate blue (much lighter than base)
+  // Local roads
   {
     featureType: 'road.local',
     elementType: 'geometry.fill',
-    stylers: [{ color: '#14294c' }],
+    stylers: [{ color: '#21313C' }],
   },
   {
     featureType: 'road.local',
     elementType: 'geometry.stroke',
-    stylers: [{ color: '#1b3970' }],
+    stylers: [{ color: '#101B23' }],
   },
   {
     featureType: 'road.local',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#9ab8e8' }],
+    stylers: [{ color: '#B9C9D1' }],
   },
 
-  // Arterial roads – bright mid-blue
+  // Arterial roads
   {
     featureType: 'road.arterial',
     elementType: 'geometry.fill',
-    stylers: [{ color: '#183c78' }],
+    stylers: [{ color: '#35525A' }],
   },
   {
     featureType: 'road.arterial',
     elementType: 'geometry.stroke',
-    stylers: [{ color: '#25539f' }],
+    stylers: [{ color: '#13252B' }],
   },
   {
     featureType: 'road.arterial',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#b8d4ff' }],
+    stylers: [{ color: '#D7E4E9' }],
   },
 
-  // Highways – vivid royal blue + bright cyan outline
+  // Highways
   {
     featureType: 'road.highway',
     elementType: 'geometry.fill',
-    stylers: [{ color: '#15489b' }],
+    stylers: [{ color: '#1F8F86' }],
   },
   {
     featureType: 'road.highway',
     elementType: 'geometry.stroke',
-    stylers: [{ color: '#2d6fc7' }],
+    stylers: [{ color: '#0D3F3C' }],
   },
   {
     featureType: 'road.highway',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#ffffff' }],
+    stylers: [{ color: '#ECFFFB' }],
   },
 
   // Highway ramps/connectors
   {
     featureType: 'road.highway.controlled_access',
     elementType: 'geometry.fill',
-    stylers: [{ color: '#1a4f9e' }],
+    stylers: [{ color: '#229A91' }],
   },
   {
     featureType: 'road.highway.controlled_access',
     elementType: 'geometry.stroke',
-    stylers: [{ color: '#2d77c9' }],
+    stylers: [{ color: '#0D4D48' }],
   },
 
   // Transit
   {
     featureType: 'transit',
     elementType: 'geometry',
-    stylers: [{ color: '#0f2545' }],
+    stylers: [{ color: '#173039' }],
   },
   {
     featureType: 'transit.station',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#7eb8ff' }],
+    stylers: [{ color: '#8ECFD2' }],
   },
 
-  // Water – deep ocean blue with shimmer
+  // Water
   {
     featureType: 'water',
     elementType: 'geometry',
-    stylers: [{ color: '#04213f' }],
+    stylers: [{ color: '#123C47' }],
   },
   {
     featureType: 'water',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#5eb0ff' }],
+    stylers: [{ color: '#8ECFD2' }],
   },
 ];
 

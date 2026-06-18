@@ -65,7 +65,7 @@ const RUNTIME_VERSION = process.env.EXPO_RUNTIME_VERSION || APP_VERSION;
 
 module.exports = {
   expo: {
-    name: "Radar Tinder",
+    name: "Radar Flow",
     scheme: "radartinder",
     slug: "radar-tinder",
     version: APP_VERSION,
@@ -87,6 +87,8 @@ module.exports = {
         googleMapsApiKey: "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
       },
       infoPlist: {
+        CFBundleDisplayName: "Radar Flow",
+        CFBundleName: "Radar Flow",
         GADApplicationIdentifier: "ca-app-pub-9670547831022880~2252519276",
         SKAdNetworkItems: [
           { SKAdNetworkIdentifier: "cstr6suwn9.skadnetwork" },
@@ -151,8 +153,8 @@ module.exports = {
       }
     },
     web: {
-      name: "Radar Tinder",
-      shortName: "Radar Tinder",
+      name: "Radar Flow",
+      shortName: "Radar Flow",
       lang: "en",
       scope: "./",
       themeColor: "#FF6B35",

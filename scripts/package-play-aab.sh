@@ -27,14 +27,14 @@ STAMP="$(date -u +%Y%m%d-%H%M%S)"
 OUT_DIR="$ROOT/dist/play-upload"
 mkdir -p "$OUT_DIR"
 
-DEST="$OUT_DIR/RadarTinder-${VERSION}-play-${STAMP}-${SHORT_SHA256}.aab"
+DEST="$OUT_DIR/RadarFlow-${VERSION}-play-${STAMP}-${SHORT_SHA256}.aab"
 META="$DEST.txt"
 
 cp "$SRC" "$DEST"
 ls -lh "$DEST"
 
 cat >"$META" <<EOF
-Radar Tinder — Play Console upload bundle
+Radar Flow — Play Console upload bundle
 =========================================
 Package: com.radartinder.app
 Version: $VERSION

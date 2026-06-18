@@ -1,4 +1,4 @@
-# Radar Tinder App
+# Radar Flow App
 
 A professional radar detection mobile application built with Expo React Native and TypeScript.
 
@@ -168,14 +168,14 @@ eas build --platform ios --profile production
 - Community data
 - Limited offline functionality
 
-### Premium ($9.99/month)
+### Premium
 - 10km detection range
 - Advanced alerts
 - Real-time updates
 - Ad-free experience
 - Full offline support
 
-### Pro ($19.99/month)
+### Pro
 - Unlimited detection range
 - Priority alerts
 - All premium features

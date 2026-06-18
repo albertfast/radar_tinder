@@ -1,6 +1,6 @@
 const LOGS_ENABLED = process.env.EXPO_PUBLIC_ENABLE_LOGS !== 'false';
 
-const formatMessage = (message: string) => `[RadarTinder] ${message}`;
+const formatMessage = (message: string) => `[RadarFlow] ${message}`;
 
 export const logInfo = (message: string, data?: Record<string, any>): void => {
   if (!LOGS_ENABLED) return;

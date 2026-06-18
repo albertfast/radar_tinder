@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -16,8 +16,20 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { FirebaseAuthService } from '../services/FirebaseAuthService';
 import { LocationService } from '../services/LocationService';
 import { AdService } from '../services/AdService';
+import { SubscriptionService } from '../services/SubscriptionService';
 import { useAuthStore } from '../store/authStore';
 import { RadarAnimation } from '../components/RadarAnimation';
+import { APP_DISPLAY_NAME_UPPER } from '../constants/appBrand';
+import {
+  formatPlanPricing,
+  type PlanPricing,
+} from '../utils/subscriptionPricing';
+import {
+  findStoreProductForPlan,
+  getStoreProductIdsForPlan,
+  mapOfferingPackages,
+} from '../utils/subscriptionPackages';
+import type { PurchasesPackage, PurchasesStoreProduct } from 'react-native-purchases';
 
 const { width, height } = Dimensions.get('window');
 const allowLayoutAnimations = Platform.OS !== 'android';
@@ -48,13 +60,65 @@ const FEATURES = [
   },
 ];
 
+type PurchaseTarget = PurchasesPackage | PurchasesStoreProduct;
+
+const isRevenueCatPackage = (target: PurchaseTarget): target is PurchasesPackage =>
+  Boolean((target as PurchasesPackage)?.product);
+
 const TrialOfferScreen = () => {
   const { signInAnonymously, signInAsGuest, normalizeAccessState } = useAuthStore();
   const [loadingAction, setLoadingAction] = useState<'subscribe' | 'ads' | 'location' | null>(null);
   const [locationEnabled, setLocationEnabled] = useState(false);
+  const [pricingLoading, setPricingLoading] = useState(true);
+  const [pricingError, setPricingError] = useState<string | null>(null);
+  const [yearlyTarget, setYearlyTarget] = useState<PurchaseTarget | null>(null);
+  const [yearlyPricing, setYearlyPricing] = useState<PlanPricing | null>(null);
   const insets = useSafeAreaInsets();
   const heroTitle = isCompactDevice ? 'Premium drive, zero clutter' : 'Premium driving, built for the road';
   const bottomSafePadding = Math.max(insets.bottom, Platform.OS === 'android' ? 34 : 18);
+
+  const loadYearlyPricing = useCallback(async () => {
+    setPricingLoading(true);
+    setPricingError(null);
+    try {
+      if (!SubscriptionService.isConfigured()) {
+        setYearlyTarget(null);
+        setYearlyPricing(null);
+        setPricingError('Payments are not configured.');
+        return;
+      }
+
+      const offering = await SubscriptionService.getOfferings();
+      const availablePackages = offering?.availablePackages || [];
+      const mappedPackages = mapOfferingPackages(availablePackages, offering);
+      let target: PurchaseTarget | null = mappedPackages.yearly;
+
+      if (!target) {
+        const storeProducts = await SubscriptionService.getStoreProducts(
+          getStoreProductIdsForPlan('yearly'),
+          'subscription'
+        );
+        target = findStoreProductForPlan(storeProducts, 'yearly');
+      }
+
+      setYearlyTarget(target);
+      setYearlyPricing(formatPlanPricing(target, 'yearly'));
+      if (!target) {
+        setPricingError('No annual plan is available right now.');
+      }
+    } catch (error) {
+      console.warn('Failed to load yearly subscription pricing:', error);
+      setYearlyTarget(null);
+      setYearlyPricing(null);
+      setPricingError('Price unavailable.');
+    } finally {
+      setPricingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadYearlyPricing().catch(() => {});
+  }, [loadYearlyPricing]);
 
   const ensureAnonymousSession = async () => {
     try {
@@ -68,7 +132,6 @@ const TrialOfferScreen = () => {
     }
     const userId = useAuthStore.getState().user?.id;
     if (userId) {
-      const { SubscriptionService } = await import('../services/SubscriptionService');
       await SubscriptionService.setUserId(userId).catch(() => {});
     }
   };
@@ -93,17 +156,13 @@ const TrialOfferScreen = () => {
       setLoadingAction('subscribe');
       await ensureAnonymousSession();
 
-      const { SubscriptionService } = await import('../services/SubscriptionService');
-      const offerings = await SubscriptionService.getOfferings();
-      const yearlyPackage = offerings?.availablePackages?.find(
-        (p: any) => p.identifier.includes('yearly') || p.identifier.includes('annual')
-      );
-
-      if (!yearlyPackage) {
-        throw new Error('No annual plan is available right now.');
+      if (!yearlyTarget) {
+        throw new Error(pricingError || 'Price unavailable. Please try again.');
       }
 
-      const purchased = await SubscriptionService.purchasePackage(yearlyPackage);
+      const purchased = isRevenueCatPackage(yearlyTarget)
+        ? await SubscriptionService.purchasePackage(yearlyTarget)
+        : await SubscriptionService.purchaseStoreProduct(yearlyTarget);
       if (purchased) {
         await SubscriptionService.syncAccessState().catch(() => {});
         await normalizeAccessState().catch(() => {});
@@ -139,7 +198,6 @@ const TrialOfferScreen = () => {
   const handleRestore = async () => {
     try {
       setLoadingAction('subscribe');
-      const { SubscriptionService } = await import('../services/SubscriptionService');
       const restored = await SubscriptionService.restorePurchases();
       if (!restored) {
         Alert.alert('Restore Failed', 'No previous purchase was found.');
@@ -165,7 +223,7 @@ const TrialOfferScreen = () => {
         <Animated.View entering={allowLayoutAnimations ? FadeInDown.delay(80) : undefined} style={styles.header}>
           <View style={styles.brandRow}>
             <MaterialCommunityIcons name="radar" size={20} color="#FF646B" />
-            <Text style={styles.brandText}>RADAR TINDER</Text>
+            <Text style={styles.brandText}>{APP_DISPLAY_NAME_UPPER}</Text>
           </View>
           <View style={styles.premiumBadge}>
             <Text style={styles.premiumBadgeText}>PREMIUM</Text>
@@ -230,7 +288,13 @@ const TrialOfferScreen = () => {
                 <Text style={styles.offerTitle}>Unlock Graphic Drive</Text>
               </View>
               <View style={styles.offerPricePill}>
-                <Text style={styles.offerPriceTop}>$19.99</Text>
+                {pricingLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.offerPriceTop}>
+                    {yearlyPricing?.priceString || 'Price unavailable'}
+                  </Text>
+                )}
                 <Text style={styles.offerPriceBottom}>per year</Text>
               </View>
             </View>
@@ -249,7 +313,7 @@ const TrialOfferScreen = () => {
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleSubscribe}
-              disabled={loadingAction !== null}
+              disabled={loadingAction !== null || pricingLoading || !yearlyTarget}
               activeOpacity={0.92}
             >
               <LinearGradient colors={['#FF6A6A', '#FF4F63']} style={styles.primaryButtonGradient}>
@@ -263,6 +327,12 @@ const TrialOfferScreen = () => {
                 )}
               </LinearGradient>
             </TouchableOpacity>
+
+            {!pricingLoading && (!yearlyTarget || pricingError) && (
+              <TouchableOpacity style={styles.retryButton} onPress={loadYearlyPricing} disabled={loadingAction !== null}>
+                <Text style={styles.retryText}>Retry pricing</Text>
+              </TouchableOpacity>
+            )}
 
             <View style={styles.secondaryRow}>
               <TouchableOpacity
@@ -528,6 +598,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   offerPricePill: {
+    minWidth: 94,
     borderRadius: 16,
     paddingHorizontal: 11,
     paddingVertical: 8,
@@ -540,6 +611,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
+    textAlign: 'right',
   },
   offerPriceBottom: {
     color: '#97A4BC',
@@ -594,6 +666,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '900',
+  },
+  retryButton: {
+    marginTop: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 26,
+  },
+  retryText: {
+    color: '#7CE8DF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   secondaryRow: {
     marginTop: 10,

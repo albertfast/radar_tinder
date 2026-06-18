@@ -209,7 +209,7 @@ const fetchOverpassElements = async (bbox: Bbox) => {
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          'User-Agent': 'RadarTinder-Ingest/1.0',
+          'User-Agent': 'RadarFlow-Ingest/1.0',
         },
         body: `data=${encodeURIComponent(query)}`,
       });

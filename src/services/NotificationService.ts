@@ -11,6 +11,7 @@ import {
   formatRadarTypeLabel,
   getRadarShortLocation,
 } from '../utils/radarAlerts';
+import { APP_DISPLAY_NAME } from '../constants/appBrand';
 
 type RadarAlertOptions = {
   playSound?: boolean;
@@ -121,7 +122,8 @@ export class NotificationService {
     options?: RadarAlertOptions
   ): Promise<void> {
     try {
-      if (!this.canPublishSystemNotification(options)) {
+      const publishOptions = { ...options, allowForeground: options?.allowForeground ?? true };
+      if (!this.canPublishSystemNotification(publishOptions)) {
         return;
       }
       const settings = useSettingsStore.getState();
@@ -228,7 +230,7 @@ export class NotificationService {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Test Notification',
-          body: 'This is a test notification from Radar Tinder',
+          body: `This is a test notification from ${APP_DISPLAY_NAME}`,
           data: { type: 'test' },
         },
         trigger: null,

@@ -126,7 +126,7 @@ export class NominatimService {
 
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'RadarTinder/1.0', // Required by Nominatim ToS
+          'User-Agent': 'RadarFlow/1.0', // Required by Nominatim ToS
           'Accept-Language': 'en-US,en',
         },
       });
@@ -158,7 +158,7 @@ export class NominatimService {
 
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'RadarTinder/1.0',
+          'User-Agent': 'RadarFlow/1.0',
           'Accept-Language': 'en',
         },
       });

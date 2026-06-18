@@ -4,6 +4,7 @@ import { Text, IconButton } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
+import { APP_DISPLAY_NAME } from '../constants/appBrand';
 
 const PrivacyScreen = ({ navigation }: any) => {
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
@@ -26,7 +27,7 @@ const PrivacyScreen = ({ navigation }: any) => {
         <Text style={styles.text}>
           <Text style={styles.bold}>Effective Date: January 2026</Text>{"\n\n"}
 
-          This Privacy Policy explains how <Text style={styles.bold}>Aether Labs</Text> collects, uses, and protects information across our mobile applications, including Radar Tinder.{"\n\n"}
+          This Privacy Policy explains how <Text style={styles.bold}>Aether Labs</Text> collects, uses, and protects information across our mobile applications, including {APP_DISPLAY_NAME}.{"\n\n"}
 
           <Text style={styles.bold}>1. Information We Collect</Text>{"\n"}
           <Text style={styles.bold}>Location Data:</Text> Used for navigation, alerts, and map-based features when you grant permission.{"\n"}

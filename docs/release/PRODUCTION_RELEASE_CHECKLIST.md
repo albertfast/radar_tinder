@@ -1,4 +1,4 @@
-# Production Release Checklist (Radar Tinder)
+# Production Release Checklist (Radar Flow)
 
 Bu liste, production gönderimi öncesi hızlı ve güvenli final kontroldür.
 

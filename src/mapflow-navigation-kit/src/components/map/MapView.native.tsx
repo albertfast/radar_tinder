@@ -1,5 +1,5 @@
 import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import RNMapView, {
   LatLng,
   MapPressEvent,
@@ -14,6 +14,7 @@ import { SvgXml } from 'react-native-svg';
 import { MAP_MARKER_ICON_URIS } from '../../../../native/mapMarkerSvgAssets';
 import type { MapOverlayMarker, MapPoiMarker, MapMessage, RouteChoice, RouteData } from '../../types/map';
 import type { MapViewport } from '../../types/viewport';
+import { MAP_ROUTE_COLORS } from '../../utils/mapTheme';
 import type { NativeMapHandle } from './map-bridge';
 
 export { useMapBridge } from './map-bridge';
@@ -39,45 +40,40 @@ interface MapViewProps {
 }
 
 const INITIAL_DELTA = 0.024;
-const ROUTE_VISUALS = Platform.select({
-  ios: {
-    activeColor: '#2DD4BF',
-    shadowColor: '#14B8A655', // 0.34 opacity
-    altColor: '#94A3B894',    // 0.58 opacity
-  },
-  default: {
-    activeColor: '#2DD4BF',
-    shadowColor: '#14B8A655',
-    altColor: '#94A3B894',
-  },
-})!;
-const ROUTE_COLOR = ROUTE_VISUALS.activeColor;
-const ROUTE_SHADOW = ROUTE_VISUALS.shadowColor;
-const ALT_ROUTE_COLOR = ROUTE_VISUALS.altColor;
+const ROUTE_COLOR = MAP_ROUTE_COLORS.line;
+const ROUTE_SHADOW = MAP_ROUTE_COLORS.glow;
+const ROUTE_HIGHLIGHT = MAP_ROUTE_COLORS.highlight;
+const ALT_ROUTE_COLOR = MAP_ROUTE_COLORS.altLine;
 
 
 const DARK_MAP_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: '#08111f' }] },
+  { elementType: 'geometry', stylers: [{ color: '#071016' }] },
   { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#b8c7dc' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#050b14' }] },
-  { featureType: 'administrative', elementType: 'geometry', stylers: [{ color: '#1f3b57' }] },
-  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#071423' }] },
-  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#0f2f27' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#D7E4E9' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#061015' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#28404B' }] },
+  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#0A151A' }] },
+  { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#0B171D' }] },
+  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#123225' }] },
   { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
   { featureType: 'poi.government', stylers: [{ visibility: 'off' }] },
   { featureType: 'poi.place_of_worship', stylers: [{ visibility: 'off' }] },
-  { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#17613a' }] },
-  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#a7f3d0' }] },
-  { featureType: 'poi.park', elementType: 'labels.text.stroke', stylers: [{ color: '#062017' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1d3554' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#0b1627' }] },
-  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#244d77' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2a8f86' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#0e3d3a' }] },
-  { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: '#17304e' }] },
+  { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#145136' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#97E8BE' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.stroke', stylers: [{ color: '#061B14' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#273944' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#0E1A21' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#B9C9D1' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#35525A' }] },
+  { featureType: 'road.arterial', elementType: 'geometry.stroke', stylers: [{ color: '#13252B' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#1F8F86' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#0D3F3C' }] },
+  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#ECFFFB' }] },
+  { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: '#21313C' }] },
+  { featureType: 'road.local', elementType: 'geometry.stroke', stylers: [{ color: '#101B23' }] },
   { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#164e73' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#123C47' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#8ECFD2' }] },
 ] as const;
 
 function isFiniteCoordinate(lat?: number, lng?: number): lat is number {
@@ -580,7 +576,6 @@ export default function MapView({
     if (coordinates.length < 2) return null;
     const routeId = route.id ?? `route-${index}`;
     const color = active ? ROUTE_COLOR : ALT_ROUTE_COLOR;
-    console.log('[MapView] renderRoute', { routeId, active, color, coords: coordinates.length });
 
     return (
       <React.Fragment key={routeId}>
@@ -588,7 +583,8 @@ export default function MapView({
           <Polyline
             coordinates={coordinates}
             strokeColor={ROUTE_SHADOW}
-            strokeWidth={13}
+            strokeColors={[ROUTE_SHADOW, ROUTE_SHADOW]}
+            strokeWidth={MAP_ROUTE_COLORS.glowWidth}
             lineCap="round"
             lineJoin="round"
             zIndex={18}
@@ -597,13 +593,25 @@ export default function MapView({
         <Polyline
           coordinates={coordinates}
           strokeColor={color}
-          strokeWidth={active ? 7 : 4}
+          strokeColors={[color, color]}
+          strokeWidth={active ? MAP_ROUTE_COLORS.lineWidth : 4}
           lineCap="round"
           lineJoin="round"
           tappable
           onPress={() => route.id && onRouteSelect?.(route.id)}
           zIndex={active ? 20 : 14}
         />
+        {active ? (
+          <Polyline
+            coordinates={coordinates}
+            strokeColor={ROUTE_HIGHLIGHT}
+            strokeColors={[ROUTE_HIGHLIGHT, ROUTE_HIGHLIGHT]}
+            strokeWidth={MAP_ROUTE_COLORS.highlightWidth}
+            lineCap="round"
+            lineJoin="round"
+            zIndex={21}
+          />
+        ) : null}
       </React.Fragment>
     );
   };

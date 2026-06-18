@@ -1,12 +1,15 @@
-/** Single source of truth for map navigation route colors (turquoise, not purple). */
+/** Single source of truth for map navigation route colors. */
 export const MAP_ROUTE_COLORS = {
-  line: '#2DD4BF',
-  glow: 'rgba(45, 212, 191, 0.35)',
-  shadow: 'rgba(15, 118, 110, 0.55)',
-  glowWidth: 16,
+  line: '#54E7DD',
+  glow: '#0D5F59',
+  shadow: '#0A3D3A',
+  highlight: '#F2FFFC',
+  altLine: '#7FA8A4',
+  glowWidth: 14,
   shadowWidth: 10,
-  lineWidth: 6,
+  lineWidth: 7,
+  highlightWidth: 2,
 } as const;
 
-export const MAP_WATERWAY_COLOR = '#1d8f8a';
-export const MAP_ROAD_MOTORWAY = '#3d9e98';
+export const MAP_WATERWAY_COLOR = '#155A62';
+export const MAP_ROAD_MOTORWAY = '#1F8F86';

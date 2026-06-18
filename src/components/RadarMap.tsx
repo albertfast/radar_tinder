@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
-import { StyleSheet, Platform, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { modernMapStyle } from '../utils/modernMapStyle';
 import { getResponsiveWidth } from '../constants/layout';
 import { RadarService } from '../services/RadarService';
+import { MAP_ROUTE_COLORS } from '../mapflow-navigation-kit/src/utils/mapTheme';
 
 const MAP_COORD_TRACE_ENABLED =
   __DEV__ || /^(1|true|yes)$/i.test(process.env.EXPO_PUBLIC_MAP_TRACE || '');
@@ -12,25 +13,14 @@ const RADAR_MARKER_RENDER_CAP = 120;
 const RADAR_ROUTE_PRIORITY_CORRIDOR_METERS = 180;
 const REGION_PADDING_FACTOR = 0.2;
 
-const ROUTE_VISUAL_TOKENS = Platform.select({
-  ios: {
-    // High-contrast turquoise route for iOS: glow + solid body + bright core.
-    casingColor: 'rgba(0, 246, 226, 0.30)',
-    fillColor: '#00F7E6',
-    highlightColor: 'rgba(245, 255, 254, 0.95)',
-    casingWidth: 8,
-    fillWidth: 5,
-    highlightWidth: 2.4,
-  },
-  default: {
-    casingColor: 'rgba(0, 246, 226, 0.26)',
-    fillColor: '#00F0DD',
-    highlightColor: 'rgba(232, 255, 252, 0.88)',
-    casingWidth: getResponsiveWidth(9),
-    fillWidth: getResponsiveWidth(6),
-    highlightWidth: getResponsiveWidth(2),
-  },
-})!;
+const ROUTE_VISUAL_TOKENS = {
+  casingColor: MAP_ROUTE_COLORS.glow,
+  fillColor: MAP_ROUTE_COLORS.line,
+  highlightColor: MAP_ROUTE_COLORS.highlight,
+  casingWidth: getResponsiveWidth(MAP_ROUTE_COLORS.glowWidth),
+  fillWidth: getResponsiveWidth(MAP_ROUTE_COLORS.lineWidth),
+  highlightWidth: getResponsiveWidth(MAP_ROUTE_COLORS.highlightWidth),
+} as const;
 
 type LatLng = { latitude: number; longitude: number };
 type MapRegion = {
@@ -368,6 +358,7 @@ const RadarMap = React.memo(({
           coordinates={sanitizedRouteCoords}
           strokeWidth={ROUTE_VISUAL_TOKENS.casingWidth}
           strokeColor={ROUTE_VISUAL_TOKENS.casingColor}
+          strokeColors={[ROUTE_VISUAL_TOKENS.casingColor, ROUTE_VISUAL_TOKENS.casingColor]}
           lineCap="round"
           lineJoin="round"
           zIndex={90}
@@ -380,6 +371,7 @@ const RadarMap = React.memo(({
           coordinates={sanitizedRouteCoords}
           strokeWidth={ROUTE_VISUAL_TOKENS.fillWidth}
           strokeColor={ROUTE_VISUAL_TOKENS.fillColor}
+          strokeColors={[ROUTE_VISUAL_TOKENS.fillColor, ROUTE_VISUAL_TOKENS.fillColor]}
           lineCap="round"
           lineJoin="round"
           zIndex={91}
@@ -392,6 +384,7 @@ const RadarMap = React.memo(({
           coordinates={sanitizedRouteCoords}
           strokeWidth={ROUTE_VISUAL_TOKENS.highlightWidth}
           strokeColor={ROUTE_VISUAL_TOKENS.highlightColor}
+          strokeColors={[ROUTE_VISUAL_TOKENS.highlightColor, ROUTE_VISUAL_TOKENS.highlightColor]}
           lineCap="round"
           lineJoin="round"
           zIndex={92}
@@ -422,8 +415,8 @@ const RadarMap = React.memo(({
             key="user-accuracy"
             center={safeLocation}
             radius={Math.max(12, Math.min(locationAccuracyMeters, 140))}
-            fillColor="rgba(77, 149, 255, 0.12)"
-            strokeColor="rgba(77, 149, 255, 0.22)"
+            fillColor="rgba(84, 231, 221, 0.12)"
+            strokeColor="rgba(84, 231, 221, 0.22)"
             strokeWidth={1}
             zIndex={94}
           />
@@ -601,15 +594,15 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(109, 174, 255, 0.26)',
+    backgroundColor: 'rgba(84, 231, 221, 0.24)',
     borderWidth: 2,
-    borderColor: 'rgba(224, 242, 254, 0.96)',
+    borderColor: 'rgba(242, 255, 252, 0.96)',
   },
   userMarkerInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#4D95FF',
+    backgroundColor: '#54E7DD',
     borderWidth: 1,
     borderColor: '#F8FAFC',
   },

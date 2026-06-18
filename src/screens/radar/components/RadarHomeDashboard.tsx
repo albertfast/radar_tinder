@@ -158,7 +158,6 @@ export function RadarHomeDashboard({
   onToggleVoiceWarnings,
   pauseRadarAnimation,
 }: RadarHomeDashboardProps) {
-  const legacyHomeRadarMode: RadarRendererMode = 'legacy2d';
   const heroPulse = useSharedValue(0);
   const heroSweep = useSharedValue(0);
 
@@ -204,7 +203,7 @@ export function RadarHomeDashboard({
         </TouchableOpacity>
 
         <Text style={styles.appName}>
-          RADAR <Text style={{ color: '#FF5252' }}>TINDER</Text>
+          RADAR <Text style={{ color: '#4ECDC4' }}>FLOW</Text>
         </Text>
 
         <View style={styles.headerRight}>

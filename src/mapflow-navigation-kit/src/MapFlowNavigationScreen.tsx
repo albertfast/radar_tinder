@@ -957,8 +957,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   routeChoicePillActive: {
-    backgroundColor: 'rgba(8, 47, 73, 0.94)',
-    borderColor: 'rgba(45, 212, 191, 0.58)',
+    backgroundColor: 'rgba(8, 61, 58, 0.94)',
+    borderColor: 'rgba(84, 231, 221, 0.58)',
   },
   routeChoiceLabel: {
     fontSize: 12,
@@ -966,7 +966,7 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
   },
   routeChoiceLabelActive: {
-    color: '#5EEAD4',
+    color: '#54E7DD',
   },
   routeChoiceMeta: {
     marginTop: 3,
@@ -1111,9 +1111,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(45, 212, 191, 0.12)',
+    backgroundColor: 'rgba(84, 231, 221, 0.12)',
     borderWidth: 0.5,
-    borderColor: 'rgba(45, 212, 191, 0.24)',
+    borderColor: 'rgba(84, 231, 221, 0.24)',
   },
   dialogBtnText: {
     fontSize: 10,

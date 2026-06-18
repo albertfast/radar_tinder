@@ -16,6 +16,7 @@ import { RadarLocation } from '../types';
 import { hasProAccess } from '../utils/access';
 import { readBooleanFlag } from '../utils/flags';
 import { describeRadarApproachByDistance } from '../utils/radarAlerts';
+import { APP_DISPLAY_NAME } from '../constants/appBrand';
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
 const MAX_STARTUP_LOCATION_ACCURACY_METERS = 180;
@@ -163,7 +164,7 @@ export class BackgroundService {
         distanceInterval: 10,
         deferredUpdatesInterval: 5000,
         foregroundService: {
-          notificationTitle: "Radar Tinder",
+          notificationTitle: APP_DISPLAY_NAME,
           notificationBody: "Radar detection is active",
           notificationColor: "#FF5252",
         },
@@ -594,6 +595,7 @@ export class BackgroundService {
         normalizedLocation.speed != null ? Math.max(0, normalizedLocation.speed * 3.6) : null;
       const hasReliableSpeed = speedFromSensorKph != null || inferredSpeedKph != null;
       const speedKph = speedFromSensorKph ?? inferredSpeedKph ?? 0;
+      const useEtaWindow = hasReliableSpeed && speedKph >= 8;
 
       this.lastLocationUpdate = {
         ...normalizedLocation,
@@ -706,9 +708,13 @@ export class BackgroundService {
 
       let baseThreshold = 0.8;
       if (routeMode) {
-        if (speedKph > 100) baseThreshold = 2.0;
-        else if (speedKph > 60) baseThreshold = 1.2;
-        else if (speedKph < 30) baseThreshold = 0.5;
+        if (speedKph > 100) baseThreshold = 2.4;
+        else if (speedKph > 60) baseThreshold = 1.6;
+        else if (speedKph > 30) baseThreshold = 1.15;
+        else baseThreshold = 0.9;
+        if (!useEtaWindow) {
+          baseThreshold = Math.max(baseThreshold, 1.1);
+        }
       } else {
         if (speedKph > 110) baseThreshold = 2.6;
         else if (speedKph > 80) baseThreshold = 1.9;
@@ -738,7 +744,7 @@ export class BackgroundService {
                 speedKph: hasReliableSpeed ? speedKph : 5,
                 maxDistanceKm: Math.max(baseThreshold, 1.35),
                 maxHeadingDeltaDeg: 82,
-                etaSecondsWindow: hasReliableSpeed ? [0, 260] : [0, Number.MAX_SAFE_INTEGER],
+                etaSecondsWindow: useEtaWindow ? [0, 260] : [0, Number.MAX_SAFE_INTEGER],
               }
             ).map((radar) => radar.id)
           : []
@@ -760,7 +766,7 @@ export class BackgroundService {
             speedKph: hasReliableSpeed ? speedKph : 5,
             maxCorridorMeters: routeMode ? 55 : 240,
             maxHeadingDeltaDeg: routeMode ? 35 : 75,
-            etaSecondsWindow: hasReliableSpeed
+            etaSecondsWindow: useEtaWindow
               ? routeMode
                 ? [5, 240]
                 : [8, 220]
@@ -854,6 +860,7 @@ export class BackgroundService {
           await NotificationService.sendRadarAlert(alert as any, alert.locationLabel, {
             playSound,
             vibrate,
+            allowForeground: true,
           });
           this.lastRadarNotificationSent[alert.radarId] = nowMs;
           this.lastRadarNotificationByKey[dedupeKey] = nowMs;

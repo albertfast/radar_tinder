@@ -4,6 +4,7 @@ import { Text, IconButton } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAutoHideTabBar } from '../hooks/use-auto-hide-tab-bar';
 import { TAB_BAR_HEIGHT } from '../constants/layout';
+import { APP_DISPLAY_NAME } from '../constants/appBrand';
 
 const TermsScreen = ({ navigation }: any) => {
   const { onScroll, onScrollBeginDrag, onScrollEndDrag } = useAutoHideTabBar();
@@ -26,7 +27,7 @@ const TermsScreen = ({ navigation }: any) => {
         <Text style={styles.text}>
           <Text style={styles.bold}>Effective Date: January 2026</Text>{"\n\n"}
 
-          These Terms and Conditions govern the use of mobile applications published by <Text style={styles.bold}>Aether Labs</Text>, including Radar Tinder. By downloading or using the app, you agree to these Terms.{"\n\n"}
+          These Terms and Conditions govern the use of mobile applications published by <Text style={styles.bold}>Aether Labs</Text>, including {APP_DISPLAY_NAME}. By downloading or using the app, you agree to these Terms.{"\n\n"}
 
           <Text style={styles.bold}>1. Use of the Application</Text>{"\n"}
           You must use the app only for lawful purposes and in accordance with applicable traffic and safety laws. You are solely responsible for your driving decisions and conduct.{"\n\n"}

@@ -96,6 +96,9 @@ interface SpeedLimitCandidate {
   lng: number;
   bearing: number | null;
   roadName: string | null;
+  highway: string | null;
+  ref: string | null;
+  distanceMeters: number;
 }
 
 const SEARCH_CONTEXT_TTL_MS = 10 * 60 * 1000;
@@ -1133,12 +1136,20 @@ function parseNumber(value: string | null): number | null {
 }
 
 function scoreCandidate(candidate: SpeedLimitCandidate, lat: number, lng: number, desiredHeading: number | null): number {
-  const distanceScore = metersBetween({ lat, lng }, { lat: candidate.lat, lng: candidate.lng });
-  if (desiredHeading === null || candidate.bearing === null) {
-    return distanceScore;
-  }
+  const distanceScore =
+    Number.isFinite(candidate.distanceMeters) && candidate.distanceMeters >= 0
+      ? candidate.distanceMeters
+      : metersBetween({ lat, lng }, { lat: candidate.lat, lng: candidate.lng });
+  const headingPenalty =
+    desiredHeading !== null && candidate.bearing !== null
+      ? bidirectionalHeadingDelta(desiredHeading, candidate.bearing) * 3.5
+      : 0;
+  const highwayBonus =
+    desiredHeading !== null && /^(motorway|trunk|primary|secondary)$/i.test(candidate.highway || '')
+      ? -12
+      : 0;
 
-  return distanceScore + bidirectionalHeadingDelta(desiredHeading, candidate.bearing) * 4;
+  return distanceScore + headingPenalty + highwayBonus;
 }
 
 function projectPointToSegment(
@@ -1168,7 +1179,7 @@ function projectPointToSegment(
 }
 
 function sampleWay(nodeIds: number[], nodes: Record<string, NodePoint>, lat: number, lng: number) {
-  let best: { lat: number; lng: number; bearing: number | null; score: number } | null = null;
+  let best: { lat: number; lng: number; bearing: number | null; distanceMeters: number; score: number } | null = null;
 
   for (let index = 0; index < nodeIds.length - 1; index += 1) {
     const start = nodes[nodeIds[index]];
@@ -1185,6 +1196,7 @@ function sampleWay(nodeIds: number[], nodes: Record<string, NodePoint>, lat: num
         lat: closest.lat,
         lng: closest.lng,
         bearing: bearingBetweenPoints([start.lng, start.lat], [end.lng, end.lat]),
+        distanceMeters: closest.distanceMeters,
         score,
       };
     }
@@ -1322,7 +1334,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
         headers: {
           Accept: 'application/json',
           'Accept-Language': 'en-US,en;q=0.9',
-          'User-Agent': 'RadarTinder/1.0',
+          'User-Agent': 'RadarFlow/1.0',
         },
       },
     );
@@ -1791,12 +1803,13 @@ export async function getSpeedLimits(
 ): Promise<SpeedLimitResponse> {
   const desiredHeading = routeHeading ?? heading ?? null;
   const normalizedCountryCode = countryCode?.trim().toUpperCase() || null;
+  const lookupRadius = Math.max(60, Math.min(Math.round(radius), 220));
 
   try {
     const overpassQuery = `
       [out:json][timeout:10];
       (
-        way["highway"]["maxspeed"](around:${radius},${lat},${lng});
+        way["highway"]["maxspeed"](around:${lookupRadius},${lat},${lng});
       );
       out body;
       >;
@@ -1810,7 +1823,9 @@ export async function getSpeedLimits(
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
+            Accept: 'application/json',
             'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'RadarFlow/1.0',
           },
           body: `data=${encodeURIComponent(overpassQuery)}`,
         });
@@ -1858,6 +1873,9 @@ export async function getSpeedLimits(
           lng: sampledWay.lng,
           bearing: sampledWay.bearing,
           roadName: element.tags?.name || element.tags?.ref || null,
+          highway: element.tags?.highway || null,
+          ref: element.tags?.ref || null,
+          distanceMeters: sampledWay.distanceMeters,
         });
       }
     }

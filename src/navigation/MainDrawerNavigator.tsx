@@ -10,6 +10,7 @@ import MainTabNavigator from './MainTabNavigator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AdService } from '../services/AdService';
 import { appVersion, nativeBuildVersion } from '../utils/buildInfo';
+import { APP_DISPLAY_NAME_UPPER } from '../constants/appBrand';
 
 const Drawer = createDrawerNavigator();
 const allowLayoutAnimations = Platform.OS !== 'android';
@@ -157,7 +158,7 @@ const CustomDrawerContent = (props: any) => {
                  <MaterialCommunityIcons name="logout" size={20} color="#FF5252" />
                  <Text style={styles.logoutText}>Log Out</Text>
              </TouchableOpacity>
-             <Text style={styles.versionText}>RADAR TINDER v{appVersion} • {nativeBuildVersion}</Text>
+             <Text style={styles.versionText}>{APP_DISPLAY_NAME_UPPER} v{appVersion} • {nativeBuildVersion}</Text>
         </View>
     </View>
   );

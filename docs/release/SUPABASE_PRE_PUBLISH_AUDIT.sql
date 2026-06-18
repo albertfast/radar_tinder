@@ -1,4 +1,4 @@
--- Radar Tinder pre-publish Supabase audit (run in SQL Editor)
+-- Radar Flow pre-publish Supabase audit (run in SQL Editor)
 --
 -- AUTH (Dashboard, not SQL): enable Anonymous sign-in if TrialOffer uses anonymous auth.
 -- Authentication → Providers → Anonymous → Enable.
