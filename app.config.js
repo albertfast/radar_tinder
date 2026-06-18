@@ -212,7 +212,8 @@ module.exports = {
       "./plugins/withOnnxRuntime.js",
       "./plugins/withAndroidCustomNative.js",
       "./plugins/withIosGoogleMapsInitFix.js",
-      "./plugins/withIosHermesDsym.js"
+      "./plugins/withIosHermesDsym.js",
+      "./plugins/withIosFmtConstevalFix.js"
     ],
     extra: {
       buildFingerprint: BUILD_FINGERPRINT,

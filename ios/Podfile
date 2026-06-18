@@ -158,12 +158,6 @@ SCRIPT
         # Some pods (RNFirebase, etc.) import React headers and fail under framework modular checks.
         build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
         build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
-        
-        # Fix for fmt library compilation error with C++20 consteval functions
-        if target.name == 'fmt'
-          build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
-        end
-        
         if build_config.name == 'Release'
           # Ensure Release archives emit dSYMs so App Store symbol upload succeeds.
           build_config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
@@ -223,6 +217,24 @@ SCRIPT
       )
       File.write(rn_maps_marker_header, marker_patched) if marker_patched != marker_content
     end
+
+    # @radar-tinder begin fmt-consteval-fix
+    fmt_base_h = File.join(installer.sandbox.root.to_s, 'fmt', 'include', 'fmt', 'base.h')
+    if File.exist?(fmt_base_h)
+      fmt_content = File.read(fmt_base_h)
+      unless fmt_content.include?('radar-tinder fmt-consteval-fix')
+        fmt_patched = fmt_content.sub(
+          /^#elif defined\(__cpp_consteval\)\n#  define FMT_USE_CONSTEVAL 1/,
+          "#elif defined(__apple_build_version__)\n#  define FMT_USE_CONSTEVAL 0  // radar-tinder fmt-consteval-fix: Apple clang consteval broken in Xcode 26\n#elif defined(__cpp_consteval)\n#  define FMT_USE_CONSTEVAL 1"
+        )
+        if fmt_patched != fmt_content
+          File.chmod(0o644, fmt_base_h) rescue nil
+          File.write(fmt_base_h, fmt_patched)
+          puts "[radar-tinder] Patched Pods/fmt/include/fmt/base.h to disable consteval under Apple clang"
+        end
+      end
+    end
+    # @radar-tinder end fmt-consteval-fix
 
   end
 end
