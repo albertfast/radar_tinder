@@ -1,0 +1,398 @@
+
+Showing All Errors Only
+
+Build target fmt of project Pods with configuration Release
+warning: Run script build phase 'Create Symlinks to Header Folders' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'fmt' from project 'Pods')
+
+
+CompileC /Volumes/devssd/BuildCache/RadarFlow-fpggsnxakjcztpdmcormeveogwlz/Build/Intermediates.noindex/ArchiveIntermediates/RadarFlow/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/fmt.build/Objects-normal/arm64/format.o /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc normal arm64 c++ com.apple.compilers.llvm.clang.1_0.compiler (in target 'fmt' from project 'Pods')
+    cd /Volumes/devssd/Projects/radar_tinder/ios/Pods
+    
+    Using response file: /Volumes/devssd/BuildCache/RadarFlow-fpggsnxakjcztpdmcormeveogwlz/Build/Intermediates.noindex/ArchiveIntermediates/RadarFlow/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/fmt.build/Objects-normal/arm64/82b82416624d2658e5098eb0a28c15c5-common-args.resp
+    
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -x c++ -ivfsstatcache /Volumes/devssd/BuildCache/SDKStatCaches.noindex/iphoneos26.5-23F73-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -target arm64-apple-ios15.1 -fmessage-length\=0 -fdiagnostics-show-note-include-stack -fmacro-backtrace-limit\=0 -fno-color-diagnostics -fmodules-prune-interval\=86400 -fmodules-prune-after\=345600 -fbuild-session-file\=/Volumes/devssd/BuildCache/ModuleCache.noindex/Session.modulevalidation -fmodules-validate-once-per-build-session -Wno-trigraphs -Wno-missing-field-initializers -Wno-missing-prototypes -Werror\=return-type -Wdocumentation -Wunreachable-code -Werror\=deprecated-objc-isa-usage -Werror\=objc-root-class -Wno-non-virtual-dtor -Wno-overloaded-virtual -Wno-exit-time-destructors -Wno-missing-braces -Wparentheses -Wswitch -Wunused-function -Wno-unused-label -Wno-unused-parameter -Wunused-variable -Wunused-value -Wempty-body -Wuninitialized -Wconditional-uninitialized -Wno-unknown-pragmas -w -Wno-shadow -Wno-four-char-constants -Wno-conversion -Wconstant-conversion -Wint-conversion -Wbool-conversion -Wenum-conversion -Wno-float-conversion -Wnon-literal-null-conversion -Wobjc-literal-conversion -Wshorten-64-to-32 -Wno-newline-eof -Wno-c++11-extensions -Wno-implicit-fallthrough -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -fstrict-aliasing -Wdeprecated-declarations -Winvalid-offsetof -Wno-sign-conversion -Winfinite-recursion -Wmove -Wcomma -Wblock-capture-autoreleasing -Wstrict-prototypes -Wrange-loop-analysis -Wno-semicolon-before-method-body -Wunguarded-availability @/Volumes/devssd/BuildCache/RadarFlow-fpggsnxakjcztpdmcormeveogwlz/Build/Intermediates.noindex/ArchiveIntermediates/RadarFlow/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/fmt.build/Objects-normal/arm64/82b82416624d2658e5098eb0a28c15c5-common-args.resp -include /Volumes/devssd/Projects/radar_tinder/ios/Pods/Target\ Support\ Files/fmt/fmt-prefix.pch -MMD -MT dependencies -MF /Volumes/devssd/BuildCache/RadarFlow-fpggsnxakjcztpdmcormeveogwlz/Build/Intermediates.noindex/ArchiveIntermediates/RadarFlow/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/fmt.build/Objects-normal/arm64/format.d --serialize-diagnostics /Volumes/devssd/BuildCache/RadarFlow-fpggsnxakjcztpdmcormeveogwlz/Build/Intermediates.noindex/ArchiveIntermediates/RadarFlow/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/fmt.build/Objects-normal/arm64/format.dia -c /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc -o /Volumes/devssd/BuildCache/RadarFlow-fpggsnxakjcztpdmcormeveogwlz/Build/Intermediates.noindex/ArchiveIntermediates/RadarFlow/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/fmt.build/Objects-normal/arm64/format.o
+
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:59:24: error: call to consteval function 'fmt::basic_format_string<char, fmt::basic_string_view<char> &, const char (&)[3]>::basic_format_string<FMT_COMPILE_STRING, 0>' is not a constant expression
+   59 |     fmt::format_to(it, FMT_STRING("{}{}"), message, SEP);
+      |                        ^
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1827:23: note: expanded from macro 'FMT_STRING'
+ 1827 | #define FMT_STRING(s) FMT_STRING_IMPL(s, fmt::detail::compile_string, )
+      |                       ^
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1806:3: note: expanded from macro 'FMT_STRING_IMPL'
+ 1806 |   [] {                                                                        \
+      |   ^
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:41:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:779:54: note: subexpression not valid in a constant expression
+  779 |     format_str_.remove_prefix(detail::to_unsigned(it - begin()));
+      |                                                   ~~~^~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2761:5: note: in call to 'this->context_.advance_to(&"{}{}"[1])'
+ 2761 |     context_.advance_to(begin);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2756:5: note: in call to 'this->on_format_specs(0, &"{}{}"[1], &"{}{}"[1])'
+ 2756 |     on_format_specs(id, begin, begin);  // Call parse() on empty specs.
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2581:5: note: in call to 'handler.on_replacement_field(0, &"{}{}"[1])'
+ 2581 |     handler.on_replacement_field(handler.on_arg_id(), begin);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2613:21: note: in call to 'parse_replacement_field<char, fmt::detail::format_string_checker<char, fmt::basic_string_view<char>, char[3]> &>(&"{}{}"[1], &"{}{}"[4], checker(s))'
+ 2613 |         begin = p = parse_replacement_field(p - 1, end, handler);
+      |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2884:7: note: in call to 'parse_format_string<true, char, fmt::detail::format_string_checker<char, fmt::basic_string_view<char>, char[3]>>({&"{}{}"[0], 4}, checker(s))'
+ 2884 |       detail::parse_format_string<true>(str_, checker(s));
+      |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:59:24: note: in call to 'basic_format_string<FMT_COMPILE_STRING, 0>([] {
+    struct __attribute__((visibility("hidden")))  FMT_COMPILE_STRING : fmt::detail::compile_string {
+        using char_type [[maybe_unused]] = fmt::remove_cvref_t<decltype("{}{}"[0])>;
+        [[maybe_unused]] constexpr operator fmt::basic_string_view<char_type>() const {
+            return fmt::detail_exported::compile_string_to_view<char_type>("{}{}");
+        }
+    };
+    return FMT_COMPILE_STRING();
+}())'
+   59 |     fmt::format_to(it, FMT_STRING("{}{}"), message, SEP);
+      |                        ^~~~~~~~~~~~~~~~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1827:23: note: expanded from macro 'FMT_STRING'
+ 1827 | #define FMT_STRING(s) FMT_STRING_IMPL(s, fmt::detail::compile_string, )
+      |                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1806:3: note: expanded from macro 'FMT_STRING_IMPL'
+ 1806 |   [] {                                                                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1807 |     /* Use the hidden visibility as a workaround for a GCC bug (#1973). */    \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1808 |     /* Use a macro-like name to avoid shadowing warnings. */                  \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1809 |     struct FMT_VISIBILITY("hidden") FMT_COMPILE_STRING : base {               \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1810 |       using char_type FMT_MAYBE_UNUSED = fmt::remove_cvref_t<decltype(s[0])>; \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1811 |       FMT_MAYBE_UNUSED FMT_CONSTEXPR explicit                                 \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1812 |       operator fmt::basic_string_view<char_type>() const {                    \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1813 |         return fmt::detail_exported::compile_string_to_view<char_type>(s);    \
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1814 |       }                                                                       \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1815 |     };                                                                        \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1816 |     return FMT_COMPILE_STRING();                                              \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1817 |   }()
+      |   ~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:60:22: error: call to consteval function 'fmt::basic_format_string<char, const char (&)[7], int &>::basic_format_string<FMT_COMPILE_STRING, 0>' is not a constant expression
+   60 |   fmt::format_to(it, FMT_STRING("{}{}"), ERROR_STR, error_code);
+      |                      ^
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1827:23: note: expanded from macro 'FMT_STRING'
+ 1827 | #define FMT_STRING(s) FMT_STRING_IMPL(s, fmt::detail::compile_string, )
+      |                       ^
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1806:3: note: expanded from macro 'FMT_STRING_IMPL'
+ 1806 |   [] {                                                                        \
+      |   ^
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:41:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:779:54: note: subexpression not valid in a constant expression
+  779 |     format_str_.remove_prefix(detail::to_unsigned(it - begin()));
+      |                                                   ~~~^~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2761:5: note: in call to 'this->context_.advance_to(&"{}{}"[1])'
+ 2761 |     context_.advance_to(begin);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2756:5: note: in call to 'this->on_format_specs(0, &"{}{}"[1], &"{}{}"[1])'
+ 2756 |     on_format_specs(id, begin, begin);  // Call parse() on empty specs.
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2581:5: note: in call to 'handler.on_replacement_field(0, &"{}{}"[1])'
+ 2581 |     handler.on_replacement_field(handler.on_arg_id(), begin);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2613:21: note: in call to 'parse_replacement_field<char, fmt::detail::format_string_checker<char, char[7], int> &>(&"{}{}"[1], &"{}{}"[4], checker(s))'
+ 2613 |         begin = p = parse_replacement_field(p - 1, end, handler);
+      |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2884:7: note: in call to 'parse_format_string<true, char, fmt::detail::format_string_checker<char, char[7], int>>({&"{}{}"[0], 4}, checker(s))'
+ 2884 |       detail::parse_format_string<true>(str_, checker(s));
+      |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:60:22: note: in call to 'basic_format_string<FMT_COMPILE_STRING, 0>([] {
+    struct __attribute__((visibility("hidden")))  FMT_COMPILE_STRING : fmt::detail::compile_string {
+        using char_type [[maybe_unused]] = fmt::remove_cvref_t<decltype("{}{}"[0])>;
+        [[maybe_unused]] constexpr operator fmt::basic_string_view<char_type>() const {
+            return fmt::detail_exported::compile_string_to_view<char_type>("{}{}");
+        }
+    };
+    return FMT_COMPILE_STRING();
+}())'
+   60 |   fmt::format_to(it, FMT_STRING("{}{}"), ERROR_STR, error_code);
+      |                      ^~~~~~~~~~~~~~~~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1827:23: note: expanded from macro 'FMT_STRING'
+ 1827 | #define FMT_STRING(s) FMT_STRING_IMPL(s, fmt::detail::compile_string, )
+      |                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1806:3: note: expanded from macro 'FMT_STRING_IMPL'
+ 1806 |   [] {                                                                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1807 |     /* Use the hidden visibility as a workaround for a GCC bug (#1973). */    \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1808 |     /* Use a macro-like name to avoid shadowing warnings. */                  \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1809 |     struct FMT_VISIBILITY("hidden") FMT_COMPILE_STRING : base {               \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1810 |       using char_type FMT_MAYBE_UNUSED = fmt::remove_cvref_t<decltype(s[0])>; \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1811 |       FMT_MAYBE_UNUSED FMT_CONSTEXPR explicit                                 \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1812 |       operator fmt::basic_string_view<char_type>() const {                    \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1813 |         return fmt::detail_exported::compile_string_to_view<char_type>(s);    \
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1814 |       }                                                                       \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1815 |     };                                                                        \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1816 |     return FMT_COMPILE_STRING();                                              \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1817 |   }()
+      |   ~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:1387:35: error: call to consteval function 'fmt::basic_format_string<char, unsigned int &>::basic_format_string<FMT_COMPILE_STRING, 0>' is not a constant expression
+ 1387 |         out = fmt::format_to(out, FMT_STRING("{:x}"), value);
+      |                                   ^
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1827:23: note: expanded from macro 'FMT_STRING'
+ 1827 | #define FMT_STRING(s) FMT_STRING_IMPL(s, fmt::detail::compile_string, )
+      |                       ^
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1806:3: note: expanded from macro 'FMT_STRING_IMPL'
+ 1806 |   [] {                                                                        \
+      |   ^
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:41:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:779:54: note: subexpression not valid in a constant expression
+  779 |     format_str_.remove_prefix(detail::to_unsigned(it - begin()));
+      |                                                   ~~~^~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2761:5: note: in call to 'this->context_.advance_to(&"{:x}"[2])'
+ 2761 |     context_.advance_to(begin);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2591:15: note: in call to 'handler.on_format_specs(0, &"{:x}"[2], &"{:x}"[4])'
+ 2591 |       begin = handler.on_format_specs(adapter.arg_id, begin + 1, end);
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2613:21: note: in call to 'parse_replacement_field<char, fmt::detail::format_string_checker<char, unsigned int> &>(&"{:x}"[1], &"{:x}"[4], checker(s))'
+ 2613 |         begin = p = parse_replacement_field(p - 1, end, handler);
+      |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2884:7: note: in call to 'parse_format_string<true, char, fmt::detail::format_string_checker<char, unsigned int>>({&"{:x}"[0], 4}, checker(s))'
+ 2884 |       detail::parse_format_string<true>(str_, checker(s));
+      |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:1387:35: note: in call to 'basic_format_string<FMT_COMPILE_STRING, 0>([] {
+    struct __attribute__((visibility("hidden")))  FMT_COMPILE_STRING : fmt::detail::compile_string {
+        using char_type [[maybe_unused]] = fmt::remove_cvref_t<decltype("{:x}"[0])>;
+        [[maybe_unused]] constexpr operator fmt::basic_string_view<char_type>() const {
+            return fmt::detail_exported::compile_string_to_view<char_type>("{:x}");
+        }
+    };
+    return FMT_COMPILE_STRING();
+}())'
+ 1387 |         out = fmt::format_to(out, FMT_STRING("{:x}"), value);
+      |                                   ^~~~~~~~~~~~~~~~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1827:23: note: expanded from macro 'FMT_STRING'
+ 1827 | #define FMT_STRING(s) FMT_STRING_IMPL(s, fmt::detail::compile_string, )
+      |                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1806:3: note: expanded from macro 'FMT_STRING_IMPL'
+ 1806 |   [] {                                                                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1807 |     /* Use the hidden visibility as a workaround for a GCC bug (#1973). */    \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1808 |     /* Use a macro-like name to avoid shadowing warnings. */                  \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1809 |     struct FMT_VISIBILITY("hidden") FMT_COMPILE_STRING : base {               \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1810 |       using char_type FMT_MAYBE_UNUSED = fmt::remove_cvref_t<decltype(s[0])>; \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1811 |       FMT_MAYBE_UNUSED FMT_CONSTEXPR explicit                                 \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1812 |       operator fmt::basic_string_view<char_type>() const {                    \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1813 |         return fmt::detail_exported::compile_string_to_view<char_type>(s);    \
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1814 |       }                                                                       \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1815 |     };                                                                        \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1816 |     return FMT_COMPILE_STRING();                                              \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1817 |   }()
+      |   ~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:1391:33: error: call to consteval function 'fmt::basic_format_string<char, unsigned int &>::basic_format_string<FMT_COMPILE_STRING, 0>' is not a constant expression
+ 1391 |       out = fmt::format_to(out, FMT_STRING("{:08x}"), value);
+      |                                 ^
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1827:23: note: expanded from macro 'FMT_STRING'
+ 1827 | #define FMT_STRING(s) FMT_STRING_IMPL(s, fmt::detail::compile_string, )
+      |                       ^
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1806:3: note: expanded from macro 'FMT_STRING_IMPL'
+ 1806 |   [] {                                                                        \
+      |   ^
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:41:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:779:54: note: subexpression not valid in a constant expression
+  779 |     format_str_.remove_prefix(detail::to_unsigned(it - begin()));
+      |                                                   ~~~^~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2761:5: note: in call to 'this->context_.advance_to(&"{:08x}"[2])'
+ 2761 |     context_.advance_to(begin);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2591:15: note: in call to 'handler.on_format_specs(0, &"{:08x}"[2], &"{:08x}"[6])'
+ 2591 |       begin = handler.on_format_specs(adapter.arg_id, begin + 1, end);
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2613:21: note: in call to 'parse_replacement_field<char, fmt::detail::format_string_checker<char, unsigned int> &>(&"{:08x}"[1], &"{:08x}"[6], checker(s))'
+ 2613 |         begin = p = parse_replacement_field(p - 1, end, handler);
+      |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2884:7: note: in call to 'parse_format_string<true, char, fmt::detail::format_string_checker<char, unsigned int>>({&"{:08x}"[0], 6}, checker(s))'
+ 2884 |       detail::parse_format_string<true>(str_, checker(s));
+      |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:1391:33: note: in call to 'basic_format_string<FMT_COMPILE_STRING, 0>([] {
+    struct __attribute__((visibility("hidden")))  FMT_COMPILE_STRING : fmt::detail::compile_string {
+        using char_type [[maybe_unused]] = fmt::remove_cvref_t<decltype("{:08x}"[0])>;
+        [[maybe_unused]] constexpr operator fmt::basic_string_view<char_type>() const {
+            return fmt::detail_exported::compile_string_to_view<char_type>("{:08x}");
+        }
+    };
+    return FMT_COMPILE_STRING();
+}())'
+ 1391 |       out = fmt::format_to(out, FMT_STRING("{:08x}"), value);
+      |                                 ^~~~~~~~~~~~~~~~~~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1827:23: note: expanded from macro 'FMT_STRING'
+ 1827 | #define FMT_STRING(s) FMT_STRING_IMPL(s, fmt::detail::compile_string, )
+      |                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1806:3: note: expanded from macro 'FMT_STRING_IMPL'
+ 1806 |   [] {                                                                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1807 |     /* Use the hidden visibility as a workaround for a GCC bug (#1973). */    \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1808 |     /* Use a macro-like name to avoid shadowing warnings. */                  \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1809 |     struct FMT_VISIBILITY("hidden") FMT_COMPILE_STRING : base {               \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1810 |       using char_type FMT_MAYBE_UNUSED = fmt::remove_cvref_t<decltype(s[0])>; \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1811 |       FMT_MAYBE_UNUSED FMT_CONSTEXPR explicit                                 \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1812 |       operator fmt::basic_string_view<char_type>() const {                    \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1813 |         return fmt::detail_exported::compile_string_to_view<char_type>(s);    \
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1814 |       }                                                                       \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1815 |     };                                                                        \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1816 |     return FMT_COMPILE_STRING();                                              \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1817 |   }()
+      |   ~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:1394:33: error: call to consteval function 'fmt::basic_format_string<char, int>::basic_format_string<FMT_COMPILE_STRING, 0>' is not a constant expression
+ 1394 |       out = fmt::format_to(out, FMT_STRING("p{}"),
+      |                                 ^
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1827:23: note: expanded from macro 'FMT_STRING'
+ 1827 | #define FMT_STRING(s) FMT_STRING_IMPL(s, fmt::detail::compile_string, )
+      |                       ^
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1806:3: note: expanded from macro 'FMT_STRING_IMPL'
+ 1806 |   [] {                                                                        \
+      |   ^
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:41:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:779:54: note: subexpression not valid in a constant expression
+  779 |     format_str_.remove_prefix(detail::to_unsigned(it - begin()));
+      |                                                   ~~~^~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2761:5: note: in call to 'this->context_.advance_to(&"p{}"[2])'
+ 2761 |     context_.advance_to(begin);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2756:5: note: in call to 'this->on_format_specs(0, &"p{}"[2], &"p{}"[2])'
+ 2756 |     on_format_specs(id, begin, begin);  // Call parse() on empty specs.
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2581:5: note: in call to 'handler.on_replacement_field(0, &"p{}"[2])'
+ 2581 |     handler.on_replacement_field(handler.on_arg_id(), begin);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2613:21: note: in call to 'parse_replacement_field<char, fmt::detail::format_string_checker<char, int> &>(&"p{}"[2], &"p{}"[3], checker(s))'
+ 2613 |         begin = p = parse_replacement_field(p - 1, end, handler);
+      |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/base.h:2884:7: note: in call to 'parse_format_string<true, char, fmt::detail::format_string_checker<char, int>>({&"p{}"[0], 3}, checker(s))'
+ 2884 |       detail::parse_format_string<true>(str_, checker(s));
+      |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:1394:33: note: in call to 'basic_format_string<FMT_COMPILE_STRING, 0>([] {
+    struct __attribute__((visibility("hidden")))  FMT_COMPILE_STRING : fmt::detail::compile_string {
+        using char_type [[maybe_unused]] = fmt::remove_cvref_t<decltype("p{}"[0])>;
+        [[maybe_unused]] constexpr operator fmt::basic_string_view<char_type>() const {
+            return fmt::detail_exported::compile_string_to_view<char_type>("p{}");
+        }
+    };
+    return FMT_COMPILE_STRING();
+}())'
+ 1394 |       out = fmt::format_to(out, FMT_STRING("p{}"),
+      |                                 ^~~~~~~~~~~~~~~~~
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/src/format.cc:8:
+In file included from /Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:27:
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1827:23: note: expanded from macro 'FMT_STRING'
+ 1827 | #define FMT_STRING(s) FMT_STRING_IMPL(s, fmt::detail::compile_string, )
+      |                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format.h:1806:3: note: expanded from macro 'FMT_STRING_IMPL'
+ 1806 |   [] {                                                                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1807 |     /* Use the hidden visibility as a workaround for a GCC bug (#1973). */    \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1808 |     /* Use a macro-like name to avoid shadowing warnings. */                  \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1809 |     struct FMT_VISIBILITY("hidden") FMT_COMPILE_STRING : base {               \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1810 |       using char_type FMT_MAYBE_UNUSED = fmt::remove_cvref_t<decltype(s[0])>; \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1811 |       FMT_MAYBE_UNUSED FMT_CONSTEXPR explicit                                 \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1812 |       operator fmt::basic_string_view<char_type>() const {                    \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1813 |         return fmt::detail_exported::compile_string_to_view<char_type>(s);    \
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1814 |       }                                                                       \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1815 |     };                                                                        \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1816 |     return FMT_COMPILE_STRING();                                              \
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1817 |   }()
+      |   ~~~
+5 errors generated.
+
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:59:24: Call to consteval function 'fmt::basic_format_string<char, fmt::basic_string_view<char> &, const char (&)[3]>::basic_format_string<FMT_COMPILE_STRING, 0>' is not a constant expression
+
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:60:22: Call to consteval function 'fmt::basic_format_string<char, const char (&)[7], int &>::basic_format_string<FMT_COMPILE_STRING, 0>' is not a constant expression
+
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:1387:35: Call to consteval function 'fmt::basic_format_string<char, unsigned int &>::basic_format_string<FMT_COMPILE_STRING, 0>' is not a constant expression
+
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:1391:33: Call to consteval function 'fmt::basic_format_string<char, unsigned int &>::basic_format_string<FMT_COMPILE_STRING, 0>' is not a constant expression
+
+/Volumes/devssd/Projects/radar_tinder/ios/Pods/fmt/include/fmt/format-inl.h:1394:33: Call to consteval function 'fmt::basic_format_string<char, int>::basic_format_string<FMT_COMPILE_STRING, 0>' is not a constant expression
+
+
+
+Build failed    6/18/26, 6:32 AM    15.3 seconds
