@@ -368,12 +368,13 @@ export default function MapFlowNavigationScreen({
         payload: {
           selectedRouteId: route.id,
           routes: routeAlternatives.length > 0 ? routeAlternatives : [route],
+          navigation: isNavigating,
         },
       });
     } else {
       sendToMap({ type: 'clearRoute' });
     }
-  }, [mapReady, route, routeAlternatives, sendToMap]);
+  }, [isNavigating, mapReady, route, routeAlternatives, sendToMap]);
 
   useEffect(() => {
     if (!mapReady) {

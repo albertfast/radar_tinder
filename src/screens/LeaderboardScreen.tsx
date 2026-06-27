@@ -124,6 +124,13 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   const currentPoints = user?.points ?? 0;
   const currentRank = (user?.rank as Rank) || GamificationService.getRank(currentPoints);
   const stats = user?.stats || { reports: 0, confirmations: 0, distanceDriven: 0 };
+  const hasDriverProgress =
+    currentPoints > 0 ||
+    (user?.xp ?? 0) > 0 ||
+    (user?.level ?? 1) > 1 ||
+    stats.reports > 0 ||
+    stats.confirmations > 0 ||
+    stats.distanceDriven > 0;
   const currentRankIndex = Math.max(
     0,
     RANKS.findIndex((item) => item.name === currentRank)
@@ -131,7 +138,7 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
   const nextRank = RANKS[Math.min(currentRankIndex + 1, RANKS.length - 1)];
   const currentMin = RANKS[currentRankIndex]?.minPoints ?? 0;
   const nextMin = nextRank?.minPoints ?? currentMin;
-  const progressRaw = nextMin > currentMin ? (currentPoints - currentMin) / (nextMin - currentMin) : 1;
+  const progressRaw = hasDriverProgress && nextMin > currentMin ? (currentPoints - currentMin) / (nextMin - currentMin) : 0;
   const progressClamped = Math.max(0, Math.min(progressRaw, 1));
 
   useEffect(() => {
@@ -408,13 +415,17 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
 
               <View style={styles.progressCard}>
                 <View style={styles.progressHeader}>
-                  <Text style={styles.progressTitle}>Rank Progress</Text>
-                  <View style={[styles.rankBadge, { backgroundColor: rankStyles(currentRank).bg }]}>
-                    <Text style={[styles.rankText, { color: rankStyles(currentRank).text }]}>{currentRank}</Text>
-                  </View>
+                  <Text style={styles.progressTitle}>Driver Progress</Text>
+                  {hasDriverProgress ? (
+                    <View style={[styles.rankBadge, { backgroundColor: rankStyles(currentRank).bg }]}>
+                      <Text style={[styles.rankText, { color: rankStyles(currentRank).text }]}>{currentRank}</Text>
+                    </View>
+                  ) : null}
                 </View>
                 <Text style={styles.progressSubtitle}>
-                  {currentRank === nextRank?.name
+                  {!hasDriverProgress
+                    ? 'No driver rank yet. Complete trips or verify reports to build your profile.'
+                    : currentRank === nextRank?.name
                     ? 'Top rank unlocked.'
                     : `Next: ${nextRank?.name || 'Legend'} at ${nextMin} pts`}
                 </Text>
@@ -425,7 +436,9 @@ const LeaderboardScreen = ({ navigation }: NavProps) => {
                   <Animated.View style={[styles.progressFill, progressStyle]} />
                 </View>
                 <Text style={styles.progressValue}>
-                  {currentPoints.toLocaleString()} / {nextMin.toLocaleString()} pts
+                  {hasDriverProgress
+                    ? `${currentPoints.toLocaleString()} / ${nextMin.toLocaleString()} pts`
+                    : 'No points yet'}
                 </Text>
               </View>
 

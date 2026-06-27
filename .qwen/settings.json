@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npx *)",
-      "Bash(pod *)"
+      "Bash(pod *)",
+      "Bash(xcodebuild *)"
     ]
   },
   "$version": 4

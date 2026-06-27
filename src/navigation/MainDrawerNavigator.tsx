@@ -21,6 +21,18 @@ const CustomDrawerContent = (props: any) => {
   const { width } = useWindowDimensions();
   const horizontalPadding = Math.max(20, Math.min(28, Math.round(width * 0.06)));
   const topPadding = insets.top + Math.max(20, Math.min(36, Math.round(width * 0.04)));
+  const hasDriverProgress = Boolean(
+    user &&
+      ((user.points ?? 0) > 0 ||
+        (user.xp ?? 0) > 0 ||
+        (user.level ?? 1) > 1 ||
+        (user.stats?.reports ?? 0) > 0 ||
+        (user.stats?.confirmations ?? 0) > 0 ||
+        (user.stats?.distanceDriven ?? 0) > 0)
+  );
+  const driverStatusText = hasDriverProgress
+    ? `${user?.rank || 'Driver'} • Lvl ${user?.level || 1}`
+    : 'Driver stats not started';
 
   const menuItems: Array<{ icon: string; label: string; screen: string; color: string; params?: any }> = [
     { icon: 'radar', label: 'Radar Map', screen: 'Home', color: '#FF5252' },
@@ -99,7 +111,7 @@ const CustomDrawerContent = (props: any) => {
                     
                     <View style={styles.levelTag}>
                         <MaterialCommunityIcons name="speedometer" size={14} color="#4ECDC4" />
-                        <Text style={styles.levelText}>Rookie Pilot • Lvl {user?.level || 1}</Text>
+                        <Text style={styles.levelText}>{driverStatusText}</Text>
                     </View>
                 </View>
              </TouchableOpacity>

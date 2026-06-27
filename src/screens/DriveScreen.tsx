@@ -25,6 +25,13 @@ import { AdService } from '../services/AdService';
 import { hasProAccess } from '../utils/access';
 import { RadarGraphicView } from './components/RadarGraphicView';
 import { RadarBasicTab } from './radar/components/driving/RadarBasicTab';
+import { useActiveRadarAlertFeedback } from './radar/hooks/useActiveRadarAlertFeedback';
+import {
+  isAlertableSpeedCameraRadar,
+  mergeDrivingRadarCandidates,
+  withDrivingRadarDistance,
+} from '../utils/drivingRadarAlerts';
+import { filterRouteRadarCandidates } from '../utils/routeRadarProjection';
 
 const RADAR_REFRESH_MS = 15000;
 const DRIVE_MODES = ['Basic', 'Map', 'Graphic'] as const;
@@ -69,17 +76,7 @@ const resolveDriveMode = (value?: string | null): DriveMode =>
 const calculateDisplaySpeed = (speedMetersPerSecond: number, unitSystem: 'imperial' | 'metric') =>
   Math.max(0, speedMetersPerSecond * (unitSystem === 'imperial' ? 2.23694 : 3.6));
 
-const isVisibleSpeedCamera = (radar: any) => {
-  const type = String(radar?.type || '').toLowerCase();
-  const markerKind = String(radar?.markerKind || '').toLowerCase();
-  return type === 'speed_camera' || type === 'fixed' || markerKind === 'camera';
-};
-
-const isVisibleRedLightCamera = (radar: any) => {
-  const type = String(radar?.type || '').toLowerCase();
-  const markerKind = String(radar?.markerKind || '').toLowerCase();
-  return type === 'red_light' || markerKind === 'red_light';
-};
+const isVisibleSpeedCamera = (radar: any) => isAlertableSpeedCameraRadar(radar);
 
 const getRadarDistanceKm = (radar: any) => {
   const distance = Number(radar?.distance);
@@ -103,25 +100,6 @@ const getRouteSignature = (
   ].join(':');
 };
 
-const mergeRadarCandidates = <T extends { id?: string | number; latitude?: number; longitude?: number }>(
-  candidates: T[]
-): T[] => {
-  const seen = new Set<string>();
-  const merged: T[] = [];
-
-  candidates.forEach((candidate) => {
-    const id =
-      candidate?.id != null
-        ? String(candidate.id)
-        : `${Number(candidate?.latitude).toFixed(6)}:${Number(candidate?.longitude).toFixed(6)}`;
-    if (seen.has(id)) return;
-    seen.add(id);
-    merged.push(candidate);
-  });
-
-  return merged;
-};
-
 const DriveScreen = ({ navigation, route }: any) => {
   // Unified, persistent background synchronization for Driving tabs
   useLocation();
@@ -138,9 +116,14 @@ const DriveScreen = ({ navigation, route }: any) => {
   const isNavigating = useNavigationStore((state) => state.isNavigating);
   const navCountryCode = useNavigationStore((state) => state.countryCode);
   const setNavUnitSystem = useNavigationStore((state) => state.setUnitSystem);
+  const activeAlerts = useRadarStore((state) => state.activeAlerts);
   const setRouteGuidanceActive = useRadarStore((state) => state.setRouteGuidanceActive);
   const setRouteGuidancePath = useRadarStore((state) => state.setRouteGuidancePath);
+  const settingsHasHydrated = useSettingsStore((state) => state.hasHydrated);
   const keepAwakeWhileDriving = useSettingsStore((state) => state.keepAwakeWhileDriving);
+  const hapticAlertsEnabled = useSettingsStore((state) => state.hapticAlertsEnabled);
+  const voiceWarningsEnabled = useSettingsStore((state) => state.voiceWarningsEnabled);
+  const warningVolume = useSettingsStore((state) => state.warningVolume);
   const unitSystem = useSettingsStore((state) => state.unitSystem);
   const hideTabBar = useUiStore((state) => state.hideTabBar);
   const showTabBar = useUiStore((state) => state.showTabBar);
@@ -196,6 +179,17 @@ const DriveScreen = ({ navigation, route }: any) => {
   );
   const currentSpeedKph = useMemo(() => Math.max(0, userSpeed * 3.6), [userSpeed]);
   const renderMode = activeMode === 'Graphic' && !canUsePro ? 'Map' : activeMode;
+  const voicePlaybackEnabled = settingsHasHydrated && voiceWarningsEnabled && warningVolume > 0;
+
+  useActiveRadarAlertFeedback({
+    activeAlerts,
+    isDriving: isFocused && Boolean(driveStartTime),
+    hasHydrated: settingsHasHydrated,
+    hapticAlertsEnabled,
+    voicePlaybackEnabled,
+    warningVolume,
+    unitSystem,
+  });
 
   const tripTelemetry = useMemo(() => {
     const sampleCount = speedSamples.length;
@@ -440,7 +434,7 @@ const DriveScreen = ({ navigation, route }: any) => {
     const speedKph = Math.max(10, userSpeed * 3.6);
     const nearbySpeedCameras = nearby
       .filter(isVisibleSpeedCamera)
-      .filter((radar) => getRadarDistanceKm(radar) <= (hasRoutePreview ? 7.5 : 5));
+      .filter((radar) => getRadarDistanceKm(radar) <= 5);
     let routeSourceSpeedCameras: typeof nearbySpeedCameras = [];
     if (hasRoutePreview && routeCoordinates.length > 1 && routeSignature) {
       const now = Date.now();
@@ -464,74 +458,34 @@ const DriveScreen = ({ navigation, route }: any) => {
 
       routeSourceSpeedCameras = routeSourceRadars
         .filter(isVisibleSpeedCamera)
-        .map((radar) => ({
-          ...radar,
-          distance: LocationService.calculateDistanceSync(
-            currentLocation.latitude,
-            currentLocation.longitude,
-            radar.latitude,
-            radar.longitude
-          ),
-        }));
+        .map((radar) => withDrivingRadarDistance(radar, currentLocation));
     }
-    const routeSpeedCameras =
+
+    const strictRouteCandidates =
       hasRoutePreview && routeCoordinates.length > 1
-        ? RadarService.filterRouteRelevantRadars(nearbySpeedCameras, {
-            currentLocation,
-            routeCoords: routeCoordinates,
-            speedKph,
-            maxCorridorMeters: 90,
-            maxHeadingDeltaDeg: 180,
-            etaSecondsWindow: [0, 3600],
-            requireEtaWindow: false,
-          })
-        : [];
-    const routeWideSpeedCameras =
-      hasRoutePreview && routeCoordinates.length > 1
-        ? RadarService.filterRouteRelevantRadars(routeSourceSpeedCameras, {
-            currentLocation,
-            routeCoords: routeCoordinates,
-            speedKph,
-            maxCorridorMeters: 140,
-            maxHeadingDeltaDeg: 180,
-            etaSecondsWindow: [0, 7200],
-            requireEtaWindow: false,
-          })
-        : [];
-    const immediateThreatCameras =
-      hasRoutePreview && routeCoordinates.length > 1
-        ? RadarService.filterImmediateThreatRadars(
-            nearbySpeedCameras,
+        ? filterRouteRadarCandidates(
+            mergeDrivingRadarCandidates([...routeSourceSpeedCameras, ...nearbySpeedCameras]),
             {
               currentLocation,
+              routeCoords: routeCoordinates,
               speedKph,
-              maxDistanceKm: 2.2,
-              maxHeadingDeltaDeg: 90,
-              etaSecondsWindow: [0, 420],
+              maxCorridorMeters: 65,
+              maxAheadMeters: Math.max(Number(routeState?.distance || 0) + 500, 60000),
+              minAheadMeters: -35,
+              maxRouteHeadingDeltaDeg: isNavigating && speedKph >= 8 ? 95 : undefined,
             }
           )
         : [];
-    const routePanelRadars = hasRoutePreview
-      ? mergeRadarCandidates([
-          ...routeWideSpeedCameras,
-          ...routeSpeedCameras,
-          ...immediateThreatCameras,
-        ]).slice(0, 24)
-      : nearbySpeedCameras.slice(0, 14);
+    const routePanelRadars = hasRoutePreview ? strictRouteCandidates.slice(0, 24) : [];
     const mapRadarCandidates = hasRoutePreview
-      ? mergeRadarCandidates([
-          ...routeWideSpeedCameras,
-          ...routeSpeedCameras,
-          ...immediateThreatCameras,
-          ...nearbySpeedCameras.filter((radar) => getRadarDistanceKm(radar) <= 2.5).slice(0, 32),
-        ])
+      ? routePanelRadars.slice(0, 64)
       : nearbySpeedCameras.slice(0, 64);
 
     const visibleSpeedCameras = mapRadarCandidates.filter(isVisibleSpeedCamera);
     const visibleRedLightCameras: typeof mapRadarCandidates = [];
     const visibleMapRadars = [...visibleSpeedCameras.slice(0, 64), ...visibleRedLightCameras];
 
-    setNearbyRadars(routePanelRadars);
+    setNearbyRadars(hasRoutePreview ? [] : nearbySpeedCameras.slice(0, 14));
     setRouteRadars(routePanelRadars);
     setOverlayMarkers(
       visibleMapRadars.map((radar) => ({

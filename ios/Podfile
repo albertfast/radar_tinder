@@ -217,7 +217,6 @@ SCRIPT
       )
       File.write(rn_maps_marker_header, marker_patched) if marker_patched != marker_content
     end
-
     # @radar-tinder begin fmt-consteval-fix
     fmt_base_h = File.join(installer.sandbox.root.to_s, 'fmt', 'include', 'fmt', 'base.h')
     if File.exist?(fmt_base_h)

@@ -75,6 +75,18 @@ const ProfileScreen = ({ navigation }: any) => {
   const { unitSystem } = useSettingsStore();
   const insets = useSafeAreaInsets();
   const tabBarInset = TAB_BAR_HEIGHT + Math.max(insets.bottom, 10) + 16;
+  const hasDriverProgress = Boolean(
+    user &&
+      ((user.points ?? 0) > 0 ||
+        (user.xp ?? 0) > 0 ||
+        (user.level ?? 1) > 1 ||
+        (user.stats?.reports ?? 0) > 0 ||
+        (user.stats?.confirmations ?? 0) > 0 ||
+        (user.stats?.distanceDriven ?? 0) > 0)
+  );
+  const driverLevelText = hasDriverProgress
+    ? `Level ${user?.level || 1} • ${user?.rank || 'Driver'}`
+    : 'Driver profile not started';
 
   const handleLogout = async () => {
     // Ensure admin overrides are cleared when the user signs out.
@@ -294,7 +306,7 @@ const ProfileScreen = ({ navigation }: any) => {
               style={styles.userName}
               entering={FadeInDown.delay(100).duration(ANIMATION_TIMING.BASE)}
             >
-              {user?.username || user?.name || 'Rookie Driver'}
+              {user?.username || user?.name || 'Driver'}
             </Animated.Text>
             
             <Animated.View
@@ -302,7 +314,7 @@ const ProfileScreen = ({ navigation }: any) => {
               entering={FadeInDown.delay(150).duration(ANIMATION_TIMING.BASE)}
             >
                 <MaterialCommunityIcons name="shield-star" size={16} color="#FFD700" />
-                <Text style={styles.levelText}>Level {user?.level || 1} • {user?.rank || 'Novice'}</Text>
+                <Text style={styles.levelText}>{driverLevelText}</Text>
             </Animated.View>
 
             {/* Username / leaderboard handle */}
@@ -331,15 +343,15 @@ const ProfileScreen = ({ navigation }: any) => {
               style={styles.xpWrapper}
               entering={FadeInDown.delay(200).duration(ANIMATION_TIMING.BASE)}
             >
-                 <Text style={styles.xpLabel}>{user?.points || 0} XP</Text>
+                 <Text style={styles.xpLabel}>{hasDriverProgress ? `${user?.points || 0} XP` : 'No XP yet'}</Text>
                  <View style={styles.xpTrack}>
                     <LinearGradient 
                         colors={['#4ECDC4', '#2196F3']} 
                         start={{x:0, y:0}} end={{x:1, y:0}}
-                        style={[styles.xpFill, { width: `${Math.min(((user?.xp || 0) % 100), 100)}%` }]} 
+                        style={[styles.xpFill, { width: `${hasDriverProgress ? Math.min(((user?.xp || 0) % 100), 100) : 0}%` }]}
                     />
                  </View>
-                 <Text style={styles.xpLabel}>Next Lvl</Text>
+                 <Text style={styles.xpLabel}>{hasDriverProgress ? 'Next Lvl' : 'Start driving'}</Text>
             </Animated.View>
         </Animated.View>
 

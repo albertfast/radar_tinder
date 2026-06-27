@@ -14,16 +14,20 @@ import { useRadarStore } from '../store/radarStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { RadarLocation } from '../types';
 import { hasProAccess } from '../utils/access';
-import { readBooleanFlag } from '../utils/flags';
-import { describeRadarApproachByDistance } from '../utils/radarAlerts';
 import { APP_DISPLAY_NAME } from '../constants/appBrand';
+import {
+  buildDrivingRadarAlerts,
+  getDrivingAlertStageRank,
+  isAlertableSpeedCameraRadar,
+  mergeDrivingRadarCandidates,
+  withDrivingRadarDistance,
+  type DrivingRadarCandidate,
+} from '../utils/drivingRadarAlerts';
+import { filterRouteRadarCandidates } from '../utils/routeRadarProjection';
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
 const MAX_STARTUP_LOCATION_ACCURACY_METERS = 180;
 const MAX_RUNTIME_LOCATION_ACCURACY_METERS = 260;
-
-const isSpeedCameraRadar = (radar: Pick<RadarLocation, 'type' | 'markerKind'>) =>
-  radar.type === 'speed_camera' || radar.type === 'fixed' || radar.markerKind === 'camera';
 
 export class BackgroundService {
   private static locationSubscription: any = null;
@@ -51,10 +55,12 @@ export class BackgroundService {
   private static lastLocationUnavailableLogAt = 0;
   private static LOCATION_UNAVAILABLE_LOG_THROTTLE_MS = 60000;
   private static appStateChangeTimeout: ReturnType<typeof setTimeout> | null = null;
-  private static RADAR_ALERT_SCOPE_V2_ENABLED = readBooleanFlag(
-    'EXPO_PUBLIC_RADAR_ALERT_SCOPE_V2',
-    true
-  );
+  private static ROUTE_RADAR_SOURCE_CACHE_TTL_MS = 120000;
+  private static routeRadarSourceCache: {
+    signature: string;
+    fetchedAt: number;
+    radars: RadarLocation[];
+  } = { signature: '', fetchedAt: 0, radars: [] };
 
   static async init(): Promise<void> {
     try {
@@ -320,15 +326,6 @@ export class BackgroundService {
     return `${bucket % 360}`;
   }
 
-  private static getAlertStageRank(distanceKm: number | null | undefined): number {
-    if (!Number.isFinite(distanceKm)) return 0;
-    const distance = Math.max(0, Number(distanceKm));
-    if (distance <= 0.08) return 3;
-    if (distance <= 0.35) return 2;
-    if (distance <= 1.2) return 1;
-    return 0;
-  }
-
   private static distancePointToSegmentMeters(
     pointLat: number,
     pointLon: number,
@@ -405,6 +402,79 @@ export class BackgroundService {
       this.lastRadarNotificationStageByKey = {};
     }
     this.lastRouteGuidanceState = isRouteGuidanceActive;
+  }
+
+  private static getRouteSignature(routeCoords: Array<{ latitude: number; longitude: number }>): string {
+    const first = routeCoords[0];
+    const last = routeCoords[routeCoords.length - 1];
+    if (!first || !last) return '';
+    return [
+      routeCoords.length,
+      first.latitude.toFixed(5),
+      first.longitude.toFixed(5),
+      last.latitude.toFixed(5),
+      last.longitude.toFixed(5),
+    ].join(':');
+  }
+
+  private static async getRouteRadarSource(
+    routeCoords: Array<{ latitude: number; longitude: number }>
+  ): Promise<RadarLocation[]> {
+    const signature = this.getRouteSignature(routeCoords);
+    if (!signature) return [];
+
+    const now = Date.now();
+    const cached = this.routeRadarSourceCache;
+    if (
+      cached.signature === signature &&
+      now - cached.fetchedAt <= this.ROUTE_RADAR_SOURCE_CACHE_TTL_MS
+    ) {
+      return cached.radars;
+    }
+
+    const routeRadars = await RadarService.getRadarsAlongRoute(routeCoords).catch((error) => {
+      console.warn('[BackgroundService] Route radar source fetch failed:', error);
+      return cached.signature === signature ? cached.radars : [];
+    });
+
+    this.routeRadarSourceCache = {
+      signature,
+      fetchedAt: now,
+      radars: routeRadars,
+    };
+
+    return routeRadars;
+  }
+
+  private static async buildAlertCandidates(params: {
+    nearbyRadars: DrivingRadarCandidate[];
+    routeMode: boolean;
+    routeCoords: Array<{ latitude: number; longitude: number }>;
+    currentLocation: { latitude: number; longitude: number; heading?: number | null };
+    speedKph: number;
+  }): Promise<DrivingRadarCandidate[]> {
+    const nearbySpeedCameras = params.nearbyRadars.filter(isAlertableSpeedCameraRadar);
+    if (!params.routeMode || params.routeCoords.length < 2) {
+      return [];
+    }
+
+    const routeSource = await this.getRouteRadarSource(params.routeCoords);
+    const routeSourceSpeedCameras = routeSource
+      .filter(isAlertableSpeedCameraRadar)
+      .map((radar) => withDrivingRadarDistance(radar, params.currentLocation));
+
+    return filterRouteRadarCandidates(
+      mergeDrivingRadarCandidates([...routeSourceSpeedCameras, ...nearbySpeedCameras]),
+      {
+        currentLocation: params.currentLocation,
+        routeCoords: params.routeCoords,
+        speedKph: Math.max(params.speedKph, 5),
+        maxCorridorMeters: 65,
+        maxAheadMeters: 60000,
+        minAheadMeters: -35,
+        maxRouteHeadingDeltaDeg: params.speedKph >= 8 ? 95 : undefined,
+      }
+    );
   }
 
   private static shouldPublishLocationUpdate(
@@ -595,7 +665,6 @@ export class BackgroundService {
         normalizedLocation.speed != null ? Math.max(0, normalizedLocation.speed * 3.6) : null;
       const hasReliableSpeed = speedFromSensorKph != null || inferredSpeedKph != null;
       const speedKph = speedFromSensorKph ?? inferredSpeedKph ?? 0;
-      const useEtaWindow = hasReliableSpeed && speedKph >= 8;
 
       this.lastLocationUpdate = {
         ...normalizedLocation,
@@ -682,9 +751,7 @@ export class BackgroundService {
       }
 
       const routeMode = isRouteGuidanceActive && routeGuidancePath.length > 1;
-      const allowFreeDriveAlerts =
-        this.RADAR_ALERT_SCOPE_V2_ENABLED && !routeMode && speedKph >= 8;
-      const radarAlertMode = routeMode ? 'route' : allowFreeDriveAlerts ? 'free_drive' : 'idle';
+      const radarAlertMode = routeMode ? 'route' : 'idle';
       if (radarAlertMode !== this.lastRadarAlertMode) {
         this.lastRadarAlertMode = radarAlertMode;
         AnalyticsService.trackEvent('radar_alert_mode', {
@@ -693,7 +760,7 @@ export class BackgroundService {
           reliable_speed: hasReliableSpeed,
         }).catch(() => {});
       }
-      if (!routeMode && !allowFreeDriveAlerts) {
+      if (!routeMode) {
         this.isProtectionActive = false;
         if (this.lastActiveAlertsSignature || activeAlerts.length > 0) {
           this.lastActiveAlertsSignature = '';
@@ -706,120 +773,36 @@ export class BackgroundService {
 
       this.isProtectionActive = true;
 
-      let baseThreshold = 0.8;
-      if (routeMode) {
-        if (speedKph > 100) baseThreshold = 2.4;
-        else if (speedKph > 60) baseThreshold = 1.6;
-        else if (speedKph > 30) baseThreshold = 1.15;
-        else baseThreshold = 0.9;
-        if (!useEtaWindow) {
-          baseThreshold = Math.max(baseThreshold, 1.1);
-        }
-      } else {
-        if (speedKph > 110) baseThreshold = 2.6;
-        else if (speedKph > 80) baseThreshold = 1.9;
-        else if (speedKph > 50) baseThreshold = 1.35;
-        else if (speedKph > 20) baseThreshold = 0.9;
-        else baseThreshold = 0.6;
-        if (!hasReliableSpeed) {
-          baseThreshold = Math.max(baseThreshold, 1.05);
-        }
-      }
-
-      const radarById = new Map<string, RadarLocation & { distance: number }>();
-      for (const radar of nearbyRadars) {
+      const alertLocation = {
+        latitude: normalizedLocation.latitude,
+        longitude: normalizedLocation.longitude,
+        heading: normalizedHeading,
+      };
+      const alertCandidates = await this.buildAlertCandidates({
+        nearbyRadars,
+        routeMode,
+        routeCoords: routeGuidancePath,
+        currentLocation: alertLocation,
+        speedKph,
+      });
+      const radarById = new Map<string, DrivingRadarCandidate>();
+      for (const radar of alertCandidates) {
         if (radar?.id) radarById.set(radar.id, radar);
       }
-      const etaConfidence = speedFromSensorKph != null ? 'high' : inferredSpeedKph != null ? 'medium' : 'low';
-      const immediateThreatIds = new Set(
-        routeMode
-          ? RadarService.filterImmediateThreatRadars(
-              nearbyRadars.filter(isSpeedCameraRadar),
-              {
-                currentLocation: {
-                  latitude: normalizedLocation.latitude,
-                  longitude: normalizedLocation.longitude,
-                  heading: normalizedHeading,
-                },
-                speedKph: hasReliableSpeed ? speedKph : 5,
-                maxDistanceKm: Math.max(baseThreshold, 1.35),
-                maxHeadingDeltaDeg: 82,
-                etaSecondsWindow: useEtaWindow ? [0, 260] : [0, Number.MAX_SAFE_INTEGER],
-              }
-            ).map((radar) => radar.id)
-          : []
-      );
-
-      const alertCandidates = nearbyRadars;
-
-      const alerts = [];
-      for (const radar of alertCandidates) {
-        const distance = radar.distance || 0;
-          const relevance = RadarService.evaluateRouteRelevance({
-            radar,
-            currentLocation: {
-              latitude: normalizedLocation.latitude,
-              longitude: normalizedLocation.longitude,
-              heading: normalizedHeading,
-            },
-            routeCoords: routeMode ? routeGuidancePath : [],
-            speedKph: hasReliableSpeed ? speedKph : 5,
-            maxCorridorMeters: routeMode ? 55 : 240,
-            maxHeadingDeltaDeg: routeMode ? 35 : 75,
-            etaSecondsWindow: useEtaWindow
-              ? routeMode
-                ? [5, 240]
-                : [8, 220]
-              : [0, Number.MAX_SAFE_INTEGER],
-          });
-
-        let threshold = baseThreshold;
-        const isMobileRadar =
-          radar.type === 'mobile' || radar.type === 'traffic_enforcement' || radar.type === 'police';
-        if (isMobileRadar && speedKph >= 80) {
-          threshold = Math.max(threshold, routeMode ? 4.0 : 5.0);
-        }
-
-        const headingMatched =
-          relevance.headingDeltaDeg == null || relevance.headingDeltaDeg <= (routeMode ? 35 : 75);
-        const immediateThreatMatched = radar.id ? immediateThreatIds.has(radar.id) : false;
-        const relevanceMatched = routeMode
-          ? relevance.isRelevant || immediateThreatMatched
-          : headingMatched && (hasReliableSpeed ? relevance.etaSeconds <= 220 : true);
-
-        if (distance < threshold && relevanceMatched) {
-          const distanceScore = 1 - Math.min(distance / Math.max(threshold, 0.1), 1);
-          const corridorScore =
-            relevance.corridorDistanceMeters == null
-              ? 1
-              : 1 - Math.min(relevance.corridorDistanceMeters / (routeMode ? 120 : 240), 1);
-          alerts.push({
-            id: `alert-${radar.id}`,
-            radarId: radar.id,
-            userId: user.id,
-            type: radar.type,
-            countryCode: radar.countryCode,
-            speedLimit: radar.speedLimit,
-            distance,
-            estimatedTime: relevance.etaSeconds / 60,
-            etaConfidence,
-            approachLabel: describeRadarApproachByDistance(distance),
-            markerKind: radar.markerKind,
-            severity: distance < threshold / 2 ? 'high' : distance < threshold * 0.8 ? 'medium' : 'low',
-            routeMatched: relevance.routeMatched,
-            corridorDistanceMeters: relevance.corridorDistanceMeters,
-            etaSeconds: relevance.etaSeconds,
-            routeMatchScore: Number(((distanceScore * 0.55) + (corridorScore * 0.45)).toFixed(3)),
-            headingDeltaDeg: relevance.headingDeltaDeg ?? null,
-            acknowledged: false,
-            createdAt: new Date(),
-          });
-        }
-      }
+      const alerts = buildDrivingRadarAlerts({
+        radars: alertCandidates,
+        currentLocation: alertLocation,
+        routeCoords: routeMode ? routeGuidancePath : [],
+        routeMode,
+        speedKph,
+        hasReliableSpeed,
+        userId: user.id,
+      });
 
       const enrichedAlerts = alerts.map((alert) => ({
         ...alert,
-        locationLabel: this.toShortLocationLabel(this.radarLocationNameCache[alert.radarId]),
+        locationLabel:
+          alert.locationLabel || this.toShortLocationLabel(this.radarLocationNameCache[alert.radarId]),
       }));
 
       const nowMs = Date.now();
@@ -849,7 +832,7 @@ export class BackgroundService {
         const lastNotificationByKey = this.lastRadarNotificationByKey[dedupeKey] || 0;
         const lastStageRank = this.lastRadarNotificationStageByKey[dedupeKey] || 0;
         const lastNotificationSent = this.lastRadarNotificationSent[alert.radarId] || 0;
-        const stageRank = this.getAlertStageRank(alert.distance);
+        const stageRank = getDrivingAlertStageRank(alert.distance);
         const allowUrgencyUpgrade =
           stageRank > lastStageRank && nowMs - lastNotificationByKey > 20000;
         if (

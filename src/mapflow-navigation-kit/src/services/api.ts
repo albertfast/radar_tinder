@@ -1,12 +1,27 @@
+import Constants from 'expo-constants';
 import { POI_CATEGORY_CONFIG } from '../../../native/mapMarkerSvgAssets';
 import { MapPoiMarker, RouteChoice, RouteData, RouteSnapInfo, RouteStep, SearchResult } from '../types/map';
 
 const GEOAPIFY_API_KEY = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY?.trim();
 const OPENROUTESERVICE_API_KEY = process.env.EXPO_PUBLIC_OPENROUTESERVICE_API_KEY?.trim();
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+const GOOGLE_MAPS_API_KEY = (
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+  (Constants.expoConfig?.ios?.config as any)?.googleMapsApiKey ||
+  (Constants.expoConfig?.android?.config as any)?.googleMaps?.apiKey ||
+  ''
+).trim();
 const PAID_GOOGLE_MAPS_ENABLED = String(process.env.EXPO_PUBLIC_ENABLE_PAID_GOOGLE_MAPS || '')
   .trim()
   .toLowerCase() === 'true';
+const GOOGLE_DIRECTIONS_ENABLED =
+  Boolean(GOOGLE_MAPS_API_KEY) &&
+  String(
+    process.env.EXPO_PUBLIC_ENABLE_GOOGLE_DIRECTIONS ??
+      process.env.EXPO_PUBLIC_ENABLE_PAID_GOOGLE_MAPS ??
+      'true'
+  )
+    .trim()
+    .toLowerCase() !== 'false';
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://lz4.overpass-api.de/api/interpreter',
@@ -924,6 +939,14 @@ function adjustDurationForRoadReality(distance: number, duration: number, steps:
 }
 
 function finalizeRoute(route: RouteData): RouteData {
+  if (route.provider === 'google') {
+    return {
+      ...route,
+      baseDuration: route.baseDuration ?? route.duration,
+      durationSource: 'provider',
+    };
+  }
+
   const adjustedDuration = adjustDurationForRoadReality(route.distance, route.duration, route.steps);
 
   return {
@@ -932,6 +955,145 @@ function finalizeRoute(route: RouteData): RouteData {
     duration: adjustedDuration,
     durationSource: adjustedDuration > route.duration + 30 ? 'adjusted' : 'provider',
   };
+}
+
+function decodeGooglePolyline(encoded: string): [number, number][] {
+  const coordinates: [number, number][] = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+
+  while (index < encoded.length) {
+    let shift = 0;
+    let result = 0;
+    let byte = 0;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index < encoded.length);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+
+    shift = 0;
+    result = 0;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index < encoded.length);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+
+    coordinates.push([lng / 1e5, lat / 1e5]);
+  }
+
+  return coordinates;
+}
+
+function stripGoogleInstruction(value?: string | null): string {
+  return cleanInstruction(
+    String(value || '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+  );
+}
+
+function normalizeGoogleManeuver(value?: string | null): Pick<RouteStep['maneuver'], 'type' | 'modifier'> {
+  const maneuver = String(value || '').toLowerCase();
+  if (!maneuver) return { type: 'continue' };
+  if (maneuver.includes('merge')) return { type: 'merge', modifier: inferModifier(maneuver) };
+  if (maneuver.includes('ramp')) {
+    return { type: maneuver.includes('left') || maneuver.includes('right') ? 'on ramp' : 'off ramp', modifier: inferModifier(maneuver) };
+  }
+  if (maneuver.includes('fork')) return { type: 'fork', modifier: inferModifier(maneuver) };
+  if (maneuver.includes('roundabout')) return { type: 'roundabout', modifier: inferModifier(maneuver) };
+  if (maneuver.includes('uturn') || maneuver.includes('u-turn')) return { type: 'turn', modifier: 'uturn' };
+  if (maneuver.includes('turn')) return { type: 'turn', modifier: inferModifier(maneuver) };
+  if (maneuver.includes('straight')) return { type: 'continue', modifier: 'straight' };
+  return { type: 'continue', modifier: inferModifier(maneuver) };
+}
+
+function normalizeGoogleStep(step: any): RouteStep | null {
+  const instruction = stripGoogleInstruction(step?.html_instructions);
+  const location = step?.start_location;
+  if (!instruction || !location) return null;
+
+  const maneuver = normalizeGoogleManeuver(step?.maneuver);
+  return {
+    instruction,
+    distance: Number(step?.distance?.value) || 0,
+    duration: Number(step?.duration?.value) || 0,
+    maneuver: {
+      type: maneuver.type,
+      modifier: maneuver.modifier,
+      location: [Number(location.lng), Number(location.lat)],
+    },
+    name: undefined,
+    ref: undefined,
+    bearingBefore: null,
+    bearingAfter: null,
+    exit: null,
+  };
+}
+
+function normalizeGoogleRoute(route: any, options: RouteRequestOptions): RouteData | null {
+  const leg = route?.legs?.[0];
+  const encodedPolyline = route?.overview_polyline?.points;
+  if (!leg || typeof encodedPolyline !== 'string') return null;
+
+  const geometry = decodeGooglePolyline(encodedPolyline);
+  if (geometry.length < 2) return null;
+
+  const steps = cleanupRouteSteps(
+    (leg.steps ?? [])
+      .map((step: any) => normalizeGoogleStep(step))
+      .filter(Boolean) as RouteStep[]
+  );
+  const baseDuration = Number(leg.duration?.value) || 0;
+  const trafficDuration = Number(leg.duration_in_traffic?.value) || 0;
+
+  return {
+    geometry,
+    distance: Number(leg.distance?.value) || 0,
+    duration: trafficDuration || baseDuration,
+    baseDuration,
+    durationSource: 'provider',
+    steps,
+    provider: 'google',
+    snapInfo: options.snapInfo,
+  };
+}
+
+async function routeWithGoogleDirectionsAlternatives(options: RouteRequestOptions): Promise<RouteData[]> {
+  if (!GOOGLE_DIRECTIONS_ENABLED || !GOOGLE_MAPS_API_KEY) {
+    throw new Error('Google Directions routing is disabled');
+  }
+
+  const params = new URLSearchParams({
+    origin: `${options.originLat},${options.originLng}`,
+    destination: `${options.destLat},${options.destLng}`,
+    mode: 'driving',
+    alternatives: 'true',
+    departure_time: 'now',
+    units: 'metric',
+    key: GOOGLE_MAPS_API_KEY,
+  });
+
+  const data = await fetchJson<any>(`https://maps.googleapis.com/maps/api/directions/json?${params.toString()}`);
+  if (data.status !== 'OK' || !Array.isArray(data.routes) || data.routes.length === 0) {
+    throw new Error(`Google Directions routing failed: ${data.status || 'UNKNOWN'}`);
+  }
+
+  const routes = data.routes
+    .map((route: any) => normalizeGoogleRoute(route, options))
+    .filter(Boolean) as RouteData[];
+  if (!routes.length) {
+    throw new Error('Invalid Google Directions response');
+  }
+
+  return routes;
 }
 
 function normalizeOrsStep(step: any, geometry: [number, number][]): RouteStep | null {
@@ -1751,7 +1913,67 @@ function rankRouteCandidates(routes: RouteData[], options: RouteRequestOptions):
   });
 }
 
+function routeChoicesFromProviderOrder(routes: RouteData[], options: RouteRequestOptions): RouteChoice[] {
+  const finalized = dedupeRoutes(routes.map(finalizeRoute));
+  if (!finalized.length) {
+    return [];
+  }
+
+  const straightLineMeters = haversineMeters(
+    options.originalOriginLat ?? options.originLat,
+    options.originalOriginLng ?? options.originLng,
+    options.originalDestLat ?? options.destLat,
+    options.originalDestLng ?? options.destLng,
+  );
+  const minDistance = Math.min(...finalized.map((route) => route.distance));
+  const minDuration = Math.min(...finalized.map((route) => route.duration));
+
+  return finalized.slice(0, 3).map((route, index) => {
+    const id = `${route.provider || 'route'}:${index}:${Math.round(route.distance)}:${Math.round(route.duration)}`;
+    const isShortest = route.distance <= minDistance + 35;
+    const isFastest = route.duration <= minDuration + 20;
+    const label =
+      index === 0
+        ? 'Best'
+        : isShortest
+          ? 'Shortest'
+          : isFastest
+            ? 'Fastest'
+            : `Alt ${index + 1}`;
+
+    return {
+      ...route,
+      id,
+      label,
+      score: index + Math.max(0, route.distance / Math.max(straightLineMeters, 1) - 1),
+    };
+  });
+}
+
 export async function getRoutes(originLat: number, originLng: number, destLat: number, destLng: number): Promise<RouteChoice[]> {
+  const rawOptions: RouteRequestOptions = {
+    originLat,
+    originLng,
+    destLat,
+    destLng,
+    originalOriginLat: originLat,
+    originalOriginLng: originLng,
+    originalDestLat: destLat,
+    originalDestLng: destLng,
+  };
+
+  if (GOOGLE_DIRECTIONS_ENABLED) {
+    try {
+      const googleRoutes = await routeWithGoogleDirectionsAlternatives(rawOptions);
+      const googleChoices = routeChoicesFromProviderOrder(googleRoutes, rawOptions);
+      if (googleChoices.length) {
+        return googleChoices;
+      }
+    } catch (error) {
+      console.warn('Google Directions routing failed, falling back to ORS/OSRM', error);
+    }
+  }
+
   const options = await buildRoutableOptions(originLat, originLng, destLat, destLng);
 
   const routeJobs: Array<Promise<RouteData[]>> = [routeWithOsrmAlternatives(options)];

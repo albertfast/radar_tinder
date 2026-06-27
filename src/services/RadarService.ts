@@ -649,7 +649,12 @@ export class RadarService {
 
     const sourceMeta = this.normalizeSourceMetadata(row);
     const sourceRule = getExternalCameraSourceRule(sourceMeta.sourceKey);
-    if (sourceRule?.alertPolicy === 'map_only' || sourceRule?.alertPolicy === 'ignore') {
+    if (
+      sourceRule &&
+      (sourceRule.status !== 'active' ||
+        sourceRule.alertPolicy === 'map_only' ||
+        sourceRule.alertPolicy === 'ignore')
+    ) {
       return null;
     }
     const confidence = Number(row?.confidence);

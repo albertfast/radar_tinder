@@ -25,6 +25,7 @@ const getProductHints = (plan: PlanKey): string[] => {
       '$rc_weekly',
       'rc_weekly',
       'pro_subscription:weekly',
+      'pro_subscription_weekly',
       'pro_subscription_radar_weekly',
       'radar_weekly',
       'weekly',
@@ -43,7 +44,7 @@ const getProductHints = (plan: PlanKey): string[] => {
     adfree: ['$rc_lifetime', 'rc_lifetime', 'remove_ads', 'radar_remove_ads', 'adfree', 'lifetime'],
   };
 
-  return [fromEnv, fromPackageEnv, PLAN_IDS[plan], ...aliases[plan]]
+  return [PLAN_IDS[plan], fromEnv, fromPackageEnv, ...aliases[plan]]
     .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
     .map((v) => v.toLowerCase());
 };

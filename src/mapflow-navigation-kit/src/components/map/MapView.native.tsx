@@ -1,4 +1,4 @@
-import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import RNMapView, {
   LatLng,
@@ -295,13 +295,12 @@ function NativeSvgMarker({
   );
 }
 
-function VehicleMarker({ marker }: { marker: UserMarkerState }) {
+function VehicleMarker() {
   const uri = MAP_MARKER_ICON_URIS.vehicle;
   const xml = svgDataUriToXml(uri);
-  const bearing = resolveBearing(marker.heading, marker.routeHeading, false);
 
   return (
-    <View style={[styles.vehicleRotator, { transform: [{ rotate: `${bearing}deg` }] }]}>
+    <View style={styles.vehicleRotator}>
       {xml ? (
         <SvgXml width={42} height={42} xml={xml} />
       ) : (
@@ -336,11 +335,25 @@ export default function MapView({
   const [selectedRouteId, setSelectedRouteId] = useState<string | undefined>(undefined);
   const [overlayMarkers, setOverlayMarkers] = useState<MapOverlayMarker[]>([]);
   const [poiMarkers, setPoiMarkers] = useState<MapPoiMarker[]>([]);
+  const [userMarkerTracksViewChanges, setUserMarkerTracksViewChanges] = useState(true);
 
   const updateUserMarker = useCallback((next: UserMarkerState | null) => {
     userMarkerRef.current = next;
     setUserMarkerState(next);
   }, []);
+
+  useEffect(() => {
+    if (!userMarker) return undefined;
+
+    setUserMarkerTracksViewChanges(true);
+    const timer = setTimeout(() => {
+      setUserMarkerTracksViewChanges(false);
+    }, 800);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [userMarker?.vehicleMarkerId]);
 
   const updateDestination = useCallback((next: MapPoint | null) => {
     setDestinationState(next);
@@ -372,7 +385,7 @@ export default function MapView({
     (lat: number, lng: number, navigationMode: boolean, explicitRoute?: NativeRoute | null): MapPoint => {
       const route = activeRouteFromRefs(explicitRoute);
       const projection = route ? projectToRoute(lat, lng, route) : null;
-      const maxSnapDistance = navigationMode ? 180 : 900;
+      const maxSnapDistance = navigationMode ? 70 : 900;
 
       if (projection && projection.distanceMeters <= maxSnapDistance) {
         return { lat: projection.lat, lng: projection.lng };
@@ -504,7 +517,9 @@ export default function MapView({
           selectedRouteIdRef.current = activeRoute?.id ?? next.selectedRouteId;
           setRoutes(next.routes);
           setSelectedRouteId(activeRoute?.id ?? next.selectedRouteId);
-          focusRoutePreview(activeRoute);
+          if (!message.payload?.navigation) {
+            focusRoutePreview(activeRoute);
+          }
           break;
         }
         case 'clearRoute':
@@ -712,8 +727,10 @@ export default function MapView({
             anchor={{ x: 0.5, y: 0.5 }}
             zIndex={60}
             flat
+            rotation={resolveBearing(userMarker.heading, userMarker.routeHeading, false)}
+            tracksViewChanges={userMarkerTracksViewChanges}
           >
-            <VehicleMarker marker={userMarker} />
+            <VehicleMarker />
           </Marker>
         ) : null}
       </RNMapView>

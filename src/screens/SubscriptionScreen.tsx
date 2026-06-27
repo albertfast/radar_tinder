@@ -65,6 +65,7 @@ const SubscriptionScreen = ({ navigation }: { navigation: { goBack: () => void; 
   const trialAvailable = selectedPlan === 'yearly';
   const trialActive = trialAvailable && isTrialEnabled;
   const selectedPricing = pricingByPlan[selectedPlan];
+  const adFreeAvailable = Boolean(packagesByPlan.adfree && pricingByPlan.adfree);
 
   const loadPricing = useCallback(async () => {
     setPricingLoading(true);
@@ -107,6 +108,12 @@ const SubscriptionScreen = ({ navigation }: { navigation: { goBack: () => void; 
   useEffect(() => {
     loadPricing().catch(() => {});
   }, [loadPricing]);
+
+  useEffect(() => {
+    if (pricingLoading || selectedPlan !== 'adfree' || adFreeAvailable) return;
+    setSelectedPlan('yearly');
+    setIsTrialEnabled(true);
+  }, [adFreeAvailable, pricingLoading, selectedPlan]);
 
   const handleSubscribe = async () => {
     setLoading(true);
@@ -260,24 +267,22 @@ const SubscriptionScreen = ({ navigation }: { navigation: { goBack: () => void; 
           />
         </View>
 
-        <TouchableOpacity
-          style={styles.adFreeRow}
-          onPress={() => {
-            setSelectedPlan('adfree');
-            setIsTrialEnabled(false);
-          }}
-          activeOpacity={0.9}
-        >
-          <View style={[styles.radio, selectedPlan === 'adfree' && styles.radioOn]} />
-          <Text style={styles.adFreeLabel}>{t('subscription.adFree')}</Text>
-          {pricingLoading ? (
-            <ActivityIndicator size="small" color="#94A3B8" />
-          ) : (
+        {adFreeAvailable && (
+          <TouchableOpacity
+            style={styles.adFreeRow}
+            onPress={() => {
+              setSelectedPlan('adfree');
+              setIsTrialEnabled(false);
+            }}
+            activeOpacity={0.9}
+          >
+            <View style={[styles.radio, selectedPlan === 'adfree' && styles.radioOn]} />
+            <Text style={styles.adFreeLabel}>{t('subscription.adFree')}</Text>
             <Text style={styles.adFreePrice}>
-              {pricingByPlan.adfree?.priceString || '—'} {t('subscription.once')}
+              {pricingByPlan.adfree?.priceString} {t('subscription.once')}
             </Text>
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+        )}
 
         <SubscriptionLegalBlock
           selectedPlan={selectedPlan}
