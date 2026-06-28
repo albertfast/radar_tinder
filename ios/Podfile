@@ -42,14 +42,6 @@ target 'RadarFlow' do
     ]
   end
 
-# @generated begin react-native-maps - expo prebuild (DO NOT MODIFY) sync-e9cc66c360abe50bc66d89fffb3c55b034d7d369
-  rn_maps_path = File.dirname(`node --print "require.resolve('react-native-maps/package.json')"`)
-  if File.exist?(File.join(rn_maps_path, 'react-native-google-maps.podspec'))
-    pod 'react-native-google-maps', :path => rn_maps_path
-  else
-    pod 'react-native-maps', :path => rn_maps_path, :subspecs => ['Maps', 'Google']
-  end
-# @generated end react-native-maps
   config = use_native_modules!(config_command)
 
   use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
@@ -70,6 +62,24 @@ target 'RadarFlow' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+    # @radar-tinder begin fmt-consteval-fix
+    fmt_base_h = File.join(installer.sandbox.root.to_s, 'fmt', 'include', 'fmt', 'base.h')
+    if File.exist?(fmt_base_h)
+      fmt_content = File.read(fmt_base_h)
+      unless fmt_content.include?('radar-tinder fmt-consteval-fix')
+        fmt_patched = fmt_content.sub(
+          /^#elif defined\(__cpp_consteval\)\n#  define FMT_USE_CONSTEVAL 1/,
+          "#elif defined(__apple_build_version__)\n#  define FMT_USE_CONSTEVAL 0  // radar-tinder fmt-consteval-fix: Apple clang consteval broken in Xcode 26\n#elif defined(__cpp_consteval)\n#  define FMT_USE_CONSTEVAL 1"
+        )
+        if fmt_patched != fmt_content
+          File.chmod(0o644, fmt_base_h) rescue nil
+          File.write(fmt_base_h, fmt_patched)
+          puts "[radar-tinder] Patched Pods/fmt/include/fmt/base.h to disable consteval under Apple clang"
+        end
+      end
+    end
+    # @radar-tinder end fmt-consteval-fix
+
     # @radar-tinder begin hermes-dsym
     hermes_dsym_script = <<-'SCRIPT'
 #!/usr/bin/env bash
@@ -217,23 +227,6 @@ SCRIPT
       )
       File.write(rn_maps_marker_header, marker_patched) if marker_patched != marker_content
     end
-    # @radar-tinder begin fmt-consteval-fix
-    fmt_base_h = File.join(installer.sandbox.root.to_s, 'fmt', 'include', 'fmt', 'base.h')
-    if File.exist?(fmt_base_h)
-      fmt_content = File.read(fmt_base_h)
-      unless fmt_content.include?('radar-tinder fmt-consteval-fix')
-        fmt_patched = fmt_content.sub(
-          /^#elif defined\(__cpp_consteval\)\n#  define FMT_USE_CONSTEVAL 1/,
-          "#elif defined(__apple_build_version__)\n#  define FMT_USE_CONSTEVAL 0  // radar-tinder fmt-consteval-fix: Apple clang consteval broken in Xcode 26\n#elif defined(__cpp_consteval)\n#  define FMT_USE_CONSTEVAL 1"
-        )
-        if fmt_patched != fmt_content
-          File.chmod(0o644, fmt_base_h) rescue nil
-          File.write(fmt_base_h, fmt_patched)
-          puts "[radar-tinder] Patched Pods/fmt/include/fmt/base.h to disable consteval under Apple clang"
-        end
-      end
-    end
-    # @radar-tinder end fmt-consteval-fix
 
   end
 end

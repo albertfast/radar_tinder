@@ -1,12 +1,11 @@
 {
   "expo.jsEngine": "hermes",
   "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
-  "newArchEnabled": "true",
+  "expo.inlineModules.watchedDirectories": "[]",
+  "expo.inlineModules.xcodeProjectTargets": "{\"mainTarget\":\"RadarFlow\",\"targets\":[]}",
   "ios.deploymentTarget": "16.1",
   "ios.useFrameworks": "static",
   "ios.forceStaticLinking": "[]",
   "apple.privacyManifestAggregationEnabled": "true",
-  "ios.buildReactNativeFromSource": "true",
-  "expo.inlineModules.watchedDirectories": "[]",
-  "expo.inlineModules.xcodeProjectTargets": "{\"mainTarget\":\"RadarFlow\",\"targets\":[]}"
+  "ios.buildReactNativeFromSource": "true"
 }
