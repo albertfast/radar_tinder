@@ -430,7 +430,35 @@ const RadarSettingsScreen = ({ navigation }: any) => {
           </LinearGradient>
         </Animated.View>
 
-
+        <Animated.View entering={FadeInUp.delay(450).duration(ANIMATION_TIMING.BASE)}>
+          <Text style={styles.legalSectionTitle}>ABOUT & LEGAL</Text>
+          <LinearGradient
+            colors={['rgba(8, 17, 34, 0.95)', 'rgba(8, 13, 24, 0.82)']}
+            style={styles.settingCard}
+          >
+            <TouchableOpacity
+              style={styles.legalRow}
+              onPress={() => navigation.navigate('Privacy')}
+              accessibilityRole="link"
+              accessibilityLabel="Privacy Policy"
+            >
+              <MaterialCommunityIcons name="shield-lock-outline" size={18} color="#6EE7E3" />
+              <Text style={styles.legalRowText}>Privacy Policy</Text>
+              <MaterialCommunityIcons name="chevron-right" size={18} color="#5B7290" />
+            </TouchableOpacity>
+            <View style={styles.legalDivider} />
+            <TouchableOpacity
+              style={styles.legalRow}
+              onPress={() => navigation.navigate('Terms')}
+              accessibilityRole="link"
+              accessibilityLabel="Terms of Service"
+            >
+              <MaterialCommunityIcons name="file-document-outline" size={18} color="#6EE7E3" />
+              <Text style={styles.legalRowText}>Terms of Service</Text>
+              <MaterialCommunityIcons name="chevron-right" size={18} color="#5B7290" />
+            </TouchableOpacity>
+          </LinearGradient>
+        </Animated.View>
 
         <Text style={styles.footerHint}>
           Settings are stored on device. Distance unit syncs to profile when logged in.
@@ -606,6 +634,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     paddingHorizontal: 2,
     marginTop: 2,
+  },
+  legalSectionTitle: {
+    color: '#7A91AF',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    paddingHorizontal: 4,
+    marginBottom: 8,
+    marginTop: 6,
+  },
+  legalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+  },
+  legalRowText: {
+    flex: 1,
+    color: '#E2E8F0',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  legalDivider: {
+    height: 1,
+    backgroundColor: 'rgba(148, 163, 184, 0.12)',
+    marginHorizontal: 16,
   },
   vehicleRow: {
     flexDirection: 'row',

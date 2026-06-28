@@ -170,7 +170,10 @@ const CustomDrawerContent = (props: any) => {
                  <MaterialCommunityIcons name="logout" size={20} color="#FF5252" />
                  <Text style={styles.logoutText}>Log Out</Text>
              </TouchableOpacity>
-             <Text style={styles.versionText}>{APP_DISPLAY_NAME_UPPER} v{appVersion} • {nativeBuildVersion}</Text>
+             <Text style={styles.versionText}>
+               {APP_DISPLAY_NAME_UPPER} v{appVersion}
+               {nativeBuildVersion && nativeBuildVersion !== 'unknown' ? ` • ${nativeBuildVersion}` : ''}
+             </Text>
         </View>
     </View>
   );

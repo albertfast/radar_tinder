@@ -454,6 +454,24 @@ const AIDiagnoseScreen = ({ navigation }: any) => {
         {selectedImage && (
           <Surface style={styles.imageContainer} elevation={2}>
             <Image source={{ uri: selectedImage }} style={[styles.image, { height: imageHeight }]} />
+            <TouchableOpacity
+              style={styles.removePhotoButton}
+              onPress={() => {
+                setSelectedImage(null);
+                setDiagnosis(null);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Remove selected photo"
+            >
+              <MaterialCommunityIcons name="close" size={16} color="#fff" />
+              <Text style={styles.removePhotoText}>Remove</Text>
+            </TouchableOpacity>
+            <View style={styles.imagePrivacyRow}>
+              <MaterialCommunityIcons name="shield-check-outline" size={14} color="#8E8E93" />
+              <Text style={styles.imagePrivacyText}>
+                This photo is used only for this AI diagnosis. It isn't saved to your profile or shared.
+              </Text>
+            </View>
           </Surface>
         )}
 
@@ -569,6 +587,21 @@ const styles = StyleSheet.create({
   actionButton: { flex: 1, backgroundColor: '#1C1C1E', borderRadius: 16, padding: 20, alignItems: 'center', marginHorizontal: 5, borderWidth: 1, borderColor: '#333', minHeight: 100, justifyContent: 'center' },
   actionButtonText: { color: 'white', marginTop: 10, fontWeight: '600' },
   imageContainer: { backgroundColor: '#1C1C1E', borderRadius: 16, padding: 10, marginBottom: 20, borderWidth: 1, borderColor: '#333' },
+  removePhotoButton: {
+    position: 'absolute',
+    top: 18,
+    right: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(220, 38, 38, 0.92)',
+  },
+  removePhotoText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  imagePrivacyRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingHorizontal: 4, paddingTop: 10 },
+  imagePrivacyText: { flex: 1, color: '#8E8E93', fontSize: 11, lineHeight: 15 },
   image: { width: '100%', borderRadius: 12 },
   analyzeButton: { backgroundColor: '#2196F3', borderRadius: 16, padding: 18, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20, minHeight: 56 },
   analyzeButtonDisabled: { backgroundColor: '#666', opacity: 0.7 },

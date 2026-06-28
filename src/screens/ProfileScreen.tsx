@@ -169,6 +169,36 @@ const ProfileScreen = ({ navigation }: any) => {
     }
   };
 
+  const removeImage = (type: 'profile' | 'car') => {
+    Alert.alert(
+      type === 'profile' ? 'Remove profile photo' : 'Remove vehicle photo',
+      'This photo will be removed from your profile. You can add a new one anytime.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            updateUser(
+              type === 'profile'
+                ? { avatarUrl: '', profileImage: '' }
+                : { carImage: '' }
+            );
+            if (!user?.id) return;
+            try {
+              await SupabaseService.updateProfile(
+                user.id,
+                type === 'profile' ? { avatar_url: null } : { car_image_url: null }
+              );
+            } catch (error) {
+              console.error('Profile media remove failed:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleUsernameSave = async () => {
     const clean = username.trim();
     if (!clean) {
@@ -300,6 +330,17 @@ const ProfileScreen = ({ navigation }: any) => {
               >
                  <MaterialCommunityIcons name="camera" size={12} color="white" />
               </View>
+              {user?.profileImage ? (
+                <TouchableOpacity
+                  style={styles.removeMediaBadge}
+                  onPress={() => removeImage('profile')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove profile photo"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons name="close" size={12} color="#fff" />
+                </TouchableOpacity>
+              ) : null}
             </TouchableOpacity>
 
             <Animated.Text
@@ -412,6 +453,18 @@ const ProfileScreen = ({ navigation }: any) => {
                     >
                       <MaterialCommunityIcons name="camera" size={14} color="#fff" />
                     </View>
+                    {user?.carImage ? (
+                      <TouchableOpacity
+                        style={styles.removeCarBadge}
+                        onPress={() => removeImage('car')}
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove vehicle photo"
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <MaterialCommunityIcons name="close" size={14} color="#fff" />
+                        <Text style={styles.removeCarText}>Remove</Text>
+                      </TouchableOpacity>
+                    ) : null}
                  </TouchableOpacity>
                  
                  <View style={styles.garageDetails}>
@@ -445,6 +498,13 @@ const ProfileScreen = ({ navigation }: any) => {
                  </View>
             </LinearGradient>
         </Surface>
+
+        <View style={styles.mediaInfoRow}>
+          <MaterialCommunityIcons name="information-outline" size={14} color="#64748B" />
+          <Text style={styles.mediaInfoText}>
+            Your profile and vehicle photos are saved to your account so they sync across your devices. Tap the red ✕ on a photo to remove it anytime.
+          </Text>
+        </View>
 
         {/* Menu Grid */}
         <Text style={styles.sectionHeader}>DASHBOARD</Text>
@@ -499,7 +559,10 @@ const ProfileScreen = ({ navigation }: any) => {
           accessibilityLabel="Build information"
           accessibilityHint="Tap seven times to unlock admin sign-in"
         >
-          <Text style={styles.version}>v{appVersion} • build {nativeBuildVersion}</Text>
+          <Text style={styles.version}>
+            v{appVersion}
+            {nativeBuildVersion && nativeBuildVersion !== 'unknown' ? ` • build ${nativeBuildVersion}` : ''}
+          </Text>
         </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -523,6 +586,36 @@ const styles = StyleSheet.create({
   avatarImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: '#020617' },
   editBadge: { position: 'absolute', bottom: 5, right: 5, backgroundColor: '#2563EB', padding: 6, borderRadius: 15, borderWidth: 2, borderColor: '#020617' },
   editBadgeBusy: { backgroundColor: '#0284C7' },
+  removeMediaBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DC2626',
+    borderWidth: 2,
+    borderColor: '#020617',
+  },
+  removeCarBadge: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(220, 38, 38, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(254, 226, 226, 0.4)',
+  },
+  removeCarText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  mediaInfoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingHorizontal: 4, marginTop: -16, marginBottom: 20 },
+  mediaInfoText: { flex: 1, color: '#64748B', fontSize: 11, lineHeight: 16 },
   
   userName: { color: 'white', fontSize: 28, fontWeight: 'bold' },
   levelBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 215, 0, 0.1)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, marginTop: 8, borderWidth: 1, borderColor: 'rgba(255, 215, 0, 0.3)' },

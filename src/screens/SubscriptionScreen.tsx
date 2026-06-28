@@ -7,7 +7,6 @@ import {
   Alert,
   useWindowDimensions,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -288,16 +287,8 @@ const SubscriptionScreen = ({ navigation }: { navigation: { goBack: () => void; 
           selectedPlan={selectedPlan}
           trialActive={trialActive}
           pricingByPlan={pricingByPlan}
-          onTermsPress={() => {
-            Linking.openURL('https://albertfast.github.io/radar_tinder/terms-and-conditions').catch((err) =>
-              console.warn('Failed to open Terms URL:', err)
-            );
-          }}
-          onPrivacyPress={() => {
-            Linking.openURL('https://albertfast.github.io/radar_tinder/privacy-policy').catch((err) =>
-              console.warn('Failed to open Privacy URL:', err)
-            );
-          }}
+          onTermsPress={() => navigation.navigate('Terms')}
+          onPrivacyPress={() => navigation.navigate('Privacy')}
           onRestorePress={handleRestore}
           compact
         />
