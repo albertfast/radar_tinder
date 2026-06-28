@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import RNMapView, {
   LatLng,
   MapPressEvent,
@@ -635,10 +635,14 @@ export default function MapView({
     <View style={styles.container}>
       <RNMapView
         ref={nativeMapRef}
-        provider={PROVIDER_GOOGLE}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         style={styles.map}
         initialRegion={initialRegion}
+        // customMapStyle (DARK_MAP_STYLE) only applies to Google Maps (Android).
+        // On iOS we use the free Apple Maps, which ignores customMapStyle and is
+        // instead forced into dark appearance via userInterfaceStyle below.
         customMapStyle={DARK_MAP_STYLE as any}
+        userInterfaceStyle="dark"
         mapType="standard"
         loadingEnabled
         loadingBackgroundColor="#050c18"
@@ -648,6 +652,8 @@ export default function MapView({
         showsCompass={false}
         showsScale={false}
         showsTraffic={false}
+        // Let Apple Maps render its own native POI icons on iOS.
+        showsPointsOfInterest
         showsBuildings
         toolbarEnabled={false}
         pitchEnabled={false}
@@ -680,7 +686,9 @@ export default function MapView({
           </Marker>
         ) : null}
 
-        {poiMarkers.slice(0, 56).map((marker) => {
+        {/* Custom POI icons only on Android (Google dark style hides native POIs).
+            On iOS we rely on Apple Maps' own native POI icons instead. */}
+        {Platform.OS === 'android' && poiMarkers.slice(0, 56).map((marker) => {
           const uri = MAP_MARKER_ICON_URIS[marker.iconKey as keyof typeof MAP_MARKER_ICON_URIS];
           return (
             <Marker

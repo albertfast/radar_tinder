@@ -18,10 +18,10 @@ const GOOGLE_DIRECTIONS_ENABLED =
   String(
     process.env.EXPO_PUBLIC_ENABLE_GOOGLE_DIRECTIONS ??
       process.env.EXPO_PUBLIC_ENABLE_PAID_GOOGLE_MAPS ??
-      'true'
+      'false'
   )
     .trim()
-    .toLowerCase() !== 'false';
+    .toLowerCase() === 'true';
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://lz4.overpass-api.de/api/interpreter',

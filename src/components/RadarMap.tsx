@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { modernMapStyle } from '../utils/modernMapStyle';
 import { getResponsiveWidth } from '../constants/layout';
@@ -488,7 +488,7 @@ const RadarMap = React.memo(({
     <MapView
       ref={mapRef}
       style={StyleSheet.absoluteFill}
-      provider={PROVIDER_GOOGLE}
+      provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
       initialRegion={initialRegion}
       showsUserLocation={true}
       showsMyLocationButton={true}

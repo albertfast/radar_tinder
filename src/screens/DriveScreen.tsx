@@ -27,7 +27,6 @@ import { RadarGraphicView } from './components/RadarGraphicView';
 import { RadarBasicTab } from './radar/components/driving/RadarBasicTab';
 import { useActiveRadarAlertFeedback } from './radar/hooks/useActiveRadarAlertFeedback';
 import {
-  isAlertableSpeedCameraRadar,
   mergeDrivingRadarCandidates,
   withDrivingRadarDistance,
 } from '../utils/drivingRadarAlerts';
@@ -76,7 +75,16 @@ const resolveDriveMode = (value?: string | null): DriveMode =>
 const calculateDisplaySpeed = (speedMetersPerSecond: number, unitSystem: 'imperial' | 'metric') =>
   Math.max(0, speedMetersPerSecond * (unitSystem === 'imperial' ? 2.23694 : 3.6));
 
-const isVisibleSpeedCamera = (radar: any) => isAlertableSpeedCameraRadar(radar);
+const isVisibleSpeedCamera = (radar: any) => {
+  const type = String(radar?.type || '').toLowerCase();
+  const markerKind = String(radar?.markerKind || '').toLowerCase();
+  if (!(type === 'speed_camera' || type === 'fixed' || markerKind === 'camera')) {
+    return false;
+  }
+
+  const source = String(radar?.source || '').toLowerCase();
+  return !((source === 'community' || source === 'manual') && !radar?.verified);
+};
 
 const getRadarDistanceKm = (radar: any) => {
   const distance = Number(radar?.distance);

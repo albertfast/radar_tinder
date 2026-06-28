@@ -83,9 +83,6 @@ module.exports = {
       bundleIdentifier: "com.radartinder.app",
       buildNumber: getIosBuildNumber(),
       googleServicesFile: "./GoogleService-Info.plist",
-      config: {
-        googleMapsApiKey: "AIzaSyAtZoFF2DvstwmZuLxh0JR2CsK3clsYtbQ"
-      },
       infoPlist: {
         CFBundleDisplayName: "Radar Flow",
         CFBundleName: "Radar Flow",
@@ -211,7 +208,6 @@ module.exports = {
       "./plugins/withAndroidReleaseSigning.js",
       "./plugins/withOnnxRuntime.js",
       "./plugins/withAndroidCustomNative.js",
-      "./plugins/withIosGoogleMapsInitFix.js",
       "./plugins/withIosHermesDsym.js",
       "./plugins/withIosFmtConstevalFix.js"
     ],

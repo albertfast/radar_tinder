@@ -648,15 +648,6 @@ export class RadarService {
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
 
     const sourceMeta = this.normalizeSourceMetadata(row);
-    const sourceRule = getExternalCameraSourceRule(sourceMeta.sourceKey);
-    if (
-      sourceRule &&
-      (sourceRule.status !== 'active' ||
-        sourceRule.alertPolicy === 'map_only' ||
-        sourceRule.alertPolicy === 'ignore')
-    ) {
-      return null;
-    }
     const confidence = Number(row?.confidence);
     const countryCode = this.parseCountryCode(row, sourceMeta.sourceKey);
     const metadata = this.readRowMetadata(row);
