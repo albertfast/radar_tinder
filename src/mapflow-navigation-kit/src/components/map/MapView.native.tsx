@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import RNMapView, {
   LatLng,
@@ -295,21 +295,6 @@ function NativeSvgMarker({
   );
 }
 
-function VehicleMarker() {
-  const uri = MAP_MARKER_ICON_URIS.vehicle;
-  const xml = svgDataUriToXml(uri);
-
-  return (
-    <View style={styles.vehicleRotator}>
-      {xml ? (
-        <SvgXml width={42} height={42} xml={xml} />
-      ) : (
-        <MaterialCommunityIcons name="navigation" size={30} color="#FACC15" />
-      )}
-    </View>
-  );
-}
-
 export default function MapView({
   onMapReady,
   onMapClick,
@@ -327,33 +312,20 @@ export default function MapView({
   const rawUserPointRef = useRef<MapPoint | null>(initialLocation ?? null);
   const routesRef = useRef<NativeRoute[]>([]);
   const selectedRouteIdRef = useRef<string | undefined>(undefined);
-  const [userMarker, setUserMarkerState] = useState<UserMarkerState | null>(
-    initialLocation ? { ...initialLocation, heading: 0, routeHeading: null } : null
-  );
   const [destination, setDestinationState] = useState<MapPoint | null>(null);
   const [routes, setRoutes] = useState<NativeRoute[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string | undefined>(undefined);
   const [overlayMarkers, setOverlayMarkers] = useState<MapOverlayMarker[]>([]);
   const [poiMarkers, setPoiMarkers] = useState<MapPoiMarker[]>([]);
-  const [userMarkerTracksViewChanges, setUserMarkerTracksViewChanges] = useState(true);
 
+  // Kullanıcı/araç konumu artık native konum göstergesiyle (showsUserLocation)
+  // çiziliyor. Bu ref sadece rota önizleme odaklamasında (focusRoutePreview)
+  // yedek başlangıç noktası olarak kullanılıyor; haritada bir Marker render
+  // edilmiyor. Özel SvgXml child marker'ı seyir sırasında iOS'ta cached
+  // snapshot'un boşalması yüzünden kayboluyordu — native gösterge bundan muaf.
   const updateUserMarker = useCallback((next: UserMarkerState | null) => {
     userMarkerRef.current = next;
-    setUserMarkerState(next);
   }, []);
-
-  useEffect(() => {
-    if (!userMarker) return undefined;
-
-    setUserMarkerTracksViewChanges(true);
-    const timer = setTimeout(() => {
-      setUserMarkerTracksViewChanges(false);
-    }, 800);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [userMarker?.vehicleMarkerId]);
 
   const updateDestination = useCallback((next: MapPoint | null) => {
     setDestinationState(next);
@@ -647,7 +619,7 @@ export default function MapView({
         loadingEnabled
         loadingBackgroundColor="#050c18"
         loadingIndicatorColor={ROUTE_COLOR}
-        showsUserLocation={false}
+        showsUserLocation
         showsMyLocationButton={false}
         showsCompass={false}
         showsScale={false}
@@ -729,18 +701,6 @@ export default function MapView({
           );
         })}
 
-        {userMarker ? (
-          <Marker
-            coordinate={{ latitude: userMarker.lat, longitude: userMarker.lng }}
-            anchor={{ x: 0.5, y: 0.5 }}
-            zIndex={60}
-            flat
-            rotation={resolveBearing(userMarker.heading, userMarker.routeHeading, false)}
-            tracksViewChanges={userMarkerTracksViewChanges}
-          >
-            <VehicleMarker />
-          </Marker>
-        ) : null}
       </RNMapView>
     </View>
   );
@@ -761,11 +721,5 @@ const styles = StyleSheet.create({
   },
   markerShellCompact: {
     opacity: 0.95,
-  },
-  vehicleRotator: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

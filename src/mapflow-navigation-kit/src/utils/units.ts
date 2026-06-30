@@ -27,15 +27,15 @@ export function convertDistance(meters: number, unitSystem: 'metric' | 'imperial
 }
 
 export function formatDistance(meters: number, unitSystem: 'metric' | 'imperial'): string {
-  const unit = getDistanceUnit(unitSystem);
-  const dist = convertDistance(meters, unitSystem);
-  if (dist < 0.1) {
-    return unitSystem === 'imperial' ? `${Math.round(meters * 3.28)} ft` : `${Math.round(meters)} m`;
+  if (unitSystem === 'imperial') {
+    const feet = meters * 3.28084;
+    // Apple/Google-style: show feet only when close; past ~1000 ft miles read
+    // far more naturally (e.g. 4718 ft -> "0.9 mi" instead of "4718 ft").
+    if (feet < 1000) return `${Math.round(feet)} ft`;
+    return `${(meters * 0.000621371).toFixed(1)} mi`;
   }
-  if (dist < 1) {
-    return unitSystem === 'imperial' ? `${Math.round(meters * 3.28)} ft` : `${Math.round(meters * 10) / 10} m`;
-  }
-  return `${dist.toFixed(1)} ${unit}`;
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
 }
 
 export function formatDuration(seconds: number): string {
