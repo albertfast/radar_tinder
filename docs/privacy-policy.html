@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radar Flow - Privacy Policy</title>
+    <meta name="description" content="Radar Flow Privacy Policy - Learn how we collect, use, and protect your information.">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #4e54c8;
+            --secondary-color: #8f94fb;
+            --accent-color: #38b2ac;
+            --dark-color: #2d3748;
+            --light-color: #f7fafc;
+            --text-color: #4a5568;
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.8;
+            color: var(--text-color);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header Styles */
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            padding: 15px 0;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo i {
+            font-size: 28px;
+        }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 25px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 500;
+            transition: var(--transition);
+            padding: 8px 15px;
+            border-radius: 6px;
+        }
+
+        nav a:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Main Content */
+        main {
+            margin-top: 80px;
+            padding: 40px 0;
+        }
+
+        .content-wrapper {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            margin-bottom: 40px;
+        }
+
+        .content-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .content-header h1 {
+            font-size: 2.5rem;
+            color: var(--dark-color);
+            margin-bottom: 20px;
+        }
+
+        .content-header p {
+            font-size: 1.2rem;
+            color: var(--text-color);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Policy Sections */
+        .policy-section {
+            margin-bottom: 40px;
+        }
+
+        .policy-section h2 {
+            font-size: 1.8rem;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .policy-section h3 {
+            font-size: 1.4rem;
+            color: var(--dark-color);
+            margin: 25px 0 15px;
+        }
+
+        .policy-section p {
+            margin-bottom: 15px;
+            color: var(--text-color);
+        }
+
+        .policy-section ul {
+            margin-left: 25px;
+            margin-bottom: 20px;
+        }
+
+        .policy-section li {
+            margin-bottom: 10px;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--dark-color);
+            color: white;
+            padding: 40px 0 30px;
+            margin-top: 60px;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .footer-section h3 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: white;
+        }
+
+        .footer-section ul {
+            list-style: none;
+        }
+
+        .footer-section ul li {
+            margin-bottom: 10px;
+        }
+
+        .footer-section a {
+            color: #cbd5e0;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .footer-section a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid #4a5568;
+            color: #a0aec0;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .content-header h1 {
+                font-size: 2rem;
+            }
+
+            .content-header p {
+                font-size: 1.1rem;
+            }
+
+            .policy-section h2 {
+                font-size: 1.5rem;
+            }
+
+            .policy-section h3 {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="../" class="logo">
+                    <i class="fas fa-radar"></i>
+                    Radar Flow
+                </a>
+                <nav>
+                    <ul>
+                        <li><a href="../">Home</a></li>
+                        <li><a href="terms-and-conditions">Terms of Service</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="content-wrapper">
+            <div class="content-header">
+                <h1>Radar Flow Privacy Policy</h1>
+                <p>Learn how we collect, use, share, and protect your information when you use Radar Flow.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>Effective Date: January 2026</h2>
+                <h2>Publisher: Aether Labs</h2>
+                <h2>Contact: aetherlabsapps@gmail.com</h2>
+                <p>This Privacy Policy explains how Aether Labs ("we," "our," or "us") collects, uses, shares, and protects information when you use Radar Flow, including the mobile application, radar alerts, navigation-related features, community reports, subscriptions, advertising-supported access, AI-assisted features, and related services.</p>
+                <p>By using Radar Flow, you agree to the collection and use of information as described in this Privacy Policy.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>1. Information We Collect</h2>
+                
+                <h3>a. Location Data</h3>
+                <p>Radar Flow may collect precise or approximate location data when you grant location permission. Location data may be used to provide nearby radar alerts, route awareness, map features, trip analytics, speed and driving awareness, community radar detection, and background radar detection while driving.</p>
+                <p>If you grant background location permission, Radar Flow may continue to receive location updates when the app is not actively open, depending on your device settings and app state.</p>
+
+                <h3>b. Account and Profile Information</h3>
+                <p>If you create or link an account, we may collect information such as user ID, email address, display name, username, profile details, avatar or vehicle image, authentication provider data, subscription status, ads-off status, and related account settings.</p>
+
+                <h3>c. Community Reports and Driving Data</h3>
+                <p>When you submit radar reports, confirmations, trips, driving stats, or related activity, we may process information such as report type, location coordinates, heading, timestamps, route-related data, distance, duration, average speed, top speed, score, and other driving analytics.</p>
+
+                <h3>d. Camera, Photos, and Microphone</h3>
+                <p>Radar Flow may request access to camera, photos, or microphone for optional features such as AI Diagnose, image-based diagnosis, photo selection, or voice input. We only access camera, photo, or microphone data when you grant permission and initiate a feature that requires it.</p>
+
+                <h3>e. Usage, Analytics, and Diagnostics</h3>
+                <p>We may collect app usage events, screen views, feature interactions, subscription actions, ad events, errors, crash reports, performance data, device information, app version, build information, and diagnostic logs to operate, improve, secure, and troubleshoot Radar Flow.</p>
+
+                <h3>f. Advertising Information</h3>
+                <p>Radar Flow may show ads to free users. Advertising partners may receive or process information such as device information, app information, ad unit identifiers, ad interactions, approximate location, IP-derived location, diagnostics, and advertising-related signals for ad delivery, frequency capping, fraud prevention, reporting, and measurement.</p>
+                <p>Where required by law or platform rules, Radar Flow will request permission before using device identifiers or other data for tracking or personalized advertising. You may manage tracking and advertising permissions through your device settings.</p>
+                <p>Radar Flow may request non-personalized ads where supported. Non-personalized ads may still use limited information for ad delivery, frequency capping, aggregated measurement, fraud prevention, and compliance.</p>
+
+                <h3>g. Purchase and Subscription Information</h3>
+                <p>When you purchase a subscription, trial, or ads-off entitlement, payment is processed by the applicable app store. We may receive purchase status, entitlement status, renewal status, expiration date, product identifier, and related subscription metadata from the app store or subscription management providers. We do not receive your full payment card details.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>2. How We Use Your Information</h2>
+                <p>We use the information we collect for various purposes, including:</p>
+                <ul>
+                    <li>Providing and improving Radar Flow services</li>
+                    <li>Personalizing your experience</li>
+                    <li>Sending important notifications and alerts</li>
+                    <li>Processing payments and managing subscriptions</li>
+                    <li>Improving app features and functionality</li>
+                    <li>Ensuring security and fraud prevention</li>
+                    <li>Complying with legal obligations</li>
+                </ul>
+            </div>
+
+            <div class="policy-section">
+                <h2>3. How We Share Your Information</h2>
+                <p>We may share your information in the following circumstances:</p>
+                <ul>
+                    <li>With service providers who help us operate Radar Flow</li>
+                    <li>With advertising partners for non-personalized ads</li>
+                    <li>When required by law or legal process</li>
+                    <li>To protect our rights, privacy, safety, or property</li>
+                    <li>In connection with a merger, acquisition, or sale of all or part of our business</li>
+                </ul>
+            </div>
+
+            <div class="policy-section">
+                <h2>4. Data Security</h2>
+                <p>We implement appropriate security measures to protect your information from unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over the internet or electronic storage is completely secure.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>5. Your Rights</h2>
+                <p>You may have rights regarding your personal information, including the right to access, correct, or delete your information. Contact us at aetherlabsapps@gmail.com to exercise these rights.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>6. Changes to This Privacy Policy</h2>
+                <p>We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new Privacy Policy on this page and updating the "Effective Date" above.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>7. Contact Us</h2>
+                <p>If you have questions about this Privacy Policy, please contact us at aetherlabsapps@gmail.com.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Radar Flow</h3>
+                    <p>Smart radar detection for safer driving.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="../">Home</a></li>
+                        <li><a href="terms-and-conditions">Terms of Service</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Connect</h3>
+                    <ul>
+                        <li><a href="#"><i class="fab fa-facebook"></i> Facebook</a></li>
+                        <li><a href="#"><i class="fab fa-twitter"></i> Twitter</a></li>
+                        <li><a href="#"><i class="fab fa-instagram"></i> Instagram</a></li>
+                        <li><a href="#"><i class="fab fa-youtube"></i> YouTube</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Contact</h3>
+                    <ul>
+                        <li><a href="mailto:support@radarflow.com">support@radarflow.com</a></li>
+                        <li><a href="tel:+1234567890">+1 (234) 567-890</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Radar Flow. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
