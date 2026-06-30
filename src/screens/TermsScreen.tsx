@@ -39,7 +39,13 @@ const TermsScreen = ({ navigation }: any) => {
           Some features require an account. You are responsible for account confidentiality and all activity under your account.{"\n\n"}
 
           <Text style={styles.bold}>4. Subscriptions and Payments</Text>{"\n"}
-          Premium features may require paid subscriptions. Billing, renewals, cancellations, and refunds are managed by your app store provider and subject to its terms.{"\n\n"}
+          Premium features may require paid subscriptions. Billing, renewals, cancellations, and refunds are managed by your app store provider and subject to its terms.{"\n"}
+          <Text style={styles.bold}>Auto-Renewable Subscriptions:</Text>{"\n"}
+          • Your subscription automatically renews at the end of each period (weekly or yearly) unless canceled at least 24 hours before the end of the current period.{"\n"}
+          • Your account will be charged for renewal within 24 hours prior to the end of the current period at the same price you originally subscribed.{"\n"}
+          • You can manage and cancel your subscription at any time through your app store account settings.{"\n"}
+          • Any unused portion of a free trial period is forfeited when you purchase a subscription.{"\n"}
+          • Refunds are handled by the applicable app store according to its refund policy.{"\n\n"}
 
           <Text style={styles.bold}>5. Intellectual Property</Text>{"\n"}
           App content, code, and functionality are owned by Aether Labs and protected by intellectual property laws. Unauthorized copying, reverse engineering, resale, or redistribution is prohibited unless permitted by law.{"\n\n"}

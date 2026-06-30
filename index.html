@@ -15,21 +15,26 @@
         }
 
         :root {
-            --primary-color: #4e54c8;
-            --secondary-color: #8f94fb;
-            --accent-color: #38b2ac;
-            --dark-color: #2d3748;
-            --light-color: #f7fafc;
-            --text-color: #4a5568;
-            --border-radius: 12px;
+            --primary-color: #7CE8DF;
+            --secondary-color: #4ECDC4;
+            --accent-color: #F5C842;
+            --bg-dark: #0F0A1E;
+            --bg-card: rgba(255, 255, 255, 0.04);
+            --bg-card-hover: rgba(255, 255, 255, 0.08);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.14);
+            --text-primary: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --border-radius: 16px;
             --transition: all 0.3s ease;
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
-            color: var(--text-color);
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: var(--text-primary);
+            background: linear-gradient(135deg, #0F0A1E 0%, #1A1033 50%, #120A24 100%);
             min-height: 100vh;
         }
 
@@ -39,11 +44,11 @@
             padding: 0 20px;
         }
 
-        /* Header Styles */
+        /* Header */
         header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            background: rgba(15, 10, 30, 0.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
             position: fixed;
             width: 100%;
             top: 0;
@@ -74,36 +79,34 @@
         nav ul {
             display: flex;
             list-style: none;
-            gap: 25px;
+            gap: 20px;
         }
 
         nav a {
             text-decoration: none;
-            color: var(--text-color);
+            color: var(--text-secondary);
             font-weight: 500;
             transition: var(--transition);
             padding: 8px 15px;
-            border-radius: 6px;
+            border-radius: 8px;
         }
 
         nav a:hover {
-            background: var(--primary-color);
-            color: white;
-            transform: translateY(-2px);
+            background: var(--bg-card-hover);
+            color: var(--primary-color);
         }
 
-        /* Hero Section */
+        /* Hero */
         .hero {
-            padding: 120px 0 80px;
+            padding: 140px 0 80px;
             text-align: center;
-            color: white;
+            color: var(--text-primary);
         }
 
         .hero h1 {
             font-size: 3.5rem;
             margin-bottom: 20px;
             line-height: 1.2;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .hero p {
@@ -112,6 +115,7 @@
             max-width: 700px;
             margin-left: auto;
             margin-right: auto;
+            color: var(--text-secondary);
         }
 
         .btn-group {
@@ -134,30 +138,29 @@
         }
 
         .btn-primary {
-            background: white;
-            color: var(--primary-color);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            background: var(--accent-color);
+            color: #1A1408;
+            box-shadow: 0 4px 15px rgba(245, 200, 66, 0.25);
         }
 
         .btn-primary:hover {
             transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 6px 20px rgba(245, 200, 66, 0.35);
         }
 
         .btn-secondary {
             background: transparent;
-            color: white;
-            border: 2px solid white;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
         }
 
         .btn-secondary:hover {
-            background: white;
-            color: var(--primary-color);
+            background: var(--primary-color);
+            color: var(--bg-dark);
         }
 
-        /* Features Section */
+        /* Features */
         .features {
-            background: white;
             padding: 80px 0;
         }
 
@@ -165,7 +168,7 @@
             text-align: center;
             font-size: 2.5rem;
             margin-bottom: 60px;
-            color: var(--dark-color);
+            color: var(--text-primary);
         }
 
         .features-grid {
@@ -175,17 +178,17 @@
         }
 
         .feature-card {
-            background: white;
+            background: var(--bg-card);
             border-radius: var(--border-radius);
             padding: 30px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
             transition: var(--transition);
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border-color);
         }
 
         .feature-card:hover {
             transform: translateY(-10px);
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+            background: var(--bg-card-hover);
+            border-color: var(--border-hover);
         }
 
         .feature-icon {
@@ -197,16 +200,15 @@
         .feature-card h3 {
             font-size: 1.5rem;
             margin-bottom: 15px;
-            color: var(--dark-color);
+            color: var(--text-primary);
         }
 
         .feature-card p {
-            color: var(--text-color);
+            color: var(--text-secondary);
         }
 
-        /* How It Works Section */
+        /* How It Works */
         .how-it-works {
-            background: #f8f9fa;
             padding: 80px 0;
         }
 
@@ -221,9 +223,9 @@
             flex: 1;
             text-align: center;
             padding: 30px;
-            background: white;
+            background: var(--bg-card);
             border-radius: var(--border-radius);
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
         }
 
         .step-number {
@@ -236,10 +238,14 @@
         .step h3 {
             font-size: 1.3rem;
             margin-bottom: 15px;
-            color: var(--dark-color);
+            color: var(--text-primary);
         }
 
-        /* Community Section */
+        .step p {
+            color: var(--text-secondary);
+        }
+
+        /* Community */
         .community {
             padding: 80px 0;
             text-align: center;
@@ -254,10 +260,10 @@
         }
 
         .stat {
-            background: white;
+            background: var(--bg-card);
             padding: 30px;
             border-radius: var(--border-radius);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--border-color);
             min-width: 200px;
         }
 
@@ -269,14 +275,15 @@
         }
 
         .stat-label {
-            color: var(--text-color);
+            color: var(--text-secondary);
             font-size: 1.1rem;
         }
 
         /* Footer */
         footer {
-            background: var(--dark-color);
-            color: white;
+            background: rgba(15, 10, 30, 0.95);
+            border-top: 1px solid var(--border-color);
+            color: var(--text-primary);
             padding: 50px 0 30px;
             margin-top: 80px;
         }
@@ -291,7 +298,11 @@
         .footer-section h3 {
             font-size: 1.3rem;
             margin-bottom: 20px;
-            color: white;
+            color: var(--text-primary);
+        }
+
+        .footer-section p {
+            color: var(--text-secondary);
         }
 
         .footer-section ul {
@@ -303,23 +314,23 @@
         }
 
         .footer-section a {
-            color: #cbd5e0;
+            color: var(--text-secondary);
             text-decoration: none;
             transition: var(--transition);
         }
 
         .footer-section a:hover {
-            color: white;
+            color: var(--primary-color);
         }
 
         .footer-bottom {
             text-align: center;
             padding-top: 30px;
-            border-top: 1px solid #4a5568;
-            color: #a0aec0;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-muted);
         }
 
-        /* Responsive Design */
+        /* Responsive */
         @media (max-width: 768px) {
             .hero h1 {
                 font-size: 2.5rem;
@@ -341,9 +352,14 @@
             .community-stats {
                 flex-direction: column;
             }
+
+            nav ul {
+                gap: 10px;
+                font-size: 0.85rem;
+            }
         }
 
-        /* Loading Animation */
+        /* Animation */
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.05); }
@@ -359,8 +375,8 @@
     <header>
         <div class="container">
             <div class="header-content">
-                <a href="#" class="logo">
-                    <i class="fas fa-radar"></i>
+                <a href="./" class="logo">
+                    <i class="fas fa-satellite-dish"></i>
                     Radar Flow
                 </a>
                 <nav>
@@ -468,7 +484,7 @@
     <section id="community" class="community">
         <div class="container">
             <h2 class="section-title">Join Our Community</h2>
-            <p>Millions of drivers trust Radar Flow for real-time traffic enforcement information.</p>
+            <p style="color: var(--text-secondary);">Millions of drivers trust Radar Flow for real-time traffic enforcement information.</p>
             <div class="community-stats">
                 <div class="stat">
                     <div class="stat-number">5M+</div>
@@ -537,19 +553,9 @@
                     </ul>
                 </div>
                 <div class="footer-section">
-                    <h3>Connect</h3>
-                    <ul>
-                        <li><a href="#"><i class="fab fa-facebook"></i> Facebook</a></li>
-                        <li><a href="#"><i class="fab fa-twitter"></i> Twitter</a></li>
-                        <li><a href="#"><i class="fab fa-instagram"></i> Instagram</a></li>
-                        <li><a href="#"><i class="fab fa-youtube"></i> YouTube</a></li>
-                    </ul>
-                </div>
-                <div class="footer-section">
                     <h3>Contact</h3>
                     <ul>
-                        <li><a href="mailto:support@radarflow.com">support@radarflow.com</a></li>
-                        <li><a href="tel:+1234567890">+1 (234) 567-890</a></li>
+                        <li><a href="mailto:aetherlabsapps@gmail.com">aetherlabsapps@gmail.com</a></li>
                     </ul>
                 </div>
             </div>

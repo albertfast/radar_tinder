@@ -14,21 +14,26 @@
         }
 
         :root {
-            --primary-color: #4e54c8;
-            --secondary-color: #8f94fb;
-            --accent-color: #38b2ac;
-            --dark-color: #2d3748;
-            --light-color: #f7fafc;
-            --text-color: #4a5568;
-            --border-radius: 12px;
+            --primary-color: #7CE8DF;
+            --secondary-color: #4ECDC4;
+            --accent-color: #F5C842;
+            --bg-dark: #0F0A1E;
+            --bg-card: rgba(255, 255, 255, 0.04);
+            --bg-card-hover: rgba(255, 255, 255, 0.08);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.14);
+            --text-primary: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --border-radius: 16px;
             --transition: all 0.3s ease;
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.8;
-            color: var(--text-color);
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: var(--text-primary);
+            background: linear-gradient(135deg, #0F0A1E 0%, #1A1033 50%, #120A24 100%);
             min-height: 100vh;
         }
 
@@ -38,11 +43,11 @@
             padding: 0 20px;
         }
 
-        /* Header Styles */
+        /* Header */
         header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            background: rgba(15, 10, 30, 0.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
             position: fixed;
             width: 100%;
             top: 0;
@@ -73,22 +78,21 @@
         nav ul {
             display: flex;
             list-style: none;
-            gap: 25px;
+            gap: 20px;
         }
 
         nav a {
             text-decoration: none;
-            color: var(--text-color);
+            color: var(--text-secondary);
             font-weight: 500;
             transition: var(--transition);
             padding: 8px 15px;
-            border-radius: 6px;
+            border-radius: 8px;
         }
 
         nav a:hover {
-            background: var(--primary-color);
-            color: white;
-            transform: translateY(-2px);
+            background: var(--bg-card-hover);
+            color: var(--primary-color);
         }
 
         /* Main Content */
@@ -98,10 +102,10 @@
         }
 
         .content-wrapper {
-            background: white;
+            background: var(--bg-card);
             border-radius: var(--border-radius);
             padding: 40px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--border-color);
             margin-bottom: 40px;
         }
 
@@ -112,13 +116,13 @@
 
         .content-header h1 {
             font-size: 2.5rem;
-            color: var(--dark-color);
+            color: var(--text-primary);
             margin-bottom: 20px;
         }
 
         .content-header p {
             font-size: 1.2rem;
-            color: var(--text-color);
+            color: var(--text-secondary);
             max-width: 800px;
             margin: 0 auto;
         }
@@ -133,18 +137,18 @@
             color: var(--primary-color);
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 2px solid var(--primary-color);
+            border-bottom: 2px solid var(--border-color);
         }
 
         .policy-section h3 {
             font-size: 1.4rem;
-            color: var(--dark-color);
+            color: var(--text-primary);
             margin: 25px 0 15px;
         }
 
         .policy-section p {
             margin-bottom: 15px;
-            color: var(--text-color);
+            color: var(--text-secondary);
         }
 
         .policy-section ul {
@@ -154,12 +158,14 @@
 
         .policy-section li {
             margin-bottom: 10px;
+            color: var(--text-secondary);
         }
 
         /* Footer */
         footer {
-            background: var(--dark-color);
-            color: white;
+            background: rgba(15, 10, 30, 0.95);
+            border-top: 1px solid var(--border-color);
+            color: var(--text-primary);
             padding: 40px 0 30px;
             margin-top: 60px;
         }
@@ -174,7 +180,11 @@
         .footer-section h3 {
             font-size: 1.3rem;
             margin-bottom: 20px;
-            color: white;
+            color: var(--text-primary);
+        }
+
+        .footer-section p {
+            color: var(--text-secondary);
         }
 
         .footer-section ul {
@@ -186,23 +196,23 @@
         }
 
         .footer-section a {
-            color: #cbd5e0;
+            color: var(--text-secondary);
             text-decoration: none;
             transition: var(--transition);
         }
 
         .footer-section a:hover {
-            color: white;
+            color: var(--primary-color);
         }
 
         .footer-bottom {
             text-align: center;
             padding-top: 30px;
-            border-top: 1px solid #4a5568;
-            color: #a0aec0;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-muted);
         }
 
-        /* Responsive Design */
+        /* Responsive */
         @media (max-width: 768px) {
             .content-header h1 {
                 font-size: 2rem;
@@ -219,6 +229,11 @@
             .policy-section h3 {
                 font-size: 1.2rem;
             }
+
+            nav ul {
+                gap: 10px;
+                font-size: 0.85rem;
+            }
         }
     </style>
 </head>
@@ -226,13 +241,13 @@
     <header>
         <div class="container">
             <div class="header-content">
-                <a href="../" class="logo">
-                    <i class="fas fa-radar"></i>
+                <a href="./" class="logo">
+                    <i class="fas fa-satellite-dish"></i>
                     Radar Flow
                 </a>
                 <nav>
                     <ul>
-                        <li><a href="../">Home</a></li>
+                        <li><a href="./">Home</a></li>
                         <li><a href="privacy-policy">Privacy Policy</a></li>
                         <li><a href="#contact">Contact</a></li>
                     </ul>
@@ -251,7 +266,7 @@
             <div class="policy-section">
                 <h2>Effective Date: January 2026</h2>
                 <h2>Publisher: Aether Labs</h2>
-                <h2>Contact: aetherlabsapps@gmail.com</h2>
+                <h2 id="contact">Contact: aetherlabsapps@gmail.com</h2>
                 <p>These Terms of Use (EULA) and Terms of Service (the "Terms") govern your access to and use of Radar Flow, including the mobile application, related features, subscriptions, advertising-supported access, radar alerts, navigation-related tools, community reports, AI-assisted features, and any related services provided by Aether Labs ("Aether Labs," "we," "our," or "us").</p>
                 <p>By downloading, installing, accessing, purchasing, subscribing to, or using Radar Flow, you agree to these Terms. If you do not agree, do not use the app.</p>
             </div>
@@ -294,6 +309,16 @@
                 <h2>5. Subscription and Payment Terms</h2>
                 <p>Subscription payments are processed through the applicable app store (Apple App Store or Google Play Store). You are responsible for managing your subscription through the app store's settings.</p>
                 <p>Subscription terms, including pricing, renewal, and cancellation policies, are governed by the app store's policies and any additional terms provided during purchase.</p>
+
+                <h3>Auto-Renewable Subscriptions</h3>
+                <p>Radar Flow offers auto-renewable subscriptions. By subscribing, you agree to the following:</p>
+                <ul>
+                    <li>Your subscription will automatically renew at the end of each subscription period (weekly or yearly) unless you cancel it at least 24 hours before the end of the current period.</li>
+                    <li>Your account will be charged for renewal within 24 hours prior to the end of the current period at the same price you originally subscribed.</li>
+                    <li>You can manage and cancel your subscription at any time through your app store account settings (App Store → Account → Subscriptions on iOS; Google Play → Profile → Payments & subscriptions → Subscriptions on Android).</li>
+                    <li>Any unused portion of a free trial period, if offered, will be forfeited when you purchase a subscription.</li>
+                    <li>Refunds are handled by the applicable app store according to its refund policy.</li>
+                </ul>
             </div>
 
             <div class="policy-section">
@@ -345,25 +370,15 @@
                 <div class="footer-section">
                     <h3>Quick Links</h3>
                     <ul>
-                        <li><a href="../">Home</a></li>
+                        <li><a href="./">Home</a></li>
                         <li><a href="privacy-policy">Privacy Policy</a></li>
                         <li><a href="#contact">Contact</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
-                    <h3>Connect</h3>
-                    <ul>
-                        <li><a href="#"><i class="fab fa-facebook"></i> Facebook</a></li>
-                        <li><a href="#"><i class="fab fa-twitter"></i> Twitter</a></li>
-                        <li><a href="#"><i class="fab fa-instagram"></i> Instagram</a></li>
-                        <li><a href="#"><i class="fab fa-youtube"></i> YouTube</a></li>
-                    </ul>
-                </div>
-                <div class="footer-section">
                     <h3>Contact</h3>
                     <ul>
-                        <li><a href="mailto:support@radarflow.com">support@radarflow.com</a></li>
-                        <li><a href="tel:+1234567890">+1 (234) 567-890</a></li>
+                        <li><a href="mailto:aetherlabsapps@gmail.com">aetherlabsapps@gmail.com</a></li>
                     </ul>
                 </div>
             </div>

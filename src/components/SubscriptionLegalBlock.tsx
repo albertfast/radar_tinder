@@ -39,6 +39,8 @@ export const SubscriptionLegalBlock = ({
         ? t('subscription.legalWeekly', { price: weeklyPrice })
         : t('subscription.legalAdFree');
 
+  const isAutoRenewable = selectedPlan === 'yearly' || selectedPlan === 'weekly';
+
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact]}>
       <View style={styles.termsHeader}>
@@ -46,7 +48,12 @@ export const SubscriptionLegalBlock = ({
         <Text style={styles.termsEyebrow}>{t('subscription.offerTerms')}</Text>
       </View>
       <Text style={styles.legalText}>{legalBody}</Text>
-      <Text style={styles.legalText}>{t(cancelHowKey)}</Text>
+      {isAutoRenewable && (
+        <Text style={styles.legalText}>{t(cancelHowKey)}</Text>
+      )}
+      {isAutoRenewable && (
+        <Text style={styles.legalText}>{t('subscription.autoRenewalNotice')}</Text>
+      )}
 
       <TouchableOpacity style={styles.manageButton} onPress={() => openManageSubscriptions()}>
         <MaterialCommunityIcons name={storeIcon} size={16} color="#7CE8DF" />

@@ -65,7 +65,7 @@ type PurchaseTarget = PurchasesPackage | PurchasesStoreProduct;
 const isRevenueCatPackage = (target: PurchaseTarget): target is PurchasesPackage =>
   Boolean((target as PurchasesPackage)?.product);
 
-const TrialOfferScreen = () => {
+const TrialOfferScreen = ({ navigation }: { navigation: { navigate: (name: string) => void } }) => {
   const { signInAnonymously, signInAsGuest, normalizeAccessState } = useAuthStore();
   const [loadingAction, setLoadingAction] = useState<'subscribe' | 'ads' | 'location' | null>(null);
   const [locationEnabled, setLocationEnabled] = useState(false);
@@ -377,6 +377,16 @@ const TrialOfferScreen = () => {
             <TouchableOpacity style={styles.restoreButton} onPress={handleRestore} disabled={loadingAction !== null}>
               <Text style={styles.restoreText}>Restore Purchase</Text>
             </TouchableOpacity>
+
+            <View style={styles.legalLinksRow}>
+              <TouchableOpacity onPress={() => navigation.navigate('Terms')}>
+                <Text style={styles.legalLink}>Terms of Service</Text>
+              </TouchableOpacity>
+              <Text style={styles.legalDot}>·</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Privacy')}>
+                <Text style={styles.legalLink}>Privacy Policy</Text>
+              </TouchableOpacity>
+            </View>
           </Animated.View>
         </ScrollView>
       </SafeAreaView>
@@ -727,5 +737,21 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontSize: 14,
     fontWeight: '700',
+  },
+  legalLinksRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  legalLink: {
+    color: '#9BDCF8',
+    fontSize: 12,
+    textDecorationLine: 'underline',
+  },
+  legalDot: {
+    color: '#64748B',
+    fontSize: 12,
   },
 });
