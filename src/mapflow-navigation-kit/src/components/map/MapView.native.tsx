@@ -576,18 +576,21 @@ export default function MapView({
     // react-native-maps onto its custom AIRMapPolylineRenderer gradient path,
     // which crashes on iOS when overlays are removed/re-added while switching
     // the active route. A solid `strokeColor` uses the stable MKPolylineRenderer.
+    //
+    // Always render all 3 Polylines per route (shadow, main, highlight) to keep
+    // the overlay count stable when the active route changes. Inactive routes use
+    // 'transparent' for shadow/highlight so the layer count never changes — iOS
+    // crashes when overlays are added or removed mid-render.
     return (
       <React.Fragment key={routeId}>
-        {active ? (
-          <Polyline
-            coordinates={coordinates}
-            strokeColor={ROUTE_SHADOW}
-            strokeWidth={MAP_ROUTE_COLORS.glowWidth}
-            lineCap="round"
-            lineJoin="round"
-            zIndex={18}
-          />
-        ) : null}
+        <Polyline
+          coordinates={coordinates}
+          strokeColor={active ? ROUTE_SHADOW : 'transparent'}
+          strokeWidth={MAP_ROUTE_COLORS.glowWidth}
+          lineCap="round"
+          lineJoin="round"
+          zIndex={18}
+        />
         <Polyline
           coordinates={coordinates}
           strokeColor={color}
@@ -601,16 +604,14 @@ export default function MapView({
           }}
           zIndex={active ? 20 : 14}
         />
-        {active ? (
-          <Polyline
-            coordinates={coordinates}
-            strokeColor={ROUTE_HIGHLIGHT}
-            strokeWidth={MAP_ROUTE_COLORS.highlightWidth}
-            lineCap="round"
-            lineJoin="round"
-            zIndex={21}
-          />
-        ) : null}
+        <Polyline
+          coordinates={coordinates}
+          strokeColor={active ? ROUTE_HIGHLIGHT : 'transparent'}
+          strokeWidth={MAP_ROUTE_COLORS.highlightWidth}
+          lineCap="round"
+          lineJoin="round"
+          zIndex={21}
+        />
       </React.Fragment>
     );
   };

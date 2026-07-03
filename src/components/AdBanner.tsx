@@ -10,11 +10,11 @@ interface AdBannerProps {
 }
 
 const isTruthyFlag = (value?: string) => value === '1' || value === 'true' || value === 'yes';
-const isAdDebugEnabled = () => __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG);
+const isAdDebugEnabled = () => isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG);
 const isAdDebugOverlayEnabled = () =>
   isAdDebugEnabled() && isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG_OVERLAY);
 const shouldForceTestAdUnits = () =>
-  __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_ADMOB_FORCE_TEST_IDS);
+  isTruthyFlag(process.env.EXPO_PUBLIC_ADMOB_FORCE_TEST_IDS);
 const shouldFallbackToTestOnFailure = () =>
   isTruthyFlag(process.env.EXPO_PUBLIC_ADMOB_FALLBACK_TO_TEST_ON_ERROR);
 

@@ -64,9 +64,9 @@ const INTERSTITIAL_EXPIRY_MS = 60 * 60 * 1000;
 const APP_OPEN_EXPIRY_MS = 4 * 60 * 60 * 1000;
 
 const isTruthyFlag = (value?: string) => value === '1' || value === 'true' || value === 'yes';
-const isAdDebugEnabled = () => __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG);
+const isAdDebugEnabled = () => isTruthyFlag(process.env.EXPO_PUBLIC_AD_DEBUG);
 const shouldForceTestAdUnits = () =>
-  __DEV__ || isTruthyFlag(process.env.EXPO_PUBLIC_ADMOB_FORCE_TEST_IDS);
+  isTruthyFlag(process.env.EXPO_PUBLIC_ADMOB_FORCE_TEST_IDS);
 
 const getEnvValue = (key: string): string | undefined => {
   const env = process.env as Record<string, string | undefined>;
