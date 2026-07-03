@@ -60,7 +60,7 @@ const getIosBuildNumber = () => {
   return Date.now().toString();
 };
 
-const APP_VERSION = "1.0.8";
+const APP_VERSION = "1.0.9";
 const RUNTIME_VERSION = process.env.EXPO_RUNTIME_VERSION || APP_VERSION;
 
 module.exports = {

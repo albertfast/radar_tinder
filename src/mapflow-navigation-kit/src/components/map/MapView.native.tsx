@@ -306,6 +306,11 @@ export default function MapView({
 }: MapViewProps) {
   const nativeMapRef = useRef<RNMapView | null>(null);
   const cameraZoomRef = useRef(16.2);
+  // iOS Apple Maps fires the map's onPress even when a tappable polyline is
+  // tapped. Without this guard, tapping an alternative route line both selects
+  // the route AND drops a new destination pin (triggering a reroute). We record
+  // when a route polyline was tapped and swallow the map press that follows.
+  const routePressedAtRef = useRef(0);
   const userMarkerRef = useRef<UserMarkerState | null>(
     initialLocation ? { ...initialLocation, heading: 0, routeHeading: null } : null
   );
@@ -545,6 +550,8 @@ export default function MapView({
     (event: MapPressEvent) => {
       const coordinate = event.nativeEvent.coordinate;
       if (!coordinate) return;
+      // Ignore the synthetic map press that iOS emits alongside a polyline tap.
+      if (Date.now() - routePressedAtRef.current < 400) return;
       onMapClick?.(coordinate.latitude, coordinate.longitude);
     },
     [onMapClick]
@@ -564,13 +571,17 @@ export default function MapView({
     const routeId = route.id ?? `route-${index}`;
     const color = active ? ROUTE_COLOR : ALT_ROUTE_COLOR;
 
+    // NOTE: Do not pass `strokeColors` here. Every value we would supply is the
+    // same color twice (a no-op gradient), but providing it forces
+    // react-native-maps onto its custom AIRMapPolylineRenderer gradient path,
+    // which crashes on iOS when overlays are removed/re-added while switching
+    // the active route. A solid `strokeColor` uses the stable MKPolylineRenderer.
     return (
       <React.Fragment key={routeId}>
         {active ? (
           <Polyline
             coordinates={coordinates}
             strokeColor={ROUTE_SHADOW}
-            strokeColors={[ROUTE_SHADOW, ROUTE_SHADOW]}
             strokeWidth={MAP_ROUTE_COLORS.glowWidth}
             lineCap="round"
             lineJoin="round"
@@ -580,19 +591,20 @@ export default function MapView({
         <Polyline
           coordinates={coordinates}
           strokeColor={color}
-          strokeColors={[color, color]}
           strokeWidth={active ? MAP_ROUTE_COLORS.lineWidth : 4}
           lineCap="round"
           lineJoin="round"
           tappable
-          onPress={() => route.id && onRouteSelect?.(route.id)}
+          onPress={() => {
+            routePressedAtRef.current = Date.now();
+            if (route.id) onRouteSelect?.(route.id);
+          }}
           zIndex={active ? 20 : 14}
         />
         {active ? (
           <Polyline
             coordinates={coordinates}
             strokeColor={ROUTE_HIGHLIGHT}
-            strokeColors={[ROUTE_HIGHLIGHT, ROUTE_HIGHLIGHT]}
             strokeWidth={MAP_ROUTE_COLORS.highlightWidth}
             lineCap="round"
             lineJoin="round"
