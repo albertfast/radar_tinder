@@ -455,7 +455,7 @@ export class BackgroundService {
   }): Promise<DrivingRadarCandidate[]> {
     const nearbySpeedCameras = params.nearbyRadars.filter(isAlertableSpeedCameraRadar);
     if (!params.routeMode || params.routeCoords.length < 2) {
-      return [];
+      return nearbySpeedCameras.map((radar) => withDrivingRadarDistance(radar, params.currentLocation));
     }
 
     const routeSource = await this.getRouteRadarSource(params.routeCoords);
@@ -762,16 +762,10 @@ export class BackgroundService {
       }
       if (!routeMode) {
         this.isProtectionActive = false;
-        if (this.lastActiveAlertsSignature || activeAlerts.length > 0) {
-          this.lastActiveAlertsSignature = '';
-          setActiveAlerts([]);
-          await NotificationService.cancelAllNotifications().catch(() => {});
-        }
         await OfflineService.cacheRadarLocations(nearbyRadars);
-        return;
+      } else {
+        this.isProtectionActive = true;
       }
-
-      this.isProtectionActive = true;
 
       const alertLocation = {
         latitude: normalizedLocation.latitude,

@@ -60,7 +60,7 @@ const getIosBuildNumber = () => {
   return Date.now().toString();
 };
 
-const APP_VERSION = "1.0.9";
+const APP_VERSION = "1.1.0";
 const RUNTIME_VERSION = process.env.EXPO_RUNTIME_VERSION || APP_VERSION;
 
 module.exports = {
@@ -86,6 +86,9 @@ module.exports = {
       infoPlist: {
         CFBundleDisplayName: "Radar Flow",
         CFBundleName: "Radar Flow",
+        FacebookAppID: "1749944202801225",
+        FacebookDisplayName: "Radar Flow",
+        FacebookClientToken: "fa45d0b901298719a1de6bb3a6d504ad",
         GADApplicationIdentifier: "ca-app-pub-9670547831022880~2252519276",
         SKAdNetworkItems: [
           { SKAdNetworkIdentifier: "cstr6suwn9.skadnetwork" },
@@ -104,7 +107,8 @@ module.exports = {
         CFBundleURLTypes: [
           {
             CFBundleURLSchemes: [
-              "com.googleusercontent.apps.1067370631256-maimlqb1grf3ktff6ifk114v569jc6k3"
+              "com.googleusercontent.apps.1067370631256-maimlqb1grf3ktff6ifk114v569jc6k3",
+              "fb1749944202801225"
             ]
           }
         ],
@@ -116,6 +120,7 @@ module.exports = {
         NSMicrophoneUsageDescription: "This app needs microphone access for AI car diagnosis voice input.",
         NSPhotoLibraryUsageDescription: "This app needs access to photo library to select images for diagnosis.",
         NSMotionUsageDescription: "This app needs access to motion data for enhanced radar detection.",
+        NSUserTrackingUsageDescription: "This app uses tracking data to show you personalized ads.",
         ITSAppUsesNonExemptEncryption: false
       }
     },

@@ -571,21 +571,21 @@ export default function MapView({
     const routeId = route.id ?? `route-${index}`;
     const color = active ? ROUTE_COLOR : ALT_ROUTE_COLOR;
 
-    // NOTE: Do not pass `strokeColors` here. Every value we would supply is the
-    // same color twice (a no-op gradient), but providing it forces
-    // react-native-maps onto its custom AIRMapPolylineRenderer gradient path,
-    // which crashes on iOS when overlays are removed/re-added while switching
-    // the active route. A solid `strokeColor` uses the stable MKPolylineRenderer.
+    // NOTE: Do not pass `strokeColors` — it forces AIRMapPolylineRenderer which
+    // crashes on iOS when overlays are added/removed. Solid strokeColor uses the
+    // stable MKPolylineRenderer.
     //
-    // Always render all 3 Polylines per route (shadow, main, highlight) to keep
-    // the overlay count stable when the active route changes. Inactive routes use
-    // 'transparent' for shadow/highlight so the layer count never changes — iOS
-    // crashes when overlays are added or removed mid-render.
+    // Always render exactly 3 Polylines per route with fixed zIndexes so the
+    // overlay count and zIndex values never change when the active route switches.
+    // Inactive shadow/highlight use the same color as the alt line (visually hidden
+    // behind the main line) instead of 'transparent' — some iOS MKPolylineRenderer
+    // versions crash on a color → transparent transition mid-render.
+    // Active route is rendered last in the list so it paints on top naturally.
     return (
       <React.Fragment key={routeId}>
         <Polyline
           coordinates={coordinates}
-          strokeColor={active ? ROUTE_SHADOW : 'transparent'}
+          strokeColor={active ? ROUTE_SHADOW : ALT_ROUTE_COLOR}
           strokeWidth={MAP_ROUTE_COLORS.glowWidth}
           lineCap="round"
           lineJoin="round"
@@ -602,11 +602,11 @@ export default function MapView({
             routePressedAtRef.current = Date.now();
             if (route.id) onRouteSelect?.(route.id);
           }}
-          zIndex={active ? 20 : 14}
+          zIndex={20}
         />
         <Polyline
           coordinates={coordinates}
-          strokeColor={active ? ROUTE_HIGHLIGHT : 'transparent'}
+          strokeColor={active ? ROUTE_HIGHLIGHT : ALT_ROUTE_COLOR}
           strokeWidth={MAP_ROUTE_COLORS.highlightWidth}
           lineCap="round"
           lineJoin="round"
@@ -648,13 +648,17 @@ export default function MapView({
         onPress={handlePress}
         onRegionChangeComplete={handleRegionChangeComplete}
       >
-        {routes.map((route, index) => {
-          // Compare by ID to avoid reference equality issues across state updates
-          const isActive = selectedRoute != null && (
-            (route.id != null && route.id === selectedRoute.id) || route === selectedRoute
-          );
-          return renderRoute(route, isActive, index);
-        })}
+        {/* Render inactive routes first so active route always paints on top.
+            zIndexes are fixed — never change on switch — to avoid iOS MKPolylineRenderer crash. */}
+        {routes
+          .map((route, index) => {
+            const isActive = selectedRoute != null && (
+              (route.id != null && route.id === selectedRoute.id) || route === selectedRoute
+            );
+            return { route, isActive, index };
+          })
+          .sort((a, b) => (a.isActive ? 1 : 0) - (b.isActive ? 1 : 0))
+          .map(({ route, isActive, index }) => renderRoute(route, isActive, index))}
 
         {destination ? (
           <Marker

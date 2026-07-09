@@ -119,10 +119,6 @@ export const buildDrivingRadarAlerts = ({
   userId,
   now = new Date(),
 }: DrivingAlertParams): RadarAlert[] => {
-  if (!routeMode || routeCoords.length < 2) {
-    return [];
-  }
-
   const alertableRadars = radars.filter(isAlertableSpeedCameraRadar);
   const useEtaWindow = hasReliableSpeed && speedKph >= 8;
   const baseThreshold = getBaseThresholdKm({
@@ -131,18 +127,39 @@ export const buildDrivingRadarAlerts = ({
     hasReliableSpeed,
     useEtaWindow,
   });
-
   const etaConfidence = hasReliableSpeed ? 'high' : 'low';
   const alerts: RadarAlert[] = [];
-  const routeMatchedRadars = filterRouteRadarCandidates(alertableRadars, {
-    currentLocation,
-    routeCoords,
-    speedKph: hasReliableSpeed ? speedKph : 5,
-    maxCorridorMeters: 55,
-    maxAheadMeters: Math.max(baseThreshold * 1000, 250),
-    minAheadMeters: -25,
-    maxRouteHeadingDeltaDeg: hasReliableSpeed && speedKph >= 8 ? 85 : undefined,
-  });
+  let routeMatchedRadars: (DrivingRadarCandidate & {
+    corridorDistanceMeters: number;
+    etaSeconds?: number;
+    routeMatchScore: number;
+    headingDeltaDeg: number | null;
+  })[] = [];
+
+  if (routeMode && routeCoords.length >= 2) {
+    routeMatchedRadars = filterRouteRadarCandidates(alertableRadars, {
+      currentLocation,
+      routeCoords,
+      speedKph: hasReliableSpeed ? speedKph : 5,
+      maxCorridorMeters: 55,
+      maxAheadMeters: Math.max(baseThreshold * 1000, 250),
+      minAheadMeters: -25,
+      maxRouteHeadingDeltaDeg: hasReliableSpeed && speedKph >= 8 ? 85 : undefined,
+    });
+  } else {
+    routeMatchedRadars = alertableRadars
+      .map((radar) => {
+        const distance = Number(radar.distance);
+        return {
+          ...radar,
+          distance,
+          corridorDistanceMeters: 0,
+          routeMatchScore: 1 - Math.min(distance / Math.max(baseThreshold, 0.1), 1),
+          headingDeltaDeg: null,
+        };
+      })
+      .filter((r) => r.distance < baseThreshold);
+  }
 
   for (const radar of routeMatchedRadars) {
     const distance = Number(radar.distance);
