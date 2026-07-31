@@ -210,18 +210,14 @@ export class NotificationService {
   }
 
   static async silenceAllAudioNow(): Promise<void> {
+    // Only stop spoken/voice guidance. Do NOT cancel or dismiss system
+    // notifications here — radar alerts that were already sent must remain
+    // visible to the user. Previously this also called
+    // cancelAllScheduledNotificationsAsync and dismissAllNotificationsAsync,
+    // which wiped active radar alerts whenever voice warnings were toggled off
+    // or settings/sync hooks fired.
     try {
       await VoiceGuidanceService.stop();
-    } catch {}
-    try {
-      await Notifications.cancelAllScheduledNotificationsAsync();
-    } catch {}
-    try {
-      // Some Android builds can still keep presented heads-up notifications alive.
-      const dismissAll = (Notifications as any).dismissAllNotificationsAsync;
-      if (typeof dismissAll === 'function') {
-        await dismissAll();
-      }
     } catch {}
   }
 

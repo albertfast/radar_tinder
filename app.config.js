@@ -60,7 +60,7 @@ const getIosBuildNumber = () => {
   return Date.now().toString();
 };
 
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.1.1";
 const RUNTIME_VERSION = process.env.EXPO_RUNTIME_VERSION || APP_VERSION;
 
 module.exports = {
@@ -91,17 +91,57 @@ module.exports = {
         FacebookClientToken: "fa45d0b901298719a1de6bb3a6d504ad",
         GADApplicationIdentifier: "ca-app-pub-9670547831022880~2252519276",
         SKAdNetworkItems: [
-          { SKAdNetworkIdentifier: "cstr6suwn9.skadnetwork" },
-          { SKAdNetworkIdentifier: "4fzdc2evr5.skadnetwork" },
-          { SKAdNetworkIdentifier: "2fnua5tdw4.skadnetwork" },
-          { SKAdNetworkIdentifier: "ydx93a7ass.skadnetwork" },
-          { SKAdNetworkIdentifier: "5a6flpkh64.skadnetwork" },
-          { SKAdNetworkIdentifier: "p78axxw29g.skadnetwork" },
-          { SKAdNetworkIdentifier: "v72qych5uu.skadnetwork" },
-          { SKAdNetworkIdentifier: "c6k4g5qg8m.skadnetwork" },
-          { SKAdNetworkIdentifier: "s39g8k73mm.skadnetwork" },
-          { SKAdNetworkIdentifier: "3qy4746246.skadnetwork" }
-        ],
+          "cstr6suwn9.skadnetwork",
+          "4fzdc2evr5.skadnetwork",
+          "2fnua5tdw4.skadnetwork",
+          "ydx93a7ass.skadnetwork",
+          "p78axxw29g.skadnetwork",
+          "v72qych5uu.skadnetwork",
+          "ludvb6z3bs.skadnetwork",
+          "cp8zw746q7.skadnetwork",
+          "3sh42y64q3.skadnetwork",
+          "c6k4g5qg8m.skadnetwork",
+          "s39g8k73mm.skadnetwork",
+          "wg4vff78zm.skadnetwork",
+          "3qy4746246.skadnetwork",
+          "f38h382jlk.skadnetwork",
+          "hs6bdukanm.skadnetwork",
+          "mlmmfzh3r3.skadnetwork",
+          "v4nxqhlyqp.skadnetwork",
+          "wzmmz9fp6w.skadnetwork",
+          "su67r6k2v3.skadnetwork",
+          "yclnxrl5pm.skadnetwork",
+          "t38b2kh725.skadnetwork",
+          "7ug5zh24hu.skadnetwork",
+          "gta9lk7p23.skadnetwork",
+          "vutu7akeur.skadnetwork",
+          "y5ghdn5j9k.skadnetwork",
+          "v9wttpbfk9.skadnetwork",
+          "n38lu8286q.skadnetwork",
+          "47vhws6wlr.skadnetwork",
+          "kbd757ywx3.skadnetwork",
+          "9t245vhmpl.skadnetwork",
+          "a2p9lx4jpn.skadnetwork",
+          "22mmun2rn5.skadnetwork",
+          "44jx6755aq.skadnetwork",
+          "k674qkevps.skadnetwork",
+          "4468km3ulz.skadnetwork",
+          "2u9pt9hc89.skadnetwork",
+          "8s468mfl3y.skadnetwork",
+          "klf5c3l5u5.skadnetwork",
+          "ppxm28t8ap.skadnetwork",
+          "kbmxgpxpgc.skadnetwork",
+          "uw77j35x4d.skadnetwork",
+          "578prtvx9j.skadnetwork",
+          "4dzt52r2t5.skadnetwork",
+          "tl55sbb4fm.skadnetwork",
+          "c3frkrj4fj.skadnetwork",
+          "e5fvkxwrpn.skadnetwork",
+          "8c4e2ghe7u.skadnetwork",
+          "3rd42ekr43.skadnetwork",
+          "97r2b46745.skadnetwork",
+          "3qcr597p9d.skadnetwork"
+        ].map((identifier) => ({ SKAdNetworkIdentifier: identifier })),
         NSLocationWhenInUseUsageDescription: "This app needs access to location to detect nearby radars and provide accurate alerts.",
         NSLocationAlwaysAndWhenInUseUsageDescription: "This app needs background location access to provide continuous radar detection even when the app is not active.",
         CFBundleURLTypes: [
@@ -121,6 +161,13 @@ module.exports = {
         NSPhotoLibraryUsageDescription: "This app needs access to photo library to select images for diagnosis.",
         NSMotionUsageDescription: "This app needs access to motion data for enhanced radar detection.",
         NSUserTrackingUsageDescription: "This app uses tracking data to show you personalized ads.",
+        // Relax ATS so AdMob/mediation rich-media and video creatives are not
+        // silently blocked. Matches the production-proven sibling app. Without
+        // this, several ad networks' creatives fail to load under strict ATS.
+        NSAppTransportSecurity: {
+          NSAllowsArbitraryLoads: true,
+          NSAllowsLocalNetworking: true,
+        },
         ITSAppUsesNonExemptEncryption: false
       }
     },
@@ -238,7 +285,7 @@ module.exports = {
     }
   },
   "react-native-google-mobile-ads": {
-    "android_app_id": "ca-app-pub-9670547831022880~5105162950",
-    "ios_app_id": "ca-app-pub-9670547831022880~2252519276"
+    "androidAppId": "ca-app-pub-9670547831022880~5105162950",
+    "iosAppId": "ca-app-pub-9670547831022880~2252519276"
   }
 };

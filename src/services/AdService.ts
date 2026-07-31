@@ -88,6 +88,21 @@ const parseTestDeviceIds = (): string[] => {
     .filter(Boolean);
 };
 
+// Shared AdMob request options for every placement (banner / interstitial / app open).
+//
+// Previously every ad request passed `requestNonPersonalizedAdsOnly: true` —
+// hardcoded. That is a fill-rate killer: most AdMob advertisers only bid on
+// personalized inventory, so forcing non-personalized collapses demand.
+// Returning an empty options object lets the SDK request the full pool.
+export const buildAdRequestOptions = (): Record<string, unknown> => ({});
+
+// `maxAdContentRating` PG reaches the widest advertiser pool without excluding
+// the general audience. 'G' is overly restrictive and drops fill.
+const resolveMaxAdContentRating = (googleMobileAds: GoogleMobileAdsExports | null) => {
+  const pg = googleMobileAds?.MaxAdContentRating?.PG;
+  return typeof pg === 'string' ? pg : 'PG';
+};
+
 const asErrorString = (error: unknown): string => {
   if (!error) return 'Unknown error';
   if (typeof error === 'string') return error;
@@ -307,9 +322,10 @@ export class AdService {
       this.resetSlot(slot);
     }
 
-    const ad = googleMobileAds.InterstitialAd.createForAdRequest(adUnitId, {
-      requestNonPersonalizedAdsOnly: true,
-    });
+    const ad = googleMobileAds.InterstitialAd.createForAdRequest(
+      adUnitId,
+      buildAdRequestOptions(),
+    );
 
     slot.ad = ad;
     slot.adUnitId = adUnitId;
@@ -374,9 +390,10 @@ export class AdService {
       this.resetSlot(slot);
     }
 
-    const ad = googleMobileAds.AppOpenAd.createForAdRequest(adUnitId, {
-      requestNonPersonalizedAdsOnly: true,
-    });
+    const ad = googleMobileAds.AppOpenAd.createForAdRequest(
+      adUnitId,
+      buildAdRequestOptions(),
+    );
 
     slot.ad = ad;
     slot.adUnitId = adUnitId;
@@ -436,13 +453,16 @@ export class AdService {
         }
 
         const testDeviceIdentifiers = parseTestDeviceIds();
-        await mobileAds().initialize();
+        // setRequestConfiguration MUST run before initialize() so the first ad
+        // request carries the fill-friendly config (PG rating, not the overly
+        // restrictive 'G'; child flags false to stay in the general pool).
         await mobileAds().setRequestConfiguration({
-          maxAdContentRating: googleMobileAds?.MaxAdContentRating?.G ?? 'G',
+          maxAdContentRating: resolveMaxAdContentRating(googleMobileAds),
           tagForChildDirectedTreatment: false,
           tagForUnderAgeOfConsent: false,
           ...(testDeviceIdentifiers.length > 0 ? { testDeviceIdentifiers } : {}),
         });
+        await mobileAds().initialize();
 
         this.isInitialized = true;
         cachedLastInitError = null;

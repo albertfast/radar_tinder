@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text, Platform, Keyboard } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { AdService, getGoogleMobileAdsModule } from '../services/AdService';
+import { AdService, getGoogleMobileAdsModule, buildAdRequestOptions } from '../services/AdService';
 
 interface AdBannerProps {
   size?: any;
@@ -41,14 +41,19 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId, suppressAds = false }
     android: process.env.EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID_ANDROID,
     default: undefined,
   });
-  const fallbackTestBannerUnitId =
+  // Production banner IDs (publisher 9670547831022880) — used as the LAST-RESORT
+  // fallback when env vars aren't inlined into the bundle (e.g. .env not loaded
+  // during Xcode Archive). Falling back to the production ID (NOT Google's test
+  // banner ID under publisher 3940256099942544) avoids a publisher mismatch that
+  // AdMob rejects with NO_FILL.
+  const fallbackProductionBannerUnitId =
     Platform.OS === 'ios'
-      ? 'ca-app-pub-3940256099942544/2934735716'
-      : 'ca-app-pub-3940256099942544/6300978111';
+      ? 'ca-app-pub-9670547831022880/7196988103'
+      : 'ca-app-pub-9670547831022880/8900297100';
   const defaultBannerUnitId =
     platformBannerUnitId ||
     process.env.EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID ||
-    fallbackTestBannerUnitId;
+    fallbackProductionBannerUnitId;
   const productionBannerUnitId = unitId || defaultBannerUnitId;
   const isUsingTestUnit = shouldForceTestAdUnits();
 
@@ -165,9 +170,7 @@ const AdBanner: React.FC<AdBannerProps> = ({ size, unitId, suppressAds = false }
       <BannerAd
         unitId={adUnitId}
         size={resolvedSize}
-        requestOptions={{
-          requestNonPersonalizedAdsOnly: true,
-        }}
+        requestOptions={buildAdRequestOptions()}
         onAdLoaded={() => {
           setDidLoad(true);
           setLoadError(null);

@@ -26,8 +26,8 @@ import {
 import { filterRouteRadarCandidates } from '../utils/routeRadarProjection';
 
 const BACKGROUND_LOCATION_TASK = 'background-location-task';
-const MAX_STARTUP_LOCATION_ACCURACY_METERS = 180;
-const MAX_RUNTIME_LOCATION_ACCURACY_METERS = 260;
+const MAX_STARTUP_LOCATION_ACCURACY_METERS = 900;
+const MAX_RUNTIME_LOCATION_ACCURACY_METERS = 1500;
 
 export class BackgroundService {
   private static locationSubscription: any = null;
@@ -132,7 +132,10 @@ export class BackgroundService {
   private static async onForeground(): Promise<void> {
     try {
       await this.startLocationTracking();
-      await NotificationService.cancelAllNotifications();
+      // NOTE: cancelAllNotifications() was removed here — it wiped active
+      // radar alerts on every foreground transition (including transient
+      // active/inactive flips from permission dialogs or the keyboard).
+      // Keep the badge reset, but leave notifications intact.
       await NotificationService.setBadgeCount(0);
     } catch (error) {
       console.error('Error in foreground handler:', error);
